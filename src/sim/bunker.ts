@@ -209,11 +209,9 @@ export interface PlacedBasePart {
    * full-cell parts placed before the thin model; `bunkerLayoutNeedsReset`
    * detects those so Q-022's confirmed Start fresh can hard-reset them.
    * Wall slots are stored in canonical form (see `canonicalWallSlot`).
+   * Stair orientation is added by the slice that ships the stair part.
    */
   slot?: BunkerSlot;
-  /** Quarter-turn yaw (0..3) for rotatable parts such as stairs; absent or
-   * 0 for parts whose slot fully determines their facing (walls, slabs). */
-  orientation?: number;
 }
 
 /** Cosmetic bunker skins (F-087, REQ-034/REQ-038): palette variants for
@@ -632,13 +630,8 @@ export function canonicalWallSlot(
  * a live bunker (Q-022 forces a reset before the thin model), so mixed
  * occupancy only matters for defensive correctness here.
  */
-function bunkerSlotOccupied(
-  bunker: BunkerState,
-  ref: BunkerSlotRef,
-  ignore?: PlacedBasePart,
-): boolean {
+function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
   return bunker.parts.some((part) => {
-    if (part === ignore) return false;
     if (
       part.col !== ref.col ||
       part.row !== ref.row ||
@@ -854,7 +847,6 @@ export function placeBasePart(
   row: number,
   depth = 0,
   slot?: BunkerSlot,
-  orientation?: number,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
@@ -895,7 +887,6 @@ export function placeBasePart(
         slot: ref.slot,
       }
     : { partId, col, row, depth, durability: def.durability };
-  if (orientation !== undefined) placed.orientation = orientation;
   return {
     ok: true,
     bunker: {
@@ -950,6 +941,10 @@ export function removeBasePart(
   };
 }
 
+// Move stays whole-cell in this slice: the thin build kit places and pries
+// (place/remove), and the only mover today is the 2D drag on legacy layouts.
+// Slot-aware move (with target-slot validation and no legacy-to-slot
+// conversion) lands with the slice that lets the UI relocate a thin part.
 export function moveBasePart(
   bunker: BunkerState,
   fromCol: number,
@@ -958,33 +953,13 @@ export function moveBasePart(
   toRow: number,
   fromDepth = 0,
   toDepth = 0,
-  fromSlot?: BunkerSlot,
-  toSlot?: BunkerSlot,
 ):
   | { ok: true; bunker: BunkerState }
   | {
       ok: false;
       reason: "missing" | "outside" | "rock" | "occupied";
     } {
-  const fromRef =
-    fromSlot === undefined
-      ? null
-      : canonicalWallSlot(
-          bunker.footprint,
-          fromCol,
-          fromRow,
-          fromDepth,
-          fromSlot,
-        );
   const part = bunker.parts.find((candidate) => {
-    if (fromRef) {
-      return (
-        candidate.col === fromRef.col &&
-        candidate.row === fromRef.row &&
-        candidate.depth === fromRef.depth &&
-        candidate.slot === fromRef.slot
-      );
-    }
     return (
       candidate.col === fromCol &&
       candidate.row === fromRow &&
@@ -998,48 +973,17 @@ export function moveBasePart(
   if (!isOpenBunkerCell(bunker, toCol, toRow, toDepth)) {
     return { ok: false, reason: "rock" };
   }
-  const toRef =
-    toSlot === undefined
-      ? null
-      : canonicalWallSlot(bunker.footprint, toCol, toRow, toDepth, toSlot);
-  const occupied = toRef
-    ? bunkerSlotOccupied(bunker, toRef, part)
-    : bunker.parts.some((candidate) => {
-        return (
-          candidate !== part &&
-          candidate.col === toCol &&
-          candidate.row === toRow &&
-          candidate.depth === toDepth
-        );
-      });
-  if (occupied) return { ok: false, reason: "occupied" };
-  if (toRef) {
-    if (
-      fromRef &&
-      fromRef.col === toRef.col &&
-      fromRef.row === toRef.row &&
-      fromRef.depth === toRef.depth &&
-      fromRef.slot === toRef.slot
-    ) {
-      return { ok: true, bunker };
-    }
-    return {
-      ok: true,
-      bunker: {
-        ...bunker,
-        parts: bunker.parts.map((candidate) =>
-          candidate === part
-            ? {
-                ...candidate,
-                col: toRef.col,
-                row: toRef.row,
-                depth: toRef.depth,
-                slot: toRef.slot,
-              }
-            : candidate,
-        ),
-      },
-    };
+  if (
+    bunker.parts.some((candidate) => {
+      return (
+        candidate !== part &&
+        candidate.col === toCol &&
+        candidate.row === toRow &&
+        candidate.depth === toDepth
+      );
+    })
+  ) {
+    return { ok: false, reason: "occupied" };
   }
   if (fromCol === toCol && fromRow === toRow && fromDepth === toDepth) {
     return { ok: true, bunker };

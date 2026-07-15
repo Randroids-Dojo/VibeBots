@@ -1191,7 +1191,7 @@
       "id": "REQ-046",
       "requirement": "Bunker construction uses rotatable sub-cell slots for thin floors, walls, roofs, and stairs, with deterministic support and destruction rules plus a confirmed hard reset for incompatible old layouts.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "in_progress",
+      "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts"
       ],

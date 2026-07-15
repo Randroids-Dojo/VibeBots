@@ -771,7 +771,6 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     row: number,
     depth: number,
     slot?: BunkerSlot,
-    orientation?: number,
   ): { bunker: BunkerState; inventory: BasePartInventory } {
     const result = placeBasePart(
       state.bunker,
@@ -781,7 +780,6 @@ describe("bunker thin sub-cell slots (F-117)", () => {
       row,
       depth,
       slot,
-      orientation,
     );
     expect(result.ok).toBe(true);
     if (!result.ok) throw new Error(`place failed: ${result.reason}`);
@@ -1040,48 +1038,6 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     expect(removed.bunker.parts).toHaveLength(1);
     expect(removed.bunker.parts[0].slot).toBe("floor");
     expect(removed.inventory["wall-panel"]).toBe(walls + 1);
-  });
-
-  it("moves a slotted part to a new slot, keeping durability", () => {
-    const bunker = allDugBunker(4, 5);
-    const c = centerCell(bunker);
-    const placed = placeBasePart(
-      bunker,
-      inventory(),
-      "wall-panel",
-      c.col,
-      c.row,
-      0,
-      "wall-px",
-    );
-    expect(placed.ok).toBe(true);
-    if (!placed.ok) return;
-    const worn = {
-      ...placed.bunker,
-      parts: placed.bunker.parts.map((part) => ({ ...part, durability: 40 })),
-    };
-    const moved = moveBasePart(
-      worn,
-      c.col,
-      c.row,
-      c.col,
-      c.row,
-      0,
-      0,
-      "wall-px",
-      "wall-pz",
-    );
-    expect(moved.ok).toBe(true);
-    if (!moved.ok) return;
-    expect(moved.bunker.parts).toHaveLength(1);
-    expect(moved.bunker.parts[0]).toMatchObject({
-      partId: "wall-panel",
-      col: c.col,
-      row: c.row,
-      depth: 0,
-      slot: "wall-pz",
-      durability: 40,
-    });
   });
 
   it("flags a pre-thin-model layout for a confirmed reset (Q-022)", () => {

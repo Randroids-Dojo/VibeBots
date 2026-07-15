@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-024" data-status="open">
+    <h3>Q-024: How authoritative is in-raid player movement?</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-13 design pass had Clankers hunt the player's real 3D cell, with reaching the player counting as a miner death. Making that honest would force the server to know or replay the player's movement (a per-tick trace or server-replayed inputs), plus deterministic browser/Node parity and a hostile-trace validation matrix (the weight behind <a href="FOLLOWUPS.html#F-104">F-104</a>, <a href="FOLLOWUPS.html#F-110">F-110</a>, and <a href="FOLLOWUPS.html#F-111">F-111</a>). For an early-alpha, single-player-feeling bunker defense whose only reward is the owner's own defensive XP and vibes, that anti-cheat machinery costs far more than it protects. Dev direction 2026-07-15: do not overthink the anti-cheat; let the player walk around the house freely and just keep them from leaving until the raid ends.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Client-only movement. The server resolves the raid from the frozen bunker-defense snapshot versus the seeded Clanker wave; walking around inside is visual and does not change the result. The server enforces only the lifecycle: one start that locks the bunker against edits, one snapshot-frozen resolve, and server-owned expiry so an abandoned tab still settles. The player is kept inside for the duration (no exit affordance), which needs no anti-cheat because the outcome is already defense-decided.</li>
+          <li>Server-replayed tick inputs. The client sends its per-tick inputs, the server replays one deterministic cell-movement sim to derive every position, so dodging decides survival and cheating is impossible by construction. Strongest integrity, largest implementation (a deterministic sim, golden vectors, and a hostile-input matrix).</li>
+          <li>Validated position trace. The client sends its trace and the server validates each hop is reachable. Middle ground with the biggest edge-case surface.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. In alpha the only thing movement-cheating could buy is winning your own defense more easily for modest XP, so the reward is near zero while B and C cost a whole deterministic-sim arc. Making the outcome defense-driven keeps the reward honest by construction and drops F-104's movement sim, F-110's resolver bounds, and F-111's browser/Node vectors; the genuinely-needed integrity (a single resolve from a frozen snapshot, expiry and abandonment recovery, conflict resync, and the bunker lock) stays as <a href="FOLLOWUPS.html#F-105">F-105</a> through <a href="FOLLOWUPS.html#F-108">F-108</a>. Clankers "hunting" the player becomes animation, not a lose condition. One consequence has to be named: the current spec makes "a Clanker reaches the live player cell" the loss, but a cosmetic, untrusted position cannot decide a server outcome, so the wave must hunt a fixed target frozen in the start snapshot. Recommended default for that sub-decision: the frozen spawn/entry cell (persisted anyway), so a breach means the wave reached where the player started, not where they wandered. It reuses the interim <code>routeToTarget</code> unchanged and needs no core re-introduction (F-118 stays). Revisit if a future PvP or ranked mode raises the stakes.</dd>
+      <dt>Status</dt><dd>open (the live-raid arc will ship under default A; F-104/F-110/F-111 rescoped accordingly)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-023" data-status="open">
     <h3>Q-023: What should the first-person bunker bag show?</h3>
     <dl>
@@ -75,8 +91,8 @@
           <li>Auto-survive with reduced rewards.</li>
         </ol>
       </dd>
-      <dt>Recommended default</dt><dd>A. It needs no special sim state (a short player trace is the forfeit signal), handles disconnects and abandoned tabs with the same rule, and keeps starting a raid a commitment without imprisoning the player. B fails the phone-call test; C makes abandoning optimal.</dd>
-      <dt>Status</dt><dd>open (live-raid slices will ship under the recommended default)</dd>
+      <dt>Recommended default</dt><dd>B, softened by Q-024. Dev direction 2026-07-15 is that the player is kept inside until the raid ends, so the UI simply does not offer an exit while a raid runs. That needs no anti-cheat: under Q-024 the outcome is decided by the frozen defense snapshot versus the wave, so nothing the player does or dodges changes it. The one real-world escape hatch is an involuntary disconnect (closed tab, dead phone), and A's mechanism is the graceful fallback there: the server-owned expiry resolves the same frozen snapshot on its timer. Because rewards are defense-driven, not survival-driven, there is no forfeit penalty to apply and no reward to lose by being disconnected; the player just sees the result on return. C is moot for the same reason.</dd>
+      <dt>Status</dt><dd>open (live-raid slices will ship under B with A's disconnect fallback; see Q-024)</dd>
     </dl>
   </section>
 

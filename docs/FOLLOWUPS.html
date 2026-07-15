@@ -319,6 +319,7 @@
       <dt>Blocker (if any)</dt><dd>The live raid simulation contract in F-104 must exist before full golden vectors can be pinned.</dd>
       <dt>Unblock condition</dt><dd>Create shared versioned golden vectors that run through browser-compatible and Node entry points and compare final state hashes, rewards, damage, pickup collection, and validation results. Use integer or explicitly quantized state, stable path ordering, and adversarial diagonal, jump, fall, collision, timeout, and tie cases. Any simulation rule change must require a raid-version bump and updated vectors.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-111-prove-6921b570 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Rescope (2026-07-15, Q-024)</dt><dd>Largely descoped. With movement client-only, the server never replays a player trace, so there is no browser-must-equal-Node integrity requirement and no adversarial diagonal/jump/fall/collision/tie trace-validation vector set. The server-side defense resolver is the only authority; the client 3D raid is a cosmetic preview of the same seeded sim, so divergence is a visual polish issue, not a security one. What remains is a single same-seed-same-outcome determinism test on the pure resolver (already implied by the sim-purity rule) plus a raid-version bump on any resolver rule change. The golden-vector cross-engine harness is dropped unless the client preview is later promoted to authority.</dd>
     </dl>
   </section>
 
@@ -329,6 +330,7 @@
       <dt>Blocker (if any)</dt><dd>The trace shape and authored raid durations must be fixed by F-104.</dd>
       <dt>Unblock condition</dt><dd>Cap request bytes, ticks from server-authored duration plus grace, coordinate ranges, enemies, pathfinding expansions, and simultaneous resolves per player. Reject non-finite values and impossible array shapes before simulation, keep the core protected from partial writes, and return stable validation codes for every rejected limit. Add boundary and adversarial route tests plus a worst-case resolver budget test.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-110-bound-d2131ab6 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Rescope (2026-07-15, Q-024)</dt><dd>Largely descoped. The upload-bounding half disappears with the player trace: there is no user-controlled trace body to cap for bytes, ticks, coordinate ranges, or array shape, so those adversarial-input limits and the worst-case-trace resolver budget test are dropped. What remains is trivial and folds into F-108's snapshot work: the resolver runs a server-authored, fixed-length wave over a bounded 7x5x5 volume, so a single sanity assertion that tick count stays within the authored duration plus grace and that pathfinding expansions are naturally bounded by the finite grid is enough. The single-resolve concurrency guard that this item also mentioned stays, but it belongs to F-106 (conflict/resync), not here.</dd>
     </dl>
   </section>
 
@@ -349,6 +351,7 @@
       <dt>Blocker (if any)</dt><dd>The live raid persistence schema has not been implemented.</dd>
       <dt>Unblock condition</dt><dd>At start, persist the raid version, seed, canonical player start, dug cells, placed parts, part-local durability, core state, tier and duration, approach terrain, and every balance input the resolver reads. Resolve only from that immutable snapshot plus the validated trace. Tests must prove that later bunker edits, inventory changes, balance changes, and a reload cannot alter the same raid result.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-108-freeze-c02fcc75 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Rescope (2026-07-15, Q-024)</dt><dd>The snapshot contract stays, but "resolve only from that immutable snapshot plus the validated trace" drops the trace: with movement client-only, the resolver runs purely from the frozen snapshot plus the server-issued seed, so no player trace or approach-input is persisted or validated. Everything else in the unblock condition holds unchanged (version, seed, dug cells, placed parts, durability, core, tier, duration, approach terrain, balance inputs), and the same tests still prove later edits cannot alter an in-flight result. The persisted "canonical player start" becomes only the cosmetic in-house spawn cell.</dd>
     </dl>
   </section>
 
@@ -379,6 +382,7 @@
       <dt>Blocker (if any)</dt><dd>The live raid lifecycle and persistence row have not been implemented.</dd>
       <dt>Unblock condition</dt><dd>Persist enough progress to apply the Q-019 forfeit rule, enforce authored duration plus a bounded grace period on the server, and finalize stale rows lazily during load or the next bunker operation, or through a bounded scheduled path. Expiry, disconnect, death, and success must settle damage and rewards exactly once. Cover closed tab, reload before and after expiry, retry, duplicate finalization, and recovery after a deploy.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-105-recover-6e8358d4 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Rescope (2026-07-15, Q-024)</dt><dd>Still needed, and simpler. There is no "final trace" to submit or miss, so the recovery trigger is just no resolve landing before authored duration plus grace. Under the updated Q-019 (option B with a disconnect fallback) the settlement is not a penalty: expiry resolves the same frozen snapshot the defenses would have resolved anyway, so damage and rewards land exactly once whether the player watched or the tab closed. Keep the server-owned expiry, idempotent lazy finalization on next load or bunker op, and the closed-tab/reload/retry/duplicate/post-deploy coverage; drop only the "apply the forfeit rule from a partial trace" framing.</dd>
     </dl>
   </section>
 
@@ -389,6 +393,7 @@
       <dt>Blocker (if any)</dt><dd>F-092 remains the umbrella live raid task; this contract must be settled before its simulation slice starts.</dd>
       <dt>Unblock condition</dt><dd>Choose server-replayed fixed-tick inputs or a physically valid swept-movement trace with a server-issued canonical start and server-authored elapsed-time budget. Accept honest diagonal travel, jumping, and falling; reject teleporting, flying, excess speed, solid-cell traversal, and motion after timeout. Keep the core blocked. Derive v2 pickup collection from the validated trace and keep the caller-coordinate <code>/collect</code> route v1-only. Pin valid and hostile traces in pure simulation and route tests.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-104-define-06f15649 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Rescope (2026-07-15, Q-024)</dt><dd>Dev direction retired the movement-authority half of this contract: in-raid player movement is now client-only and untrusted, and the raid outcome is decided by the server from the frozen bunker-defense snapshot versus the seeded Clanker wave (the interim resolver made 3D-aware), not by player dodging. So there is no authoritative trace or input replay to define, no swept-movement validation, and no post-timeout motion rule. What survives from F-104 is small and folds into the lifecycle work: keep the caller-coordinate <code>/api/bunker/raid/collect</code> route for v1, and derive v2 XP pickups from the server-resolved snapshot (capped, so an untrusted client cannot inflate them). Movement anti-cheat, F-110's resolver bounds, and F-111's browser/Node determinism vectors are dropped with it; the frozen-snapshot single-resolve, expiry/forfeit, and conflict-resync integrity stays as F-105 through F-108.</dd>
     </dl>
   </section>
 

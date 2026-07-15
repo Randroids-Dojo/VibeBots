@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-ore-telemetry-evidence" data-date="2026-07-15">
+    <h3>Keep the exposed-ore phone comparison tied to trustworthy telemetry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Exact-head review found that F-169 asked for a real-device by-build comparison that the current insights response cannot yet supply honestly. Appended a same-head dependency on existing F-103: its hardware classifier must exclude missing-GPU rows and its build rollup must expose stalls and heap span before F-169 can use the summary. Preserved a bounded fallback for ordering only: manually filter session rows to a non-null hardware GPU, explicitly aggregate stalls and heap span per build, and label the evidence provisional.</dd>
+      <dt>Verification</dt><dd>Traced the <code>device=real</code> filter in the performance insights route and the session plus <code>byBuild</code> projections in <code>perf-insights.ts</code>. Confirmed existing F-103 and its HTML Dot already own null-GPU classification, homogeneous source filtering, stall totals, worst maximum frames, and heap spans. Ran <code>dot-html show</code> for F-103 and F-169, append-only and structure checks, typecheck, lint, dash, and whitespace checks.</dd>
+      <dt>Assumptions</dt><dd>A visual slice may ship before its real-phone evidence matures, but it may not call an incomplete or mixed rollup proof. No seed, coordinate, raw-cell, or other high-cardinality generation detail enters telemetry.</dd>
+      <dt>GDD coverage</dt><dd>None. This correction changes only evidence ownership for F-169; REQ-045 remains partial under F-116.</dd>
+      <dt>Followups</dt><dd>No new followup. Linked F-169 to existing F-103 and preserved manual session-level evidence only as an explicit provisional fallback.</dd>
+    </dl>
+  </article>
+
   <article data-slice="stranded-bunker-acceptance" data-date="2026-07-15">
     <h3>Restore the bunker acceptance stranded on held audit branches</h3>
     <dl>

@@ -49,6 +49,8 @@ import {
   BUNKER_RAID_LIVE_VERSION,
   LIVE_RAID_EXPIRY_GRACE_TICKS,
   LIVE_RAID_TICKS_PER_SECOND,
+  type LiveRaidOutcomeReport,
+  settleLiveRaidOutcome,
 } from "@/sim/bunker-raid-live";
 import {
   cellAt,
@@ -650,6 +652,8 @@ export async function placeBunkerPart(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
   if (expected === null) return revisionConflict(view);
   const placed = placeBasePart(
@@ -685,6 +689,8 @@ export async function removeBunkerPart(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
   if (expected === null) return revisionConflict(view);
   const removed = removeBasePart(view.bunker, view.inventory, col, row, depth);
@@ -720,6 +726,8 @@ export async function moveBunkerPart(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
   if (expected === null) return revisionConflict(view);
   const moved = moveBasePart(
@@ -756,6 +764,8 @@ export async function excavateBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
   if (expected === null) return revisionConflict(view);
   const dug = excavateBunkerCell(view.bunker, col, row, depth);
@@ -1203,6 +1213,133 @@ export async function startLiveRaid(
     return { ok: false, status: 500, error: "failed to start live raid" };
   }
   return { ok: true, view: refreshed, liveRaid: refreshed.activeLiveRaid };
+}
+
+/**
+ * Resolve a live raid from a client-reported outcome (Q-024 option D,
+ * F-105/F-106). The report is settled against the frozen start snapshot (never
+ * the live bunker), and the row is claimed with a `result IS NULL` compare-and-set
+ * so exactly one resolve wins. Defense wear stands on a win or a loss; only a
+ * survive credits vibes and defense XP, mirroring the interim finish. Edits are
+ * frozen during a live raid, so overwriting the bunker with the settled snapshot
+ * cannot clobber a concurrent change.
+ */
+export async function resolveLiveRaid(
+  sql: Sql,
+  playerId: string,
+  report: LiveRaidOutcomeReport,
+): Promise<
+  BunkerOperationResult<{ reward: BunkerRaidRewardReport; sealed: boolean }>
+> {
+  const rows = (await sql`
+    SELECT raid_id, tier, snapshot
+    FROM bunker_raids
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}
+    ORDER BY started_at DESC
+    LIMIT 1`) as Array<{ raid_id: string; tier: number; snapshot: unknown }>;
+  const row = rows[0];
+  if (!row) return { ok: false, status: 409, error: "no active live raid" };
+  const start = normalizeLiveRaidStartSnapshot(row.snapshot);
+  if (!start) return { ok: false, status: 409, error: "no active live raid" };
+  const settled = settleLiveRaidOutcome(start.bunker, start.tier, report);
+  if (!settled.ok) {
+    return {
+      ok: false,
+      status: 422,
+      error: `invalid raid outcome: ${settled.reason}`,
+    };
+  }
+  const { settlement } = settled;
+  // Exactly-once settle: only the first resolve for this row claims it.
+  const claimed = (await sql`
+    UPDATE bunker_raids
+    SET result = ${JSON.stringify({
+      outcome: report.outcome,
+      survived: settlement.survived,
+      sealed: settlement.sealed,
+      reward: settlement.reward,
+    })}::jsonb,
+        rewarded_at = now()
+    WHERE player_id = ${playerId}
+      AND raid_id = ${row.raid_id}
+      AND result IS NULL
+    RETURNING raid_id`) as Array<{ raid_id: string }>;
+  if (claimed.length === 0) {
+    return { ok: false, status: 409, error: "raid already finished" };
+  }
+  // Defense damage stands on a win or a loss: write the settled parts (the
+  // frozen snapshot worn by the report) back to the bunker.
+  await sql`
+    UPDATE bunkers
+    SET parts = ${JSON.stringify(settlement.bunker.parts)}::jsonb,
+        revision = revision + 1,
+        updated_at = now()
+    WHERE player_id = ${playerId}`;
+  const beforeRows = (await sql`
+    SELECT track_xp, defense_xp
+    FROM players
+    WHERE id = ${playerId}`) as Array<{ track_xp: number; defense_xp: number }>;
+  const before = beforeRows[0] ?? { track_xp: 0, defense_xp: 0 };
+  const beforeProgress = playerLevelProgress(before.defense_xp);
+  let defenseXpAfter = before.defense_xp;
+  let newStamps: string[] = [];
+  if (settlement.survived) {
+    const playerRows = (await sql`
+      UPDATE players
+      SET emeralds = emeralds + ${settlement.reward.vibes},
+          defense_xp = defense_xp + ${settlement.reward.defenseXp}
+      WHERE id = ${playerId}
+      RETURNING defense_xp`) as Array<{ defense_xp: number }>;
+    defenseXpAfter = playerRows[0]?.defense_xp ?? defenseXpAfter;
+    try {
+      newStamps = await applyAchievementProgress(sql, playerId, {
+        bunkerRaidsSurvived: 1,
+        raidsSurvivedSealed: settlement.sealed ? 1 : 0,
+      });
+    } catch {
+      // Stamps are cosmetic and must never block a raid reward.
+    }
+  }
+  const afterProgress = playerLevelProgress(defenseXpAfter);
+  if (settlement.survived) {
+    try {
+      await recordBalanceEvent(sql, playerId, "bunker.live_raid_reward", {
+        raidId: row.raid_id,
+        tier: start.tier,
+        survived: settlement.survived,
+        sealed: settlement.sealed,
+        vibesGained: settlement.reward.vibes,
+        defenseXpGained: settlement.reward.defenseXp,
+        defenseXpBefore: before.defense_xp,
+        defenseXpAfter,
+        levelBefore: beforeProgress.level,
+        levelAfter: afterProgress.level,
+        clankersKilled: report.clankersKilled,
+      });
+    } catch {
+      // Balance events support tuning, but must not fail a raid reward.
+    }
+  }
+  return {
+    ok: true,
+    view: await loadBunkerView(sql, playerId),
+    reward: {
+      survived: settlement.survived,
+      vibesGained: settlement.reward.vibes,
+      xpGained: settlement.reward.defenseXp,
+      defenseXpBefore: before.defense_xp,
+      defenseXpAfter,
+      levelBefore: beforeProgress.level,
+      levelAfter: afterProgress.level,
+      leveledUp: afterProgress.level > beforeProgress.level,
+      beaconLimitBefore: beforeProgress.beaconLimit,
+      beaconLimitAfter: afterProgress.beaconLimit,
+      newStamps,
+    },
+    sealed: settlement.sealed,
+  };
 }
 
 export async function collectBunkerRaidPickup(

@@ -1303,6 +1303,16 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-164" data-f="F-164" data-priority="polish">
+    <h3>F-164: Reconcile recent HTML followups with Dots and prevent new drift</h3>
+    <dl>
+      <dt>Context</dt><dd>Read-only monitoring of the core-removal slice found that its new F-163 ledger entry had no matching HTML Dot. A broader inventory found the same gap for every recent followup currently present from F-143 onward: F-143, F-144, and F-158 through F-162. Missing task files leave priority, parentage, and completion state split between two sources instead of following the repository's paired HTML ledger and Dots contract.</dd>
+      <dt>Blocker (if any)</dt><dd>None. This is backlog integrity cleanup and must not be bundled into a gameplay slice beyond requiring that slice to create the Dot for any followup it adds.</dd>
+      <dt>Unblock condition</dt><dd>Inventory every followup present from F-143 onward at pickup time. Create exactly one HTML Dot for each missing entry, preserve the appropriate parent relationship, mirror ledger priority, and close the Dot with its shipped evidence when the ledger item is already resolved. Append each Dot reference to the existing followup entry without rewriting its history. Add a repository check that fails when a newly added F-NNN entry has no matching HTML Dot. Prove the check catches a missing Dot and accepts the reconciled tree.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-164-reconcile-71d4fd86.</dd>
+    </dl>
+  </section>
+
   <section id="F-132" data-f="F-132" data-priority="polish">
     <h3>F-132: Stabilize recurring mine and bunker E2E state under software rendering</h3>
     <dl>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="followup-dot-reconciliation-owner" data-date="2026-07-15">
+    <h3>Own the recent followup and HTML Dot reconciliation</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Added F-164 and its matching HTML Dot as the durable owner for backlog-integrity drift found during read-only review of the core-removal slice. The cleanup will reconcile every recent followup currently missing a Dot, preserve parent and resolution state, append tracking references without rewriting history, and add a repository check that catches future unpaired entries.</dd>
+      <dt>Verification</dt><dd>The Dependency Upgrade Gate matched the ledger: VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.10</code>, three <code>0.185.1</code>, and fiber <code>9.6.1</code>. The newest scheduled Full E2E run <code>29406448908</code> concluded cancelled after its shard deadlines; existing F-131 owns that timeout and evidence-loss class, so no duplicate was added. Ran <code>dot-html show VibeBots-f-164-reconcile-71d4fd86</code>, Node structure checks for both touched ledgers and the new Dot, <code>pnpm typecheck</code>, <code>pnpm check:dashes</code>, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>Reserved F-164 after the in-flight core-removal branch allocated F-163. Classified the work as polish because missing task mirrors weaken process memory but do not change player behavior or block the current release.</dd>
+      <dt>GDD coverage</dt><dd>None. This is task-tracking cleanup with no game-design, release-tip, stamp, version, schema, or runtime change.</dd>
+      <dt>Followups</dt><dd>Added F-164, tracked by Dot <code>VibeBots-f-164-reconcile-71d4fd86</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="retire-interim-2d-raid" data-date="2026-07-15">
     <h3>The live first-person raid is now the only raid</h3>
     <dl>

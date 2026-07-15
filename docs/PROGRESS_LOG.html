@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="fp-specialist-clanker-tints" data-date="2026-07-15">
+    <h3>Spot breachers and tanks in a first-person raid</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/fp-specialist-clanker-tints</code>.</dd>
+      <dt>PR</dt><dd>#222 (package 0.1.266).</dd>
+      <dt>Changed</dt><dd>The flat raid tints breachers and tanks with their carapace shells (<code>CLANKER_KIND_CARAPACE</code>), but <code>FpClankerLayer</code> rendered every pooled body as the uniform <code>standard</code> kind, so a player fighting a raid in first person could not tell a wall-biting breacher or a turret-soaking tank from a plain unit. The layer now reads each Clanker's <code>kind</code> from its runtime view and renders that slot's <code>ClankerBody</code> with the matching kind, so specialists wear their tint (and the tank its larger carapace) in first person exactly as in the flat view. Clanker kind is stable within a raid and only changes when a new wave assigns different kinds, so the tints live in component state refreshed at most once per raid, guarded by a ref: the per-slot scan and equality check each frame allocate nothing, and the replacement array (plus the <code>data-fp-clanker-kinds</code> probe string) is built only in the wave-change branch, never per frame. The frame path stays covered by the <code>frame-loop-performance.md</code> glob (<code>bunker-fp-*.tsx</code>).</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean, full type-check, full unit suite (1540) green. New unit test in <code>bunker-fp-raid.test.ts</code> proves the render layer's data source: a tier-1 wave carries only <code>standard</code> kinds into the views, a tier-3 wave carries both <code>breacher</code> and <code>tank</code>. The first-person raid e2e now runs at tier 3 and asserts the change-gated <code>data-fp-clanker-kinds</code> probe (sourced from the same array the slot JSX indexes for its <code>kind</code> prop, so it tracks what the bodies render) reports both specialists. Release-note unit and e2e coupling updated for 0.1.266 and green. The exact on-screen carapace pixels ride with F-158's on-device confirmation, since the same headless framing limit (the raid resolves in a couple of capture frames, Clankers enter from outside the view cone) prevents framing a body; the tint itself is the shared <code>CLANKER_KIND_CARAPACE</code> the flat raid already renders correctly.</dd>
+      <dt>Assumptions</dt><dd>Render-only over the unchanged live-raid sim: <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged. The per-slot kind can change between raids as the pool is reused, so kinds are keyed to the current runtime's views and refreshed when they differ; a re-render on that change updates the carapace color and tank scale through R3F's material reconciliation, not a remount.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed (render-only legibility over the existing live raid, REQ-037). Appended a build-log entry to <code>08-base-building.html</code>. Rule 13: reviewed the mine tip rotation, no change (the existing first-person-raid tip already covers raids; specialist tints add no new mine rule to remember). Rule 14: no new stamp (a render-only legibility fix, not a milestone or mechanic).</dd>
+      <dt>Followups</dt><dd>Resolves F-159. On-device confirmation of the rendered specialist tint rides with the existing F-158 (first-person Clanker orientation on a real phone).</dd>
+    </dl>
+  </article>
+
   <article data-slice="fp-live-raid-loop" data-date="2026-07-15">
     <h3>Fight a bunker raid in first person</h3>
     <dl>

@@ -79,6 +79,20 @@ describe("createFpRaidRuntime", () => {
       ]);
     });
   });
+
+  it("carries specialist Clanker kinds into the views (F-159 tint source)", () => {
+    // The render layer reads each view's kind to tint breachers and tanks;
+    // a tier-1 wave is all standard, a tier-3 wave fields both specialists.
+    const standardWave = sealedRuntime(1);
+    expect(standardWave.views.every((view) => view.kind === "standard")).toBe(
+      true,
+    );
+
+    const specialistWave = sealedRuntime(3);
+    const kinds = new Set(specialistWave.views.map((view) => view.kind));
+    expect(kinds.has("breacher")).toBe(true);
+    expect(kinds.has("tank")).toBe(true);
+  });
 });
 
 describe("advanceFpRaid", () => {

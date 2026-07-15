@@ -1,7 +1,7 @@
 "use client";
 
 import { useFrame } from "@react-three/fiber";
-import { type RefObject, useLayoutEffect, useRef } from "react";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import {
   Color,
   type Group,
@@ -12,7 +12,11 @@ import {
   Quaternion,
   Vector3,
 } from "three/webgpu";
-import { BUNKER_RAID_TIER_CAP, type BunkerFootprint } from "@/sim/bunker";
+import {
+  BUNKER_RAID_TIER_CAP,
+  type BunkerFootprint,
+  type ClankerKind,
+} from "@/sim/bunker";
 import { liveRaidWaveSize } from "@/sim/bunker-raid-live";
 import { type FpRaidRuntime, fpRaidInterpFactor } from "./bunker-fp-raid";
 import {
@@ -113,6 +117,15 @@ export function FpClankerLayer({
   // counts it). Only written when it changes, so the frame loop allocates no
   // strings in steady state.
   const drawnCountRef = useRef(-1);
+  // Per-slot Clanker kind so breachers and tanks wear their specialist
+  // carapace tint (F-159), matching the flat raid. Stable within a raid and
+  // only changes when a new wave assigns different kinds, so it lives in
+  // state that the frame loop refreshes at most once per raid (guarded by
+  // kindsRef), never per frame.
+  const [kinds, setKinds] = useState<ClankerKind[]>(() =>
+    Array.from({ length: FP_MAX_CLANKERS }, () => "standard" as ClankerKind),
+  );
+  const kindsRef = useRef(kinds);
 
   useLayoutEffect(() => {
     const group = xpGroupRef.current;
@@ -137,6 +150,40 @@ export function FpClankerLayer({
     const runtime = runtimeRef.current;
     const elapsed = state.clock.elapsedTime;
     const factor = runtime ? fpRaidInterpFactor(runtime) : 0;
+    // Refresh the specialist tints only when a wave actually assigns new
+    // kinds (raid start), never per frame. The scan and the equality check
+    // allocate nothing; the replacement array is built once, on a change.
+    if (runtime) {
+      const current = kindsRef.current;
+      let kindsChanged = false;
+      for (let index = 0; index < FP_MAX_CLANKERS; index += 1) {
+        if (current[index] !== (runtime.views[index]?.kind ?? "standard")) {
+          kindsChanged = true;
+          break;
+        }
+      }
+      if (kindsChanged) {
+        const next = Array.from(
+          { length: FP_MAX_CLANKERS },
+          (_, index) => runtime.views[index]?.kind ?? "standard",
+        );
+        kindsRef.current = next;
+        setKinds(next);
+        // Mirror the distinct kinds this wave fields so a test can prove the
+        // specialist tints reach the render layer. Sourced from `next`, the
+        // exact array the slot JSX indexes for its `kind` prop (over the live
+        // wave range), so the probe tracks what the bodies render, not the raw
+        // sim views. Built once per raid, in this change branch, so the frame
+        // loop stays allocation-free.
+        const distinct = new Set<string>();
+        for (let index = 0; index < runtime.views.length; index += 1) {
+          distinct.add(next[index]);
+        }
+        state.gl.domElement.dataset.fpClankerKinds = Array.from(distinct)
+          .sort()
+          .join(",");
+      }
+    }
     let drawn = 0;
     for (let index = 0; index < slots.length; index += 1) {
       const slot = slots[index];
@@ -253,7 +300,7 @@ export function FpClankerLayer({
             <group rotation={[FP_CLANKER_TILT_X, 0, 0]}>
               <group ref={slot.wobble}>
                 <ClankerBody
-                  kind="standard"
+                  kind={kinds[index]}
                   parts={slot.parts}
                   burstRef={slot.burst}
                 />

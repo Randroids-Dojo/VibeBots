@@ -2075,7 +2075,9 @@ const RAID_BUNKER = {
 
 const LIVE_RAID_ACTIVE = {
   raidId: "live-test-1",
-  tier: 1,
+  // Tier 3 so the wave fields specialists (breachers from tier 2, tanks from
+  // tier 3): the render layer must tint them, verified via the kinds probe.
+  tier: 3,
   startedAtMs: 1_000,
   durationSeconds: 180,
   graceSeconds: 60,
@@ -2155,6 +2157,15 @@ test("first-person live raid starts, animates, and resolves", async ({
       { timeout: 15_000 },
     )
     .toBeGreaterThan(0);
+
+  // Specialists reach the render layer (F-159): a tier-3 wave fields
+  // breachers and tanks, and the layer mirrors the distinct kinds it draws.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-clanker-kinds"), {
+      timeout: 15_000,
+    })
+    .toMatch(/breacher/);
+  expect(await canvas.getAttribute("data-fp-clanker-kinds")).toMatch(/tank/);
 
   // Capture a short sequence while the player retreats so the Clanker
   // wave chases into frame, and prove motion with a consecutive-frame

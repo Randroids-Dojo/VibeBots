@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-15-0.1.265-fp-live-raid",
+      releaseNoticeId: "2026-07-15-0.1.266-fp-specialist-tints",
       releaseSummary:
-        "Fight a bunker raid from inside: Start a live raid in the first-person bunker and hold the Clankers off yourself.",
+        "Spot breachers and tanks in first person: Specialist Clankers now wear their colors inside a first-person raid.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-15-0.1.265-fp-live-raid",
+      releaseNoticeId: "2026-07-15-0.1.266-fp-specialist-tints",
       attempted: 2,
       sent: 1,
       expired: 1,

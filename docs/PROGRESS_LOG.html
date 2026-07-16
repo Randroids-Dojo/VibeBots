@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-authoritative-inventory-schema-review" data-date="2026-07-16">
+    <h3>Keep authoritative inventory adoption fail fast</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Documentation and HTML Dots only. PR #237 remains held for implementation corrections.</dd>
+      <dt>Changed</dt><dd>Exact-head review of PR #237 at <code>cb1f591f</code> confirmed that its guarded CTE returns the committed inventory row, which is the correct server authority source, but the client boundary does not yet satisfy F-121. An object-only gear parser normalizes partial input, the consumable parser accepts any finite number, gear and consumables are accepted independently, duplicated rail and support fields are not checked for equality, and accepted bodies explicitly fall back to stale local inventory. Invalid rejects silently update balance only. The non-surface branch can persist a new trip index with stale nested mine gear and base diff, while both accepted and rejected persistence read the active slot after the request. F-121 and its canonical Dot now state the strict bounded schema, duplicated-field equality, pinned slot and surface snapshot, zero-mutation failure rule, and exact regression matrix explicitly.</dd>
+      <dt>Verification</dt><dd>Inspected the exact PR #237 client parsers, accepted and rejected adoption branches, persistence helper, route CTEs and row mappers, four new happy-path tests, SQL mock behavior, and its progress and followup claims. The route tests inject inventory columns regardless of the real SQL projection, so they do not prove the production <code>RETURNING</code> remains complete. Review comments <code>4992451885</code> and <code>4992458946</code> hold the exact head and name the required corrections.</dd>
+      <dt>Assumptions</dt><dd>Early-alpha clients and servers move together. A legacy or malformed response is a bad state to explain and reconcile, not a compatibility shape to merge into current state.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains the release-blocking owner under the existing elevator and account-sync coverage.</dd>
+      <dt>Followups</dt><dd>Expanded F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code>. No new followup id was needed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-upgrade-resync-post-merge-correction" data-date="2026-07-16">
     <h3>Correct the authoritative-resync claims after the rail conflict merge</h3>
     <dl>

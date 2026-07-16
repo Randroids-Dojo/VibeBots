@@ -968,6 +968,57 @@ describe("mine store upgrade flow", () => {
     expect(store().railResyncFailed).toBe(false);
   });
 
+  it("keeps the block when a slot switch cannot confirm the new world", async () => {
+    useMineStore.setState({
+      activeSlot: 1,
+      worldLoaded: true,
+      railResyncFailed: true,
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 2,
+          slots: [
+            {
+              slot: 1,
+              active: false,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+            {
+              slot: 2,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        }),
+      )
+      // The target slot's authoritative world and gear reads both fail (offline).
+      .mockResolvedValueOnce(jsonResponse({}, 500))
+      .mockResolvedValueOnce(jsonResponse({}, 500));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().switchSaveSlot(2)).resolves.toBe(true);
+
+    // Fail-closed: the switch could not confirm fresh authority for the new
+    // slot, so the block must persist rather than fail-open into an unblocked
+    // buy against unconfirmed state.
+    expect(store().activeSlot).toBe(2);
+    expect(store().railResyncFailed).toBe(true);
+  });
+
   it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {
     // The regression the fix targets: another device won the rail (depth 3 -> 5)
     // WITHOUT advancing the trip count, so the account-trip endpoint still holds

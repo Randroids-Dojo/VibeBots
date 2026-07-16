@@ -1349,13 +1349,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       set({
         activeSlot: parsed.activeSlot,
         saveSlots: { state: "ready", ...parsed },
-        // The block is about the active slot's live rail; a switch reloads the
-        // target slot's world fresh below, so it cannot inherit a stale block
-        // (and retryRailResync could otherwise refetch the newly active slot).
-        railResyncFailed: false,
       });
-      await get().loadWorld();
-      await get().loadGear();
+      const worldOk = await get().loadWorld();
+      const gearOk = await get().loadGear();
+      // Clear a rail-resync block only once the target slot's authority is
+      // confirmed fresh. The block is about the active slot's live rail, so a
+      // switch that reloads the new slot cleanly cannot inherit a stale block
+      // (and retryRailResync could otherwise refetch the newly active slot); but
+      // a switch whose reads fail must stay fail-closed rather than unblock a buy
+      // against unconfirmed state (Retry stays available to reconcile it).
+      if (worldOk && gearOk && get().railResyncFailed) {
+        set({ railResyncFailed: false });
+      }
       return true;
     },
 

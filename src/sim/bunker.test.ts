@@ -4,6 +4,8 @@ import {
   applyBunkerRepairs,
   applyBunkerReset,
   BASE_PART_CATALOG,
+  type BasePartId,
+  type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
@@ -29,6 +31,7 @@ import {
   excavateBunkerCell,
   isBunkerSkinId,
   isBunkerWallSlot,
+  isOpenBunkerCell,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -830,5 +833,793 @@ describe("bunker thin sub-cell slots (F-117)", () => {
       depth: 0,
       slot: "floor",
     });
+  });
+
+  const inventory = (): BasePartInventory => ({
+    ...STARTER_BASE_PART_INVENTORY,
+    "wall-panel": 12,
+    "basic-turret": 1,
+    "floor-spikes": 2,
+  });
+
+  // A bunker with exactly one open cell. The cell is grounded (nothing open
+  // below) and closed above; a floor, four walls, and a mount always fit. A
+  // roof fits only when that cell is the volume's top row (footprint.row),
+  // since a roof is the bunker's ceiling and never sits mid-column.
+  const oneCellBunker = (
+    col: number,
+    row: number,
+    depth: number,
+  ): BunkerState => ({
+    ...createBunker(proposedBunkerFootprint(4, 5)),
+    dug: [{ col, row, depth }],
+  });
+
+  // Fold one placement onto a running (bunker, inventory), asserting it lands.
+  function place(
+    state: { bunker: BunkerState; inventory: BasePartInventory },
+    partId: BasePartId,
+    col: number,
+    row: number,
+    depth: number,
+    slot?: BunkerSlot,
+  ): { bunker: BunkerState; inventory: BasePartInventory } {
+    const result = placeBasePart(
+      state.bunker,
+      state.inventory,
+      partId,
+      col,
+      row,
+      depth,
+      slot,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(`place failed: ${result.reason}`);
+    return { bunker: result.bunker, inventory: result.inventory };
+  }
+
+  it("holds up to one part per slot in a single cell", () => {
+    // The single cell is the volume's top row so its roof slot is legal.
+    const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
+    let state = {
+      bunker: oneCellBunker(c.col, c.row, c.depth),
+      inventory: inventory(),
+    };
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-px");
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-nx");
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-pz");
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-nz");
+    state = place(state, "floor-panel", c.col, c.row, c.depth, "floor");
+    state = place(state, "roof-panel", c.col, c.row, c.depth, "roof");
+    state = place(state, "basic-turret", c.col, c.row, c.depth, "mount");
+    expect(state.bunker.parts).toHaveLength(7);
+    // A second part in a taken slot is rejected.
+    expect(
+      placeBasePart(
+        state.bunker,
+        state.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        c.depth,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("rejects the same divider built from the neighboring cell", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const placed = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    // The -x face of the cell to the right is the same physical slab.
+    expect(
+      placeBasePart(
+        placed.bunker,
+        placed.inventory,
+        "wall-panel",
+        c.col + 1,
+        c.row,
+        0,
+        "wall-nx",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("rejects a part in a slot it cannot use", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "floor-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "basic-turret",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+  });
+
+  it("treats a legacy full-cell part as filling every slot in its cell", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const legacy = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+    );
+    expect(legacy.ok).toBe(true);
+    if (!legacy.ok) return;
+    expect(legacy.bunker.parts[0].slot).toBeUndefined();
+    // A slot part cannot share a cell a legacy whole-cell part fills.
+    expect(
+      placeBasePart(
+        legacy.bunker,
+        legacy.inventory,
+        "floor-panel",
+        c.col,
+        c.row,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // And a legacy placement cannot share a cell that already has a slot.
+    const slotted = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(slotted.ok).toBe(true);
+    if (!slotted.ok) return;
+    expect(
+      placeBasePart(
+        slotted.bunker,
+        slotted.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("keeps a roof only at the volume's top row", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const topRow = bunker.footprint.row;
+    const bottomRow = topRow + bunker.footprint.height - 1;
+    // A roof below the top row is rejected even with open space above it.
+    expect(
+      placeBasePart(bunker, inventory(), "roof-panel", c.col, c.row, 0, "roof"),
+    ).toEqual({ ok: false, reason: "roof-top" });
+    // Only the top row of the volume may carry an actual roof.
+    expect(
+      placeBasePart(bunker, inventory(), "roof-panel", c.col, topRow, 0, "roof")
+        .ok,
+    ).toBe(true);
+    // The bottom row is rejected too: a roof is the ceiling, never a mid-
+    // column cap (that is a second-story floor's job).
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "roof-panel",
+        c.col,
+        bottomRow,
+        0,
+        "roof",
+      ),
+    ).toEqual({ ok: false, reason: "roof-top" });
+  });
+
+  it("requires two supporting walls under an overhead floor", () => {
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    // A floor on the bottom row rests on the ground: no walls needed.
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "floor-panel",
+        4,
+        bottomRow,
+        0,
+        "floor",
+      ).ok,
+    ).toBe(true);
+    // One row up is overhead (open cell below) and unsupported.
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "floor-panel",
+        4,
+        overheadRow,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "unsupported" });
+    // Two walls in the cell below let the overhead floor stand.
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    expect(
+      placeBasePart(
+        state.bunker,
+        state.inventory,
+        "floor-panel",
+        4,
+        overheadRow,
+        0,
+        "floor",
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("drops an overhead floor when its support is pried away", () => {
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    state = place(state, "floor-panel", 4, overheadRow, 0, "floor");
+    expect(state.bunker.parts).toHaveLength(3);
+    const wallsBefore = state.inventory["wall-panel"];
+    // Pry one supporting wall: the overhead floor loses support and falls.
+    const pried = removeBasePart(
+      state.bunker,
+      state.inventory,
+      4,
+      bottomRow,
+      0,
+      "wall-px",
+    );
+    expect(pried.ok).toBe(true);
+    if (!pried.ok) return;
+    // The pried wall refunds; the dropped floor is destroyed, not refunded.
+    expect(pried.inventory["wall-panel"]).toBe(wallsBefore + 1);
+    expect(pried.fallen?.map((part) => part.slot)).toEqual(["floor"]);
+    expect(pried.bunker.parts).toHaveLength(1);
+    expect(pried.bunker.parts[0].slot).toBe("wall-pz");
+  });
+
+  it("removes only the addressed slot", () => {
+    const c = { col: 4, row: 3, depth: 0 };
+    let state = {
+      bunker: oneCellBunker(c.col, c.row, c.depth),
+      inventory: inventory(),
+    };
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-px");
+    state = place(state, "floor-panel", c.col, c.row, c.depth, "floor");
+    // A different slot in the same cell does not match.
+    expect(
+      removeBasePart(
+        state.bunker,
+        state.inventory,
+        c.col,
+        c.row,
+        c.depth,
+        "wall-pz",
+      ),
+    ).toEqual({ ok: false, reason: "missing" });
+    const removed = removeBasePart(
+      state.bunker,
+      state.inventory,
+      c.col,
+      c.row,
+      c.depth,
+      "wall-px",
+    );
+    expect(removed.ok).toBe(true);
+    if (!removed.ok) return;
+    // The grounded floor stands (it needs no walls), so nothing cascades.
+    expect(removed.bunker.parts).toHaveLength(1);
+    expect(removed.bunker.parts[0].slot).toBe("floor");
+  });
+
+  it("leaves slotted parts to the slot mover, not the cell mover", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    const placed = placeBasePart(
+      bunker,
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    // The whole-cell mover never sees a slotted part.
+    expect(
+      moveBasePart(placed.bunker, c.col, c.row, c.col + 1, c.row, 0, 0),
+    ).toEqual({ ok: false, reason: "missing" });
+  });
+
+  it("does not pry a divider through an out-of-footprint origin", () => {
+    const bunker = allDugBunker(4, 5);
+    const fp = bunker.footprint;
+    const rightCol = fp.col + fp.width - 1;
+    const row = centerCell(bunker).row;
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      rightCol,
+      row,
+      0,
+      "wall-px",
+    );
+    // wall-nx one column past the edge would canonicalize onto the placed
+    // +x slab, but its origin cell is outside the bunker, so it must miss.
+    expect(
+      removeBasePart(
+        placed.bunker,
+        placed.inventory,
+        rightCol + 1,
+        row,
+        0,
+        "wall-nx",
+      ),
+    ).toEqual({ ok: false, reason: "missing" });
+    // The in-bounds canonical alias (its own -x face) still pries it.
+    const pried = removeBasePart(
+      placed.bunker,
+      placed.inventory,
+      rightCol,
+      row,
+      0,
+      "wall-px",
+    );
+    expect(pried.ok).toBe(true);
+    if (!pried.ok) return;
+    expect(pried.bunker.parts).toHaveLength(0);
+  });
+
+  it("does not pry a divider from a solid-rock origin (depth alias)", () => {
+    // Dig one cell but not the cell in front of it, then place a wall on the
+    // +z face of the open cell.
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const col = 4;
+    const row = centerCell(base).row;
+    const bunker: BunkerState = { ...base, dug: [{ col, row, depth: 0 }] };
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      col,
+      row,
+      0,
+      "wall-pz",
+    );
+    // wall-nz from the solid cell in front (depth 1) folds onto that same +z
+    // slab, but depth 1 is unexcavated rock, so the pry must miss.
+    expect(isOpenBunkerCell(placed.bunker, col, row, 1)).toBe(false);
+    expect(
+      removeBasePart(placed.bunker, placed.inventory, col, row, 1, "wall-nz"),
+    ).toEqual({ ok: false, reason: "missing" });
+    // From the open origin (depth 0, +z face) the same slab still pries.
+    const pried = removeBasePart(
+      placed.bunker,
+      placed.inventory,
+      col,
+      row,
+      0,
+      "wall-pz",
+    );
+    expect(pried.ok).toBe(true);
+    if (!pried.ok) return;
+    expect(pried.bunker.parts).toHaveLength(0);
+  });
+
+  it("does not pry a divider from an out-of-footprint depth origin", () => {
+    const bunker = allDugBunker(4, 5);
+    const col = 4;
+    const row = centerCell(bunker).row;
+    const lastDepth = BUNKER_CLAIM_DEPTH - 1;
+    // A wall on the +z face of the deepest row.
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      col,
+      row,
+      lastDepth,
+      "wall-pz",
+    );
+    // wall-nz one step past the back wall folds onto that +z slab (depth
+    // BUNKER_CLAIM_DEPTH is outside the volume), so the pry must miss.
+    expect(isOpenBunkerCell(placed.bunker, col, row, BUNKER_CLAIM_DEPTH)).toBe(
+      false,
+    );
+    expect(
+      removeBasePart(
+        placed.bunker,
+        placed.inventory,
+        col,
+        row,
+        BUNKER_CLAIM_DEPTH,
+        "wall-nz",
+      ),
+    ).toEqual({ ok: false, reason: "missing" });
+  });
+
+  it("does not remove a slotted part through a bare-cell request", () => {
+    const c = { col: 4, row: 3, depth: 0 };
+    let state = {
+      bunker: oneCellBunker(c.col, c.row, c.depth),
+      inventory: inventory(),
+    };
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-px");
+    state = place(state, "floor-panel", c.col, c.row, c.depth, "floor");
+    // A slotless removal in a cell that holds only slotted parts matches
+    // nothing, so both dividers stay put.
+    expect(
+      removeBasePart(state.bunker, state.inventory, c.col, c.row, c.depth),
+    ).toEqual({ ok: false, reason: "missing" });
+    expect(state.bunker.parts).toHaveLength(2);
+  });
+
+  it("blocks a divider that a legacy cell fills from either side", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    // A whole-cell part on the far side of the boundary blocks the shared
+    // divider addressed from the near cell (canonical +x face).
+    const farLegacy = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col + 1,
+      c.row,
+      0,
+    );
+    expect(
+      placeBasePart(
+        farLegacy.bunker,
+        farLegacy.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // And a whole-cell part on the near side blocks the same divider named
+    // from the far cell (wall-nx folds onto the near +x face).
+    const nearLegacy = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+    );
+    expect(
+      placeBasePart(
+        nearLegacy.bunker,
+        nearLegacy.inventory,
+        "wall-panel",
+        c.col + 1,
+        c.row,
+        0,
+        "wall-nx",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("blocks a legacy cell landing on a pre-existing thin wall (both axes)", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    // Wall first, then a whole-cell legacy part in the far +x cell: the wall
+    // already divides that cell's -x face, so the legacy placement is blocked.
+    const wallX = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    expect(
+      placeBasePart(
+        wallX.bunker,
+        wallX.inventory,
+        "wall-panel",
+        c.col + 1,
+        c.row,
+        0,
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // Same in depth: a +z wall blocks a legacy cell in the far +z cell.
+    const wallZ = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-pz",
+    );
+    expect(
+      placeBasePart(
+        wallZ.bunker,
+        wallZ.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        1,
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("blocks moving a legacy part onto a thin wall boundary", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    // A wall on the boundary between c and c+1, plus a legacy part parked two
+    // cells over so the mover has something to move.
+    const walled = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-px",
+    );
+    const parked = placeBasePart(
+      walled.bunker,
+      walled.inventory,
+      "floor-panel",
+      c.col + 2,
+      c.row,
+      0,
+    );
+    expect(parked.ok).toBe(true);
+    if (!parked.ok) return;
+    // Moving it onto the far +x cell (whose -x face the wall divides) fails.
+    expect(
+      moveBasePart(parked.bunker, c.col + 2, c.row, c.col + 1, c.row, 0, 0),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("blocks a legacy cell and a legacy move on a thin wall in depth", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    // Legacy-first in depth: a whole-cell part at the far +z cell, then a
+    // wall on the shared +z boundary from the near cell, is blocked.
+    const farLegacy = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      1,
+    );
+    expect(
+      placeBasePart(
+        farLegacy.bunker,
+        farLegacy.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-pz",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // Move-target in depth: a wall on the depth 0/1 boundary blocks moving a
+    // legacy part into the far +z cell.
+    const walled = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-pz",
+    );
+    const parked = placeBasePart(
+      walled.bunker,
+      walled.inventory,
+      "floor-panel",
+      c.col,
+      c.row,
+      2,
+    );
+    expect(parked.ok).toBe(true);
+    if (!parked.ok) return;
+    expect(
+      moveBasePart(parked.bunker, c.col, c.row, c.col, c.row, 2, 1),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("does not count a chewed-out wall as floor support", () => {
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    // Two walls under the cell, but both worn to rubble by raid damage.
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    const worn: BunkerState = {
+      ...state.bunker,
+      parts: state.bunker.parts.map((part) => ({ ...part, durability: 0 })),
+    };
+    // Rubble holds nothing up, so the overhead floor cannot be placed.
+    expect(
+      placeBasePart(
+        worn,
+        state.inventory,
+        "floor-panel",
+        4,
+        overheadRow,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "unsupported" });
+  });
+
+  it("ignores a rubble wall when a pry cascade recounts support", () => {
+    // A pry-triggered cascade must not count a zero-durability wall toward the
+    // two-wall threshold. (This is the settlement pass; wiring the cascade
+    // into live-raid wear resolution itself is deferred to the raid slice.)
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    // Three supporting walls, one already chewed to zero: two live supports
+    // still hold the overhead floor.
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-nz");
+    state = place(state, "floor-panel", 4, overheadRow, 0, "floor");
+    const worn: BunkerState = {
+      ...state.bunker,
+      parts: state.bunker.parts.map((part) =>
+        part.slot === "wall-nz" ? { ...part, durability: 0 } : part,
+      ),
+    };
+    // Prying one live wall leaves a single live support plus the rubble
+    // wall, which no longer counts, so the floor falls.
+    const pried = removeBasePart(
+      worn,
+      state.inventory,
+      4,
+      bottomRow,
+      0,
+      "wall-px",
+    );
+    expect(pried.ok).toBe(true);
+    if (!pried.ok) return;
+    expect(pried.fallen?.map((part) => part.slot)).toEqual(["floor"]);
+    expect(pried.bunker.parts.map((part) => part.slot).sort()).toEqual([
+      "wall-nz",
+      "wall-pz",
+    ]);
+  });
+
+  it("rejects a roof on an interior cell that tops out against rock", () => {
+    const c = { col: 4, row: 3, depth: 0 };
+    const bunker = oneCellBunker(c.col, c.row, c.depth);
+    // The cell above is undug rock inside the footprint, not the boundary,
+    // yet a roof is still rejected: a roof is the volume's ceiling, not a
+    // mid-column cap (Q-025, dev direction: only the very top gets a roof).
+    expect(
+      containsBunkerCell3D(bunker.footprint, c.col, c.row - 1, c.depth),
+    ).toBe(true);
+    expect(isOpenBunkerCell(bunker, c.col, c.row - 1, c.depth)).toBe(false);
+    expect(c.row).not.toBe(bunker.footprint.row);
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "roof-panel",
+        c.col,
+        c.row,
+        c.depth,
+        "roof",
+      ),
+    ).toEqual({ ok: false, reason: "roof-top" });
+  });
+
+  it("caps a lower room with an overhead floor as its ceiling", () => {
+    // A second-story floor is what caps a mid-column room: its bottom plane
+    // is the ceiling of the room below. Dig two stacked cells, wall the lower
+    // one so the upper floor is supported, and place the floor in the UPPER
+    // cell (row - 1), whose underside ceilings the lower room.
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const col = 4;
+    const lowerRow = 3;
+    const upperRow = lowerRow - 1;
+    const bunker: BunkerState = {
+      ...base,
+      dug: [
+        { col, row: lowerRow, depth: 0 },
+        { col, row: upperRow, depth: 0 },
+      ],
+    };
+    let state = { bunker, inventory: inventory() };
+    // Two walls in the lower cell hold the overhead floor above it up.
+    state = place(state, "wall-panel", col, lowerRow, 0, "wall-px");
+    state = place(state, "wall-panel", col, lowerRow, 0, "wall-pz");
+    // The floor sits in the upper cell; its own cell is open and its below-
+    // cell (the lower room) is open too, so it is an overhead floor that the
+    // two walls support. That underside is the lower room's ceiling.
+    const capped = placeBasePart(
+      state.bunker,
+      state.inventory,
+      "floor-panel",
+      col,
+      upperRow,
+      0,
+      "floor",
+    );
+    expect(capped.ok).toBe(true);
+    if (!capped.ok) return;
+    expect(
+      capped.bunker.parts.some(
+        (part) =>
+          part.slot === "floor" && part.row === upperRow && part.col === col,
+      ),
+    ).toBe(true);
+  });
+
+  it("drops a grounded floor when the ground under it is dug out", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const fp = base.footprint;
+    const col = fp.col + Math.floor(fp.width / 2);
+    const bottomRow = fp.row + fp.height - 1;
+    const row = bottomRow - 1;
+    // Only the floor's cell is dug; the cell below is still rock, so the
+    // floor is grounded when placed.
+    const bunker: BunkerState = { ...base, dug: [{ col, row, depth: 0 }] };
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "floor-panel",
+      col,
+      row,
+      0,
+      "floor",
+    );
+    // Digging out the cell directly below pulls the ground away; the now
+    // overhead, wall-less floor cascades.
+    const dug = excavateBunkerCell(placed.bunker, col, bottomRow, 0);
+    expect(dug.ok).toBe(true);
+    if (!dug.ok) return;
+    expect(dug.fallen?.map((part) => part.slot)).toEqual(["floor"]);
+    expect(dug.bunker.parts).toHaveLength(0);
   });
 });

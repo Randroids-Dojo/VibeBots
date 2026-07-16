@@ -797,6 +797,66 @@ describe("bunker block-seed backfill", () => {
       ),
     ).toBe(false);
   });
+
+  it("preserves parts, dug cells, and loot while filling the seed", async () => {
+    // The backfill fills only block_seed; the player's build and digging must
+    // survive untouched. Use a cell outside the spawn pocket (x 6, depth 3) so
+    // its presence proves preservation, not the pocket seeding.
+    const worldSeed = 555;
+    const expected = deriveBunkerBlockSeed(worldSeed, footprint);
+    const bottomRow = footprint.row + footprint.height - 1;
+    const part = {
+      partId: "wall-panel",
+      col: footprint.col + 2,
+      row: bottomRow,
+      depth: 0,
+      durability: 90,
+    };
+    const dugCell = { col: footprint.col + 6, row: bottomRow, depth: 3 };
+    const lootPile = {
+      col: footprint.col + 6,
+      row: bottomRow,
+      depth: 3,
+      ores: { coal: 3 },
+    };
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [part],
+            dug: [dugCell],
+            loot: [lootPile],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: worldSeed }];
+      }
+      if (
+        query.includes("UPDATE bunkers") &&
+        query.includes("SET block_seed")
+      ) {
+        return [{ block_seed: expected }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBe(expected);
+    expect(view.bunker?.parts).toContainEqual(part);
+    expect(view.bunker?.dug).toContainEqual(dugCell);
+    expect(view.bunker?.loot).toContainEqual(lootPile);
+  });
 });
 
 describe("bunker excavation wrapper", () => {

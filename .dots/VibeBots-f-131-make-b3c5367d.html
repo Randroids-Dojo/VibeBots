@@ -33,6 +33,9 @@ Replacement head 72f20097 floors a negative safe allowance upward to 30 seconds,
 <section id="pr-244-second-forced-run-2026-07-16">
 Unapproved run 29532206397 repeated the same 30-second override on head 72f20097. All four shards failed and uploaded four artifacts, but contents again had only HTML, results.json, and error-context.md, with no screenshots or traces. This repeats the narrow happy proof but does not exercise default budget math, exhausted setup time, zero or huge override, missing files, active scheduled-run masking, ancestry supersession, or a real late test. Standard PR run 29532186386 skipped Full E2E and is not coverage-equivalent. All holds remain.
 </section>
+<section id="pr-244-q029-policy-contract-2026-07-16">
+Exact head 72f20097 leaves Q-029 internally stale. Option A and its recommendation still evaluate a 150-second reserve with a 60-second minimum test window, while the workflow and CI guide implement a 30-second upward floor. On any authorized replacement, preserve the existing record and append a Q-029 correction that separates upload reserve from minimum runnable test budget, defines fail-fast behavior when the live safe budget cannot cover both, aligns the options and recommendation with the actual contract, and adds the required Resolution placeholder. Keep F-131 open until policy and implementation agree.
+</section>
 </article>
 </body>
 </html>

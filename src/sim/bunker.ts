@@ -671,6 +671,26 @@ function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
   );
 }
 
+/** True when a thin wall divider already sits on any of a cell's four
+ * boundaries (F-117). A whole-cell legacy part fills the cell out to its
+ * shared edges, so it physically collides with such a divider; this is the
+ * legacy-side of the boundary rule that `bunkerSlotOccupied` enforces from
+ * the wall side, so legacy placement and a legacy move target are blocked in
+ * the same case regardless of which part landed first. It ignores legacy
+ * neighbors (they carry no wall slot), matching only slotted dividers. */
+function bunkerCellBlockedByWall(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  for (const face of WALL_SLOTS) {
+    const ref = canonicalWallSlot(bunker.footprint, col, row, depth, face);
+    if (bunkerPartAtSlot(bunker, ref)) return true;
+  }
+  return false;
+}
+
 /** Minimum walls an overhead floor needs beneath it to stand (F-117). */
 export const BUNKER_OVERHEAD_FLOOR_MIN_WALLS = 2;
 
@@ -691,8 +711,10 @@ function isGroundedBunkerFloor(
  * below it, which rise to meet the floor's underside. Counts the canonical
  * wall slots that carry a load-bearing part (only walls and doors can sit
  * in a wall slot, and both are structural dividers). A part chewed down to
- * zero durability is rubble, not support, so raid wear that destroys the
- * last standing wall drops the floor above it. */
+ * zero durability is rubble, not support, so the next settlement pass (a
+ * pried wall or an excavation) drops any floor left unsupported by wear.
+ * Wiring settlement into live-raid wear resolution itself is deferred to
+ * the raid-activation slice. */
 function bunkerFloorSupportWalls(
   bunker: BunkerState,
   col: number,
@@ -980,6 +1002,12 @@ export function placeBasePart(
     ) {
       return { ok: false, reason: "occupied" };
     }
+    // A whole-cell part also collides with any thin wall already on one of
+    // its boundaries, so the physical boundary rule holds whichever part was
+    // placed first (F-117).
+    if (bunkerCellBlockedByWall(bunker, col, row, depth)) {
+      return { ok: false, reason: "occupied" };
+    }
     if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
     return {
       ok: true,
@@ -1066,11 +1094,13 @@ export function removeBasePart(
   // layouts.
   let ref: BunkerSlotRef | null = null;
   if (slot !== undefined) {
-    // Canonicalize only from an in-bounds origin. An out-of-footprint cell
-    // could otherwise alias onto a real divider (wall-nx at col 7 folds to
-    // wall-px at col 6) and pry a part through a coordinate that is not
-    // actually in the bunker.
-    if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
+    // Canonicalize only from an open origin cell. A wall is pried from the
+    // open side you stand on, so the origin must be excavated air, not solid
+    // rock or out of bounds. Without this an out-of-footprint or solid-side
+    // coordinate could alias onto a real divider (wall-nx at col 7 folds to
+    // wall-px at col 6; wall-nz at a solid cell folds onto the open cell's
+    // shared face) and pry a part through a cell the player is not in.
+    if (!isOpenBunkerCell(bunker, col, row, depth)) {
       return { ok: false, reason: "missing" };
     }
     ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
@@ -1156,6 +1186,11 @@ export function moveBasePart(
       );
     })
   ) {
+    return { ok: false, reason: "occupied" };
+  }
+  // The moved whole-cell part cannot land on a boundary a thin wall already
+  // divides, matching the legacy-placement boundary rule (F-117).
+  if (bunkerCellBlockedByWall(bunker, toCol, toRow, toDepth)) {
     return { ok: false, reason: "occupied" };
   }
   if (fromCol === toCol && fromRow === toRow && fromDepth === toDepth) {

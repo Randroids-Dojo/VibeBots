@@ -790,11 +790,17 @@ export async function excavateBunker(
   // edits (F-122): it only lands when the revision still matches, bumping
   // it, and the ore payout is gated on that dig winning, so a concurrent
   // edit can never leave a paid-but-undug (or double-paid) cell. dug_rows
-  // reports whether the guarded dig won so a loser returns 409.
+  // reports whether the guarded dig won so a loser returns 409. Parts are
+  // written in the same guarded update as dug so a floor that the dig
+  // cascades away (F-117: opening the cell below a grounded floor) cannot
+  // reappear on the next load; today no slotted floor persists yet, so this
+  // writes the unchanged parts back, but it keeps dig settlement durable
+  // once slots persist.
   const guardResult = (await sql`
     WITH dug_update AS (
       UPDATE bunkers
       SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
+          parts = ${JSON.stringify(dug.bunker.parts)}::jsonb,
           revision = revision + 1,
           updated_at = now()
       WHERE player_id = ${playerId}

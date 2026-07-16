@@ -265,6 +265,7 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       column: 17,
       expectedDepth: 0,
+      requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
       elevator: 1,
@@ -321,6 +322,7 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       column: 17,
       expectedDepth: 0,
+      requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
       elevator: 1,
@@ -380,6 +382,7 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       column: 17,
       expectedDepth: 4,
+      requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
       elevator: 4,
@@ -434,6 +437,7 @@ describe("mine store upgrade flow", () => {
     // The client sends its expected rail depth so a stale buy cannot advance.
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       expectedDepth: 3,
+      requestId: expect.any(String),
     });
     // Insufficient balance changed nothing server-side, so no world refetch
     // fires and only the display-safe balance and the coded reason update. The
@@ -1726,6 +1730,87 @@ describe("mine store upgrade flow", () => {
     );
   });
 
+  it("runs the full resync on a duplicate-request replay, not a partial merge", async () => {
+    // A duplicate-request reject means the original buy committed and advanced
+    // the world (depth 3 to 4, trip 2 to 8), so the response's authoritative
+    // gear must not be merged over the stale local world. It must take the full
+    // resync path so the world diff, gear, and trip index move as one persisted
+    // checkpoint (F-121), never new gear over a stale local world.
+    const serverDiff = [[17, 1, { kind: "empty" }]] as ReturnType<
+      typeof exportDiff
+    >;
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      tripBaseDiff: [],
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-duplicate-request", elevator: 4, tripIndex: 8 },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 8,
+          diff: serverDiff,
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 17 },
+          consumables: NO_CONSUMABLES,
+          balance: 70,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // The authoritative world and gear were re-fetched (not an inventory-only
+    // merge), so the world diff, rail depth, and trip index all adopt the
+    // server's together, and the mine reflects the server world diff.
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/mine/world");
+    expect(urls).toContain("/api/gear");
+    // Every authoritative value adopts the server's, in one coherent swap: the
+    // world seed and diff, rail depth, trip index, balance, and consumables.
+    expect(store().seed).toBe(999);
+    expect(store().tripIndex).toBe(8);
+    expect(store().mine.gear.elevator).toBe(4);
+    expect(store().tripBaseDiff).toEqual(serverDiff);
+    expect(cellAt(store().mine, 17, 1)).toEqual({ kind: "empty" });
+    expect(store().balance).toBe(70);
+    expect(store().consumables).toEqual(NO_CONSUMABLES);
+    // The persisted checkpoint is coherent: the same server seed, world diff,
+    // trip index, gear, and consumables are saved together, not new gear over
+    // the stale local world.
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.seed).toBe(999);
+    expect(savedTrip.baseDiff).toEqual(serverDiff);
+    expect(savedTrip.tripIndex).toBe(8);
+    expect(savedTrip.gear.elevator).toBe(4);
+    expect(savedTrip.consumables).toEqual(NO_CONSUMABLES);
+    expect(store().shopNote).toBe(
+      "that purchase already went through; refreshed to the latest",
+    );
+  });
+
   it("fails fast into a reopen prompt when the conflict refetch cannot load", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);
@@ -1961,6 +2046,7 @@ describe("mine store upgrade flow", () => {
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       expectedDepth: 4,
+      requestId: expect.any(String),
     });
     // Authoritative counts replace local stock; the +1 refund is not re-added.
     expect(store().consumables).toMatchObject({ ladder: 9, plank: 3 });

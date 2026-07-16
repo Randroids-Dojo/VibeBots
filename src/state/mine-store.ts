@@ -125,6 +125,8 @@ function elevatorConflictNote(code: string | null): string {
       return "the mine is still loading; try again in a moment";
     case "elevator-concurrent-loss":
       return "another change landed first; refreshed to the latest";
+    case "elevator-duplicate-request":
+      return "that purchase already went through; refreshed to the latest";
     default:
       return "purchase failed";
   }
@@ -1914,18 +1916,23 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const code = body && typeof body.code === "string" ? body.code : null;
         // A conflict reject means another request already moved the world under
         // this client, so the local trip is out of date. That covers a moved
-        // rail, a moved checkpoint, AND a bare lost guarded race (an unknown
-        // winner): all three run one bounded authoritative refetch that drops
-        // the local trip and rebuilds the world, gear, balance, trip index, and
-        // supports from the server as one checkpoint. buyElevator already banked
-        // any non-surface log before the request, so dropping the surface-only
-        // trip loses nothing. The note only claims "refreshed" when both
-        // authoritative reads land; a failed fetch fails fast into a reopen
-        // prompt rather than leaving stale controls under a false success.
+        // rail, a moved checkpoint, a bare lost guarded race (an unknown
+        // winner), AND a duplicate-request replay (the original buy committed and
+        // advanced the world, so the response's authoritative gear/trip index do
+        // not match the stale local world): all run one bounded authoritative
+        // refetch that drops the local trip and rebuilds the world, gear,
+        // balance, trip index, and supports from the server as one checkpoint,
+        // never a partial inventory-only merge that would persist new gear over a
+        // stale world (F-121). buyElevator already banked any non-surface log
+        // before the request, so dropping the surface-only trip loses nothing.
+        // The note only claims "refreshed" when both authoritative reads land; a
+        // failed fetch fails fast into a reopen prompt rather than leaving stale
+        // controls under a false success.
         if (
           code === "elevator-stale-rail-state" ||
           code === "elevator-stale-checkpoint" ||
-          code === "elevator-concurrent-loss"
+          code === "elevator-concurrent-loss" ||
+          code === "elevator-duplicate-request"
         ) {
           // resyncCloudWorld OWNS the block marker and railResyncFailed for the
           // slot it reconciles (raised up front for durability, finalized once

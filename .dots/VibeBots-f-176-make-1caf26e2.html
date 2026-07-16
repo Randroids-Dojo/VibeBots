@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-176 Make save-slot switches transactional and fail closed</title>
+<meta name="dot-title" content="F-176 Make save-slot switches transactional and fail closed">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T10:06:15.492206-05:00">
+</head>
+<body>
+<article>
+<h1>F-176 Make save-slot switches transactional and fail closed</h1>
+<section id="description">
+Stage and validate the target save slot before changing live activeSlot state or persisting under the target key. If either world or gear authority fails, return false, keep the popup open with visible Retry and Start fresh recovery, preserve the coherent source slot, and never navigate or write the source trip into the target slot. Cover world-read failure, gear-read failure, target local-trip absence, reload while offline, no cross-slot localStorage writes, and successful atomic commit.
+</section>
+</article>
+</body>
+</html>

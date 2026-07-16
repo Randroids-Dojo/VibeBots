@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-176" data-f="F-176" data-priority="blocks-release">
+    <h3>F-176: Make save-slot switches transactional and fail closed</h3>
+    <dl>
+      <dt>Context</dt><dd>Exact-head review of PR #239 found a general save-slot integrity gap while testing failed rail recovery. <code>switchSaveSlot</code> accepts the remote slot switch and changes <code>activeSlot</code> before the target world and gear are both available. If <code>loadWorld</code> fails without a target local trip, the live mine can still describe the source slot; the unconditional <code>loadGear</code> then begins with <code>persistCurrentTrip()</code> and can save that source state under the target slot key. The function still returns <code>true</code> after failed authority reads, so <code>SaveSlotsPopup</code> navigates to <code>/mine</code>; an offline reload can then resume local state while reporting no authoritative load. This is broader than the elevator-specific F-121 recovery contract.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before treating save-slot switching or any recovery that changes slots as data-safe. A failed target load must not navigate, overwrite another slot's local trip, or leave the UI claiming a successful switch.</dd>
+      <dt>Unblock condition</dt><dd>Stage and validate the target slot's complete world and gear before changing live <code>activeSlot</code> state or persisting under the target key. If either authority read fails, return <code>false</code>, keep the save-slot surface open with visible Retry and Start fresh recovery, and preserve the coherent source slot until a confirmed action. Never call target persistence over source live state. Cover world-read failure, gear-read failure, target local-trip absence, offline reload, no cross-slot localStorage writes, rollback or unchanged source state, and one successful atomic commit. Telemetry must use bounded slot and outcome fields only, never serialized world or gear payloads.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during continuous review of PR #239 exact head <code>8e10f062</code>. Dot <code>VibeBots-f-176-make-1caf26e2</code>.</dd>
+    </dl>
+  </section>
+
   <section id="F-144" data-f="F-144" data-priority="nice-to-have">
     <h3>F-144: Add a raid-burst heap-churn scenario</h3>
     <dl>

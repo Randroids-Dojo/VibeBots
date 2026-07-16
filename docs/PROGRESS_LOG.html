@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="save-slot-switch-fail-closed-tracking" data-date="2026-07-16">
+    <h3>Track transactional save-slot switching after a failed authority load</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Documentation and HTML Dots only; the implementation remains separate.</dd>
+      <dt>Changed</dt><dd>Continuous exact-head review of PR #239 exposed a general save-slot integrity gap outside the elevator-specific F-121 contract. <code>switchSaveSlot</code> can accept the remote switch and change <code>activeSlot</code> before target world and gear authority are complete. If the world read fails with no target local trip, live state may still describe the source slot; the following <code>loadGear</code> starts by persisting that state under the target key. The function returns success after failed reads, which makes <code>SaveSlotsPopup</code> navigate and allows an offline reload to resume local state without confirmed authority. F-176 and its canonical HTML Dot now own an atomic stage, validate, commit boundary; a false return and visible Retry plus Start fresh recovery; source-state preservation; and cross-slot persistence regression coverage.</dd>
+      <dt>Verification</dt><dd>Inspected PR #239 exact head <code>8e10f062</code>, <code>switchSaveSlot</code>, the failure test that expects <code>true</code> after two 500 responses, <code>loadWorld</code>'s local-trip fallback, <code>loadGear</code>'s leading <code>persistCurrentTrip()</code>, and <code>SaveSlotsPopup</code>'s success-triggered navigation. Exact-head review comment <code>4993439296</code> records the implementation hold.</dd>
+      <dt>Assumptions</dt><dd>A server-confirmed active-slot cookie is not enough to replace coherent live client state. Early-alpha recovery should fail visibly and offer a fresh-state escape rather than move mixed state across slots or report a successful load.</dd>
+      <dt>GDD coverage</dt><dd>No status change. This is persistence hardening for existing save-slot behavior, not a new gameplay requirement.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-176">F-176</a> with Dot <code>VibeBots-f-176-make-1caf26e2</code>. F-121 remains the separate elevator mutation and reconciliation owner.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-telemetry-scrub-post-merge-containment" data-date="2026-07-16">
     <h3>Keep rejected cash-out values out of telemetry</h3>
     <dl>

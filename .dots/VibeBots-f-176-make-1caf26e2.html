@@ -14,6 +14,7 @@
 <h1>F-176 Make save-slot switches transactional and fail closed</h1>
 <section id="description">
 Stage and validate the target save slot before changing live activeSlot state or persisting under the target key. If either world or gear authority fails, return false, keep the popup open with visible Retry and Start fresh recovery, preserve the coherent source slot, and never navigate or write the source trip into the target slot. Cover world-read failure, gear-read failure, target local-trip absence, reload while offline, no cross-slot localStorage writes, and successful atomic commit.
+PR #242 exact head ac098de9 exposes the same integrity gap outside the explicit switch action. A successful rail reconcile launches loadSaveSlots without awaiting it, finalizes the pinned marker and global gate, then lets the detached summary response replace activeSlot without loading that slot's world, gear, or rail marker. A delayed slot 2 summary can therefore land after slot 1 recovery and leave activeSlot 2 over slot 1 authority with the slot 2 marker still stored and the global gate false. Do not let any read-only summary refresh change live activeSlot independently. Either keep summaries informational or stage and atomically commit complete target authority. Add a deferred test that holds the summary request until slot 1 recovery settles, returns slot 2 with its marker set, and proves no mixed-slot state or false unblock. The current PR #242 test returns an invalid empty summary from its catch-all fetch, so it masks this drift.
 </section>
 </article>
 </body>

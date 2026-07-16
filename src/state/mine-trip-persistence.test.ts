@@ -17,6 +17,7 @@ import {
   setCell,
 } from "@/sim/mine";
 import {
+  anyRailResyncBlock,
   loadLocalTrip,
   loadRailResyncBlock,
   localTripKey,
@@ -533,5 +534,14 @@ describe("pending bunker validation (F-112)", () => {
   it('treats any non-"1" stored rail-block value as unblocked', () => {
     localStorage.setItem("vibebots-rail-resync-blocked-slot-3", "true");
     expect(loadRailResyncBlock(3)).toBe(false);
+  });
+
+  it("reports a block on ANY slot for the unresolved-slot fail-closed check", () => {
+    expect(anyRailResyncBlock()).toBe(false);
+    // A block on a slot other than the assumed active one still trips it.
+    saveRailResyncBlock(2, true);
+    expect(anyRailResyncBlock()).toBe(true);
+    saveRailResyncBlock(2, false);
+    expect(anyRailResyncBlock()).toBe(false);
   });
 });

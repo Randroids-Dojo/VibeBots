@@ -82,6 +82,7 @@ import {
   worldVersionFromResponse,
 } from "./mine-api-client";
 import {
+  anyRailResyncBlock,
   loadLocalTrip,
   loadRailResyncBlock,
   removeLocalTrip,
@@ -362,6 +363,11 @@ export interface MineSessionState {
    * an explicit `retryRailResync` succeeds. Distinct state, not a note string:
    * the shopNote is transient feedback, this gates an action. */
   railResyncFailed: boolean;
+  /** True while a `resyncCloudWorld` refresh is running. Transient (never
+   * persisted): an async buy yields at the refresh await, so the rail-buy guard
+   * must block any concurrent buy for the whole refresh, independent of what the
+   * mid-refresh loadWorld reflects into `railResyncFailed` (F-121). */
+  railResyncInFlight: boolean;
   /** Server replay-protection counter; null until the world loads. */
   tripIndex: number;
   /** The world checkpoint this trip started from (the replay base). */
@@ -635,34 +641,49 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   // Safe here because the buy runs at the surface with any non-surface log
   // already banked, so the dropped trip carries no unbanked progress.
   const resyncCloudWorld = async (slot: SaveSlotId): Promise<boolean> => {
-    removeLocalTrip(slot);
-    // Do NOT pre-clear moves: loadWorld's no-local-trip branch already zeroes
-    // them on success, so clearing first would only tear coherent in-memory
-    // state (mine paired with its moves) if the read then failed.
-    if (!(await get().loadWorld())) return false;
-    // loadGear persists the rebuilt trip before its own fetch; if that fetch
-    // then fails, the persisted checkpoint pairs the new world and tripIndex
-    // with the old gear. It has no moves, so loadWorld's resume would ignore
-    // it, but drop it anyway so no mixed checkpoint can survive a failure.
-    if (!(await get().loadGear())) {
+    // Gate every concurrent rail buy for the whole refresh: the buy guard reads
+    // this in-memory flag, and it stays true across the awaits below regardless
+    // of what the mid-refresh loadWorld reflects into railResyncFailed, so a
+    // second buy that yields in during the refresh cannot slip a duplicate
+    // upgrade POST past the guard (F-121 re-entrancy).
+    set({ railResyncInFlight: true });
+    try {
       removeLocalTrip(slot);
-      return false;
-    }
-    // The remote /api/account/trip checkpoint can still hold the pre-conflict
-    // gear at this same tripIndex, and a later refreshCloudWorld downloads it
-    // BEFORE loadWorld, which would restore it. Await an explicit clear and
-    // treat a failed clear as a resync failure so success is never reported
-    // while a resurrectable checkpoint survives (signed-in only; guests never
-    // wrote such a checkpoint).
-    if (get().accountSync.mode !== "guest") {
-      const cleared = await clearRemoteAccountTrip();
-      if (!cleared.ok) {
+      // Do NOT pre-clear moves: loadWorld's no-local-trip branch already zeroes
+      // them on success, so clearing first would only tear coherent in-memory
+      // state (mine paired with its moves) if the read then failed.
+      if (!(await get().loadWorld())) return false;
+      // loadGear persists the rebuilt trip before its own fetch; if that fetch
+      // then fails, the persisted checkpoint pairs the new world and tripIndex
+      // with the old gear. It has no moves, so loadWorld's resume would ignore
+      // it, but drop it anyway so no mixed checkpoint can survive a failure.
+      if (!(await get().loadGear())) {
         removeLocalTrip(slot);
         return false;
       }
+      // The remote /api/account/trip checkpoint can still hold the pre-conflict
+      // gear at this same tripIndex, and a later refreshCloudWorld downloads it
+      // BEFORE loadWorld, which would restore it. Await an explicit clear and
+      // treat a failed clear as a resync failure so success is never reported
+      // while a resurrectable checkpoint survives (signed-in only; guests never
+      // wrote such a checkpoint).
+      if (get().accountSync.mode !== "guest") {
+        const cleared = await clearRemoteAccountTrip();
+        // The route returns 200 { cleared: false } when no player is resolved,
+        // so cleared.ok alone would count an unresolved DELETE as a completed
+        // clear and let a resurrectable checkpoint survive. Require the explicit
+        // confirmation (F-121 full-authority).
+        const clearedBody = cleared.body as { cleared?: unknown } | null;
+        if (!cleared.ok || clearedBody?.cleared !== true) {
+          removeLocalTrip(slot);
+          return false;
+        }
+      }
+      void get().loadSaveSlots();
+      return true;
+    } finally {
+      set({ railResyncInFlight: false });
     }
-    void get().loadSaveSlots();
-    return true;
   };
   return {
     mine: createMine(seed),
@@ -676,6 +697,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     elevatorPlacementRequired: false,
     shopNote: null,
     railResyncFailed: false,
+    railResyncInFlight: false,
     tripIndex: 0,
     tripBaseDiff: [],
     moves: [],
@@ -825,26 +847,33 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
       };
       const res = await loadMineWorld();
-      if (res.ok) {
+      // A 200 is authority ONLY if the required world field is well-formed. A
+      // malformed body (missing/NaN seed) is NOT proof of fresh rail authority,
+      // so it must not adopt a broken world or reconcile the rail: it falls
+      // through to the offline branch, which fails closed on any persisted
+      // marker (F-121 full-authority).
+      if (res.ok && typeof res.body === "object" && res.body !== null) {
         const body = res.body as Record<string, unknown>;
-        const slot = validSaveSlot(body.activeSlot) ?? 1;
-        resume(
-          slot,
-          body.seed as number,
-          typeof body.tripIndex === "number" ? body.tripIndex : 0,
-          Array.isArray(body.diff) ? (body.diff as WorldDiff) : [],
-        );
-        // A world load adopts fresh WORLD state but NOT the rail: rail authority
-        // lives in gear (loaded separately by loadGear) and, for signed-in
-        // players, in the remote account-trip checkpoint clear. So loadWorld
-        // must NOT clear the stale-rail block here (a crash after this success
-        // but before gear or the checkpoint clear would fail open again). It
-        // only reflects the persisted marker; the block is cleared solely when
-        // the full resync chain succeeds (retryRailResync / the buy conflict
-        // path with synced === true) or an accepted buy adopts server truth
-        // (F-121 reload-durable).
-        set({ railResyncFailed: loadRailResyncBlock(slot) });
-        return true;
+        if (typeof body.seed === "number" && Number.isFinite(body.seed)) {
+          const slot = validSaveSlot(body.activeSlot) ?? 1;
+          resume(
+            slot,
+            body.seed,
+            typeof body.tripIndex === "number" ? body.tripIndex : 0,
+            Array.isArray(body.diff) ? (body.diff as WorldDiff) : [],
+          );
+          // A world load adopts fresh WORLD state but NOT the rail: rail
+          // authority lives in gear (loaded separately by loadGear) and, for
+          // signed-in players, in the remote account-trip checkpoint clear. So
+          // loadWorld must NOT clear the stale-rail block here (a crash after
+          // this success but before gear or the checkpoint clear would fail open
+          // again). It only reflects the persisted marker; the block is cleared
+          // solely when the full resync chain succeeds (retryRailResync / the
+          // buy conflict path with synced === true) or an accepted buy adopts
+          // server truth (F-121 reload-durable).
+          set({ railResyncFailed: loadRailResyncBlock(slot) });
+          return true;
+        }
       }
       const slot = get().activeSlot;
       // Check before loadLocalTrip drops the blob: a corrupt pending-bunker
@@ -861,15 +890,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         // Dropping a corrupt TRIP is not proof of fresh RAIL authority (the
         // world load failed), so it must NOT clear the stale-rail block: fall
-        // through to restore the persisted marker like any other offline load.
+        // through to restore the persisted block like any other offline load.
       }
-      // Could not adopt fresh authority (offline or storage-less). Restore any
-      // persisted rail-buy block regardless of whether a local trip survived: a
-      // failed conflict resync deletes the local trip BEFORE its world fetch, so
-      // on the real offline-reload path there is no saved trip, and the marker is
-      // the only thing that keeps the buy gated until a full resync reconciles
-      // the rail (F-121 reload-durable).
-      set({ railResyncFailed: loadRailResyncBlock(slot) });
+      // Could not adopt fresh authority (offline, storage-less, or malformed).
+      // Fail closed from ANY persisted rail block, not just the assumed active
+      // slot: a failed conflict resync deletes the local trip BEFORE its world
+      // fetch, so the real offline-reload path has no saved trip, and a cold
+      // store defaults to slot 1 before the server slot list resolves, so
+      // reading only that slot would miss a block on the slot the player is
+      // really on (two slots can share a rail depth, so the server depth guard
+      // is not a sufficient backstop). Keep the buy gated until a full resync
+      // reconciles the rail (F-121 reload-durable).
+      set({ railResyncFailed: anyRailResyncBlock() });
       // The authoritative server world did not load (storage-less or a failed
       // fetch); callers that need a confirmed cloud refresh treat this as a miss.
       return false;
@@ -894,10 +926,25 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // No authoritative player row loaded (storage-less or a failed fetch).
         return false;
       }
-      const body = res.body as Record<string, unknown>;
+      const body =
+        typeof res.body === "object" && res.body !== null
+          ? (res.body as Record<string, unknown>)
+          : null;
+      // A 200 is authoritative gear ONLY if both the gear and consumables
+      // objects are present. A malformed body (valid gear but missing
+      // consumables) must NOT authorize adopting inventory or clearing the
+      // stale-rail block, so treat it as a failed read (F-121 full-authority).
+      if (
+        !body ||
+        typeof body.gear !== "object" ||
+        body.gear === null ||
+        typeof body.consumables !== "object" ||
+        body.consumables === null
+      ) {
+        return false;
+      }
       const gear: MineGear = normalizeGear(body.gear as MineGearSnapshot);
-      const consumables: MineConsumables =
-        (body.consumables as MineConsumables | undefined) ?? NO_CONSUMABLES;
+      const consumables: MineConsumables = body.consumables as MineConsumables;
       const elevatorPlacementRequired = body.elevatorPlacementRequired === true;
       set({
         balance: typeof body.balance === "number" ? body.balance : null,
@@ -1815,7 +1862,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // stale, so any buy (extend, first-rail placement, or relocation, and via
       // any surface: stall, placement overlay, keyboard, gamepad) must wait for
       // an explicit retryRailResync rather than fire a blind buy against it.
-      if (get().railResyncFailed) {
+      // railResyncInFlight also blocks a buy that yields in while an earlier
+      // conflict's refresh is still running, so no duplicate upgrade POST slips
+      // through the async window (F-121 re-entrancy).
+      if (get().railResyncFailed || get().railResyncInFlight) {
         set({ shopNote: "refresh the rail before buying" });
         return false;
       }
@@ -1851,17 +1901,23 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           code === "elevator-stale-checkpoint" ||
           code === "elevator-concurrent-loss"
         ) {
-          // Persist the block BEFORE the refresh (F-121 reload-durable): the
-          // refresh drops the local trip before its own world fetch, so a reload
-          // or crash during that async window leaves no local trip to key the
-          // block off. Writing the marker up front is the only thing that keeps
-          // the buy gated across such a mid-refresh interruption. A confirmed
-          // success clears it again below.
-          saveRailResyncBlock(get().activeSlot, true);
-          const synced = await resyncCloudWorld(get().activeSlot);
+          // Capture the slot ONCE for the whole chain: resyncCloudWorld's
+          // loadWorld can replace activeSlot from the server mid-await, so a
+          // re-read for the later marker write could target a different slot
+          // than the up-front write (F-121).
+          const conflictSlot = get().activeSlot;
+          // Persist the block in storage BEFORE the refresh (F-121
+          // reload-durable): resyncCloudWorld drops the local trip before its
+          // own world fetch, so a reload or crash during the async window would
+          // otherwise leave no trip and no marker to re-gate the buy. Live
+          // concurrent buys during the refresh are blocked by railResyncInFlight
+          // (set inside resyncCloudWorld), so no in-memory pre-set is needed
+          // here. A confirmed success clears the marker again below.
+          saveRailResyncBlock(conflictSlot, true);
+          const synced = await resyncCloudWorld(conflictSlot);
           // A failed refresh keeps the buy gated even after the tab is reloaded
           // offline; a success clears the persisted flag.
-          saveRailResyncBlock(get().activeSlot, !synced);
+          saveRailResyncBlock(conflictSlot, !synced);
           set({
             shopNote: synced
               ? elevatorConflictNote(code)
@@ -2064,10 +2120,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
 
     retryRailResync: async () => {
       if (!get().railResyncFailed) return true;
-      const synced = await resyncCloudWorld(get().activeSlot);
+      // Capture the slot ONCE: resyncCloudWorld's loadWorld can replace
+      // activeSlot from the server mid-await, so re-reading it for the marker
+      // write could target a different slot than the one being reconciled
+      // (F-121). The block already holds in memory throughout, so a concurrent
+      // buy stays gated during the refresh.
+      const slot = get().activeSlot;
+      const synced = await resyncCloudWorld(slot);
       // Persist the outcome so a reload keeps a still-failed refresh gated
       // (F-121 reload-durable).
-      saveRailResyncBlock(get().activeSlot, !synced);
+      saveRailResyncBlock(slot, !synced);
       set({
         railResyncFailed: !synced,
         shopNote: synced

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-layout-version-reset-race-guard" data-date="2026-07-16">
+    <h3>Start fresh becomes a guarded compare-and-swap after review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-layout-version-reset</code>.</dd>
+      <dt>PR</dt><dd>#231 (F-117 slice 3). Correction record for the <code>bunker-layout-version-reset</code> article below, added rather than editing it (append-only).</dd>
+      <dt>Changed</dt><dd>An exact-head review found a real TOCTOU race the prior article's "idempotent no-op" claim did not cover: <code>startFreshBunker</code> loaded the bunker, checked it incompatible, then ran an <em>unconditional</em> UPDATE by <code>player_id</code>. A request that read a legacy bunker, paused while a concurrent Start fresh reset it and the player rebuilt it to a current layout, then resumed, would wipe the rebuilt state. Fixed: the destructive UPDATE is now a guarded compare-and-swap, <code>WHERE player_id = ? AND revision = &lt;loaded&gt; AND layout_version &lt; &lt;current&gt;</code>, so it only lands on the still-legacy bunker at the loaded revision; a loser matches zero rows and the reloaded authoritative (already reset or rebuilt) view is returned, never wiped. Also strengthened the Rule 9 smoke to assert the recovery is a single POST and that the returned inventory carries no refund, and returned the version framing to a build-era generation (whole-cell parts are not invalid; resetting version-0 rows is the Q-022 product decision to clear pre-redesign layouts).</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean, type-check green, sim-purity clean. New server tests: the Start fresh UPDATE carries the <code>revision</code> and <code>layout_version &lt;</code> guard, and an overlapping-request test proves a concurrent reset+rebuild survives (the reloaded current bunker keeps its rebuilt wall). Full unit suite green. The required parallel CI gate is verified per exact head in the PR comments, not asserted here.</dd>
+      <dt>Assumptions</dt><dd>Held with rationale on the same review (documented in the PR): forward-compatible <code>&lt;</code> comparison (no rollback path exists, and exact equality would offer a destructive downgrade on a future row); the raid settlement paying its reward while the layout-version-guarded parts-write no-ops is correct because a Start fresh clears every part anyway, so there is nothing to wear and no exploit; and banking a pending claim as current is consistent with Q-026 (a current bunker may hold whole-cell parts in the interim), the fail-fast targeting pre-existing banked rows per Q-022.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 stays <code>partial</code>. No new implementation or test file beyond <code>src/server/bunker.ts</code> and its tests. Rule 13 and Rule 14 unchanged from the article below (recorded there).</dd>
+      <dt>Followups</dt><dd>Advances F-117; does not resolve it. Same remaining slices as the article below.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-layout-version-reset" data-date="2026-07-16">
     <h3>Old-layout bunkers fail fast and offer a confirmed Start fresh</h3>
     <dl>

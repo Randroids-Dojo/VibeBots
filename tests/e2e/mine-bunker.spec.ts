@@ -293,8 +293,13 @@ test("an old-layout banked bunker fails fast and Start fresh clears it", async (
       }),
     });
   });
+  let startFreshMethod: string | null = null;
+  let startFreshCalls = 0;
   await page.route("**/api/bunker/start-fresh", async (route) => {
-    // The server hard-resets to a bare current-version claim (no refund).
+    // The server hard-resets to a bare current-version claim (no refund):
+    // the returned inventory is unchanged from before the reset.
+    startFreshMethod = route.request().method();
+    startFreshCalls += 1;
     layoutVersion = 1;
     await route.fulfill({
       status: 200,
@@ -353,6 +358,14 @@ test("an old-layout banked bunker fails fast and Start fresh clears it", async (
   await expect(page.getByTestId("bunker-layout-incompatible")).toHaveCount(0);
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
+  // The recovery went through one POST to the dedicated route, and the
+  // returned inventory carried no refund (the pre-reset stock, unchanged).
+  expect(startFreshMethod).toBe("POST");
+  expect(startFreshCalls).toBe(1);
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await expect(
+    page.getByRole("status", { name: "Vibes balance" }),
+  ).toBeVisible();
 });
 
 test("bunker claims can be edited before banking", async ({ page }) => {

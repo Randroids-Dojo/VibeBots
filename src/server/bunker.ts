@@ -1025,8 +1025,13 @@ export async function startFreshBunker(
   if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const fresh = applyBunkerStartFresh(view.bunker);
-  // Bump the revision so an in-flight banked edit loses its guard, and
-  // stamp the layout version so the bunker reads as compatible next load.
+  // Guarded compare-and-swap (F-117): only wipe a bunker that is STILL the
+  // incompatible one this request loaded. The load-then-check above has a
+  // TOCTOU window, so guard the write on both the loaded revision and the
+  // layout still being below current. If a concurrent Start fresh already
+  // reset the bunker (and the player even rebuilt it to a current layout) in
+  // between, this write matches zero rows and never wipes the rebuilt state.
+  // Bumping the revision also drops any in-flight banked edit's guard.
   await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(fresh.parts)}::jsonb,
@@ -1034,7 +1039,12 @@ export async function startFreshBunker(
         layout_version = ${BUNKER_LAYOUT_VERSION},
         revision = revision + 1,
         updated_at = now()
-    WHERE player_id = ${playerId}`;
+    WHERE player_id = ${playerId}
+      AND revision = ${view.revision}
+      AND layout_version < ${BUNKER_LAYOUT_VERSION}`;
+  // Whether this write won or lost the race, the end state is a bare
+  // current-version bunker, so return the authoritative view to adopt. A
+  // loser simply reads the winner's already-reset (or rebuilt) bunker.
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 

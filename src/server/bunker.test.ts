@@ -1091,6 +1091,11 @@ describe("layout-incompatible bunker fail-fast (F-117)", () => {
     expect(updateQuery).toContain("layout_version =");
     expect(updateQuery).toContain("dug");
     expect(updateQuery).toContain("revision = revision + 1");
+    // Guarded compare-and-swap: the write only lands on the still-legacy
+    // bunker at the loaded revision, so a concurrent reset+rebuild is not
+    // clobbered (F-117 TOCTOU).
+    expect(updateQuery).toContain("AND revision =");
+    expect(updateQuery).toContain("layout_version <");
     const bound = ((update ?? []) as unknown[]).slice(1);
     // parts cleared to [], excavation preserved.
     expect(bound[0]).toBe("[]");
@@ -1100,6 +1105,77 @@ describe("layout-incompatible bunker fail-fast (F-117)", () => {
     expect(updates).toHaveLength(1);
     // No refund: Start fresh never upserts the base-part inventory.
     expect(upserts).toHaveLength(0);
+  });
+
+  it("does not clobber a bunker a concurrent request already reset and rebuilt", async () => {
+    // The first load sees the legacy bunker this request will try to wipe.
+    // Before its guarded write lands, a concurrent Start fresh has reset the
+    // bunker to current and the player rebuilt a wall: the reload sees that.
+    let advanced = false;
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return advanced
+          ? [
+              {
+                footprint: { col: 1, row: 4, width: 7, height: 5 },
+                parts: [
+                  {
+                    partId: "wall-panel",
+                    col: 1,
+                    row: 4,
+                    depth: 0,
+                    durability: 90,
+                  },
+                ],
+                dug: [{ col: 2, row: 5, depth: 1 }],
+                revision: 5,
+                layout_version: BUNKER_LAYOUT_VERSION,
+              },
+            ]
+          : [
+              {
+                footprint: { col: 1, row: 4, width: 7, height: 5 },
+                parts: [
+                  {
+                    partId: "wall-panel",
+                    col: 1,
+                    row: 4,
+                    depth: 0,
+                    durability: 90,
+                  },
+                ],
+                dug: [{ col: 2, row: 5, depth: 1 }],
+                revision: 3,
+                // Legacy: no layout_version.
+              },
+            ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) {
+        return [{ part_id: "wall-panel", count: 5 }];
+      }
+      if (query.includes("UPDATE bunkers")) {
+        // The guarded write matches nothing: the bunker is no longer at the
+        // loaded revision and is already current. Simulate the concurrent
+        // advance the guard is protecting against.
+        advanced = true;
+        return [];
+      }
+      return [];
+    });
+
+    const result = await startFreshBunker(sql as never, "player-1");
+
+    expect(result.ok).toBe(true);
+    // The rebuilt wall on the now-current bunker survives, not wiped.
+    if (result.ok) {
+      expect(result.view.bunker?.parts).toHaveLength(1);
+      expect(result.view.bunker?.layoutVersion).toBe(BUNKER_LAYOUT_VERSION);
+    }
   });
 
   it("Start fresh is a safe no-op on an already-current bunker", async () => {

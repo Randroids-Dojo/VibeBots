@@ -127,34 +127,61 @@ function elevatorConflictNote(code: string | null): string {
   }
 }
 
+/** An integer at least `min`, or null when the value is not one. */
+function intAtLeast(v: unknown, min: number): number | null {
+  return typeof v === "number" && Number.isInteger(v) && v >= min ? v : null;
+}
+
 /**
- * The full authoritative gear an elevator response carries (F-121), or null
- * when an older server omits it. The client adopts it wholesale so a concurrent
- * player-only purchase cannot leave a stale non-rail gear level under the newly
- * advanced trip.
+ * The authoritative gear an elevator response carries (F-121), or null when it
+ * is absent (an older server) OR malformed. Validation is strict: every gear
+ * level must be a present integer at its floor and the shaft column an integer
+ * or null, because `normalizeGear` would otherwise fill a garbage body into a
+ * plausible level-1 snapshot that, adopted wholesale, would clobber real gear.
  */
 function gearFromElevatorResponse(
   body: Record<string, unknown>,
 ): MineGear | null {
   const raw = body.gear;
   if (!raw || typeof raw !== "object") return null;
-  return normalizeGear(raw as MineGearSnapshot);
+  const g = raw as Record<string, unknown>;
+  const col = g.elevatorColumn;
+  const columnOk =
+    col === null || (typeof col === "number" && Number.isInteger(col));
+  if (
+    !columnOk ||
+    intAtLeast(g.pickaxe, 1) === null ||
+    intAtLeast(g.battery, 1) === null ||
+    intAtLeast(g.cargo, 1) === null ||
+    intAtLeast(g.lantern, 1) === null ||
+    intAtLeast(g.warpcoil, 1) === null ||
+    intAtLeast(g.elevator, 0) === null ||
+    intAtLeast(g.blast, 1) === null ||
+    intAtLeast(g.elevatorSpeed, 1) === null ||
+    intAtLeast(g.fall, 1) === null ||
+    intAtLeast(g.recall, 1) === null
+  ) {
+    return null;
+  }
+  return normalizeGear(g as MineGearSnapshot);
 }
 
-/** The full authoritative consumables an elevator response carries (F-121). */
+/**
+ * The authoritative consumables an elevator response carries (F-121), or null
+ * when absent or malformed. Every count must be a present non-negative integer,
+ * so a negative, fractional, or missing count is rejected rather than adopted.
+ */
 function consumablesFromElevatorResponse(
   body: Record<string, unknown>,
 ): MineConsumables | null {
   const raw = body.consumables;
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Record<string, unknown>;
-  const read = (v: unknown): number | null =>
-    typeof v === "number" && Number.isFinite(v) ? v : null;
-  const dynamite = read(c.dynamite);
-  const rope = read(c.rope);
-  const ladder = read(c.ladder);
-  const plank = read(c.plank);
-  const beacon = read(c.beacon);
+  const dynamite = intAtLeast(c.dynamite, 0);
+  const rope = intAtLeast(c.rope, 0);
+  const ladder = intAtLeast(c.ladder, 0);
+  const plank = intAtLeast(c.plank, 0);
+  const beacon = intAtLeast(c.beacon, 0);
   if (
     dynamite === null ||
     rope === null ||
@@ -165,6 +192,41 @@ function consumablesFromElevatorResponse(
     return null;
   }
   return { dynamite, rope, ladder, plank, beacon };
+}
+
+/**
+ * Parse the response's authoritative inventory as ONE atomic unit (F-121): both
+ * gear and consumables must validate, and the fields the response duplicates as
+ * top-level scalars (rail depth, shaft column, ladder and plank counts) must
+ * equal their nested values, since both come from the same committed row. Any
+ * omission, malformed value, or mismatch returns null so the caller adopts
+ * nothing from a partial or corrupt body and keeps its last-known-good state
+ * (which self-heals on the next gear load) rather than persisting mixed
+ * authority. An older server that omits the objects entirely also returns null,
+ * which routes the caller to its rail-only merge over the valid top-level rail.
+ */
+function authoritativeInventoryFromResponse(
+  body: Record<string, unknown>,
+): { gear: MineGear; consumables: MineConsumables } | null {
+  const gear = gearFromElevatorResponse(body);
+  const consumables = consumablesFromElevatorResponse(body);
+  if (!gear || !consumables) return null;
+  if (typeof body.elevator === "number" && gear.elevator !== body.elevator) {
+    return null;
+  }
+  if (
+    typeof body.elevatorColumn === "number" &&
+    gear.elevatorColumn !== body.elevatorColumn
+  ) {
+    return null;
+  }
+  if (typeof body.ladders === "number" && consumables.ladder !== body.ladders) {
+    return null;
+  }
+  if (typeof body.planks === "number" && consumables.plank !== body.planks) {
+    return null;
+  }
+  return { gear, consumables };
 }
 
 /**
@@ -1774,22 +1836,21 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             body && typeof body.balance === "number"
               ? body.balance
               : get().balance;
-          const rejectGear = body ? gearFromElevatorResponse(body) : null;
-          const rejectConsumables = body
-            ? consumablesFromElevatorResponse(body)
+          const authoritative = body
+            ? authoritativeInventoryFromResponse(body)
             : null;
           const { moves: rejectMoves, seed: rejectSeed } = get();
-          if (rejectGear && rejectConsumables && surfaceOnlyLog(rejectMoves)) {
+          if (authoritative && surfaceOnlyLog(rejectMoves)) {
             const rebuilt = createMine(
               rejectSeed,
-              rejectGear,
-              rejectConsumables,
+              authoritative.gear,
+              authoritative.consumables,
               get().tripBaseDiff,
             );
             for (const m of rejectMoves) applyAction(rebuilt, m);
             set({
-              gear: rejectGear,
-              consumables: rejectConsumables,
+              gear: authoritative.gear,
+              consumables: authoritative.consumables,
               bought: NO_CONSUMABLES,
               mine: rebuilt,
               balance: nextBalance,
@@ -1819,12 +1880,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const { gear, consumables, bought, moves, seed: s0, tick } = get();
       const elevator = body.elevator as number;
       // Adopt the full authoritative inventory when the accepted response
-      // carries it (F-121). A concurrent player-only purchase at this same trip
-      // could have changed a non-rail gear or consumable count, so rebuild the
-      // trip from the committed server row rather than the local snapshot plus
-      // the rail delta. Older servers omit it; fall back to the rail-only merge.
-      const authGear = gearFromElevatorResponse(body);
-      const authConsumables = consumablesFromElevatorResponse(body);
+      // carries it (F-121), validated and coherence-checked as one atomic unit.
+      // A concurrent player-only purchase at this same trip could have changed a
+      // non-rail gear or consumable count, so rebuild the trip from the
+      // committed server row rather than the local snapshot plus the rail delta.
+      // A missing (older server) or malformed body yields null; the client then
+      // still adopts the valid top-level rail scalars and keeps its last-known
+      // good non-rail inventory rather than persist a partial or corrupt one.
+      const authoritative = authoritativeInventoryFromResponse(body);
       const nextElevatorColumn =
         typeof body.elevatorColumn === "number"
           ? body.elevatorColumn
@@ -1833,8 +1896,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         set({ shopNote: "choose a surface column for the first rail" });
         return false;
       }
-      const nextGear: MineGear = authGear
-        ? { ...authGear, elevator, elevatorColumn: nextElevatorColumn }
+      const nextGear: MineGear = authoritative
+        ? {
+            ...authoritative.gear,
+            elevator,
+            elevatorColumn: nextElevatorColumn,
+          }
         : { ...gear, elevator, elevatorColumn: nextElevatorColumn };
       const nextTripIndex =
         typeof body.tripIndex === "number" ? body.tripIndex : get().tripIndex;
@@ -1870,8 +1937,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // the refund, so a lost-success retry cannot double-count them) or, on the
       // oldest servers, adds the refund to local stock.
       let owned: MineConsumables;
-      if (authConsumables) {
-        owned = authConsumables;
+      if (authoritative) {
+        owned = authoritative.consumables;
       } else {
         owned = addConsumables(consumables, bought);
         if (typeof body.ladders === "number") {

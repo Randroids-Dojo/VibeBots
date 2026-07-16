@@ -854,7 +854,7 @@ describe("POST /api/elevator/upgrade", () => {
     // player-only purchase raised. The client adopts these wholesale so a stale
     // non-rail count cannot persist under the newly advanced trip.
     mockedProfile.mockResolvedValue(profile(4, 37));
-    mockSql({
+    const sql = mockSql({
       updated: {
         emeralds: 70,
         elevator_depth: 5,
@@ -890,6 +890,65 @@ describe("POST /api/elevator/upgrade", () => {
         beacon: 1,
       },
     });
+    // Pin the projection so the mock cannot hide a RETURNING regression: the
+    // committed row must actually select the non-rail inventory columns.
+    const update = sql.mock.calls.find(([strings]) =>
+      strings.join(" ").includes("UPDATE players"),
+    );
+    const query = update?.[0].join(" ") ?? "";
+    expect(query).toContain("RETURNING");
+    for (const column of [
+      "pickaxe_level",
+      "lamp_level",
+      "cargo_level",
+      "lantern_level",
+      "warpcoil_level",
+      "blast_level",
+      "elevator_speed_level",
+      "fall_level",
+      "recall_level",
+      "dynamite_count",
+      "rope_count",
+      "beacon_count",
+    ]) {
+      expect(query).toContain(column);
+    }
+    expect(query).toContain("player_update.*");
+  });
+
+  it("returns the full authoritative inventory when placing the first rail (F-121)", async () => {
+    // The placement CTE must surface the same inventory as the extend path.
+    const diff: WorldDiff = [[37, 1, { kind: "empty", ladder: true }]];
+    const sql = mockSql({
+      diff,
+      updated: {
+        emeralds: 75,
+        elevator_depth: 1,
+        elevator_col: 37,
+        ladder_count: 9,
+        plank_count: 4,
+        lantern_level: 3,
+        rope_count: 6,
+      },
+    });
+
+    const response = await POST(request(37));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      elevator: 1,
+      elevatorColumn: 37,
+      ladders: 9,
+      gear: expect.objectContaining({ lantern: 3, elevator: 1 }),
+      consumables: expect.objectContaining({ rope: 6, ladder: 9 }),
+    });
+    const update = sql.mock.calls.find(([strings]) =>
+      strings.join(" ").includes("UPDATE players"),
+    );
+    const query = update?.[0].join(" ") ?? "";
+    expect(query).toContain("pickaxe_level");
+    expect(query).toContain("beacon_count");
+    expect(query).toContain("player_update.*");
   });
 
   it("returns the full authoritative inventory on an insufficient-balance reject (F-121)", async () => {

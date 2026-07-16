@@ -568,6 +568,147 @@ describe("mine store upgrade flow", () => {
     expect(savedTrip.consumables.rope).toBe(7);
   });
 
+  it("falls back to the rail-only merge when the accepted inventory is malformed (F-121)", async () => {
+    const gear = {
+      ...DEFAULT_GEAR,
+      pickaxe: 2,
+      elevator: 3,
+      elevatorColumn: 17,
+    };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      tripBaseDiff: [],
+    });
+    // Gear is present but malformed (a negative level), so the atomic parse
+    // rejects the whole inventory. The client keeps its last-known-good non-rail
+    // gear and still adopts the valid top-level rail result.
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        elevator: 4,
+        elevatorColumn: 17,
+        tripIndex: 3,
+        balance: 30,
+        ladders: 5,
+        planks: 2,
+        gear: { ...DEFAULT_GEAR, pickaxe: -1, elevator: 4, elevatorColumn: 17 },
+        consumables: { dynamite: 9, rope: 0, ladder: 5, plank: 2, beacon: 3 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(true);
+
+    // The rail result is adopted from the valid top-level scalars...
+    expect(store().gear).toMatchObject({ elevator: 4, elevatorColumn: 17 });
+    // ...but the malformed gear is never adopted (pickaxe stays local, not the
+    // garbage value and not a normalized default).
+    expect(store().gear.pickaxe).toBe(2);
+    expect(store().mine.gear.pickaxe).toBe(2);
+    // Consumables fall back to the local merge with the returned support counts,
+    // so the garbage dynamite count is ignored.
+    expect(store().consumables).toMatchObject({
+      dynamite: 0,
+      ladder: 5,
+      plank: 2,
+    });
+  });
+
+  it("ignores an accepted inventory whose nested rail disagrees with the top level (F-121)", async () => {
+    const gear = {
+      ...DEFAULT_GEAR,
+      pickaxe: 2,
+      elevator: 3,
+      elevatorColumn: 17,
+    };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      tripBaseDiff: [],
+    });
+    // The nested rail depth (99) disagrees with the trusted top-level depth (4):
+    // a corrupt body, so the whole inventory is rejected.
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        elevator: 4,
+        elevatorColumn: 17,
+        tripIndex: 3,
+        balance: 30,
+        ladders: 5,
+        planks: 2,
+        gear: { ...DEFAULT_GEAR, pickaxe: 7, elevator: 99, elevatorColumn: 17 },
+        consumables: { dynamite: 9, rope: 0, ladder: 5, plank: 2, beacon: 3 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(true);
+
+    // The rail comes from the trusted top-level scalar, and the mismatched gear
+    // is not adopted.
+    expect(store().gear.pickaxe).toBe(2);
+    expect(store().gear.elevator).toBe(4);
+  });
+
+  it("keeps local inventory when an insufficient-balance reject is malformed (F-121)", async () => {
+    const gear = { ...DEFAULT_GEAR, cargo: 2, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1, plank: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      tripBaseDiff: [],
+    });
+    // The reject carries a malformed consumables count, so the atomic parse
+    // rejects the inventory and the client updates only the display balance.
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          code: "elevator-insufficient-balance",
+          error: "not enough vibes",
+          balance: 12,
+          elevator: 3,
+          elevatorColumn: 17,
+          ladders: 1,
+          planks: 1,
+          tripIndex: 2,
+          elevatorPlacementRequired: false,
+          gear: { ...DEFAULT_GEAR, cargo: 5, elevator: 3, elevatorColumn: 17 },
+          consumables: {
+            dynamite: -3,
+            rope: 0,
+            ladder: 1,
+            plank: 1,
+            beacon: 0,
+          },
+        },
+        409,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    expect(store().balance).toBe(12);
+    // The malformed inventory is not adopted: cargo stays the local value.
+    expect(store().gear.cargo).toBe(2);
+    expect(store().gear).toMatchObject({ elevator: 3, elevatorColumn: 17 });
+    expect(store().consumables).toMatchObject({ ladder: 1, plank: 1 });
+  });
+
   it("does one bounded world and gear refetch on a stale rail reject", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);

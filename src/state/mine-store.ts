@@ -83,11 +83,13 @@ import {
 } from "./mine-api-client";
 import {
   loadLocalTrip,
+  loadRailResyncBlock,
   removeLocalTrip,
   replaySavedTrip,
   type SavedTrip,
   type SaveSlotId,
   saveLocalTrip,
+  saveRailResyncBlock,
   storedTripPendingBunkerIsCorrupt,
   validSaveSlot,
 } from "./mine-trip-persistence";
@@ -832,6 +834,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           typeof body.tripIndex === "number" ? body.tripIndex : 0,
           Array.isArray(body.diff) ? (body.diff as WorldDiff) : [],
         );
+        // Fresh authoritative state adopted, so any persisted stale-rail block
+        // is resolved: clear it in memory and in storage (F-121 reload-durable).
+        saveRailResyncBlock(slot, false);
+        set({ railResyncFailed: false });
         return true;
       }
       const slot = get().activeSlot;
@@ -842,11 +848,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const saved = loadLocalTrip(slot);
       if (saved) {
         resume(slot, saved.seed, saved.tripIndex, saved.baseDiff);
+        // Offline resume of the possibly-stale local trip: restore any persisted
+        // rail-buy block so a reload while offline keeps the buy gated until an
+        // online load reconciles the rail (F-121 reload-durable).
+        set({ railResyncFailed: loadRailResyncBlock(slot) });
       } else if (corruptCheckpoint) {
         set({
           shopNote:
             "Your saved trip couldn't be restored, so a fresh one started.",
         });
+        // No stale local trip remains, so a stale-rail block cannot apply: clear.
+        saveRailResyncBlock(slot, false);
+        set({ railResyncFailed: false });
       }
       // The authoritative server world did not load (storage-less or a failed
       // fetch); callers that need a confirmed cloud refresh treat this as a miss.
@@ -1830,6 +1843,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           code === "elevator-concurrent-loss"
         ) {
           const synced = await resyncCloudWorld(get().activeSlot);
+          // Persist the block so it survives a page reload (F-121 reload-durable):
+          // a failed refresh keeps the buy gated even after the tab is reloaded
+          // offline, and a success clears the persisted flag.
+          saveRailResyncBlock(get().activeSlot, !synced);
           set({
             shopNote: synced
               ? elevatorConflictNote(code)
@@ -2022,6 +2039,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         persistCurrentTrip();
       }
+      // An accepted buy adopted authoritative state, so clear any persisted
+      // stale-rail block (F-121 reload-durable); both success branches above
+      // already cleared it in memory.
+      saveRailResyncBlock(get().activeSlot, false);
       notifySaveSyncPeers();
       return true;
     },
@@ -2029,6 +2050,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     retryRailResync: async () => {
       if (!get().railResyncFailed) return true;
       const synced = await resyncCloudWorld(get().activeSlot);
+      // Persist the outcome so a reload keeps a still-failed refresh gated
+      // (F-121 reload-durable).
+      saveRailResyncBlock(get().activeSlot, !synced);
       set({
         railResyncFailed: !synced,
         shopNote: synced

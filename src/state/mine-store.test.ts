@@ -816,6 +816,7 @@ describe("mine store upgrade flow", () => {
 
   it("retryRailResync reconciles the world and clears the block on success", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
     useMineStore.setState({
       mine: createMine(123, gear, NO_CONSUMABLES),
       gear,
@@ -852,6 +853,10 @@ describe("mine store upgrade flow", () => {
     expect(store().gear).toMatchObject({ elevator: 5 });
     expect(store().tripIndex).toBe(12);
     expect(store().shopNote).toBe("rail refreshed; you can buy again");
+    // The persisted block is cleared too, so a later reload stays unblocked.
+    expect(
+      localStorage.getItem("vibebots-rail-resync-blocked-slot-1"),
+    ).toBeNull();
   });
 
   it("retryRailResync keeps the block when the refresh fails again", async () => {
@@ -909,6 +914,95 @@ describe("mine store upgrade flow", () => {
     );
     expect(store().shopNote).toBe("refresh the rail before buying");
     expect(store().railResyncFailed).toBe(true);
+  });
+
+  it("persists the rail block so a failed offline resync survives a reload", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", error: "your rail moved" },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+    // The block is written to storage, so a page reload can restore it.
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("restores the persisted rail block when an offline reload resumes the local trip", async () => {
+    const seed = 123;
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    localStorage.setItem(
+      "vibebots-mine-trip-v2-slot-1",
+      JSON.stringify({
+        mineVersion: MINE_VERSION,
+        seed,
+        tripIndex: 2,
+        gear,
+        consumables: NO_CONSUMABLES,
+        baseDiff: [],
+        moves: ["down"],
+      }),
+    );
+    // A fresh store session (reload) starts with the block cleared in memory.
+    useMineStore.setState({ activeSlot: 1, railResyncFailed: false });
+    // The authoritative world fetch fails (still offline), so loadWorld resumes
+    // the possibly-stale local trip and must restore the persisted block.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().loadWorld()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+  });
+
+  it("clears the persisted rail block when an online reload adopts fresh authority", async () => {
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    useMineStore.setState({ activeSlot: 1, railResyncFailed: true });
+    // The world refetch succeeds, so the fresh authoritative state resolves the
+    // stale-rail block: it must clear in memory and in storage.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          activeSlot: 1,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().loadWorld()).resolves.toBe(true);
+
+    expect(store().railResyncFailed).toBe(false);
+    expect(
+      localStorage.getItem("vibebots-rail-resync-blocked-slot-1"),
+    ).toBeNull();
   });
 
   it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {

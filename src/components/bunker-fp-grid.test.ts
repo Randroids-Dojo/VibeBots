@@ -36,6 +36,12 @@ function corridorBunker(): BunkerState {
   return createBunker(footprint);
 }
 
+function solidOf(bunker: BunkerState) {
+  const grid = createFpSolidGrid();
+  buildFpSolidGrid(bunker, grid);
+  return grid;
+}
+
 describe("fp grid mapping", () => {
   it("covers the 7x5x5 volume", () => {
     expect(FP_COLS).toBe(7);
@@ -78,32 +84,85 @@ describe("fp grid mapping", () => {
   it("spawns on the floor at the miner's cell when it is open", () => {
     // The proposed footprint centers the miner (local x 3), inside the
     // pre-mined spawn pocket, so the spawn is exactly there on the floor.
-    expect(fpSpawnCell(corridorBunker(), MINER_COL, MINER_ROW)).toEqual({
-      x: 3,
-      y: 0,
-      z: 0,
-    });
+    expect(
+      fpSpawnCell(solidOf(corridorBunker()), footprint, MINER_COL),
+    ).toEqual({ x: 3, y: 0, z: 0 });
   });
 
   it("never spawns inside undug rock when the miner entered off-center", () => {
-    const bunker = corridorBunker();
+    const solid = solidOf(corridorBunker());
     // A fresh claim opens only the 3-wide spawn pocket (local x 2..4) on
     // the floor. Entering at either edge column would land in solid rock;
     // the spawn snaps to the nearest open pocket cell instead.
-    expect(fpSpawnCell(bunker, footprint.col, MINER_ROW)).toEqual({
+    expect(fpSpawnCell(solid, footprint, footprint.col)).toEqual({
       x: 2,
       y: 0,
       z: 0,
     });
-    expect(fpSpawnCell(bunker, footprint.col + 6, MINER_ROW)).toEqual({
+    expect(fpSpawnCell(solid, footprint, footprint.col + 6)).toEqual({
       x: 4,
       y: 0,
       z: 0,
     });
     // Defensive clamp: a miner outside the claim still spawns in the pocket.
-    expect(fpSpawnCell(bunker, footprint.col - 10, footprint.row - 10)).toEqual(
-      { x: 2, y: 0, z: 0 },
+    expect(fpSpawnCell(solid, footprint, footprint.col - 10)).toEqual({
+      x: 2,
+      y: 0,
+      z: 0,
+    });
+  });
+
+  it("snaps off a part-occupied floor cell on a normal entry", () => {
+    // A placed part is a blocker even on a dug-open cell. Entering onto a
+    // walled center column must snap to the nearest standable pocket cell,
+    // not spawn the player inside the part (the review's normal-entry gap).
+    const bottomRow = footprint.row + footprint.height - 1;
+    const placed = placeBasePart(
+      corridorBunker(),
+      STARTER_BASE_PART_INVENTORY,
+      "wall-panel",
+      footprint.col + 3,
+      bottomRow,
+      0,
     );
+    if (!placed.ok) throw new Error(`place: ${placed.reason}`);
+    expect(fpSpawnCell(solidOf(placed.bunker), footprint, MINER_COL)).toEqual({
+      x: 2,
+      y: 0,
+      z: 0,
+    });
+  });
+
+  it("falls back to any standable cell when the whole front floor is walled off", () => {
+    // Wall every open cell on the floor-front row (the 3 pocket cells x2..4;
+    // x0,x1,x5,x6 are undug rock). With no standable floor-front cell, the
+    // spawn must still find an open cell (one row deep in the pocket) rather
+    // than trusting a centre that is itself blocked.
+    let bunker = corridorBunker();
+    let inventory = { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 5 };
+    const bottomRow = footprint.row + footprint.height - 1;
+    for (const x of [2, 3, 4]) {
+      const result = placeBasePart(
+        bunker,
+        inventory,
+        "wall-panel",
+        footprint.col + x,
+        bottomRow,
+        0,
+      );
+      if (!result.ok) throw new Error(`place: ${result.reason}`);
+      bunker = result.bunker;
+      inventory = result.inventory;
+    }
+    const solid = solidOf(bunker);
+    for (let x = 0; x < FP_COLS; x++) {
+      expect(fpCellBlocks(solid[fpCellIndex(x, 0, 0)])).toBe(true);
+    }
+    const spawn = fpSpawnCell(solid, footprint, MINER_COL);
+    expect(fpCellBlocks(solid[fpCellIndex(spawn.x, spawn.y, spawn.z)])).toBe(
+      false,
+    );
+    expect(spawn).toEqual({ x: 3, y: 0, z: 1 });
   });
 
   it("spawns at the exact entry column once that floor cell is dug open", () => {
@@ -122,7 +181,7 @@ describe("fp grid mapping", () => {
       expect(result.ok).toBe(true);
       if (result.ok) bunker = result.bunker;
     }
-    expect(fpSpawnCell(bunker, footprint.col + 6, MINER_ROW)).toEqual({
+    expect(fpSpawnCell(solidOf(bunker), footprint, footprint.col + 6)).toEqual({
       x: 6,
       y: 0,
       z: 0,

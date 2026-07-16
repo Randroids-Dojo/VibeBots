@@ -980,7 +980,13 @@ function BunkerFpRig({
   // tipped slightly down (FP_SPAWN_PITCH) so the floor grounds it.
   const moveRef = useRef<FpMoveState | null>(null);
   if (!moveRef.current) {
-    const cell = fpSpawnCell(bunker, entry.col, entry.row);
+    // Select against the built collision grid so the spawn avoids BOTH undug
+    // rock and any placed part on the entry column (not just the dug set).
+    const cell = fpSpawnCell(
+      solidRef.current ?? createFpSolidGrid(),
+      bunker.footprint,
+      entry.col,
+    );
     moveRef.current = {
       px: cell.x,
       py: -0.5,

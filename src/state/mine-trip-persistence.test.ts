@@ -17,13 +17,16 @@ import {
   setCell,
 } from "@/sim/mine";
 import {
+  anyRailResyncBlock,
   loadLocalTrip,
+  loadRailResyncBlock,
   localTripKey,
   normalizePendingBunker,
   removeLocalTrip,
   replaySavedTrip,
   type SavedTrip,
   saveLocalTrip,
+  saveRailResyncBlock,
   storedTripPendingBunkerIsCorrupt,
 } from "./mine-trip-persistence";
 
@@ -511,5 +514,34 @@ describe("pending bunker validation (F-112)", () => {
     const normalized = normalizePendingBunker(skinned);
     expect(normalized).not.toBeNull();
     expect(normalized?.bunker.skin).toBeUndefined();
+  });
+
+  it("round-trips the rail-resync block per slot", () => {
+    expect(loadRailResyncBlock(1)).toBe(false);
+
+    saveRailResyncBlock(1, true);
+    expect(loadRailResyncBlock(1)).toBe(true);
+    // The block is scoped to its own slot only.
+    expect(loadRailResyncBlock(2)).toBe(false);
+
+    saveRailResyncBlock(1, false);
+    expect(loadRailResyncBlock(1)).toBe(false);
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-rail-resync-blocked-slot-1",
+    );
+  });
+
+  it('treats any non-"1" stored rail-block value as unblocked', () => {
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-3", "true");
+    expect(loadRailResyncBlock(3)).toBe(false);
+  });
+
+  it("reports a block on ANY slot for the unresolved-slot fail-closed check", () => {
+    expect(anyRailResyncBlock()).toBe(false);
+    // A block on a slot other than the assumed active one still trips it.
+    saveRailResyncBlock(2, true);
+    expect(anyRailResyncBlock()).toBe(true);
+    saveRailResyncBlock(2, false);
+    expect(anyRailResyncBlock()).toBe(false);
   });
 });

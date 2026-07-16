@@ -80,10 +80,17 @@ function profile(
   };
 }
 
-function request(column?: number, expectedDepth?: number): Request {
+// expectedDepth is required by the route (the stale-rail guard), so every test
+// passes it explicitly to match its own mocked rail depth rather than rely on a
+// shared default that could silently drift from a test's profile. Pass null to
+// omit it entirely (the missing-expectedDepth 400 case).
+function request(
+  column: number | undefined,
+  expectedDepth: number | null,
+): Request {
   const payload: { column?: number; expectedDepth?: number } = {};
   if (column !== undefined) payload.column = column;
-  if (expectedDepth !== undefined) payload.expectedDepth = expectedDepth;
+  if (expectedDepth !== null) payload.expectedDepth = expectedDepth;
   return new Request("http://localhost/api/elevator/upgrade", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -221,8 +228,23 @@ describe("POST /api/elevator/upgrade", () => {
     expect(mockedDb).not.toHaveBeenCalled();
   });
 
+  it("rejects a request that omits expectedDepth fail-fast", async () => {
+    // A stale cached client without expectedDepth would bypass the stale-rail
+    // guard; the route rejects it before any read or charge.
+    const response = await POST(request(37, null));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-expected-depth-required",
+      error: "expectedDepth is required",
+    });
+    expect(mockedPlayer).not.toHaveBeenCalled();
+    expect(mockedDb).not.toHaveBeenCalled();
+    expect(mockedRecord).not.toHaveBeenCalled();
+  });
+
   it("requires a column when buying the first rail", async () => {
-    const response = await POST(request());
+    const response = await POST(request(undefined, 0));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -246,7 +268,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request(37));
+    const response = await POST(request(37, 0));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -306,7 +328,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -353,7 +375,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request(37));
+    const response = await POST(request(37, 4));
 
     expect(response.status).toBe(200);
     const body = await response.json();
@@ -408,7 +430,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request(-5));
+    const response = await POST(request(-5, 4));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -436,7 +458,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request(37));
+    const response = await POST(request(37, 4));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -455,7 +477,7 @@ describe("POST /api/elevator/upgrade", () => {
     );
     const sql = mockSql();
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
@@ -491,7 +513,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     await expect(response.json()).resolves.toMatchObject({
       elevator: 5,
@@ -527,7 +549,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     await expect(response.json()).resolves.toMatchObject({
       elevator: 5,
@@ -567,7 +589,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -602,7 +624,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -634,7 +656,7 @@ describe("POST /api/elevator/upgrade", () => {
     mockedProfile.mockResolvedValue(profile(4, 37));
     const sql = mockSql();
 
-    const response = await POST(request(38));
+    const response = await POST(request(38, 4));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -664,7 +686,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request(37));
+    const response = await POST(request(37, 0));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -690,7 +712,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -715,7 +737,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -740,7 +762,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -768,7 +790,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 4));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -853,7 +875,7 @@ describe("POST /api/elevator/upgrade", () => {
     mockedProfile.mockResolvedValue(profile(999, 37));
     const sql = mockSql();
 
-    const response = await POST(request());
+    const response = await POST(request(undefined, 999));
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -951,7 +973,7 @@ describe("POST /api/elevator/upgrade", () => {
       },
     });
 
-    const response = await POST(request(37));
+    const response = await POST(request(37, 0));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({

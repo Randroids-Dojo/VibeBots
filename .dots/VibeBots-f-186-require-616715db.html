@@ -15,6 +15,7 @@
 <section id="description">
 Before deleting a remote branch directly or as a merge side effect, require explicit current approval naming the branch and exact head. Detect repository auto-delete behavior in the merge preflight, prove the head is retained by the intended PR and main history, record the approval and deletion event, verify the ref is absent, and cover direct delete, merge-triggered delete, stale head, already-absent ref, missing approval, and approved cleanup.
 PR #239 adds a second verified occurrence: remote branch fix/rail-resync-blocking-recovery at head 6f26c6a0 was deleted after merge with no separate current approval naming the branch, exact head, mechanism, or reason. Keep the operator preflight fail closed for later cleanup commands as well as merge side effects.
+PR #240 adds the third verified occurrence: remote branch fix/elevator-expected-depth-required at head ae348390 was manually deleted at 15:45:23 UTC after merge with no separate current approval. The remote ref is absent.
 </section>
 </article>
 </body>

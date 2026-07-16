@@ -14,6 +14,7 @@
 <h1>F-172 Make post-merge deployment monitoring bounded and SHA-correct</h1>
 <section id="description">
 PR #231&#39;s post-merge watcher queried repos/&lt;repo&gt;/commits/&lt;sha&gt;/deployments, swallowed the resulting 422, and reported DEPLOY=none until a 25-minute deadline even though the production deployment had already succeeded. Provide a canonical SHA-pinned check using repos/&lt;repo&gt;/deployments?sha=&lt;sha&gt; plus the deployment-status endpoint or equivalent Vercel metadata. Fail visibly on API errors, implement the documented bounded grace exit, distinguish no deployment yet from a bad query, and test success, failure, superseded-main, and unavailable-auth paths without scraping protected production HTML.
+PR #232 repeated the invalid commits/&lt;sha&gt;/deployments request on exact head 49f2963e, received HTTP 422, and recovered only by reading the Vercel PR comment. The replacement must expose that 422 and must not let a comment fallback mask an invalid SHA query.
 </section>
 </article>
 </body>

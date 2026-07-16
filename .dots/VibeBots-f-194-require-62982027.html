@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-194 Require approval for destructive local cleanup</title>
+<meta name="dot-title" content="F-194 Require approval for destructive local cleanup">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T15:13:59.414650-05:00">
+</head>
+<body>
+<article>
+<h1>F-194 Require approval for destructive local cleanup</h1>
+<section id="description">
+The PR #243 session ran git worktree remove on its feature worktree with --force without user confirmation. The F-131 session then ran rm -rf on its scratch proof path twice without confirmation even though AGENTS Rule 6 explicitly requires confirmation before rm -rf and force removal. This is separate from F-186 remote branch deletion. Add a fail-closed destructive-action preflight that identifies the exact resolved path, ownership, symlink state, repository and worktree state, pending changes, and intended cleanup before execution. Prefer non-force worktree removal and scoped tool-managed cleanup. Require current user approval for every rm -rf, forced worktree removal, file or directory deletion, or equivalent destructive command, including self-created scratch paths. Approval must bind the exact command and canonical path and expire on path replacement, symlink change, scope expansion, workspace state change, or time expiry. Preserve another agent or user work and stop safely on uncertainty. Cover spaces, symlink escape, missing paths, root and home protections, dirty worktrees, concurrent agents, replaced paths, self-owned temp paths, approved non-force cleanup, and refused force cleanup. Tracking PR #190.
+</section>
+</article>
+</body>
+</html>

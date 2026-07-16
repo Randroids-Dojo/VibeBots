@@ -1392,6 +1392,109 @@ describe("mine store upgrade flow", () => {
     expect(store().gear.elevator).toBe(3);
   });
 
+  it("blocks on a 200 with a negative rail depth", async () => {
+    // The depth guard requires a non-negative integer. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse({ elevator: -2, elevatorColumn: 17, balance: 40 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().gear.elevator).toBe(3);
+  });
+
+  it("blocks on a code-less 500 rail-buy response (possibly committed)", async () => {
+    // A 5xx other than the app's 503 offline signal, with no decoded reason
+    // code, may have committed before failing, so it reconciles through the
+    // block rather than a dead-end note. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("persists the block on the buying slot even if the active slot drifts mid-POST", async () => {
+    // The block is persisted against the slot captured BEFORE the awaited POST,
+    // so a mid-flight activeSlot drift cannot mismark it onto another slot. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    let releasePost!: () => void;
+    const postHeld = new Promise<void>((resolve) => {
+      releasePost = resolve;
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        await postHeld;
+        throw new Error("network down");
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const buy = store().buyElevator();
+    await vi.waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/elevator/upgrade",
+        expect.anything(),
+      ),
+    );
+    // Drift the active slot while the POST is still in flight.
+    useMineStore.setState({ activeSlot: 2 });
+    releasePost();
+    await buy;
+
+    // The block landed on the buying slot (1), not the drifted active slot (2).
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+    expect(
+      localStorage.getItem("vibebots-rail-resync-blocked-slot-2"),
+    ).toBeNull();
+  });
+
   it("fails closed from another slot's marker on an unresolved cold offline load", async () => {
     // Slot 2 has a persisted block whose failed resync deleted its trip. A cold
     // store defaults to slot 1 and cannot resolve the real slot offline, so it

@@ -1914,10 +1914,13 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // An uncertain outcome (a lost transport response, or a 200 whose body is
       // not the expected shape) may or may not have committed the charge on the
       // server. Enter the reload-durable stale-rail block so the next action is a
-      // resync to authoritative state rather than a blind second buy: the server
-      // expectedDepth guard plus the durable request outbox (F-121) make that
-      // reconciliation idempotent, so a lost-after-commit response cannot advance
-      // a second row. (partial F-190; the retained-identity replay stays open)
+      // resync to authoritative state rather than a blind second buy. The server
+      // expectedDepth guard rejects a stale FRESH-id retry that would advance a
+      // second row, and the fetched rail depth is the committed-or-not outcome,
+      // so this reconciles safely. (The #243 durable outbox would additionally
+      // dedup a SAME-id resend, but this client still mints a fresh id per
+      // attempt and does not yet resend the uncertain id: retained-identity
+      // replay is the open F-190 remainder.)
       const blockOnUncertainRailOutcome = () => {
         saveRailResyncBlock(requestSlot, true);
         set({

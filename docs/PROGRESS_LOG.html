@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="thin-slot-shared-face-activation" data-date="2026-07-15">
+    <h3>Make every bunker excavation face and activation boundary explicit</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Extended F-117 and its existing HTML Dot after exact-head review of PR #230 found that its deferred excavation wording named walls and doors but did not define vertical floor planes or the complete no-activation boundary. The durable acceptance now evaluates each open neighbor with its exact shared plane, treats live walls and closed doors as horizontal barriers and the upper cell's live floor as a vertical barrier, ignores destroyed barriers, and requires at least one unobstructed face. It also requires exact-slot live-raid settlement and dependent-mount settlement before any UI, wire, persistence, bank, or raid path activates slots.</dd>
+      <dt>Verification</dt><dd>Traced <code>excavateBunkerCell</code> and confirmed current reachability accepts any open neighbor without inspecting the shared plane. Compared the horizontal wall and closed-door acceptance with the floor slot geometry and the direct top-row roof decision. Confirmed a floor belongs to the upper cell on the vertical shared plane, while a valid roof occupies only the outer top boundary and has no valid in-claim target above it. Compared PR #230 exact head <code>4b3ddc1e</code> with F-117 and confirmed the PR correction records deferred the work but did not durably add the complete activation gate to its local followup ledger.</dd>
+      <dt>Assumptions</dt><dd>F-117 remains the single owner. This tracking update does not implement excavation blocking, activate slotted state, approve PR #230, or authorize a merge, bypass, rollback, or branch cleanup. A blocked neighbor does not make the target unreachable when a different adjacent open cell has an unobstructed face.</dd>
+      <dt>GDD coverage</dt><dd>None. REQ-046 remains partial. This sharpens authoritative acceptance for the approved thin-part design without changing runtime or player-facing rules.</dd>
+      <dt>Followups</dt><dd>No new followup. Extended F-117 and Dot <code>VibeBots-f-117-rework-8a28b100</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="atomic-bunker-inventory-followup" data-date="2026-07-15">
     <h3>Keep bunker layouts and part inventory in one commit</h3>
     <dl>

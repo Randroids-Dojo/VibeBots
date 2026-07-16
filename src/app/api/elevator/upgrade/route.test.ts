@@ -136,10 +136,12 @@ type ReloadRow = InventoryOverrides & {
 
 function mockSql({
   diff = [],
+  tripCount = 2,
   updated,
   reloaded,
 }: {
   diff?: WorldDiff;
+  tripCount?: number;
   updated?:
     | (InventoryOverrides & {
         emeralds: number;
@@ -162,7 +164,7 @@ function mockSql({
         : [{ ...INVENTORY_COLUMNS, ...reloaded }];
     }
     if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
-      return [{ diff, trip_count: 2 }];
+      return [{ diff, trip_count: tripCount }];
     }
     if (query.includes("UPDATE players")) {
       return updated === null
@@ -1228,18 +1230,29 @@ describe("POST /api/elevator/upgrade", () => {
         reason: null,
       });
 
-      // The commit advanced the stored depth to 1 and confirmed placement; the
-      // client never saw the response and retries the identical request(37, 0).
-      mockedProfile.mockResolvedValue(profile(1, 37));
-      const retry = mockSql();
+      // Call 2 loads the EXACT state call 1 committed and returned: balance 75,
+      // depth 1, column 37, placement confirmed, ladders 9, planks 4, tripIndex
+      // 3. The client never saw the response and retries the identical
+      // request(37, 0).
+      mockedProfile.mockResolvedValue(
+        profile(1, 37, { emeralds: 75, ladder_count: 9, plank_count: 4 }),
+      );
+      const retry = mockSql({ tripCount: 3 });
       const second = await POST(request(37, 0));
 
       expect(second.status).toBe(409);
+      // Assert every ElevatorState field on the authoritative reject bundle.
       await expect(second.json()).resolves.toMatchObject({
         code: "elevator-stale-rail-state",
+        balance: 75,
         elevator: 1,
         elevatorColumn: 37,
-        gear: expect.objectContaining({ elevator: 1 }),
+        ladders: 9,
+        planks: 4,
+        tripIndex: 3,
+        elevatorPlacementRequired: false,
+        gear: expect.objectContaining({ elevator: 1, elevatorColumn: 37 }),
+        consumables: expect.objectContaining({ ladder: 9, plank: 4 }),
       });
       expect(mockedOutcome).toHaveBeenLastCalledWith({
         playerId: "player-1",
@@ -1247,8 +1260,9 @@ describe("POST /api/elevator/upgrade", () => {
         result: "rejected",
         reason: "elevator-stale-rail-state",
       });
-      // Exactly one write and one balance event across the pair; the retry adds
-      // neither, and the outcome intent is accepted then rejected.
+      // One UPDATE in the accepted first request and zero in the retry; one
+      // balance event across the pair (the retry adds neither); outcome intent
+      // is accepted then rejected.
       expect(writeCount(retry)).toBe(0);
       expect(mockedRecord).toHaveBeenCalledTimes(1);
       expect(mockedOutcome).toHaveBeenCalledTimes(2);
@@ -1281,19 +1295,28 @@ describe("POST /api/elevator/upgrade", () => {
         reason: null,
       });
 
-      // The relocation committed the placement marker and column but left the
-      // depth at 4. The client retries the identical request(37, 4).
-      mockedProfile.mockResolvedValue(profile(4, 37));
-      const retry = mockSql();
+      // Call 2 loads the EXACT state call 1 committed: the placement marker and
+      // column 37 are set, the depth is still 4, the free relocation left the
+      // balance at 100 and the inventory untouched, tripIndex 3. The client
+      // retries the identical request(37, 4).
+      mockedProfile.mockResolvedValue(profile(4, 37, { emeralds: 100 }));
+      const retry = mockSql({ tripCount: 3 });
       const second = await POST(request(37, 4));
 
       expect(second.status).toBe(409);
+      // Assert every ElevatorState field on the authoritative reject bundle.
       await expect(second.json()).resolves.toMatchObject({
         code: "elevator-stale-rail-state",
         error: "elevator placement was already confirmed",
+        balance: 100,
         elevator: 4,
         elevatorColumn: 37,
-        gear: expect.objectContaining({ elevator: 4 }),
+        ladders: 8,
+        planks: 4,
+        tripIndex: 3,
+        elevatorPlacementRequired: false,
+        gear: expect.objectContaining({ elevator: 4, elevatorColumn: 37 }),
+        consumables: expect.objectContaining({ ladder: 8, plank: 4 }),
       });
       expect(mockedOutcome).toHaveBeenLastCalledWith({
         playerId: "player-1",
@@ -1301,8 +1324,9 @@ describe("POST /api/elevator/upgrade", () => {
         result: "rejected",
         reason: "elevator-stale-rail-state",
       });
-      // The retry did NOT become a paid extension: no second write, and no
-      // balance event ever fired across the free-relocation pair.
+      // One UPDATE in the accepted first request and zero in the retry: it did
+      // NOT become a paid extension, and no balance event ever fired across the
+      // free-relocation pair.
       expect(writeCount(retry)).toBe(0);
       expect(mockedRecord).not.toHaveBeenCalled();
       expect(mockedOutcome).toHaveBeenCalledTimes(2);

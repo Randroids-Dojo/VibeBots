@@ -500,10 +500,10 @@ export async function POST(request: Request): Promise<Response> {
   // already confirmed. This is a lost-success retry of an already committed free
   // relocation: relocation sets the placement marker and column but leaves depth
   // unchanged, so the identical retry passes the stale-depth guard, and without
-  // this check it would fall through to the paid extension and CHARGE for the
-  // next row. Reject with authoritative state so it cannot double-charge; a
-  // genuine extend omits the column and is unaffected. The different-column case
-  // is already handled above; this catches the same-column retry.
+  // this check it would fall through to the paid extension, an unintended charge
+  // and a second mutation the user never asked for. Reject with authoritative
+  // state; a genuine extend omits the column and is unaffected. The
+  // different-column case is handled above; this catches the same-column retry.
   if (operation === "relocate") {
     return rejectOutcome(
       "elevator-stale-rail-state",

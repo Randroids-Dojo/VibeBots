@@ -556,7 +556,9 @@ export async function POST(request: Request): Promise<Response> {
       fromDepth: depth,
       toDepth: updated[0].elevator_depth,
       row: updated[0].elevator_depth,
-      column: updated[0].elevator_col,
+      // Bounded placement state, never the player-chosen shaft column (F-121):
+      // the exact column is a location coordinate with no economy-tuning value.
+      placement: depth === 0 ? "placed" : "extended",
       price,
       refundedLadders,
       refundedPlanks,

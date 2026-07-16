@@ -21,6 +21,7 @@ import {
 } from "@/sim/mine";
 import {
   achievementProgressForTrip,
+  cashOutRequestSummary,
   chargeableConsumables,
   gearOwnershipError,
   POST,
@@ -1116,13 +1117,35 @@ describe("mine bank policy helpers", () => {
         owned,
       ),
     ).toBeNull();
-    expect(
-      gearOwnershipError(
-        { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 28 },
-        owned,
-      ),
-    ).toBe("rail not owned: column 28");
+    // The error carries a bounded state, never the exact submitted column
+    // (F-121): a disagreeing column is "mismatch".
+    const mismatch = gearOwnershipError(
+      { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 28 },
+      owned,
+    );
+    expect(mismatch).toBe("rail not owned: column mismatch");
+    expect(mismatch).not.toMatch(/\d/);
     expect(gearOwnershipError(DEFAULT_GEAR, owned)).toBeNull();
+  });
+
+  it("keeps the shaft column out of the cash-out request summary (F-121)", () => {
+    // The validation summary and the gear_not_owned event both build their gear
+    // digest through this helper, so a submitted elevatorColumn must never
+    // survive into telemetry as a coordinate.
+    const summary = cashOutRequestSummary({
+      seed: 1,
+      tripIndex: 0,
+      mineVersion: MINE_VERSION,
+      moves: ["down"],
+      gear: { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 42 },
+      consumables: NO_CONSUMABLES,
+    });
+    const gearSummary = summary.gear as Record<string, unknown>;
+    expect(gearSummary).not.toHaveProperty("elevatorColumn");
+    // The rail DEPTH is a bounded level and stays for validation debugging.
+    expect(gearSummary.elevator).toBe(4);
+    // No field anywhere in the summary retains the exact shaft column.
+    expect(JSON.stringify(summary)).not.toContain("42");
   });
 
   it("accepts missing column data for a legacy fixed-column rail", () => {

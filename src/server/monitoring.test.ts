@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   logAccountLinkEvent,
   logAppClientErrorEvent,
+  logElevatorOutcomeEvent,
   logMineCashOutEvent,
   logMineClientDiagnosticEvent,
 } from "./monitoring";
@@ -185,6 +186,93 @@ describe("account link monitoring", () => {
     expect(parsed.account).toMatch(/^[0-9a-f]{16}$/);
     expect(parsed.player).toMatch(/^[0-9a-f]{16}$/);
     expect(parsed.targetPlayer).toMatch(/^[0-9a-f]{16}$/);
+
+    spy.mockRestore();
+  });
+});
+
+describe("elevator mutation-outcome monitoring", () => {
+  it("writes info JSON with no reason for an accepted mutation", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      operation: "extend",
+      result: "accepted",
+      reason: null,
+      playerId: "player-1",
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const raw = String(spy.mock.calls[0][0]);
+    expect(raw).not.toContain("player-1");
+    const parsed = JSON.parse(raw);
+    expect(parsed).toMatchObject({
+      source: "vibebots",
+      component: "elevator.upgrade",
+      event: "elevator.upgrade.accepted",
+      alert: false,
+      severity: "info",
+      operation: "extend",
+      result: "accepted",
+    });
+    expect(parsed).not.toHaveProperty("reason");
+    expect(parsed.player).toMatch(/^[0-9a-f]{16}$/);
+
+    spy.mockRestore();
+  });
+
+  it("writes non-alarming info JSON with the reason for a rejected mutation", () => {
+    // A routine reject (insufficient balance, stale-rail guard, and the like) is
+    // a normal product outcome, so it must not page: info severity, alert false.
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      operation: "place",
+      result: "rejected",
+      reason: "elevator-stale-rail-state",
+      playerId: "player-1",
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    const parsed = JSON.parse(String(infoSpy.mock.calls[0][0]));
+    expect(parsed).toMatchObject({
+      component: "elevator.upgrade",
+      event: "elevator.upgrade.rejected",
+      alert: false,
+      severity: "info",
+      operation: "place",
+      result: "rejected",
+      reason: "elevator-stale-rail-state",
+    });
+
+    infoSpy.mockRestore();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it("logs a pre-auth reject with a reason but no operation or player", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      result: "rejected",
+      reason: "elevator-expected-depth-required",
+    });
+
+    const parsed = JSON.parse(String(spy.mock.calls[0][0]));
+    expect(parsed).toMatchObject({
+      component: "elevator.upgrade",
+      event: "elevator.upgrade.rejected",
+      alert: false,
+      severity: "info",
+      result: "rejected",
+      reason: "elevator-expected-depth-required",
+    });
+    expect(parsed).not.toHaveProperty("operation");
+    expect(parsed).not.toHaveProperty("player");
 
     spy.mockRestore();
   });

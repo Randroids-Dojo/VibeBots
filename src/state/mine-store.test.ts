@@ -1568,7 +1568,12 @@ describe("mine store upgrade flow", () => {
       if (url === "/api/mine/world") {
         worldFetches += 1;
         await worldHeld;
-        return jsonResponse({ activeSlot: 1, seed: 123, tripIndex: 4, diff: [] });
+        return jsonResponse({
+          activeSlot: 1,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
       }
       if (url === "/api/gear") {
         return jsonResponse({ gear, consumables: NO_CONSUMABLES, balance: 40 });

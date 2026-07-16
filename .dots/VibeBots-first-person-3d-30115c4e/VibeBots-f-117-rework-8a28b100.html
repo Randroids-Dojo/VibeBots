@@ -13,7 +13,7 @@
 <article>
 <h1>F-117 Rework bunker pieces into thin modular slots</h1>
 <section id="description">
-F-117: Add thin floor, wall, roof, and stair slots with orientation, collision, support cascades, confirmed hard reset for incompatible old layouts, and deterministic tests.
+F-117: Add thin floor, wall, roof, and stair slots with orientation, collision, support cascades, and a confirmed hard reset for incompatible old layouts. Before any slot write, validate the requested origin and slot before canonicalizing identity through shared wire, persistence, bank equality, and live-raid snapshot, lookup, report, and wear settlement paths. Route placement, removal, excavation, and raid-wear destruction through one deterministic post-mutation support settlement path that ignores destroyed supports. Prove multiple parts in one cell remain independently addressable and never share durability by accident, prove out-of-bounds requests cannot alias into valid walls, and prove every support-changing mutation drops or rejects newly unsupported floors.
 </section>
 </article>
 </body>

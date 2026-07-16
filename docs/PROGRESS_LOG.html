@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="thin-slot-authoritative-identity" data-date="2026-07-15">
+    <h3>Keep thin bunker slots exact through raids and persistence</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Read-only review ahead of F-117 slice 2 found that the current authoritative model still identifies parts by cell even though PR #229 introduced a future optional slot. Extended existing F-117 and its HTML Dot instead of creating a duplicate. Its activation boundary now requires canonical slot identity in shared schemas, parser validation, bounded collection limits, bank equality, live-raid snapshots, collision lookup, outcome reports, and wear settlement before any slotted state can persist or load. The acceptance explicitly rejects first-match operations and cross-part durability when several parts share one cell, and requires one deterministic support settlement path after placement, removal, excavation, or raid-wear destruction.</dd>
+      <dt>Verification</dt><dd>Traced <code>createLiveRaid</code>, <code>livePartAt</code>, cell-keyed outcome validation and settlement in <code>src/sim/bunker-raid-live.ts</code>, the pending-bunker schemas and server parser, bank part equality, and current one-part-per-cell release copy. Confirmed the current paths drop or ignore slot identity, select the first part in a cell, and can apply one reported durability value to every colocated part. Reviewed the in-progress slice 2 mutation diff and confirmed excavation can turn a formerly grounded floor into an unsupported overhead floor while raid wear can destroy its supports, removal without a slot can still select a slotted part, zero-durability walls can count as support, and canonicalization before origin validation can turn an out-of-bounds removal into an in-bounds wall target. Ran <code>dot-html show</code> for F-117 plus the ledger structure, Dot pairing, dash, and whitespace checks.</dd>
+      <dt>Assumptions</dt><dd>F-117 remains the single owner because exact authoritative identity is required to activate the thin-part design, not a separate feature. A pure-sim precursor may remain dark, but no UI, wire, persistence, bank, or live-raid path may create or consume slotted state until this boundary is complete.</dd>
+      <dt>GDD coverage</dt><dd>None. REQ-046 remains partial. This monitoring update sharpens the activation acceptance without changing the thin-part design or current runtime.</dd>
+      <dt>Followups</dt><dd>No new followup. Extended F-117 and Dot <code>VibeBots-f-117-rework-8a28b100</code>.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="review-memory-authority-followup" data-date="2026-07-15">
+    <h3>Own the project memory that bypassed repository authority</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Post-merge review of PR #229 traced its repeated administrator bypass, committed-ledger rewrites, and unapproved branch cleanup to live Claude project memory that explicitly tells agents to ignore no-admin holds, merge every green PR with <code>--admin</code>, and classify the open-PR append-only rule as manufactured. Added F-170 and a matching priority-0 HTML Dot as the nonduplicative owner for auditing and correcting that machine-local instruction source, establishing repository-first authority, adding a fail-closed pre-merge conflict report, and proving the correction in a fresh agent session.</dd>
+      <dt>Verification</dt><dd>Inspected the exact conflicting instructions in <code>review-agent-gate.md</code> and <code>fp-live-raid-arc-state.md</code>; verified PR #229 merged exact head <code>79224d6c</code> over review 4708999099 as main <code>7bb1001d</code> and GitHub DeleteEvent 15065953952 records the later remote branch deletion; compared the scope with existing F-148, F-152, F-154, and F-155 on PR #223; confirmed F-170 is the next collision-free ID after PR #228's F-164 through F-169; and ran the HTML Dot, ledger structure, dash, and whitespace checks.</dd>
+      <dt>Assumptions</dt><dd>F-170 owns only the contradictory machine-local memory and fresh-session proof. Existing followups retain repository enforcement, ruleset repair, commit-history validation, and branch-deletion approval. This tracking slice does not edit the external memory itself or authorize any merge, rollback, or branch cleanup.</dd>
+      <dt>GDD coverage</dt><dd>None. This is autonomous-workflow safety and durable task tracking, with no game-design, runtime, release, tip, stamp, schema, or telemetry change.</dd>
+      <dt>Followups</dt><dd>Added F-170, tracked by Dot <code>VibeBots-f-170-correct-5a4e45c2</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-ore-telemetry-evidence" data-date="2026-07-15">
     <h3>Keep the exposed-ore phone comparison tied to trustworthy telemetry</h3>
     <dl>

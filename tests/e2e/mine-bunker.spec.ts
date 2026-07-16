@@ -690,6 +690,26 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
     "data-fp-mode",
     "1",
   );
+  // Spawn safety (F-120 collision-aware spawn): driving the real reset
+  // response, the fp remount, the spawn call site, and the rendered rig, the
+  // player must land grounded on open floor, never embedded in a blocker. The
+  // rig publishes the actual eye pose: a floor spawn reads eye y 0.22
+  // (py -0.5 + eye height 0.72), so a spawn inside rock or a part would either
+  // never ground or report a different height.
+  const fpCanvas = page.locator("canvas");
+  await expect
+    .poll(async () => fpCanvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  await expect
+    .poll(async () => fpCanvas.getAttribute("data-fp-grounded"), {
+      timeout: 20_000,
+    })
+    .toBe("1");
+  await expect
+    .poll(async () => Number(await fpCanvas.getAttribute("data-fp-eye-y")))
+    .toBeCloseTo(0.22, 1);
   await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
     "aria-label",
     "Wall x6",

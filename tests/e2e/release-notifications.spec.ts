@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
+    "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "fills in the ore it should have had",
+    "You now always spawn on the floor of the open starter room",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.273", "Spawn in the room, not inside the wall"],
     ["0.1.272", "Old bunkers show their ore again"],
     ["0.1.271", "Old bunkers need a fresh start"],
     ["0.1.270", "The bunker core is gone"],

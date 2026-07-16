@@ -980,19 +980,28 @@ function BunkerFpRig({
   // tipped slightly down (FP_SPAWN_PITCH) so the floor grounds it.
   const moveRef = useRef<FpMoveState | null>(null);
   if (!moveRef.current) {
-    const cell = fpSpawnCell(bunker.footprint, entry.col, entry.row);
+    // Select against the built collision grid so the spawn avoids BOTH undug
+    // rock and any placed part on the entry column (not just the dug set).
+    const cell = fpSpawnCell(
+      solidRef.current ?? createFpSolidGrid(),
+      bunker.footprint,
+      entry.col,
+    );
     moveRef.current = {
       px: cell.x,
-      py: -0.5,
+      // Feet sit at the bottom of the chosen cell (py = y - 0.5 inverts the
+      // frame loop's feetY = round(py), so y 0 keeps the prior -0.5). The
+      // spawn is normally a floor cell (y 0); the fallback can return a
+      // higher standable cell when the whole floor is walled, and honoring
+      // its y here is what keeps the rig out of the blocked floor cell.
+      py: cell.y - 0.5,
       pz: -cell.z,
       vx: 0,
       vy: 0,
       vz: 0,
       grounded: true,
     };
-    // Feet start on the room floor (py -0.5 is cell y 0) regardless of
-    // the miner's row; the frame loop keeps this in sync afterwards.
-    occupiedCellRef.current = fpCellIndex(cell.x, 0, cell.z);
+    occupiedCellRef.current = fpCellIndex(cell.x, cell.y, cell.z);
   }
 
   // Aim the camera before the first frame so the compile-gated first

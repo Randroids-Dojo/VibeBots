@@ -130,26 +130,66 @@ export function fpLocalFromGrid(
   return out;
 }
 
-/** The local cell the player spawns in: the miner's mine-grid cell on
- * the tunnel plane (z 0), clamped into the footprint defensively. */
+/**
+ * The local cell the player spawns in. The rig plants the feet on the room
+ * floor (local y 0) at the front depth (z 0), so the spawn cell MUST be a
+ * STANDABLE floor-front cell or the player materializes inside a blocker.
+ * We select against the final collision grid, which stamps BOTH undug claim
+ * rock (every cell starts solid; only the dug set, including the pre-mined
+ * spawn pocket, is open) AND placed parts (walls, floors, roofs, turrets),
+ * so a normal entry into a built-out base cannot land inside a part either.
+ * Returns the standable floor-front cell nearest the miner's entry column,
+ * scanning outward. If the whole front floor row is walled off, it takes any
+ * standable cell in the volume (preferring the lowest, nearest-to-front,
+ * nearest-to-entry one, so gravity and the movement push-out settle it in a
+ * step) rather than trusting a centre that could also be blocked, and only
+ * falls back to the footprint centre when nothing is open at all (which the
+ * preserved pocket rules out). The miner's row is ignored: the rig grounds
+ * the player on the floor regardless of where along the tunnel they entered.
+ */
 export function fpSpawnCell(
+  solid: FpSolidGrid,
   footprint: BunkerFootprint,
   minerCol: number,
-  minerRow: number,
 ): FpLocalCell {
-  const col = Math.min(
-    Math.max(minerCol, footprint.col),
-    footprint.col + footprint.width - 1,
+  const clampedLocal = Math.min(
+    Math.max(minerCol - footprint.col, 0),
+    FP_COLS - 1,
   );
-  const row = Math.min(
-    Math.max(minerRow, footprint.row),
-    footprint.row + footprint.height - 1,
-  );
-  return {
-    x: col - footprint.col,
-    y: footprint.row + footprint.height - 1 - row,
-    z: 0,
-  };
+  // 1) Nearest standable cell on the floor-front row, scanning outward.
+  for (let d = 0; d < FP_COLS; d++) {
+    const left = clampedLocal - d;
+    if (left >= 0 && !fpCellBlocks(solid[fpCellIndex(left, 0, 0)])) {
+      return { x: left, y: 0, z: 0 };
+    }
+    const right = clampedLocal + d;
+    if (
+      d > 0 &&
+      right < FP_COLS &&
+      !fpCellBlocks(solid[fpCellIndex(right, 0, 0)])
+    ) {
+      return { x: right, y: 0, z: 0 };
+    }
+  }
+  // 2) Front floor fully blocked: take any standable cell, scored so the
+  // lowest / nearest-to-front / nearest-to-entry one wins (a short fall).
+  let best: FpLocalCell | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (let y = 0; y < FP_ROWS; y++) {
+    for (let z = 0; z < FP_DEPTH; z++) {
+      for (let x = 0; x < FP_COLS; x++) {
+        if (fpCellBlocks(solid[fpCellIndex(x, y, z)])) continue;
+        const score = y * 1000 + z * 100 + Math.abs(x - clampedLocal);
+        if (score < bestScore) {
+          bestScore = score;
+          best = { x, y, z };
+        }
+      }
+    }
+  }
+  if (best) return best;
+  // 3) Nothing open anywhere (impossible while the pocket is preserved).
+  return { x: Math.floor(FP_COLS / 2), y: 0, z: 0 };
 }
 
 /**

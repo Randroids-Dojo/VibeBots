@@ -785,6 +785,17 @@ describe("mine API client", () => {
       {},
     );
 
+    await buyRemoteElevator(-17, 3);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      column: -17,
+      expectedDepth: 3,
+    });
+
+    await buyRemoteElevator(undefined, 4);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      expectedDepth: 4,
+    });
+
     await teleportRemoteBase(7);
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/mine/base-teleport");
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({

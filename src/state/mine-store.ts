@@ -101,6 +101,29 @@ export type {
 } from "./mine-api-client";
 
 /**
+ * Player-facing note for a rejected rail buy, keyed off the server's stable
+ * reason code (F-121). The screen has already adopted the authoritative rail
+ * state by the time this shows, so every message reads as "we refreshed you"
+ * rather than a dead end.
+ */
+function elevatorConflictNote(code: string | null): string {
+  switch (code) {
+    case "elevator-insufficient-balance":
+      return "not enough vibes for the next rail";
+    case "elevator-stale-rail-state":
+      return "your rail moved; refreshed to the latest";
+    case "elevator-stale-checkpoint":
+      return "the mine changed under you; refreshed the tower";
+    case "elevator-rail-at-bottom":
+      return "the rail already reaches the mine bottom";
+    case "elevator-concurrent-loss":
+      return "another change landed first; try again";
+    default:
+      return "purchase failed";
+  }
+}
+
+/**
  * Multi-device conflict state (REQ-042). "prompt" means another device
  * advanced the cloud save while this one holds real trip progress; the
  * player must choose to sync (dropping the run) or keep playing. A
@@ -1609,13 +1632,49 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const banked = await get().submitCashOut();
         if (!banked) return false;
       }
-      const res = await buyRemoteElevator(column);
+      const res = await buyRemoteElevator(column, get().gear.elevator);
       if (res.status === 503) {
         set({ shopNote: "the tower ledger is offline; nothing was charged" });
         return false;
       }
       if (!res.ok) {
         const body = res.body as Record<string, unknown> | null;
+        // A rejected buy carries the authoritative rail state (F-121). Adopt it
+        // wholesale so the controls re-enable against the truth, and so a stale
+        // or retried buy the server refused cannot leave the client believing
+        // it advanced a row.
+        if (body && typeof body.elevator === "number") {
+          const { gear: g, consumables: c, tick: t } = get();
+          const nextConsumables: MineConsumables = { ...c };
+          if (typeof body.ladders === "number")
+            nextConsumables.ladder = body.ladders;
+          if (typeof body.planks === "number")
+            nextConsumables.plank = body.planks;
+          set({
+            gear: {
+              ...g,
+              elevator: body.elevator,
+              elevatorColumn:
+                typeof body.elevatorColumn === "number"
+                  ? body.elevatorColumn
+                  : g.elevatorColumn,
+            },
+            consumables: nextConsumables,
+            balance:
+              typeof body.balance === "number" ? body.balance : get().balance,
+            elevatorPlacementRequired: body.elevatorPlacementRequired === true,
+            tripIndex:
+              typeof body.tripIndex === "number"
+                ? body.tripIndex
+                : get().tripIndex,
+            shopNote: elevatorConflictNote(
+              typeof body.code === "string" ? body.code : null,
+            ),
+            tick: t + 1,
+          });
+          persistCurrentTrip();
+          return false;
+        }
         set({
           shopNote:
             body && typeof body.error === "string"
@@ -1668,12 +1727,25 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         refundedLadders + refundedPlanks > 0
           ? `; recovered ${refundedLadders} ladders and ${refundedPlanks} planks`
           : "";
+      // Replace support stock from the accepted response (F-121). The server
+      // count already folds in the refund, so adopt it rather than adding the
+      // refund to possibly-stale local stock, which a lost-success retry or a
+      // concurrent inventory change would otherwise double-count. Older servers
+      // omit the counts, so fall back to the local merge.
+      const owned = addConsumables(consumables, bought);
+      if (typeof body.ladders === "number") {
+        owned.ladder = body.ladders;
+      } else {
+        owned.ladder += refundedLadders;
+      }
+      if (typeof body.planks === "number") {
+        owned.plank = body.planks;
+      } else {
+        owned.plank += refundedPlanks;
+      }
       if (surfaceOnlyLog(moves)) {
         // Same rule as gear: rail applies to the live trip only while
         // the log is pure surface walks (replay-identical).
-        const owned = addConsumables(consumables, bought);
-        owned.ladder += refundedLadders;
-        owned.plank += refundedPlanks;
         const rebuilt = createMine(s0, nextGear, owned, nextBaseDiff);
         for (const m of moves) applyAction(rebuilt, m);
         saveLocalTrip(get().activeSlot, {
@@ -1701,9 +1773,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tick: tick + 1,
         });
       } else {
-        const owned = addConsumables(consumables, bought);
-        owned.ladder += refundedLadders;
-        owned.plank += refundedPlanks;
         set({
           gear: nextGear,
           consumables: owned,

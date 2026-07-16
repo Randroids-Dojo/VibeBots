@@ -80,17 +80,31 @@ function profile(
   };
 }
 
-function request(column?: number): Request {
+function request(column?: number, expectedDepth?: number): Request {
+  const payload: { column?: number; expectedDepth?: number } = {};
+  if (column !== undefined) payload.column = column;
+  if (expectedDepth !== undefined) payload.expectedDepth = expectedDepth;
   return new Request("http://localhost/api/elevator/upgrade", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(column === undefined ? {} : { column }),
+    body: JSON.stringify(payload),
   });
 }
+
+type ReloadRow = {
+  emeralds: number;
+  elevator_depth: number;
+  elevator_col: number | null;
+  ladder_count: number;
+  plank_count: number;
+  elevator_placement_chosen_at: string | null;
+  trip_count: number | null;
+};
 
 function mockSql({
   diff = [],
   updated,
+  reloaded,
 }: {
   diff?: WorldDiff;
   updated?: {
@@ -102,9 +116,14 @@ function mockSql({
     refund_legacy_supports?: boolean;
     trip_index?: number;
   } | null;
+  reloaded?: ReloadRow | null;
 } = {}) {
   const sql = vi.fn(async (strings: TemplateStringsArray) => {
     const query = strings.join(" ");
+    // The post-conflict re-read for the authoritative reject bundle (F-121).
+    if (query.includes("LEFT JOIN mine_worlds")) {
+      return reloaded === undefined || reloaded === null ? [] : [reloaded];
+    }
     if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
       return [{ diff, trip_count: 2 }];
     }
@@ -181,8 +200,11 @@ describe("POST /api/elevator/upgrade", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-column-required",
       error: "choose a surface column for the elevator shaft",
+      elevator: 0,
+      elevatorColumn: null,
     });
   });
 
@@ -353,17 +375,32 @@ describe("POST /api/elevator/upgrade", () => {
     });
   });
 
-  it("returns a conflict when another request wins the free placement", async () => {
+  it("returns a stale-rail conflict when another request wins the free placement", async () => {
     mockedProfile.mockResolvedValue(
       profile(4, -5, { elevator_placement_chosen_at: null }),
     );
-    mockSql({ updated: null });
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 100,
+        elevator_depth: 4,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: "now",
+        trip_count: 2,
+      },
+    });
 
     const response = await POST(request(37));
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-stale-rail-state",
       error: "elevator placement was already confirmed",
+      elevator: 4,
+      elevatorColumn: 37,
+      elevatorPlacementRequired: false,
     });
     expect(mockedRecord).not.toHaveBeenCalled();
   });
@@ -377,8 +414,11 @@ describe("POST /api/elevator/upgrade", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-column-required",
       error: "choose a surface column for the elevator shaft",
+      elevator: 4,
+      elevatorPlacementRequired: true,
     });
     expect(
       sql.mock.calls.some(([strings]) =>
@@ -553,9 +593,11 @@ describe("POST /api/elevator/upgrade", () => {
     const response = await POST(request(38));
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-stale-rail-state",
       error: "elevator shaft is already placed",
-      column: 37,
+      elevator: 4,
+      elevatorColumn: 37,
     });
     expect(
       sql.mock.calls.some(([strings]) =>
@@ -564,14 +606,158 @@ describe("POST /api/elevator/upgrade", () => {
     ).toBe(false);
   });
 
-  it("keeps the purchase atomic when the balance or depth guard loses", async () => {
-    mockSql({ updated: null });
+  it("classifies a losing extend as insufficient balance from the re-read", async () => {
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 10,
+        elevator_depth: 0,
+        elevator_col: null,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: null,
+        trip_count: 2,
+      },
+    });
 
     const response = await POST(request(37));
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
-      error: "not enough vibes (or already extended)",
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-insufficient-balance",
+      balance: 10,
+      elevator: 0,
+    });
+    expect(mockedRecord).not.toHaveBeenCalled();
+  });
+
+  it("classifies a losing extend as a moved rail when the depth advanced", async () => {
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 100,
+        elevator_depth: 5,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: "now",
+        trip_count: 2,
+      },
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-stale-rail-state",
+      elevator: 5,
+      elevatorColumn: 37,
+    });
+  });
+
+  it("classifies a losing extend as a moved checkpoint when the trip advanced", async () => {
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 100,
+        elevator_depth: 4,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: "now",
+        trip_count: 9,
+      },
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-stale-checkpoint",
+      elevator: 4,
+      tripIndex: 9,
+    });
+  });
+
+  it("classifies an otherwise-buyable losing extend as a concurrent loss", async () => {
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 100,
+        elevator_depth: 4,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: "now",
+        trip_count: 2,
+      },
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-concurrent-loss",
+      elevator: 4,
+    });
+  });
+
+  it("rejects a stale expected depth before charging and returns the truth", async () => {
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    const sql = mockSql();
+
+    const response = await POST(request(undefined, 3));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-stale-rail-state",
+      elevator: 4,
+      elevatorColumn: 37,
+      tripIndex: 2,
+    });
+    expect(
+      sql.mock.calls.some(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ),
+    ).toBe(false);
+  });
+
+  it("extends when the expected depth matches the stored rail", async () => {
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: {
+        emeralds: 70,
+        elevator_depth: 5,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+      },
+    });
+
+    const response = await POST(request(undefined, 4));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      elevator: 5,
+      elevatorColumn: 37,
+    });
+  });
+
+  it("rejects a non-integer expected depth", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/elevator/upgrade", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ column: 37, expectedDepth: 2.5 }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: expect.stringContaining("expectedDepth"),
     });
   });
 
@@ -597,8 +783,10 @@ describe("POST /api/elevator/upgrade", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-rail-at-bottom",
       error: "elevator rail has reached the mine bottom",
+      elevator: 999,
     });
     expect(
       sql.mock.calls.some(([strings]) =>

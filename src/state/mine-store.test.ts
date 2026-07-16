@@ -261,7 +261,10 @@ describe("mine store upgrade flow", () => {
 
     await expect(store().buyElevator(17)).resolves.toBe(true);
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ column: 17 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      column: 17,
+      expectedDepth: 0,
+    });
     expect(store().gear).toMatchObject({
       elevator: 1,
       elevatorColumn: 17,
@@ -314,7 +317,10 @@ describe("mine store upgrade flow", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/mine/bank");
     expect(fetchMock.mock.calls[1][0]).toBe("/api/elevator/upgrade");
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ column: 17 });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      column: 17,
+      expectedDepth: 0,
+    });
     expect(store().gear).toMatchObject({
       elevator: 1,
       elevatorColumn: 17,
@@ -370,7 +376,10 @@ describe("mine store upgrade flow", () => {
 
     await expect(store().buyElevator(17)).resolves.toBe(true);
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ column: 17 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      column: 17,
+      expectedDepth: 4,
+    });
     expect(store().gear).toMatchObject({
       elevator: 4,
       elevatorColumn: 17,
@@ -388,6 +397,85 @@ describe("mine store upgrade flow", () => {
       "shaft moved to column 17; recovered 1 ladders and 0 planks",
     );
     expect(store().tripIndex).toBe(3);
+  });
+
+  it("adopts the authoritative rail state when a buy is rejected", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1, plank: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          code: "elevator-stale-rail-state",
+          error: "your rail moved; refresh and retry",
+          balance: 12,
+          elevator: 5,
+          elevatorColumn: 17,
+          ladders: 9,
+          planks: 4,
+          tripIndex: 7,
+          elevatorPlacementRequired: false,
+        },
+        409,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // The client sends its expected rail depth so a stale buy cannot advance.
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      expectedDepth: 3,
+    });
+    // Local state is replaced wholesale from the authoritative reject bundle.
+    expect(store().gear).toMatchObject({ elevator: 5, elevatorColumn: 17 });
+    expect(store().balance).toBe(12);
+    expect(store().consumables).toMatchObject({ ladder: 9, plank: 4 });
+    expect(store().tripIndex).toBe(7);
+    expect(store().elevatorPlacementRequired).toBe(false);
+    expect(store().shopNote).toBe("your rail moved; refreshed to the latest");
+  });
+
+  it("replaces support stock from the accepted rail response", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 5, plank: 2 }),
+      moves: ["left"] as MineAction[],
+      balance: 80,
+    });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        elevator: 5,
+        elevatorColumn: 17,
+        tripIndex: 6,
+        balance: 55,
+        refundedLadders: 1,
+        refundedSupports: { ladder: 1 },
+        ladders: 9,
+        planks: 3,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(true);
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      expectedDepth: 4,
+    });
+    // Authoritative counts replace local stock; the +1 refund is not re-added.
+    expect(store().consumables).toMatchObject({ ladder: 9, plank: 3 });
+    expect(store().balance).toBe(55);
+    expect(store().gear).toMatchObject({ elevator: 5 });
   });
 
   it("claims and edits a locally clear bunker before banking", () => {

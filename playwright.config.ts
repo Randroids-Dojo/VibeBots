@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { defineConfig } from "@playwright/test";
+import { parseE2EGlobalTimeout } from "./src/lib/playwright-global-timeout";
 import { parsePlaywrightWorkerCount } from "./src/lib/playwright-workers";
 
 const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
@@ -32,10 +33,23 @@ if (!Number.isInteger(workerCount) || workerCount < 1) {
 export default defineConfig({
   testDir: "tests/e2e",
   timeout: 60_000,
+  // A whole-suite deadline that ends before the CI job deadline so a slow or
+  // hung shard fails (and uploads its report) instead of being cancelled with no
+  // evidence (F-131). Unset locally and for Critical E2E, so those run
+  // unbounded. The scheduled Full E2E job computes and injects this per shard.
+  globalTimeout: parseE2EGlobalTimeout(process.env.E2E_GLOBAL_TIMEOUT_MS),
   fullyParallel: process.env.CI === "true",
   workers: workerCount,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
+  // The JSON reporter gives a bounded machine-readable partial result for a
+  // timed-out shard; the HTML report and traces carry the full evidence (F-131).
+  reporter: process.env.CI
+    ? [
+        ["list"],
+        ["html", { open: "never" }],
+        ["json", { outputFile: "playwright-report/results.json" }],
+      ]
+    : "list",
   use: {
     baseURL: configuredBaseUrl ?? localBaseUrl,
     trace: "on-first-retry",

@@ -116,7 +116,7 @@ For every slice:
 
 1. Read the rule, plan, product, progress, question, followup, coverage, dependency-ledger, and backlog documents listed in Rule 2.
 2. Run the Dependency Upgrade Gate (see `docs/IMPLEMENTATION_PLAN.html`). If a watched dep is out of date, the upgrade IS the next slice unless red CI takes over.
-3. Check the newest scheduled Full E2E conclusion (`gh run list --workflow CI --json conclusion,event,createdAt,databaseId --jq '[.[] | select(.event == "schedule")][0]'`). If it is red and less than a day old, triage it before picking a slice: a real regression takes over as the next slice; a known-flake-only failure gets logged in the slice's progress entry so it cannot rot invisibly.
+3. Check the newest scheduled Full E2E conclusion (`gh run list --workflow CI --json conclusion,event,createdAt,databaseId --jq '[.[] | select(.event == "schedule")][0]'`). Treat both `failure` AND a non-superseded `cancelled` (a Full E2E shard that ran out of its job budget, F-131) as red. If it is red and less than a day old, triage it before picking a slice: a real regression takes over as the next slice; a known-flake-only failure gets logged in the slice's progress entry so it cannot rot invisibly. A `cancelled` run superseded by a newer verified SHA stays ignorable per the closeout rules.
 4. Pick the highest-priority unblocked task from the implementation plan, dep ledger, GDD coverage gaps, followups, and active backlog.
 5. Create one branch for one PR-sized slice. Always fetch remote `main`, then rebase the new branch on `origin/main` before implementation. Never push directly to `main`.
 6. Implement the slice fully using existing project patterns.

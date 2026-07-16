@@ -1054,11 +1054,14 @@ describe("POST /api/elevator/upgrade", () => {
 
       expect(response.status).toBe(200);
       expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      // An accepted outcome is delivered from the durable outbox, so it carries
+      // the request id (the server-minted one when the client sent none).
       expect(mockedOutcome).toHaveBeenCalledWith({
         playerId: "player-1",
         operation: "place",
         result: "accepted",
         reason: null,
+        requestId: expect.any(String),
       });
     });
 
@@ -1083,6 +1086,7 @@ describe("POST /api/elevator/upgrade", () => {
         operation: "extend",
         result: "accepted",
         reason: null,
+        requestId: expect.any(String),
       });
     });
 
@@ -1109,6 +1113,7 @@ describe("POST /api/elevator/upgrade", () => {
         operation: "relocate",
         result: "accepted",
         reason: null,
+        requestId: expect.any(String),
       });
     });
 
@@ -1282,6 +1287,7 @@ describe("POST /api/elevator/upgrade", () => {
         operation: "place",
         result: "accepted",
         reason: null,
+        requestId: expect.any(String),
       });
 
       // Derive call 2's authority FROM the accepted response, not duplicated
@@ -1356,6 +1362,7 @@ describe("POST /api/elevator/upgrade", () => {
         operation: "relocate",
         result: "accepted",
         reason: null,
+        requestId: expect.any(String),
       });
 
       // Derive call 2's authority FROM the accepted response: the placement
@@ -1411,6 +1418,262 @@ describe("POST /api/elevator/upgrade", () => {
 
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toMatchObject({ elevator: 1 });
+    });
+  });
+
+  describe("durable outbox and dedup (F-121)", () => {
+    const UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
+    function requestWithId(
+      column: number | undefined,
+      expectedDepth: number,
+      requestId: string,
+    ): Request {
+      const payload: Record<string, unknown> = { expectedDepth, requestId };
+      if (column !== undefined) payload.column = column;
+      return new Request("http://localhost/api/elevator/upgrade", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    type StrandedRow = {
+      request_id: string;
+      player_id: string;
+      operation: string;
+      result: string;
+      reason: string | null;
+    };
+
+    // A sql mock that also answers the outbox queries the route now issues:
+    // the recovery drain, the duplicate pre-check, and the delivery mark.
+    function outboxSql({
+      drainRows = [],
+      duplicate = false,
+      updated,
+      tripCount = 2,
+      throwOnDeliveryMark = false,
+    }: {
+      drainRows?: StrandedRow[];
+      duplicate?: boolean;
+      updated?: {
+        emeralds: number;
+        elevator_depth: number;
+        elevator_col: number;
+        ladder_count: number;
+        plank_count: number;
+      } | null;
+      tripCount?: number;
+      throwOnDeliveryMark?: boolean;
+    } = {}) {
+      const sql = vi.fn(async (strings: TemplateStringsArray) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT request_id, player_id, operation, result")) {
+          return drainRows; // recovery drain
+        }
+        if (query.includes("SELECT 1 FROM elevator_upgrade_outcomes")) {
+          return duplicate ? [{ "?column?": 1 }] : []; // duplicate pre-check
+        }
+        if (query.includes("UPDATE elevator_upgrade_outcomes")) {
+          if (throwOnDeliveryMark) throw new Error("mark failed");
+          return []; // delivery mark or drain batch mark
+        }
+        if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
+          return [{ diff: [], trip_count: tripCount }];
+        }
+        if (query.includes("UPDATE players")) {
+          return updated === null
+            ? []
+            : [
+                {
+                  ...INVENTORY_COLUMNS,
+                  refund_legacy_supports: true,
+                  trip_index: 3,
+                  ...(updated ?? {
+                    emeralds: 75,
+                    elevator_depth: 1,
+                    elevator_col: 37,
+                    ladder_count: 8,
+                    plank_count: 4,
+                  }),
+                },
+              ];
+        }
+        return [];
+      });
+      mockedDb.mockResolvedValue(sql as never);
+      return sql;
+    }
+
+    it("commits the outcome inside the guarded write and delivers it", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(200);
+      // The pre-check ran for the client-supplied id (no duplicate found).
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("SELECT 1 FROM elevator_upgrade_outcomes"),
+        ),
+      ).toBe(true);
+      // The outbox INSERT rides inside the same statement as the player write
+      // (transactional outbox), carrying the client's request id.
+      const committed = sql.mock.calls.find(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      );
+      expect(committed?.[0].join(" ")).toContain(
+        "INSERT INTO elevator_upgrade_outcomes",
+      );
+      expect(committed?.slice(1)).toContain(UUID);
+      // Delivery marked the row and emitted the accepted outcome with the id.
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE elevator_upgrade_outcomes"),
+        ),
+      ).toBe(true);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: UUID,
+      });
+    });
+
+    it("dedups a replayed request id without recharging or re-emitting", async () => {
+      // The rail already advanced to depth 5 (the committed first buy), and the
+      // outbox already holds this id, so the retry is a duplicate replay.
+      mockedProfile.mockResolvedValue(profile(5, 37));
+      const sql = outboxSql({ duplicate: true, tripCount: 3 });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-duplicate-request",
+        elevator: 5,
+      });
+      // No second charge, no balance event, and no new outcome: exactly one
+      // outcome per request (the original's, delivered when it committed).
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE players"),
+        ),
+      ).toBe(false);
+      expect(mockedRecord).not.toHaveBeenCalled();
+      expect(mockedOutcome).not.toHaveBeenCalled();
+    });
+
+    it("redelivers a stranded outcome via the recovery drain", async () => {
+      const stranded: StrandedRow = {
+        request_id: "12341234-1234-4234-8234-123412341234",
+        player_id: "player-9",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+      };
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        drainRows: [stranded],
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(200);
+      // The crash-stranded outcome (committed but never delivered) is redelivered
+      // by this request's traffic, carrying its own id.
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-9",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: stranded.request_id,
+      });
+      // The drain marked the stranded batch delivered by id array.
+      expect(
+        sql.mock.calls.some(([strings]) => strings.join(" ").includes("ANY(")),
+      ).toBe(true);
+      // This request's own outcome delivered too.
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: UUID,
+      });
+    });
+
+    it("still returns the committed buy when the delivery mark fails", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      outboxSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+        throwOnDeliveryMark: true,
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ elevator: 5 });
+      // The emit still happened before the mark; the undelivered row is left for
+      // the drain, and the buy is unaffected.
+      expect(mockedOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({ result: "accepted", requestId: UUID }),
+      );
+    });
+
+    it("mints a server-side id and skips the pre-check for a legacy client", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      // No requestId in the body (a client from before this slice).
+      const response = await POST(request(undefined, 4));
+
+      expect(response.status).toBe(200);
+      // A legacy client cannot replay an id it never sent, so no pre-check runs.
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("SELECT 1 FROM elevator_upgrade_outcomes"),
+        ),
+      ).toBe(false);
+      // The outcome is still durable: a server-minted id is delivered.
+      expect(mockedOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: "accepted",
+          requestId: expect.any(String),
+        }),
+      );
     });
   });
 });

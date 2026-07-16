@@ -216,7 +216,27 @@ describe("elevator mutation-outcome monitoring", () => {
       result: "accepted",
     });
     expect(parsed).not.toHaveProperty("reason");
+    // No request id was supplied (a best-effort emit), so none is logged.
+    expect(parsed).not.toHaveProperty("requestId");
     expect(parsed.player).toMatch(/^[0-9a-f]{16}$/);
+
+    spy.mockRestore();
+  });
+
+  it("carries the durable request id when delivered from the outbox", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      operation: "extend",
+      result: "accepted",
+      reason: null,
+      playerId: "player-1",
+      requestId: "11111111-2222-4333-8444-555555555555",
+    });
+
+    const parsed = JSON.parse(String(spy.mock.calls[0][0]));
+    // The id is the dedup key for at-least-once delivery, not sensitive data.
+    expect(parsed.requestId).toBe("11111111-2222-4333-8444-555555555555");
 
     spy.mockRestore();
   });

@@ -30,6 +30,22 @@ describe("compatibility migration markers", () => {
     expect(source).toContain("status text NOT NULL DEFAULT 'sending'");
   });
 
+  it("creates the durable elevator outcome outbox", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain(
+      "CREATE TABLE IF NOT EXISTS elevator_upgrade_outcomes",
+    );
+    // The unique request id is what makes the durable record exactly-once.
+    expect(source).toContain("request_id uuid NOT NULL UNIQUE");
+    expect(source).toContain("delivered_at timestamptz");
+    // The partial index keeps the recovery drain cheap as the table grows.
+    expect(source).toContain(
+      "CREATE INDEX IF NOT EXISTS elevator_upgrade_outcomes_undelivered_idx",
+    );
+    expect(source).toContain("WHERE delivered_at IS NULL");
+  });
+
   it("creates the account-linking uniqueness guard", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 

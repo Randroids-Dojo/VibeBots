@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-028" data-status="open">
+    <h3>Q-028: How should the elevator outcome outbox be drained without a cron?</h3>
+    <dl>
+      <dt>Context</dt><dd>The durable elevator outbox (F-121) records one <code>elevator_upgrade_outcomes</code> row per buy, committed atomically with the charge, and delivers the structured monitoring event separately (emit-then-mark, at-least-once). A crash between commit and delivery, or a sink outage, leaves rows with <code>delivered_at IS NULL</code> that must be redelivered. The project has no cron or scheduled-job infrastructure (no <code>vercel.json</code> crons, no cron routes).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Drain opportunistically on request traffic: each elevator request first delivers a bounded batch (20) of stranded rows older than a 30s grace, best-effort.</li>
+          <li>Add a Vercel cron hitting a new maintenance route that calls the drain on a schedule.</li>
+          <li>Deliver inline only, no recovery drain (accept that a crash-stranded outcome is lost).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It needs no new infrastructure, is trivially testable, and delivers every stranded outcome as long as elevator traffic continues (buys are the only thing that creates rows, so traffic that creates a stranded row is exactly the traffic that later drains it). The added cost is one bounded indexed query per buy, on an infrequent action. C loses outcomes on a crash, defeating the durability the item requires. B is the cleanest at scale but adds cron infrastructure this project does not yet have; the drain function (<code>drainPendingElevatorOutcomes</code>) is already factored so a future cron can call it verbatim without changing the contract. Revisit and adopt B if elevator traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-027" data-status="resolved">
     <h3>Q-027: Should the elevator buy require the client's expectedDepth?</h3>
     <dl>

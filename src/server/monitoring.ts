@@ -127,6 +127,14 @@ export interface ElevatorMutationOutcomeEvent {
   /** The rejection reason code, or null when the mutation was accepted. */
   reason: ElevatorReasonCode | null;
   playerId?: string | null;
+  /**
+   * The durable outbox request id (F-121), present for a committed accepted
+   * outcome delivered from the outbox. Delivery is at-least-once, so an operator
+   * (or a downstream aggregator) dedups repeated deliveries by this id; the
+   * durable row itself is exactly-once (unique request id). Omitted for
+   * best-effort rejects, which commit nothing and are not tied to a request id.
+   */
+  requestId?: string;
 }
 
 function hashIdentifier(value: string): string {
@@ -183,13 +191,16 @@ export function logMineCashOutEvent(event: MineCashOutMonitoringEvent): void {
 export function logElevatorOutcomeEvent(
   event: ElevatorMutationOutcomeEvent,
 ): void {
-  const { playerId, operation, result, reason } = event;
+  const { playerId, operation, result, reason, requestId } = event;
   const severity: MonitoringSeverity = "info";
   writeMonitoringLog(severity, "elevator.upgrade", {
     event: `elevator.upgrade.${result}`,
     operation,
     result,
     reason: reason ?? undefined,
+    // The request id is an opaque idempotency key, not sensitive data (no shaft
+    // coordinate or payload), and is the dedup key for at-least-once delivery.
+    requestId,
     player: playerId ? hashIdentifier(playerId) : undefined,
   });
 }

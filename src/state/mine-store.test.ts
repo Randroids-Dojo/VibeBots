@@ -265,6 +265,7 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       column: 17,
       expectedDepth: 0,
+      requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
       elevator: 1,
@@ -321,6 +322,7 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       column: 17,
       expectedDepth: 0,
+      requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
       elevator: 1,
@@ -380,6 +382,7 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       column: 17,
       expectedDepth: 4,
+      requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
       elevator: 4,
@@ -434,6 +437,7 @@ describe("mine store upgrade flow", () => {
     // The client sends its expected rail depth so a stale buy cannot advance.
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       expectedDepth: 3,
+      requestId: expect.any(String),
     });
     // Insufficient balance changed nothing server-side, so no world refetch
     // fires and only the display-safe balance and the coded reason update. The
@@ -1961,6 +1965,7 @@ describe("mine store upgrade flow", () => {
 
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       expectedDepth: 4,
+      requestId: expect.any(String),
     });
     // Authoritative counts replace local stock; the +1 refund is not re-added.
     expect(store().consumables).toMatchObject({ ladder: 9, plank: 3 });

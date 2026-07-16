@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="thin-slot-roof-layer-decision" data-date="2026-07-15">
+    <h3>Reserve actual roofs for the bunker top layer</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Captured the direct product decision that only the claim's literal top row may hold an actual roof. A floor serves as the ceiling between stories. Extended F-117 and its HTML Dot additively, superseding the earlier room-local interpretation and removing the hypothetical roof-destroy-on-excavation branch from current acceptance.</dd>
+      <dt>Verification</dt><dd>Compared the direct direction with the F-117 GDD text and PR #230 exact head <code>72f3709c</code>. Confirmed the pushed head still accepts any roof whose cell above is not open, including a middle-row cell under rock. Published exact-head review 4709293151, requiring <code>row === bunker.footprint.row</code>, an accepted top-row test, and a rejected middle-row-under-rock test. Ran <code>dot-html show</code>, checked the new article's seven required fields, ran the dash check, and ran whitespace validation.</dd>
+      <dt>Assumptions</dt><dd>The direct direction is authoritative over the earlier recommendation. Story floors can form ceilings without becoming roof parts. No in-claim cell can later be excavated above a valid top-row roof.</dd>
+      <dt>GDD coverage</dt><dd>None. REQ-046 remains partial, and this correction aligns its tracked acceptance with the existing GDD wording.</dd>
+      <dt>Followups</dt><dd>No new followup. Extended F-117 and Dot <code>VibeBots-f-117-rework-8a28b100</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="html-dot-primary-identity-clarification" data-date="2026-07-15">
     <h3>Distinguish primary followups from additive correction references</h3>
     <dl>

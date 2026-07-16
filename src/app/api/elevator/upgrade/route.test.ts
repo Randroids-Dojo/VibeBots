@@ -1205,6 +1205,47 @@ describe("POST /api/elevator/upgrade", () => {
       ).length;
     }
 
+    // The complete gear/consumables the route surfaces for the suite's default
+    // level-1 columns (blast level 1 maps to dynamite tier 1). Full literals so
+    // an omitted field fails exact equality below.
+    function fullGear(elevator: number, elevatorColumn: number) {
+      return {
+        pickaxe: 1,
+        battery: 1,
+        cargo: 1,
+        lantern: 1,
+        elevator,
+        elevatorColumn,
+        warpcoil: 1,
+        blast: 1,
+        elevatorSpeed: 1,
+        fall: 1,
+        recall: 1,
+      };
+    }
+    function fullConsumables(ladder: number, plank: number) {
+      return { dynamite: 0, rope: 0, ladder, plank, beacon: 0 };
+    }
+
+    // Assert the retry reject bundle equals the accepted response's authoritative
+    // state exactly (scalars and nested gear/consumables), so an accept-vs-retry
+    // divergence cannot slip through.
+    function expectRetryMatchesAccepted(
+      rejected: Record<string, unknown>,
+      accepted: Record<string, unknown>,
+    ): void {
+      expect(rejected.code).toBe("elevator-stale-rail-state");
+      expect(rejected.balance).toBe(accepted.balance);
+      expect(rejected.elevator).toBe(accepted.elevator);
+      expect(rejected.elevatorColumn).toBe(accepted.elevatorColumn);
+      expect(rejected.ladders).toBe(accepted.ladders);
+      expect(rejected.planks).toBe(accepted.planks);
+      expect(rejected.tripIndex).toBe(accepted.tripIndex);
+      expect(rejected.elevatorPlacementRequired).toBe(false);
+      expect(rejected.gear).toEqual(accepted.gear);
+      expect(rejected.consumables).toEqual(accepted.consumables);
+    }
+
     it("first-placement lost-success pair: accept then identical retry rejects with no second write", async () => {
       // POST 1: the first rail is placed and charged.
       mockedProfile.mockResolvedValue(profile(0, null));
@@ -1220,6 +1261,19 @@ describe("POST /api/elevator/upgrade", () => {
       const first = await POST(request(37, 0));
 
       expect(first.status).toBe(200);
+      // Assert the complete accepted authoritative state, with exact nested gear
+      // and consumables (not partial), so it is the source of truth for call 2.
+      const accepted = (await first.json()) as Record<string, unknown>;
+      expect(accepted).toMatchObject({
+        elevator: 1,
+        elevatorColumn: 37,
+        tripIndex: 3,
+        balance: 75,
+        ladders: 9,
+        planks: 4,
+      });
+      expect(accepted.gear).toEqual(fullGear(1, 37));
+      expect(accepted.consumables).toEqual(fullConsumables(9, 4));
       expect(writeCount(accept)).toBe(1);
       expect(mockedRecord).toHaveBeenCalledTimes(1);
       expect(mockedOutcome).toHaveBeenCalledTimes(1);
@@ -1230,30 +1284,25 @@ describe("POST /api/elevator/upgrade", () => {
         reason: null,
       });
 
-      // Call 2 loads the EXACT state call 1 committed and returned: balance 75,
-      // depth 1, column 37, placement confirmed, ladders 9, planks 4, tripIndex
-      // 3. The client never saw the response and retries the identical
-      // request(37, 0).
+      // Derive call 2's authority FROM the accepted response, not duplicated
+      // literals: the client never saw the response and retries request(37, 0).
       mockedProfile.mockResolvedValue(
-        profile(1, 37, { emeralds: 75, ladder_count: 9, plank_count: 4 }),
+        profile(
+          accepted.elevator as number,
+          accepted.elevatorColumn as number,
+          {
+            emeralds: accepted.balance as number,
+            ladder_count: accepted.ladders as number,
+            plank_count: accepted.planks as number,
+          },
+        ),
       );
-      const retry = mockSql({ tripCount: 3 });
+      const retry = mockSql({ tripCount: accepted.tripIndex as number });
       const second = await POST(request(37, 0));
 
       expect(second.status).toBe(409);
-      // Assert every ElevatorState field on the authoritative reject bundle.
-      await expect(second.json()).resolves.toMatchObject({
-        code: "elevator-stale-rail-state",
-        balance: 75,
-        elevator: 1,
-        elevatorColumn: 37,
-        ladders: 9,
-        planks: 4,
-        tripIndex: 3,
-        elevatorPlacementRequired: false,
-        gear: expect.objectContaining({ elevator: 1, elevatorColumn: 37 }),
-        consumables: expect.objectContaining({ ladder: 9, plank: 4 }),
-      });
+      const rejected = (await second.json()) as Record<string, unknown>;
+      expectRetryMatchesAccepted(rejected, accepted);
       expect(mockedOutcome).toHaveBeenLastCalledWith({
         playerId: "player-1",
         operation: "place",
@@ -1285,7 +1334,21 @@ describe("POST /api/elevator/upgrade", () => {
       const first = await POST(request(37, 4));
 
       expect(first.status).toBe(200);
-      await expect(first.json()).resolves.toMatchObject({ relocated: true });
+      // Assert the complete accepted authoritative state, with exact nested gear
+      // and consumables, as the source of truth for call 2.
+      const accepted = (await first.json()) as Record<string, unknown>;
+      expect(accepted).toMatchObject({
+        relocated: true,
+        elevatorPlacementRequired: false,
+        elevator: 4,
+        elevatorColumn: 37,
+        tripIndex: 3,
+        balance: 100,
+        ladders: 8,
+        planks: 4,
+      });
+      expect(accepted.gear).toEqual(fullGear(4, 37));
+      expect(accepted.consumables).toEqual(fullConsumables(8, 4));
       expect(writeCount(accept)).toBe(1);
       expect(mockedRecord).not.toHaveBeenCalled(); // relocation is free
       expect(mockedOutcome).toHaveBeenLastCalledWith({
@@ -1295,29 +1358,27 @@ describe("POST /api/elevator/upgrade", () => {
         reason: null,
       });
 
-      // Call 2 loads the EXACT state call 1 committed: the placement marker and
-      // column 37 are set, the depth is still 4, the free relocation left the
-      // balance at 100 and the inventory untouched, tripIndex 3. The client
+      // Derive call 2's authority FROM the accepted response: the placement
+      // marker and column are committed, the depth is unchanged, and the client
       // retries the identical request(37, 4).
-      mockedProfile.mockResolvedValue(profile(4, 37, { emeralds: 100 }));
-      const retry = mockSql({ tripCount: 3 });
+      mockedProfile.mockResolvedValue(
+        profile(
+          accepted.elevator as number,
+          accepted.elevatorColumn as number,
+          {
+            emeralds: accepted.balance as number,
+            ladder_count: accepted.ladders as number,
+            plank_count: accepted.planks as number,
+          },
+        ),
+      );
+      const retry = mockSql({ tripCount: accepted.tripIndex as number });
       const second = await POST(request(37, 4));
 
       expect(second.status).toBe(409);
-      // Assert every ElevatorState field on the authoritative reject bundle.
-      await expect(second.json()).resolves.toMatchObject({
-        code: "elevator-stale-rail-state",
-        error: "elevator placement was already confirmed",
-        balance: 100,
-        elevator: 4,
-        elevatorColumn: 37,
-        ladders: 8,
-        planks: 4,
-        tripIndex: 3,
-        elevatorPlacementRequired: false,
-        gear: expect.objectContaining({ elevator: 4, elevatorColumn: 37 }),
-        consumables: expect.objectContaining({ ladder: 8, plank: 4 }),
-      });
+      const rejected = (await second.json()) as Record<string, unknown>;
+      expect(rejected.error).toBe("elevator placement was already confirmed");
+      expectRetryMatchesAccepted(rejected, accepted);
       expect(mockedOutcome).toHaveBeenLastCalledWith({
         playerId: "player-1",
         operation: "relocate",

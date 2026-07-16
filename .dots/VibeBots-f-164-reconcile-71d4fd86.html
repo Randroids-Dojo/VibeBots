@@ -14,6 +14,7 @@
 <h1>F-164 Reconcile HTML Dots with the followup ledger</h1>
 <section id="description">
 Inventory every followup present from F-143 onward. Reconcile the known missing Dots for F-143, F-144, and F-158 through F-163, preserve parent relationships, mirror priority and open or resolved status, and append tracking references without rewriting history. Add a bidirectional tree-wide validation check that requires exactly one primary section carrying data-f and one HTML Dot per in-scope F-NNN, compares priority, status, and parentage, and fails for missing, deleted, orphaned, duplicated, or metadata-drifted identities. Permit repeated append-only data-f-ref correction pairs when every reference resolves to the one primary, and validate priority pointers separately under F-157. Prove each failure mode and the accepted reconciled tree.
+Include open pull-request heads in the pre-allocation inventory. The stale-base feat/bunker-fp-visible-ore branch drafted F-172 after PR228 had already published F-172 with a Dot for deployment monitoring, then drafted F-173 for the thin kit already owned by F-117 without a Dot. Remove those colliding duplicate primaries, port unique evidence to F-116, F-117, and F-169, and keep the first published F-172 identity unless the user explicitly resolves it differently. Reject any item marked resolved before commit, PR, CI, deploy, and required live proof.
 </section>
 </article>
 </body>

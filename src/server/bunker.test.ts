@@ -665,11 +665,26 @@ describe("bunker excavation wrapper", () => {
 
   it("persists cascaded parts atomically with the dug cell (F-117)", async () => {
     // A grounded slotted floor whose cell below is still rock. Digging that
-    // cell out drops the floor (F-117 cascade); the guarded write must bind
-    // both the new dug cell and the emptied parts array so the drop survives
-    // a reload, proving dug and parts are written under one revision.
+    // cell out drops the floor (F-117 cascade). The guarded write must bind
+    // both the new dug cell and the emptied parts array in one statement, and
+    // a subsequent load must read the settled state, so the drop is durable.
     const footprint: BunkerFootprint = { col: 1, row: 4, width: 7, height: 5 };
-    let bunkerWrite: unknown[] | null = null;
+    // Stateful store: the SELECT returns whatever the last winning UPDATE
+    // wrote, so a reload models real persistence rather than a fixed row.
+    let storedDug: Array<{ col: number; row: number; depth: number }> = [
+      { col: 2, row: 7, depth: 0 },
+    ];
+    let storedParts: unknown[] = [
+      {
+        partId: "floor-panel",
+        col: 2,
+        row: 7,
+        depth: 0,
+        slot: "floor",
+        durability: 70,
+      },
+    ];
+    let bunkerUpdateQuery: string | null = null;
     const sql = vi.fn(
       async (strings: TemplateStringsArray, ...values: unknown[]) => {
         const query = strings.join(" ");
@@ -677,43 +692,44 @@ describe("bunker excavation wrapper", () => {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
         if (query.includes("SELECT footprint, parts")) {
-          return [
-            {
-              footprint,
-              parts: [
-                {
-                  partId: "floor-panel",
-                  col: 2,
-                  row: 7,
-                  depth: 0,
-                  slot: "floor",
-                  durability: 70,
-                },
-              ],
-              // The floor's cell is open; the cell below it (row 8) is still
-              // rock, so the floor is grounded until that cell is dug.
-              dug: [{ col: 2, row: 7, depth: 0 }],
-            },
-          ];
+          return [{ footprint, parts: storedParts, dug: storedDug }];
         }
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];
         if (query.includes("UPDATE bunkers")) {
-          bunkerWrite = values;
+          // The guarded dig CTE binds dug then parts; apply both to the store
+          // so the next load observes the settled bunker.
+          bunkerUpdateQuery = query;
+          storedDug = JSON.parse(values[0] as string);
+          storedParts = JSON.parse(values[1] as string);
           return [{ dug_rows: 1, ore_rows: 0 }];
         }
         return [];
       },
     );
+    // Dig the cell below the floor. It is reachable from the open floor cell
+    // and pulls the floor's ground away.
     const result = await excavateBunker(sql as never, "player-1", 2, 8, 0);
     expect(result.ok).toBe(true);
-    if (!bunkerWrite) throw new Error("expected a guarded bunker write");
-    const [dugValue, partsValue] = bunkerWrite as string[];
-    // dug carries both the original cell and the newly excavated one.
-    const dugCells = JSON.parse(dugValue) as Array<{ row: number }>;
-    expect(dugCells.some((cell) => cell.row === 8)).toBe(true);
-    // The cascaded floor is gone from the persisted parts, in the same write.
-    expect(JSON.parse(partsValue)).toEqual([]);
+    // One statement carried the dug write, the parts write, the revision
+    // guard, and the ore-pay CTE, so dug and parts settle under one revision.
+    expect(bunkerUpdateQuery).not.toBeNull();
+    const updateSql = bunkerUpdateQuery ?? "";
+    expect(updateSql).toContain("SET dug");
+    expect(updateSql).toContain("parts =");
+    expect(updateSql).toContain("revision = revision + 1");
+    expect(updateSql).toContain("AND revision =");
+    expect(updateSql).toContain("ore_pay");
+    // The winning write settled the store, which is exactly what the next
+    // load reads (the SELECT returns storedParts/storedDug): the new cell is
+    // dug and the cascaded floor is gone, so a reload sees no resurrected
+    // floor.
+    expect(storedDug.some((cell) => cell.row === 8)).toBe(true);
+    expect(storedParts).toEqual([]);
+    const reload = await excavateBunker(sql as never, "player-1", 2, 8, 0);
+    // Digging the same now-open cell fails (already open), proving the load
+    // saw the persisted dug set, and no floor came back to re-drop.
+    expect(reload.ok).toBe(false);
   });
 });
 

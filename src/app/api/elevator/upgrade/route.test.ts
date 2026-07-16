@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { refreshPlayerAchievements } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
+import { logElevatorOutcomeEvent } from "@/server/monitoring";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import type { WorldDiff } from "@/sim/mine";
 import { POST } from "./route";
@@ -15,6 +16,10 @@ vi.mock("@/server/achievements", () => ({
 
 vi.mock("@/server/balance-telemetry", () => ({
   recordBalanceEvent: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/server/monitoring", () => ({
+  logElevatorOutcomeEvent: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -42,6 +47,7 @@ const mockedProfile = vi.mocked(getMinePlayerProfile);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
 const mockedRefresh = vi.mocked(refreshPlayerAchievements);
 const mockedRecord = vi.mocked(recordBalanceEvent);
+const mockedOutcome = vi.mocked(logElevatorOutcomeEvent);
 
 function profile(
   elevator_depth: number,
@@ -1023,5 +1029,163 @@ describe("POST /api/elevator/upgrade", () => {
       consumables: expect.objectContaining({ rope: 7, ladder: 8 }),
     });
     expect(mockedRecord).not.toHaveBeenCalled();
+  });
+
+  describe("mutation-outcome telemetry (F-121)", () => {
+    it("logs an accepted place outcome when anchoring the first rail", async () => {
+      mockSql({
+        updated: {
+          emeralds: 75,
+          elevator_depth: 1,
+          elevator_col: 37,
+          ladder_count: 9,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(37, 0));
+
+      expect(response.status).toBe(200);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "place",
+        result: "accepted",
+        reason: null,
+      });
+    });
+
+    it("logs an accepted extend outcome when adding a row", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      mockSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(undefined, 4));
+
+      expect(response.status).toBe(200);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+      });
+    });
+
+    it("logs an accepted relocate outcome on a free placement", async () => {
+      mockedProfile.mockResolvedValue(
+        profile(4, -5, { elevator_placement_chosen_at: null }),
+      );
+      mockSql({
+        updated: {
+          emeralds: 100,
+          elevator_depth: 4,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(37, 4));
+
+      expect(response.status).toBe(200);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "relocate",
+        result: "accepted",
+        reason: null,
+      });
+    });
+
+    it("logs a rejected extend outcome and no balance event on a conflict", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      mockSql({
+        updated: null,
+        reloaded: {
+          emeralds: 10,
+          elevator_depth: 4,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+          elevator_placement_chosen_at: "now",
+          trip_count: 2,
+        },
+      });
+
+      const response = await POST(request(undefined, 4));
+
+      expect(response.status).toBe(409);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "rejected",
+        reason: "elevator-insufficient-balance",
+      });
+      // A rejected write emits the outcome log but never a balance event.
+      expect(mockedRecord).not.toHaveBeenCalled();
+    });
+
+    it("logs a rejected outcome for the stale-rail guard before any write", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = mockSql();
+
+      const response = await POST(request(undefined, 3));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-stale-rail-state",
+      });
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "rejected",
+        reason: "elevator-stale-rail-state",
+      });
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE players"),
+        ),
+      ).toBe(false);
+      expect(mockedRecord).not.toHaveBeenCalled();
+    });
+
+    it("logs no outcome for a pre-auth validation reject", async () => {
+      // Missing expectedDepth is rejected before the player and profile load, so
+      // there is no mutation operation to attribute an outcome to.
+      const response = await POST(request(37, null));
+
+      expect(response.status).toBe(400);
+      expect(mockedOutcome).not.toHaveBeenCalled();
+    });
+
+    it("still completes the buy when outcome telemetry throws", async () => {
+      mockedOutcome.mockImplementation(() => {
+        throw new Error("monitoring sink unavailable");
+      });
+      mockSql({
+        updated: {
+          emeralds: 75,
+          elevator_depth: 1,
+          elevator_col: 37,
+          ladder_count: 9,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(37, 0));
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ elevator: 1 });
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type {
+  ElevatorReasonCode,
   MINE_VERSION_MISMATCH_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
 } from "@/lib/api-codes";
@@ -112,6 +113,17 @@ export interface AccountLinkMonitoringEvent {
   result?: string;
 }
 
+/** Which elevator rail mutation a request attempted (F-121 telemetry). */
+export type ElevatorMutation = "extend" | "place" | "relocate";
+
+export interface ElevatorMutationOutcomeEvent {
+  operation: ElevatorMutation;
+  result: "accepted" | "rejected";
+  /** The rejection reason code, or null when the mutation was accepted. */
+  reason: ElevatorReasonCode | null;
+  playerId?: string | null;
+}
+
 function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
@@ -145,6 +157,31 @@ export function logMineCashOutEvent(event: MineCashOutMonitoringEvent): void {
     event: `mine.cash_out.${event.code}`,
     player: playerId ? hashIdentifier(playerId) : undefined,
     ...rest,
+  });
+}
+
+/**
+ * Records whether a mutation-level elevator rail write was accepted or rejected
+ * and, on a reject, the stable reason code (F-121). This is the observability
+ * counterpart to the success-only `elevator.upgrade` balance event: it fires on
+ * every mutation-level outcome so an operator can tell an expected concurrency
+ * loss apart from a persistence failure. A rejected write emits no balance
+ * event, only this log.
+ */
+export function logElevatorOutcomeEvent(
+  event: ElevatorMutationOutcomeEvent,
+): void {
+  const { playerId, operation, result, reason } = event;
+  // Accepted writes are routine info. A reject is an expected stale-client or
+  // concurrency guard, logged at warn so it is distinguishable from an error
+  // without being alarming.
+  const severity: MonitoringSeverity = result === "accepted" ? "info" : "warn";
+  writeMonitoringLog(severity, "elevator.upgrade", {
+    event: `elevator.upgrade.${result}`,
+    operation,
+    result,
+    reason: reason ?? undefined,
+    player: playerId ? hashIdentifier(playerId) : undefined,
   });
 }
 

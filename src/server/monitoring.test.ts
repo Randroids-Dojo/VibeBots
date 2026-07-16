@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   logAccountLinkEvent,
   logAppClientErrorEvent,
+  logElevatorOutcomeEvent,
   logMineCashOutEvent,
   logMineClientDiagnosticEvent,
 } from "./monitoring";
@@ -185,6 +186,77 @@ describe("account link monitoring", () => {
     expect(parsed.account).toMatch(/^[0-9a-f]{16}$/);
     expect(parsed.player).toMatch(/^[0-9a-f]{16}$/);
     expect(parsed.targetPlayer).toMatch(/^[0-9a-f]{16}$/);
+
+    spy.mockRestore();
+  });
+});
+
+describe("elevator mutation-outcome monitoring", () => {
+  it("writes info JSON with no reason for an accepted mutation", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      operation: "extend",
+      result: "accepted",
+      reason: null,
+      playerId: "player-1",
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const raw = String(spy.mock.calls[0][0]);
+    expect(raw).not.toContain("player-1");
+    const parsed = JSON.parse(raw);
+    expect(parsed).toMatchObject({
+      source: "vibebots",
+      component: "elevator.upgrade",
+      event: "elevator.upgrade.accepted",
+      alert: false,
+      severity: "info",
+      operation: "extend",
+      result: "accepted",
+    });
+    expect(parsed).not.toHaveProperty("reason");
+    expect(parsed.player).toMatch(/^[0-9a-f]{16}$/);
+
+    spy.mockRestore();
+  });
+
+  it("writes warn JSON with the reason for a rejected mutation", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      operation: "place",
+      result: "rejected",
+      reason: "elevator-stale-rail-state",
+      playerId: "player-1",
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    const parsed = JSON.parse(String(spy.mock.calls[0][0]));
+    expect(parsed).toMatchObject({
+      component: "elevator.upgrade",
+      event: "elevator.upgrade.rejected",
+      alert: true,
+      severity: "warn",
+      operation: "place",
+      result: "rejected",
+      reason: "elevator-stale-rail-state",
+    });
+
+    spy.mockRestore();
+  });
+
+  it("omits the player field when no id is supplied", () => {
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    logElevatorOutcomeEvent({
+      operation: "relocate",
+      result: "rejected",
+      reason: "elevator-concurrent-loss",
+    });
+
+    const parsed = JSON.parse(String(spy.mock.calls[0][0]));
+    expect(parsed).not.toHaveProperty("player");
 
     spy.mockRestore();
   });

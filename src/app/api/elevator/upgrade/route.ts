@@ -3,6 +3,10 @@ import { refreshPlayerAchievements } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import {
+  type ElevatorMutation,
+  logElevatorOutcomeEvent,
+} from "@/server/monitoring";
+import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
   type MineConsumablesRow,
@@ -273,8 +277,42 @@ export async function POST(request: Request): Promise<Response> {
   const storedColumn = profile ? mineElevatorColumnFromProfile(profile) : null;
   const oldDiff = (rows[0]?.diff ?? []) as WorldDiff;
   const worldTripCount = rows[0]?.trip_count;
+  // Which rail mutation this request performs, resolved once from the loaded
+  // profile: a pending placement is a relocate, the first rail places the
+  // shaft, later rails extend it. Reused for both the placement branch and the
+  // outcome telemetry so accepts and rejects report the same operation.
+  const placementRequired = Boolean(
+    profile && depth > 0 && !profile.elevator_placement_chosen_at,
+  );
+  const operation: ElevatorMutation = placementRequired
+    ? "relocate"
+    : depth === 0
+      ? "place"
+      : "extend";
+  // Best-effort mutation-outcome telemetry (F-121). It records every
+  // mutation-level accept and reject and must never fail a rail buy, so every
+  // emission is swallowed. Rejects also emit no balance event, only this log.
+  const emitOutcome = (
+    result: "accepted" | "rejected",
+    reason: ElevatorReasonCode | null,
+  ): void => {
+    try {
+      logElevatorOutcomeEvent({ playerId, operation, result, reason });
+    } catch {
+      // Outcome telemetry is observability only; never let it break gameplay.
+    }
+  };
+  const rejectOutcome = (
+    code: ElevatorReasonCode,
+    error: string,
+    status: number,
+    state: ElevatorState | null,
+  ): Response => {
+    emitOutcome("rejected", code);
+    return elevatorReject(code, error, status, state);
+  };
   if (worldTripCount === undefined) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-mine-world-missing",
       "mine world not found",
       409,
@@ -289,19 +327,16 @@ export async function POST(request: Request): Promise<Response> {
   // cannot silently advance a second row; the client adopts currentState.
   // expectedDepth is guaranteed present (required above).
   if (expectedDepth !== depth) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-stale-rail-state",
       "your saved rail depth is out of date; refresh and try again",
       409,
       currentState,
     );
   }
-  const placementRequired = Boolean(
-    profile && depth > 0 && !profile.elevator_placement_chosen_at,
-  );
   if (placementRequired) {
     if (requestedColumn === undefined) {
-      return elevatorReject(
+      return rejectOutcome(
         "elevator-column-required",
         "choose a surface column for the elevator shaft",
         400,
@@ -381,7 +416,7 @@ export async function POST(request: Request): Promise<Response> {
           : code === "elevator-concurrent-loss"
             ? "another change landed first; refresh and retry"
             : "elevator placement was already confirmed";
-      return elevatorReject(code, message, 409, state);
+      return rejectOutcome(code, message, 409, state);
     }
     const refundedSupports: Partial<Record<"ladder" | "plank", number>> = {
       ...(refundedLadders > 0 ? { ladder: refundedLadders } : {}),
@@ -392,6 +427,7 @@ export async function POST(request: Request): Promise<Response> {
       playerId,
       excludeEndpointHash: pushEndpointHashFromRequest(request),
     });
+    emitOutcome("accepted", null);
     return Response.json({
       elevator: updated[0].elevator_depth,
       elevatorColumn: updated[0].elevator_col,
@@ -409,7 +445,7 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
   if (depth === 0 && requestedColumn === undefined) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-column-required",
       "choose a surface column for the elevator shaft",
       400,
@@ -421,7 +457,7 @@ export async function POST(request: Request): Promise<Response> {
     requestedColumn !== undefined &&
     requestedColumn !== storedColumn
   ) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-stale-rail-state",
       "elevator shaft is already placed",
       409,
@@ -430,7 +466,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const column = storedColumn ?? requestedColumn;
   if (column === undefined) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-column-required",
       "choose a surface column for the elevator shaft",
       400,
@@ -438,7 +474,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   if (depth >= MINE_BOTTOM_ROW - 1) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-rail-at-bottom",
       "elevator rail has reached the mine bottom",
       409,
@@ -551,7 +587,7 @@ export async function POST(request: Request): Promise<Response> {
           : code === "elevator-stale-rail-state"
             ? "your rail moved; refresh and retry"
             : "another change landed first; refresh and retry";
-    return elevatorReject(code, message, 409, state);
+    return rejectOutcome(code, message, 409, state);
   }
   const refundedLadders =
     purchasedLadders + (updated[0].refund_legacy_supports ? legacyLadders : 0);
@@ -590,6 +626,7 @@ export async function POST(request: Request): Promise<Response> {
     playerId,
     excludeEndpointHash: pushEndpointHashFromRequest(request),
   });
+  emitOutcome("accepted", null);
   return Response.json({
     elevator: updated[0].elevator_depth,
     elevatorColumn: updated[0].elevator_col,

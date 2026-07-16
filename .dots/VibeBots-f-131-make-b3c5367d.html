@@ -18,6 +18,9 @@ Treat non-superseded scheduled shard timeouts as actionable, finish Playwright b
 <section id="monitoring-2026-07-16">
 The four newest scheduled runs are cancelled. Run 29489140260 timed out three shards and retained zero artifacts, while the documented startup query returned blank because it filtered scheduled events after the default bounded mixed-event list. Query scheduled events at the CLI or API source so high PR traffic cannot hide the newest scheduled run.
 </section>
+<section id="pr-244-forced-timeout-2026-07-16">
+Unapproved dispatch 29531137295 at exact head d2242b03 concluded failure, all four Full E2E shards tripped the 30-second Playwright timeout, all four upload steps succeeded, and four artifacts were retained. This proves the narrow internal-timeout to failed-job to upload path. Artifact inventory contained HTML, results.json, and error-context.md, but no screenshot or trace files, disproving the branch ledger claim that the proof retained traces and screenshots. It also does not prove bounded machine output under a real long-running shard, the 60-second floor, a capped override, required-file failure, late-setup budget, or coverage-equivalent supersession. Keep F-131 open and append corrections rather than editing history.
+</section>
 </article>
 </body>
 </html>

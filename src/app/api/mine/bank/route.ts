@@ -96,6 +96,10 @@ const dugBunkerCellSchema = z.object({
 // The whole 7x5x5 volume is diggable, so the dug list can name every cell.
 const MAX_DUG_CELLS =
   BUNKER_CLAIM_WIDTH * BUNKER_CLAIM_HEIGHT * BUNKER_CLAIM_DEPTH;
+// Gear levels only, for validation-failure debugging. Deliberately omits
+// elevatorColumn: the player-chosen shaft column is a location coordinate, not
+// a level, and must not be retained in cash-out or gear_not_owned telemetry
+// (F-121). The rail DEPTH (elevator) stays because it is a bounded level.
 const GEAR_LOG_FIELDS = [
   "pickaxe",
   "battery",
@@ -103,7 +107,6 @@ const GEAR_LOG_FIELDS = [
   "cargo",
   "lantern",
   "elevator",
-  "elevatorColumn",
   "warpcoil",
   "blast",
   "elevatorSpeed",
@@ -181,7 +184,7 @@ function fieldSummary(
   return summary;
 }
 
-function cashOutRequestSummary(body: unknown): Record<string, unknown> {
+export function cashOutRequestSummary(body: unknown): Record<string, unknown> {
   if (!isRecord(body)) {
     return { bodyType: valueKind(body) };
   }
@@ -264,7 +267,10 @@ export function gearOwnershipError(
   const submittedColumn = elevatorColumn(gear);
   const ownedColumn = mineElevatorColumnFromProfile(owned);
   if (gear.elevator > 0 && submittedColumn !== ownedColumn) {
-    return `rail not owned: column ${submittedColumn ?? "none"}`;
+    // Bounded state, never the exact submitted column (F-121). With rail owned
+    // (elevator > 0), elevatorColumn always resolves a number (legacy shafts
+    // fall back to the fixed column), so this is always a "mismatch".
+    return "rail not owned: column mismatch";
   }
   return null;
 }
@@ -614,7 +620,9 @@ export async function POST(request: Request): Promise<Response> {
       severity: "error",
       ...playerLogContext,
       detail: gearError,
-      submitted: gear,
+      // The bounded per-level summary, never the full gear object, which would
+      // carry the exact elevatorColumn shaft coordinate (F-121).
+      submitted: fieldSummary(gear, GEAR_LOG_FIELDS),
     });
     return Response.json({ error: gearError }, { status: 422 });
   }

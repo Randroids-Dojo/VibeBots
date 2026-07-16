@@ -1007,7 +1007,10 @@ export async function resetBunker(
  * layout is structurally gone) and stamps layout_version forward; the
  * excavation, skin, seed, and loot stay. Safe and idempotent on an
  * already-current bunker: it returns the view unchanged so a retry can
- * never wipe a valid layout with no refund. Blocked during an active raid.
+ * never wipe a valid layout with no refund. The destructive write is a
+ * guarded compare-and-swap; a request that loses the race to a concurrent
+ * reset gets the standard F-122 revision-conflict 409 with the reloaded
+ * view rather than clobbering it. Blocked during an active raid.
  */
 export async function startFreshBunker(
   sql: Sql,
@@ -1028,11 +1031,12 @@ export async function startFreshBunker(
   // Guarded compare-and-swap (F-117): only wipe a bunker that is STILL the
   // incompatible one this request loaded. The load-then-check above has a
   // TOCTOU window, so guard the write on both the loaded revision and the
-  // layout still being below current. If a concurrent Start fresh already
-  // reset the bunker (and the player even rebuilt it to a current layout) in
-  // between, this write matches zero rows and never wipes the rebuilt state.
-  // Bumping the revision also drops any in-flight banked edit's guard.
-  await sql`
+  // layout still being below current, and RETURNING tells us whether it
+  // landed. If a concurrent Start fresh already reset the bunker (and the
+  // player even rebuilt it to a current layout) in between, this write
+  // matches zero rows and never wipes the rebuilt state. Bumping the
+  // revision also drops any in-flight banked edit's guard.
+  const won = (await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(fresh.parts)}::jsonb,
         dug = ${JSON.stringify(fresh.dug)}::jsonb,
@@ -1041,10 +1045,14 @@ export async function startFreshBunker(
         updated_at = now()
     WHERE player_id = ${playerId}
       AND revision = ${view.revision}
-      AND layout_version < ${BUNKER_LAYOUT_VERSION}`;
-  // Whether this write won or lost the race, the end state is a bare
-  // current-version bunker, so return the authoritative view to adopt. A
-  // loser simply reads the winner's already-reset (or rebuilt) bunker.
+      AND layout_version < ${BUNKER_LAYOUT_VERSION}
+    RETURNING player_id`) as Array<{ player_id: string }>;
+  // A loser follows the same F-122 conflict contract as every other bunker
+  // edit: a 409 carrying the authoritative reloaded view, so the client
+  // adopts the winner's already-reset (or rebuilt) bunker while its own
+  // Start fresh reports as failed rather than a phantom success.
+  if (won.length === 0)
+    return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 

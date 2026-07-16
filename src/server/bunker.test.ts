@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BUNKER_LAYOUT_VERSION,
   type BunkerFootprint,
+  type BunkerState,
   bunkerCells,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -1096,6 +1097,9 @@ describe("layout-incompatible bunker fail-fast (F-117)", () => {
     // clobbered (F-117 TOCTOU).
     expect(updateQuery).toContain("AND revision =");
     expect(updateQuery).toContain("layout_version <");
+    // RETURNING lets the wrapper tell a winning write from a lost race so a
+    // loser can 409 instead of reporting a phantom success (F-122).
+    expect(updateQuery).toContain("RETURNING");
     const bound = ((update ?? []) as unknown[]).slice(1);
     // parts cleared to [], excavation preserved.
     expect(bound[0]).toBe("[]");
@@ -1170,11 +1174,18 @@ describe("layout-incompatible bunker fail-fast (F-117)", () => {
 
     const result = await startFreshBunker(sql as never, "player-1");
 
-    expect(result.ok).toBe(true);
-    // The rebuilt wall on the now-current bunker survives, not wiped.
-    if (result.ok) {
-      expect(result.view.bunker?.parts).toHaveLength(1);
-      expect(result.view.bunker?.layoutVersion).toBe(BUNKER_LAYOUT_VERSION);
+    // A race loser follows the same F-122 conflict contract as every other
+    // bunker edit: a 409 carrying the authoritative reloaded view, never a
+    // phantom success and never a clobber.
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+      // The rebuilt wall on the now-current bunker survives, not wiped, and
+      // the client adopts it from the conflict body.
+      const body = result.body as { bunker?: BunkerState };
+      expect(body.bunker?.parts).toHaveLength(1);
+      expect(body.bunker?.layoutVersion).toBe(BUNKER_LAYOUT_VERSION);
     }
   });
 

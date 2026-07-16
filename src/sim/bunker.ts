@@ -1003,15 +1003,13 @@ export function placeBasePart(
   if (bunkerSlotOccupied(bunker, ref)) {
     return { ok: false, reason: "occupied" };
   }
-  // A roof caps the top of a room. We gate on the room, not the footprint:
-  // a roof is allowed at any cell whose cell above is closed (rock, the
-  // footprint boundary, or another sealed cell), and rejected only when open
-  // air sits directly above it. row - 1 is up, since y counts up as row
-  // decreases. Q-025 records this "top of the room" reading versus the
-  // stricter "only the footprint's top row" reading, with this as the
-  // recommended default: it lets a player cap a dug-out pocket mid-column
-  // instead of forcing every roof to the ceiling of the claim.
-  if (slot === "roof" && isOpenBunkerCell(bunker, col, row - 1, depth)) {
+  // A roof is the bunker's actual ceiling, so it may sit only in the topmost
+  // row of the claim volume (Q-025, dev direction 2026-07-16: "only the very
+  // top gets actual roof"). row counts up as it decreases, so the top row is
+  // footprint.row. An interior room that tops out against rock is capped with
+  // a second-story floor (the deck above doubles as that room's ceiling), not
+  // a roof.
+  if (slot === "roof" && row !== bunker.footprint.row) {
     return { ok: false, reason: "roof-top" };
   }
   // An overhead floor must already have the walls that hold it up beneath

@@ -842,9 +842,10 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     "floor-spikes": 2,
   });
 
-  // A bunker with exactly one open cell: that cell is both grounded
-  // (nothing open below) and a room top (nothing open above), so a floor,
-  // a roof, four walls, and a mount can all coexist in it.
+  // A bunker with exactly one open cell. The cell is grounded (nothing open
+  // below) and closed above; a floor, four walls, and a mount always fit. A
+  // roof fits only when that cell is the volume's top row (footprint.row),
+  // since a roof is the bunker's ceiling and never sits mid-column.
   const oneCellBunker = (
     col: number,
     row: number,
@@ -878,7 +879,8 @@ describe("bunker thin sub-cell slots (F-117)", () => {
   }
 
   it("holds up to one part per slot in a single cell", () => {
-    const c = { col: 4, row: 3, depth: 0 };
+    // The single cell is the volume's top row so its roof slot is legal.
+    const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
     let state = {
       bunker: oneCellBunker(c.col, c.row, c.depth),
       inventory: inventory(),
@@ -1021,19 +1023,33 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ).toEqual({ ok: false, reason: "occupied" });
   });
 
-  it("keeps a roof only at the top of its room", () => {
+  it("keeps a roof only at the volume's top row", () => {
     const bunker = allDugBunker(4, 5);
     const c = centerCell(bunker);
-    // The cell above the center is open, so a roof there is not a top.
+    const topRow = bunker.footprint.row;
+    const bottomRow = topRow + bunker.footprint.height - 1;
+    // A roof below the top row is rejected even with open space above it.
     expect(
       placeBasePart(bunker, inventory(), "roof-panel", c.col, c.row, 0, "roof"),
     ).toEqual({ ok: false, reason: "roof-top" });
-    // The top footprint row has nothing open above it.
-    const topRow = bunker.footprint.row;
+    // Only the top row of the volume may carry an actual roof.
     expect(
       placeBasePart(bunker, inventory(), "roof-panel", c.col, topRow, 0, "roof")
         .ok,
     ).toBe(true);
+    // The bottom row is rejected too: a roof is the ceiling, never a mid-
+    // column cap (that is a second-story floor's job).
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "roof-panel",
+        c.col,
+        bottomRow,
+        0,
+        "roof",
+      ),
+    ).toEqual({ ok: false, reason: "roof-top" });
   });
 
   it("requires two supporting walls under an overhead floor", () => {
@@ -1325,15 +1341,17 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ]);
   });
 
-  it("caps an interior room that tops out against rock", () => {
+  it("rejects a roof on an interior cell that tops out against rock", () => {
     const c = { col: 4, row: 3, depth: 0 };
     const bunker = oneCellBunker(c.col, c.row, c.depth);
     // The cell above is undug rock inside the footprint, not the boundary,
-    // so a roof caps this mid-column pocket (Q-025 option A).
+    // yet a roof is still rejected: a roof is the volume's ceiling, not a
+    // mid-column cap (Q-025, dev direction: only the very top gets a roof).
     expect(
       containsBunkerCell3D(bunker.footprint, c.col, c.row - 1, c.depth),
     ).toBe(true);
     expect(isOpenBunkerCell(bunker, c.col, c.row - 1, c.depth)).toBe(false);
+    expect(c.row).not.toBe(bunker.footprint.row);
     expect(
       placeBasePart(
         bunker,
@@ -1343,6 +1361,19 @@ describe("bunker thin sub-cell slots (F-117)", () => {
         c.row,
         c.depth,
         "roof",
+      ),
+    ).toEqual({ ok: false, reason: "roof-top" });
+    // Capping the pocket is a second-story floor's job: a grounded floor in
+    // the cell sits fine (it is what a lower room's ceiling is made of).
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "floor-panel",
+        c.col,
+        c.row,
+        c.depth,
+        "floor",
       ).ok,
     ).toBe(true);
   });

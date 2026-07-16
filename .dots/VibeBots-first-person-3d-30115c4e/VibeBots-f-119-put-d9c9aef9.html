@@ -15,6 +15,7 @@
 <section id="description">
 F-119: Keep one post-claim Enter bunker affordance and add an in-bunker menu with safe raid, repair, skin, and confirmed reset flows.
 A 390x760 trace proved the ordinary pre-claim bunker sheet emits an alerting touch_surface_not_topmost false positive because movement controls remain logically enabled behind the intentional overlay. Give claim and status sheets modal semantics, make the background inert, disable or unmount touch and TV movement while open, release held movement, restore it on close, and test both expected-overlay silence and one real unexpected blocker warning. Remove the unused movement_disabled_by_bunker_panel event or give it one precise non-alerting purpose.
+Apply that modal gate to every 2D movement source, including touch, keyboard, TV remote, and gamepad. Release every held cadence when the sheet opens, block all direction actions while open, and use input-family-appropriate tests to prove each source resumes once after close.
 </section>
 </article>
 </body>

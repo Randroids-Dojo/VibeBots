@@ -21,6 +21,15 @@ The four newest scheduled runs are cancelled. Run 29489140260 timed out three sh
 <section id="pr-244-forced-timeout-2026-07-16">
 Unapproved dispatch 29531137295 at exact head d2242b03 concluded failure, all four Full E2E shards tripped the 30-second Playwright timeout, all four upload steps succeeded, and four artifacts were retained. This proves the narrow internal-timeout to failed-job to upload path. Artifact inventory contained HTML, results.json, and error-context.md, but no screenshot or trace files, disproving the branch ledger claim that the proof retained traces and screenshots. It also does not prove bounded machine output under a real long-running shard, the 60-second floor, a capped override, required-file failure, late-setup budget, or coverage-equivalent supersession. Keep F-131 open and append corrections rather than editing history.
 </section>
+<section id="pr-244-triage-precision-2026-07-16">
+The uncommitted PR #244 correction uses gh run list with event schedule and limit 1, but that can select a queued or in-progress run and hide the newest completed red conclusion. Query the newest completed scheduled run explicitly and surface an active run separately. Supersession requires a completed coverage-equivalent Full E2E run on a commit that contains the timed-out head by ancestry. Equal-or-newer SHA is not a valid ordering rule, and a manual PR-branch proof does not supersede a current-main scheduled cancellation unless its tested commit contains that main head.
+</section>
+<section id="pr-244-unsafe-replacement-2026-07-16">
+Replacement head 72f20097 floors a negative safe allowance upward to 30 seconds, so late setup can cross the outer deadline. Override 0 reaches config-load failure before reporters, huge digit strings are not safely bounded, and if-no-files-found warn still permits zero artifacts. New docs falsely claim screenshots are configured, timeouts always fail rather than cancel, artifacts always survive, and all holds are corrected. Actual config has no screenshot policy and only trace on first retry; forced artifacts had neither. Require precreated bounded fallback evidence, live-budget-safe math, finite positive bounded inputs, fail-closed required files, and inspected-artifact claims.
+</section>
+<section id="pr-244-second-forced-run-2026-07-16">
+Unapproved run 29532206397 repeated the same 30-second override on head 72f20097. All four shards failed and uploaded four artifacts, but contents again had only HTML, results.json, and error-context.md, with no screenshots or traces. This repeats the narrow happy proof but does not exercise default budget math, exhausted setup time, zero or huge override, missing files, active scheduled-run masking, ancestry supersession, or a real late test. Standard PR run 29532186386 skipped Full E2E and is not coverage-equivalent. All holds remain.
+</section>
 </article>
 </body>
 </html>

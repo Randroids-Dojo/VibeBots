@@ -754,7 +754,9 @@ describe("POST /api/mine/bank", () => {
     const res = await post({
       moves: [],
       mineVersion: "29",
-      gear: { ...DEFAULT_GEAR, pickaxe: 99 },
+      // A sentinel shaft column that must never survive into the serialized
+      // validation event (F-121).
+      gear: { ...DEFAULT_GEAR, pickaxe: 99, elevatorColumn: 4242 },
       consumables: { ...STARTING_CONSUMABLES, rope: "22" },
     });
 
@@ -789,8 +791,37 @@ describe("POST /api/mine/bank", () => {
         expect.objectContaining({ path: "consumables.rope" }),
       ]),
     );
+    // The submitted shaft column is stripped from the serialized event (F-121).
+    expect(payload.request.gear).not.toHaveProperty("elevatorColumn");
+    expect(raw).not.toContain("4242");
     expect(raw).not.toContain("player-1");
     expect(raw).not.toContain("down");
+  });
+
+  it("logs a bounded per-level digest, not the full gear object, on gear_not_owned (F-121)", async () => {
+    mockSql();
+    // Overclaim a gear level so the ownership check rejects and emits the
+    // gear_not_owned monitoring event.
+    const res = await post({ gear: { ...DEFAULT_GEAR, pickaxe: 5 } });
+
+    expect(res.status).toBe(422);
+    const raw = errorSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .find((line: string) => line.includes("gear_not_owned"));
+    expect(raw).toBeDefined();
+    const payload = JSON.parse(raw as string);
+    expect(payload).toMatchObject({
+      component: "mine.cash_out",
+      event: "mine.cash_out.gear_not_owned",
+      code: "gear_not_owned",
+    });
+    // The bounded per-level digest is logged, never the full gear object: a
+    // full object would carry the elevatorColumn key (the shaft coordinate).
+    expect(payload.submitted).not.toHaveProperty("elevatorColumn");
+    expect(payload.submitted.pickaxe).toBe(5);
+    expect(raw as string).not.toContain("elevatorColumn");
+    // The rejection detail is bounded, never a coordinate.
+    expect(payload.detail).toBe("gear not owned: pickaxe level 5");
   });
 
   it("logs mine-version mismatches with hashed existing player context", async () => {

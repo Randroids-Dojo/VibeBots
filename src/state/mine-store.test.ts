@@ -1786,18 +1786,26 @@ describe("mine store upgrade flow", () => {
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain("/api/mine/world");
     expect(urls).toContain("/api/gear");
+    // Every authoritative value adopts the server's, in one coherent swap: the
+    // world seed and diff, rail depth, trip index, balance, and consumables.
+    expect(store().seed).toBe(999);
     expect(store().tripIndex).toBe(8);
     expect(store().mine.gear.elevator).toBe(4);
     expect(store().tripBaseDiff).toEqual(serverDiff);
     expect(cellAt(store().mine, 17, 1)).toEqual({ kind: "empty" });
-    // The persisted checkpoint is coherent: the same server world diff and trip
-    // index are saved together, not new gear over the stale local world.
+    expect(store().balance).toBe(70);
+    expect(store().consumables).toEqual(NO_CONSUMABLES);
+    // The persisted checkpoint is coherent: the same server seed, world diff,
+    // trip index, gear, and consumables are saved together, not new gear over
+    // the stale local world.
     const savedTrip = JSON.parse(
       vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
     );
+    expect(savedTrip.seed).toBe(999);
     expect(savedTrip.baseDiff).toEqual(serverDiff);
     expect(savedTrip.tripIndex).toBe(8);
     expect(savedTrip.gear.elevator).toBe(4);
+    expect(savedTrip.consumables).toEqual(NO_CONSUMABLES);
     expect(store().shopNote).toBe(
       "that purchase already went through; refreshed to the latest",
     );

@@ -51,6 +51,7 @@
       </dd>
       <dt>Recommended default</dt><dd>A. It needs no new infrastructure, is trivially testable, and delivers every stranded outcome as long as elevator traffic continues (buys are the only thing that creates rows, so traffic that creates a stranded row is exactly the traffic that later drains it). The added cost is one bounded indexed query per buy, on an infrequent action. C loses outcomes on a crash, defeating the durability the item requires. B is the cleanest at scale but adds cron infrastructure this project does not yet have; the drain function (<code>drainPendingElevatorOutcomes</code>) is already factored so a future cron can call it verbatim without changing the contract. Revisit and adopt B if elevator traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
       <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>Shipped under default A (the loop convention: ship under the recommended default and leave the question open for override). The durable-outbox slice drains the outbox opportunistically on elevator request traffic; the <code>drainPendingElevatorOutcomes</code> function is factored so option B (a cron) can call it verbatim later without any contract change. Left open so the cron option can be adopted if traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
     </dl>
   </section>
 

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="review-memory-authority-scope-clarification" data-date="2026-07-15">
+    <h3>Keep the unsafe-memory repair distinct from merge-gate enforcement</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Extended F-170 and its HTML Dot additively after exact source review. The clarified scope explicitly includes the automatically loaded <code>MEMORY.md</code> registry and every named unsafe source note, preserves descriptive incident history, and limits F-170 to memory audit, correction, conflict detection, owner cross-links, and fresh-session proof. F-148, F-152, F-154, and F-155 retain exact-head enforcement, bypass eligibility, append-only commit-history validation, and branch-deletion approval.</dd>
+      <dt>Verification</dt><dd>Confirmed unsafe instructions in <code>review-agent-gate.md</code>, <code>fp-live-raid-arc-state.md</code>, <code>vibebots-merge-needs-admin.md</code>, <code>coderabbit-unreliable-self-review.md</code>, and the <code>MEMORY.md</code> registry. Verified the local deletion claim directly in external session <code>f96b1f5d-1a12-403e-a095-4dbea919bedb</code>: at <code>2026-07-15T23:53:28Z</code> its branch-transition command ran <code>git branch -D feat/bunker-thin-parts-foundation</code> and reported deletion at <code>79224d6c</code>. PR #230 supplied fresh-session risk evidence when its agent announced an intended <code>--admin</code> merge before substantive CodeRabbit review and while exact-head defects remained.</dd>
+      <dt>Assumptions</dt><dd>This tracking correction does not edit machine-local memory, build another merge gate, authorize a merge or bypass, or alter historical incident facts. Existing enforcement followups remain independent owners. F-170 is complete only after source and registry correction plus a clean fresh-session proof.</dd>
+      <dt>GDD coverage</dt><dd>None. This is autonomous-workflow safety and durable task tracking, with no game-design, runtime, release, schema, tip, stamp, or telemetry change.</dd>
+      <dt>Followups</dt><dd>Extended F-170 and Dot <code>VibeBots-f-170-correct-5a4e45c2</code>; no duplicate followup added.</dd>
+    </dl>
+  </article>
+
   <article data-slice="thin-slot-authoritative-identity" data-date="2026-07-15">
     <h3>Keep thin bunker slots exact through raids and persistence</h3>
     <dl>

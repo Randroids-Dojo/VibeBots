@@ -711,6 +711,12 @@ describe("bunker excavation wrapper", () => {
     // and pulls the floor's ground away.
     const result = await excavateBunker(sql as never, "player-1", 2, 8, 0);
     expect(result.ok).toBe(true);
+    // The success result carries a fresh post-write reload; it must show the
+    // cascaded floor gone, proving the guarded write did not resurrect it.
+    if (result.ok) {
+      expect(result.view.bunker?.parts ?? []).toEqual([]);
+      expect(result.view.bunker?.dug.some((cell) => cell.row === 8)).toBe(true);
+    }
     // One statement carried the dug write, the parts write, the revision
     // guard, and the ore-pay CTE, so dug and parts settle under one revision.
     expect(bunkerUpdateQuery).not.toBeNull();
@@ -720,16 +726,10 @@ describe("bunker excavation wrapper", () => {
     expect(updateSql).toContain("revision = revision + 1");
     expect(updateSql).toContain("AND revision =");
     expect(updateSql).toContain("ore_pay");
-    // The winning write settled the store, which is exactly what the next
-    // load reads (the SELECT returns storedParts/storedDug): the new cell is
-    // dug and the cascaded floor is gone, so a reload sees no resurrected
-    // floor.
+    // The winning write also settled the underlying store (the next load's
+    // source): the new cell is dug and the cascaded floor is gone.
     expect(storedDug.some((cell) => cell.row === 8)).toBe(true);
     expect(storedParts).toEqual([]);
-    const reload = await excavateBunker(sql as never, "player-1", 2, 8, 0);
-    // Digging the same now-open cell fails (already open), proving the load
-    // saw the persisted dug set, and no floor came back to re-drop.
-    expect(reload.ok).toBe(false);
   });
 });
 

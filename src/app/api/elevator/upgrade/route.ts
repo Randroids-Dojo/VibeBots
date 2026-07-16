@@ -245,6 +245,21 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
+  // expectedDepth is required: it is the stale-rail guard, and every current
+  // client sends it (the store passes the live gear depth, 0 for the first
+  // rail). A request without it is a stale cached client that would otherwise
+  // bypass the guard and could silently buy a second row, so reject fail-fast
+  // before any read or charge. See F-121; kept optional until every client
+  // shipped it, now enforced.
+  if (expectedDepth === undefined) {
+    return elevatorReject(
+      "elevator-expected-depth-required",
+      "expectedDepth is required",
+      400,
+      null,
+    );
+  }
+
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
   const profile = await getMinePlayerProfile(sql, playerId);
@@ -272,7 +287,8 @@ export async function POST(request: Request): Promise<Response> {
   // A stale or replayed buy (including a retry after a lost success response)
   // still shows the client's old rail depth. Reject before any charge so it
   // cannot silently advance a second row; the client adopts currentState.
-  if (expectedDepth !== undefined && expectedDepth !== depth) {
+  // expectedDepth is guaranteed present (required above).
+  if (expectedDepth !== depth) {
     return elevatorReject(
       "elevator-stale-rail-state",
       "your saved rail depth is out of date; refresh and try again",

@@ -774,16 +774,14 @@ describe("mine API client", () => {
       track: "lantern",
     });
 
-    await buyRemoteElevator(-17);
+    // The first rail carries its column and the required depth 0, which must be
+    // sent (not dropped as a falsy value).
+    await buyRemoteElevator(-17, 0);
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/elevator/upgrade");
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
       column: -17,
+      expectedDepth: 0,
     });
-
-    await buyRemoteElevator();
-    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual(
-      {},
-    );
 
     await buyRemoteElevator(-17, 3);
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
@@ -791,6 +789,7 @@ describe("mine API client", () => {
       expectedDepth: 3,
     });
 
+    // An extend omits the column but still carries the required expectedDepth.
     await buyRemoteElevator(undefined, 4);
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
       expectedDepth: 4,

@@ -1349,6 +1349,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       set({
         activeSlot: parsed.activeSlot,
         saveSlots: { state: "ready", ...parsed },
+        // The block is about the active slot's live rail; a switch reloads the
+        // target slot's world fresh below, so it cannot inherit a stale block
+        // (and retryRailResync could otherwise refetch the newly active slot).
+        railResyncFailed: false,
       });
       await get().loadWorld();
       await get().loadGear();
@@ -1788,6 +1792,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const relocating =
         get().elevatorPlacementRequired && mine.gear.elevator > 0;
       if (cashOut.state === "pending") return false;
+      // Gate every rail mutation at the authority boundary, not just the stall
+      // button: a prior conflict whose refresh failed left the local rail known
+      // stale, so any buy (extend, first-rail placement, or relocation, and via
+      // any surface: stall, placement overlay, keyboard, gamepad) must wait for
+      // an explicit retryRailResync rather than fire a blind buy against it.
+      if (get().railResyncFailed) {
+        set({ shopNote: "refresh the rail before buying" });
+        return false;
+      }
       persistCurrentTrip();
       if (mine.miner.row !== 0) {
         set({ shopNote: "return to the surface to extend the rail" });

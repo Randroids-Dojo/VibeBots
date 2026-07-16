@@ -139,6 +139,7 @@ describe("mine store upgrade flow", () => {
       balance: 10,
       elevatorPlacementRequired: false,
       shopNote: null,
+      railResyncFailed: false,
       tripIndex: 2,
       tripBaseDiff: [],
       moves: ["down"] as MineAction[],
@@ -881,6 +882,89 @@ describe("mine store upgrade flow", () => {
     await expect(store().retryRailResync()).resolves.toBe(true);
 
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(store().railResyncFailed).toBe(false);
+  });
+
+  it("gates every rail buy at the store while a resync is unresolved", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: true,
+    });
+    const fetchMock = vi.fn(async (_url: string) => jsonResponse({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    // The extend path AND the placement/relocation path (buyElevator(column),
+    // reached from the overlay, keyboard, and gamepad, not just the stall
+    // button) must both refuse to hit the server while blocked.
+    await expect(store().buyElevator()).resolves.toBe(false);
+    await expect(store().buyElevator(4)).resolves.toBe(false);
+
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain(
+      "/api/elevator/upgrade",
+    );
+    expect(store().shopNote).toBe("refresh the rail before buying");
+    expect(store().railResyncFailed).toBe(true);
+  });
+
+  it("clears a rail-resync block when a slot switch reloads a fresh world", async () => {
+    useMineStore.setState({
+      activeSlot: 1,
+      worldLoaded: true,
+      railResyncFailed: true,
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          activeSlot: 2,
+          slots: [
+            {
+              slot: 1,
+              active: false,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 10,
+              deepestDepth: 3,
+              partsOwned: 1,
+              designs: 1,
+              stamps: 2,
+            },
+            {
+              slot: 2,
+              active: true,
+              exists: true,
+              createdAt: "2026-06-18T00:00:00.000Z",
+              balance: 0,
+              deepestDepth: 0,
+              partsOwned: 0,
+              designs: 0,
+              stamps: 0,
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ seed: 456, tripIndex: 8, diff: [], activeSlot: 2 }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          gear: DEFAULT_GEAR,
+          consumables: NO_CONSUMABLES,
+          balance: 33,
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().switchSaveSlot(2)).resolves.toBe(true);
+
+    // The new slot's world loaded fresh, so a stale block cannot carry over and
+    // a later retry cannot refetch the wrong slot.
+    expect(store().activeSlot).toBe(2);
     expect(store().railResyncFailed).toBe(false);
   });
 

@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -31,6 +32,7 @@ import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
 import { startFramesWhenSettled } from "@/components/compile-gate";
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import type { LiveRaidActiveView } from "@/lib/bunker-api-types";
 import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
@@ -39,7 +41,13 @@ import {
   type BunkerState,
   DEFAULT_BUNKER_SKIN,
 } from "@/sim/bunker";
-import { type BunkerBlock, bunkerCellBlock } from "@/sim/bunker-blocks";
+import { bunkerCellBlock, bunkerCellGenCoords } from "@/sim/bunker-blocks";
+import {
+  LIVE_RAID_TICKS_PER_SECOND,
+  type LiveRaidOutcomeReport,
+} from "@/sim/bunker-raid-live";
+import type { OreId } from "@/sim/mine/ores";
+import { FpClankerLayer } from "./bunker-fp-clankers";
 import {
   buildFpSolidGrid,
   createFpSolidGrid,
@@ -67,6 +75,15 @@ import {
   stepFpMovement,
 } from "./bunker-fp-movement";
 import { bunkerPartFpGeometry } from "./bunker-fp-part-geometry";
+import {
+  advanceFpRaid,
+  collectFpRaidPickup,
+  createFpRaidRuntime,
+  type FpRaidRuntime,
+  fpRaidEnded,
+  fpRaidReport,
+} from "./bunker-fp-raid";
+import { resetFpRaidHud, setFpRaidHud } from "./bunker-fp-raid-hud";
 import {
   createFpRayHit,
   FP_MAX_REACH,
@@ -99,10 +116,20 @@ import {
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
 } from "./graphics-quality";
-import { DIRT_BLOCK_GEOMETRY } from "./mine-block-geometries";
-import { blockDetailEnabled, rockBlockMaterial } from "./mine-block-materials";
 import {
+  DIRT_BLOCK_GEOMETRY,
+  ROCK_BLOCK_GEOMETRY,
+} from "./mine-block-geometries";
+import {
+  blockDetailEnabled,
+  dirtBlockMaterial,
+  rockBlockMaterial,
+} from "./mine-block-materials";
+import { OreCrystals } from "./mine-block-render";
+import {
+  biomeDirtColorAt,
   cellHash,
+  GLOWING_ORES,
   ORE_COLORS,
   rockColorsForBiome,
 } from "./mine-render-palette";
@@ -148,23 +175,23 @@ const FP_WORK_LIGHT_COLOR = "#ffd9a0";
 const FP_ENTRY_FILL_COLOR = "#d8c2a4";
 /** Deep claim rock tint (the default biome's softest rock gray). */
 const FP_ROCK_TINT = rockColorsForBiome("default")[0];
+/** A representative shallow-bunker dirt color for the warm pass so the
+ * dirt program compiles before a fresh room's first paint. */
+const FP_WARM_DIRT_HEX = biomeDirtColorAt(4, 5);
 /** 190 boundary cells (the six face planes around the volume) plus up
  * to one interior undug cell per volume cell. Every cell, including the
  * depth-0 floor plane, starts as solid claim rock (F-115). */
 const FP_ROCK_BOUNDARY_COUNT =
   2 * FP_ROWS * FP_DEPTH + 2 * FP_COLS * FP_DEPTH + 2 * FP_COLS * FP_ROWS;
 const FP_ROCK_CAPACITY = FP_ROCK_BOUNDARY_COUNT + FP_COLS * FP_ROWS * FP_DEPTH;
+/** The dirt/ore-base mesh only ever holds interior cells (the boundary
+ * shell is all claim rock), so it caps at one per volume cell. */
+const FP_DIRT_CAPACITY = FP_COLS * FP_ROWS * FP_DEPTH;
 /** Interior diggable rock renders slightly brighter than the boundary
  * so "this one can open later" reads at a glance. */
 const FP_ROCK_INTERIOR_LIFT = 1.08;
 /** One loot glint per dug cell that still holds uncollected ore. */
 const FP_LOOT_CAPACITY = FP_CELL_COUNT;
-/** Boundary shell and plain interior rock tints, and the dirt tint for
- * the softer blocks, so a wall of claim rock reads as dirt-and-stone with
- * ore glinting through (F-116). */
-const FP_BOUNDARY_TINT = new Color().setScalar(1);
-const FP_ROCK_INTERIOR_TINT = new Color().setScalar(FP_ROCK_INTERIOR_LIFT);
-const FP_DIRT_TINT = new Color("#8a6a45");
 
 declare global {
   interface Window {
@@ -191,6 +218,14 @@ export interface BunkerFpCanvasProps {
   onEdit: (intent: FpEditIntent) => void;
   onExit: () => void;
   onFirstFrame?: () => void;
+  /** The live raid to fight in first person, or null when none is
+   * active. Set by an in-bunker Start control; cleared once resolved. */
+  liveRaid?: LiveRaidActiveView | null;
+  /** Submit the fought raid's bounded outcome to settle it. */
+  onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
+  /** Forfeit an unresolved raid when the player leaves first person
+   * mid-fight, so it settles now and cannot be re-rolled by re-entering. */
+  onForfeitRaid?: () => void;
 }
 
 /** Target outline colors by action (build, pry, dig): one shared
@@ -331,16 +366,39 @@ const rockScale = new Vector3();
 const rockEuler = new Euler();
 const rockColor = new Color();
 
-function writeRockInstance(
+/** A faceted rock body (the mine's dodecahedron): full per-cell rotation
+ * so no two blocks repeat, scaled just past the cell so seams close. */
+function writeRockBody(
   mesh: InstancedMesh,
   index: number,
   x: number,
   y: number,
   z: number,
-  tint: Color,
 ): void {
-  // Deterministic tiny jitter hashed from the cell coordinates so the
-  // hewn rock never shimmers across rebuilds.
+  const salt = fpCellIndex(x + 1, y + 1, z + 1);
+  rockEuler.set(
+    cellHash(salt, 1, 13) * 3.1,
+    cellHash(salt, 2, 17) * 3.1,
+    cellHash(salt, 3, 19) * 3.1,
+  );
+  rockQuaternion.setFromEuler(rockEuler);
+  // ROCK_BLOCK_GEOMETRY is a 0.62 dodecahedron; ~1.06 fills the cell and
+  // pushes vertices past the boundary so adjacent rock closes its seams.
+  rockScale.setScalar(1.06 + cellHash(salt, 4, 53) * 0.05);
+  rockPosition.set(x, y, -z);
+  rockMatrix.compose(rockPosition, rockQuaternion, rockScale);
+  mesh.setMatrixAt(index, rockMatrix);
+}
+
+/** A soft dirt/ore-base body (the mine's rounded cube): tiny jitter only,
+ * scaled to fill the cell. */
+function writeDirtBody(
+  mesh: InstancedMesh,
+  index: number,
+  x: number,
+  y: number,
+  z: number,
+): void {
   const salt = fpCellIndex(x + 1, y + 1, z + 1);
   rockEuler.set(
     (cellHash(salt, 1, 11) - 0.5) * 0.08,
@@ -348,35 +406,100 @@ function writeRockInstance(
     (cellHash(salt, 3, 37) - 0.5) * 0.08,
   );
   rockQuaternion.setFromEuler(rockEuler);
-  // DIRT_BLOCK_GEOMETRY is a 0.94 rounded cube; the scale band keeps
-  // every block at or past cell size so seams close.
+  // DIRT_BLOCK_GEOMETRY is a 0.94 rounded cube; the scale band keeps every
+  // block at or past cell size so seams close.
   rockScale.setScalar(1.07 + cellHash(salt, 4, 53) * 0.05);
   rockPosition.set(x, y, -z);
   rockMatrix.compose(rockPosition, rockQuaternion, rockScale);
   mesh.setMatrixAt(index, rockMatrix);
-  mesh.setColorAt(index, tint);
 }
 
-/** Tint an interior block by kind (F-116): ore glows in its ore color,
- * dirt reads warm-brown, plain rock keeps the lifted gray. Mutates and
- * returns the shared scratch color (no per-cell allocation). */
-function bunkerBlockTint(block: BunkerBlock): Color {
-  if (block.kind === "ore" && block.ore) {
-    return rockColor.set(ORE_COLORS[block.ore]);
+/** Face neighbors paired with the rotation that turns OreCrystals' local
+ * +Z cluster to point out that face. Grid z maps to world -z (worldZ =
+ * -depth), so a shallower open neighbor (dz -1) faces world +Z (identity).
+ * Ordered by how visible the face usually is from the dug-in side: the
+ * pocket-facing shallow face first, then the side walls, then floor and
+ * ceiling, then the deep back face last. */
+const FP_ORE_FACES: readonly {
+  d: readonly [number, number, number];
+  rot: readonly [number, number, number];
+}[] = [
+  { d: [0, 0, -1], rot: [0, 0, 0] },
+  { d: [1, 0, 0], rot: [0, Math.PI / 2, 0] },
+  { d: [-1, 0, 0], rot: [0, -Math.PI / 2, 0] },
+  { d: [0, 1, 0], rot: [-Math.PI / 2, 0, 0] },
+  { d: [0, -1, 0], rot: [Math.PI / 2, 0, 0] },
+  { d: [0, 0, 1], rot: [0, Math.PI, 0] },
+];
+
+/** The rotation that orients an undug ore cell's crystals out its first
+ * open face, or null when the cell touches no open space (fully buried, so
+ * no crystals render). Prefers the pocket-facing shallow face so a vein
+ * exposed from a side, floor, ceiling, or back still points into the gap
+ * instead of poking into solid rock. */
+function fpExposedOreRotation(
+  grid: FpSolidGrid,
+  x: number,
+  y: number,
+  z: number,
+): readonly [number, number, number] | null {
+  for (const face of FP_ORE_FACES) {
+    const nx = x + face.d[0];
+    const ny = y + face.d[1];
+    const nz = z + face.d[2];
+    if (nx < 0 || nx >= FP_COLS || ny < 0 || ny >= FP_ROWS) continue;
+    if (nz < 0 || nz >= FP_DEPTH) continue;
+    if (grid[fpCellIndex(nx, ny, nz)] === FP_OPEN) return face.rot;
   }
-  if (block.kind === "dirt") {
-    return rockColor.copy(FP_DIRT_TINT);
+  return null;
+}
+
+/** An exposed ore cell that gets crystal art overlaid on its open face. */
+interface FpOreCell {
+  key: number;
+  x: number;
+  y: number;
+  z: number;
+  hashCol: number;
+  hashRow: number;
+  ore: OreId;
+  rot: readonly [number, number, number];
+}
+
+/** Cheap equality so the ore-crystal list only triggers a React update
+ * when the exposed ore veins actually change (a dig, not every rebuild).
+ * The open face (rot) is part of identity: digging a neighbor can turn a
+ * cell's crystals to a new face without changing the exposed set. So are
+ * the generator coords (hashCol/hashRow): the local key is footprint
+ * independent, so a footprint change would otherwise keep a stale crystal
+ * layout when key, ore, and rotation happen to match. */
+function sameFpOreCells(a: FpOreCell[], b: FpOreCell[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].key !== b[i].key || a[i].ore !== b[i].ore) return false;
+    if (a[i].hashCol !== b[i].hashCol || a[i].hashRow !== b[i].hashRow) {
+      return false;
+    }
+    if (
+      a[i].rot[0] !== b[i].rot[0] ||
+      a[i].rot[1] !== b[i].rot[1] ||
+      a[i].rot[2] !== b[i].rot[2]
+    ) {
+      return false;
+    }
   }
-  return rockColor.copy(FP_ROCK_INTERIOR_TINT);
+  return true;
 }
 
 /**
- * The claim rock: ONE InstancedMesh over shared singletons (dirt block
- * geometry + rock material). The 190 boundary cells surrounding the
- * volume are written once at mount; the interior undug instances are
- * rebuilt whenever the bunker (its dug list) changes. Only the
- * per-mount InstancedMesh is disposed on unmount; the geometry and
- * material singletons stay alive (frame-loop-performance rule).
+ * The claim rock, rendered like the mine at this depth (F-116): rock
+ * cells use the faceted rock dodecahedron and rock material, dirt and ore
+ * bases use the rounded dirt cube and the depth's dirt material, and
+ * exposed ore veins get the mine's crystal cluster on their open face.
+ * Two InstancedMeshes (rock + dirt) plus a handful of crystal groups; the
+ * boundary shell writes once at mount, the interior rebuilds only when the
+ * dug list changes. The geometry and material singletons stay alive; only
+ * the per-mount meshes dispose on unmount (frame-loop-performance rule).
  */
 function FpRockInstances({
   bunker,
@@ -386,81 +509,149 @@ function FpRockInstances({
   detail: boolean;
 }) {
   const groupRef = useRef<Group | null>(null);
-  const meshRef = useRef<InstancedMesh | null>(null);
+  const rockMeshRef = useRef<InstancedMesh | null>(null);
+  const dirtMeshRef = useRef<InstancedMesh | null>(null);
   const gridRef = useRef<FpSolidGrid | null>(null);
   if (!gridRef.current) gridRef.current = createFpSolidGrid();
+  const [oreCells, setOreCells] = useState<FpOreCell[]>([]);
+  const glDomElement = useThree((state) => state.gl.domElement);
+
+  // The bunker spans five rows, so one depth-appropriate dirt color reads
+  // as "the dirt you'd see at this depth" without a per-row material.
+  const footprint = bunker.footprint;
+  const dirtHex = useMemo(() => {
+    const centerRow = footprint.row + Math.floor(FP_ROWS / 2);
+    const centerCol = footprint.col + Math.floor(FP_COLS / 2);
+    return biomeDirtColorAt(centerCol, centerRow);
+  }, [footprint.row, footprint.col]);
 
   useLayoutEffect(() => {
     const group = groupRef.current;
     if (!group) return;
-    const mesh = new InstancedMesh(
-      DIRT_BLOCK_GEOMETRY,
+    const rockMesh = new InstancedMesh(
+      ROCK_BLOCK_GEOMETRY,
       rockBlockMaterial(FP_ROCK_TINT, detail),
       FP_ROCK_CAPACITY,
     );
-    mesh.frustumCulled = false;
+    const dirtMesh = new InstancedMesh(
+      DIRT_BLOCK_GEOMETRY,
+      dirtBlockMaterial(dirtHex, detail),
+      FP_DIRT_CAPACITY,
+    );
+    rockMesh.frustumCulled = false;
+    dirtMesh.frustumCulled = false;
+    // The six boundary face planes are all solid claim rock.
     let index = 0;
     for (let y = 0; y < FP_ROWS; y++) {
       for (let z = 0; z < FP_DEPTH; z++) {
-        writeRockInstance(mesh, index++, -1, y, z, FP_BOUNDARY_TINT);
-        writeRockInstance(mesh, index++, FP_COLS, y, z, FP_BOUNDARY_TINT);
+        writeRockBody(rockMesh, index++, -1, y, z);
+        writeRockBody(rockMesh, index++, FP_COLS, y, z);
       }
     }
     for (let x = 0; x < FP_COLS; x++) {
       for (let z = 0; z < FP_DEPTH; z++) {
-        writeRockInstance(mesh, index++, x, -1, z, FP_BOUNDARY_TINT);
-        writeRockInstance(mesh, index++, x, FP_ROWS, z, FP_BOUNDARY_TINT);
+        writeRockBody(rockMesh, index++, x, -1, z);
+        writeRockBody(rockMesh, index++, x, FP_ROWS, z);
       }
     }
     for (let x = 0; x < FP_COLS; x++) {
       for (let y = 0; y < FP_ROWS; y++) {
-        writeRockInstance(mesh, index++, x, y, -1, FP_BOUNDARY_TINT);
-        writeRockInstance(mesh, index++, x, y, FP_DEPTH, FP_BOUNDARY_TINT);
+        writeRockBody(rockMesh, index++, x, y, -1);
+        writeRockBody(rockMesh, index++, x, y, FP_DEPTH);
       }
     }
-    mesh.count = index;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    group.add(mesh);
-    meshRef.current = mesh;
+    rockMesh.count = index;
+    rockMesh.instanceMatrix.needsUpdate = true;
+    dirtMesh.count = 0;
+    group.add(rockMesh);
+    group.add(dirtMesh);
+    rockMeshRef.current = rockMesh;
+    dirtMeshRef.current = dirtMesh;
     return () => {
-      group.remove(mesh);
-      mesh.dispose();
-      meshRef.current = null;
+      group.remove(rockMesh);
+      group.remove(dirtMesh);
+      rockMesh.dispose();
+      dirtMesh.dispose();
+      rockMeshRef.current = null;
+      dirtMeshRef.current = null;
     };
-  }, [detail]);
+  }, [detail, dirtHex]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies(detail): a detail flip recreates the InstancedMesh above, so the interior instances must rewrite onto the new mesh even though the body never reads detail.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(detail): a detail flip recreates the meshes above, so the interior instances must rewrite onto the new meshes even though the body never reads detail.
   useLayoutEffect(() => {
-    const mesh = meshRef.current;
+    const rockMesh = rockMeshRef.current;
+    const dirtMesh = dirtMeshRef.current;
     const grid = gridRef.current;
-    if (!mesh || !grid) return;
+    if (!rockMesh || !dirtMesh || !grid) return;
     buildFpSolidGrid(bunker, grid);
     const blockSeed = bunker.blockSeed;
-    let index = FP_ROCK_BOUNDARY_COUNT;
-    // Depth 0 (the floor plane) is solid claim rock too now (F-115), so
-    // it is part of the diggable interior rather than an open plane. Each
-    // undug cell is tinted by its generated block kind (F-116).
+    // Depth 0 (the floor plane) is solid claim rock too now (F-115), so it
+    // is part of the diggable interior rather than an open plane. Each
+    // undug cell renders as its generated block kind at that depth (F-116).
+    let rockIndex = FP_ROCK_BOUNDARY_COUNT;
+    let dirtIndex = 0;
+    const ores: FpOreCell[] = [];
     for (let z = 0; z < FP_DEPTH; z++) {
       for (let y = 0; y < FP_ROWS; y++) {
         for (let x = 0; x < FP_COLS; x++) {
           if (grid[fpCellIndex(x, y, z)] !== FP_ROCK_UNDUG) continue;
-          const tint =
+          const block =
             blockSeed === undefined
-              ? FP_ROCK_INTERIOR_TINT
-              : bunkerBlockTint(
-                  bunkerCellBlock(blockSeed, bunker.footprint, x, y, z),
-                );
-          writeRockInstance(mesh, index++, x, y, z, tint);
+              ? null
+              : bunkerCellBlock(blockSeed, bunker.footprint, x, y, z);
+          if (block?.kind === "rock") {
+            writeRockBody(rockMesh, rockIndex++, x, y, z);
+            continue;
+          }
+          // Dirt and ore share the rounded dirt body (ore overlays crystals).
+          writeDirtBody(dirtMesh, dirtIndex++, x, y, z);
+          if (block?.kind === "ore" && block.ore) {
+            const rot = fpExposedOreRotation(grid, x, y, z);
+            if (rot) {
+              const art = bunkerCellGenCoords(bunker.footprint, x, y, z);
+              ores.push({
+                key: fpCellIndex(x, y, z),
+                x,
+                y,
+                z,
+                hashCol: art.col,
+                hashRow: art.row,
+                ore: block.ore,
+                rot,
+              });
+            }
+          }
         }
       }
     }
-    mesh.count = index;
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [bunker, detail]);
+    rockMesh.count = rockIndex;
+    dirtMesh.count = dirtIndex;
+    rockMesh.instanceMatrix.needsUpdate = true;
+    dirtMesh.instanceMatrix.needsUpdate = true;
+    setOreCells((prev) => (sameFpOreCells(prev, ores) ? prev : ores));
+    // Probe the exposed-ore-vein count (rebuild cadence, not per-frame) so a
+    // test can assert ore actually renders, not just that dirt and rock do.
+    glDomElement.dataset.fpOreCells = String(ores.length);
+  }, [bunker, detail, glDomElement]);
 
-  return <group ref={groupRef} />;
+  return (
+    <group ref={groupRef}>
+      {oreCells.map((cell) => (
+        <group
+          key={cell.key}
+          position={[cell.x, cell.y, -cell.z]}
+          rotation={[cell.rot[0], cell.rot[1], cell.rot[2]]}
+        >
+          <OreCrystals
+            col={cell.hashCol}
+            row={cell.hashRow}
+            color={ORE_COLORS[cell.ore]}
+            glow={GLOWING_ORES.has(cell.ore)}
+          />
+        </group>
+      ))}
+    </group>
+  );
 }
 
 // Shared singletons for the overflow-loot glints (never disposed).
@@ -624,36 +815,10 @@ function FpPlacedParts({
   );
 }
 
-/** The bunker core as a slowly spinning octahedron; the rig's frame
- * loop owns the spin so the scene adds no extra useFrame. */
-function FpCore({
-  bunker,
-  coreRef,
-}: {
-  bunker: BunkerState;
-  coreRef: RefObject<Mesh | null>;
-}) {
-  const footprint = bunker.footprint;
-  const x = bunker.core.col - footprint.col;
-  const y = footprint.row + footprint.height - 1 - bunker.core.row;
-  const z = bunker.core.depth ?? 0;
-  return (
-    <mesh ref={coreRef} position={[x, y, -z]}>
-      <octahedronGeometry args={[0.42, 0]} />
-      <meshStandardMaterial
-        color="#c084fc"
-        emissive="#8b5cf6"
-        emissiveIntensity={0.85}
-        metalness={0.35}
-        roughness={0.3}
-        flatShading
-      />
-    </mesh>
-  );
-}
-
 // Module-scope scratch for the camera orientation (frame loop).
 const fpCameraEuler = new Euler(0, 0, 0, "YXZ");
+// Reused scratch for the player's sim cell fed to the raid each frame.
+const fpRaidPlayerCell = { col: 0, row: 0, depth: 0 };
 
 function clampFpPitch(pitch: number): number {
   return Math.min(FP_PITCH_LIMIT, Math.max(-FP_PITCH_LIMIT, pitch));
@@ -664,8 +829,6 @@ function fpKindCode(kind: FpRayHit["kind"]): number {
   switch (kind) {
     case "part":
       return 1;
-    case "core":
-      return 2;
     case "spikes":
       return 3;
     case "door":
@@ -695,21 +858,25 @@ function countFpOpenCells(solid: FpSolidGrid): number {
 function BunkerFpRig({
   bunker,
   entry,
-  coreRef,
   tool,
   onEdit,
   outlineRef,
   ghostRef,
   detail,
+  liveRaid,
+  onResolveRaid,
+  raidRuntimeRef,
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
-  coreRef: RefObject<Mesh | null>;
   tool: BunkerToolAction;
   onEdit: (intent: FpEditIntent) => void;
   outlineRef: RefObject<LineSegments | null>;
   ghostRef: RefObject<Group | null>;
   detail: boolean;
+  liveRaid: LiveRaidActiveView | null;
+  onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
+  raidRuntimeRef: RefObject<FpRaidRuntime | null>;
 }) {
   const camera = useThree((state) => state.camera);
   const gl = useThree((state) => state.gl);
@@ -786,24 +953,55 @@ function BunkerFpRig({
     }
   }, [bunker, refreshBoxedIn]);
 
+  // Live raid lifecycle: build the client runtime from the frozen start
+  // snapshot when a raid begins (so the fight and the server's later
+  // validation agree), and drop it plus the HUD when the raid clears.
+  const raidResolvedRef = useRef(false);
+  useEffect(() => {
+    if (liveRaid) {
+      raidRuntimeRef.current = createFpRaidRuntime(
+        liveRaid.bunker,
+        liveRaid.tier,
+        liveRaid.raidId,
+      );
+      raidResolvedRef.current = false;
+    } else {
+      raidRuntimeRef.current = null;
+      raidResolvedRef.current = false;
+      resetFpRaidHud();
+    }
+    return () => {
+      resetFpRaidHud();
+    };
+  }, [liveRaid, raidRuntimeRef]);
+
   // Spawn once per mount: the miner's mine cell on the tunnel plane,
   // feet on the room floor, facing -z (into the rock) with the view
   // tipped slightly down (FP_SPAWN_PITCH) so the floor grounds it.
   const moveRef = useRef<FpMoveState | null>(null);
   if (!moveRef.current) {
-    const cell = fpSpawnCell(bunker.footprint, entry.col, entry.row);
+    // Select against the built collision grid so the spawn avoids BOTH undug
+    // rock and any placed part on the entry column (not just the dug set).
+    const cell = fpSpawnCell(
+      solidRef.current ?? createFpSolidGrid(),
+      bunker.footprint,
+      entry.col,
+    );
     moveRef.current = {
       px: cell.x,
-      py: -0.5,
+      // Feet sit at the bottom of the chosen cell (py = y - 0.5 inverts the
+      // frame loop's feetY = round(py), so y 0 keeps the prior -0.5). The
+      // spawn is normally a floor cell (y 0); the fallback can return a
+      // higher standable cell when the whole floor is walled, and honoring
+      // its y here is what keeps the rig out of the blocked floor cell.
+      py: cell.y - 0.5,
       pz: -cell.z,
       vx: 0,
       vy: 0,
       vz: 0,
       grounded: true,
     };
-    // Feet start on the room floor (py -0.5 is cell y 0) regardless of
-    // the miner's row; the frame loop keeps this in sync afterwards.
-    occupiedCellRef.current = fpCellIndex(cell.x, 0, cell.z);
+    occupiedCellRef.current = fpCellIndex(cell.x, cell.y, cell.z);
   }
 
   // Aim the camera before the first frame so the compile-gated first
@@ -1053,15 +1251,53 @@ function BunkerFpRig({
       }
     }
 
+    // Live raid: step the sim against the player's current cell, collect
+    // any walked-over XP, publish the HUD, and resolve once on the end.
+    // While a raid runs the player only moves (edits stay frozen), so
+    // any queued act input is dropped here before the tool block below.
+    const raid = raidRuntimeRef.current;
+    const raidActive = raid !== null;
+    if (raid) {
+      fpRaidPlayerCell.col = bunker.footprint.col + feetX;
+      fpRaidPlayerCell.row =
+        bunker.footprint.row + bunker.footprint.height - 1 - feetY;
+      fpRaidPlayerCell.depth = feetZ;
+      if (!fpRaidEnded(raid)) {
+        advanceFpRaid(raid, fpRaidPlayerCell, Math.min(delta, FP_DT_CLAMP));
+        collectFpRaidPickup(raid, fpRaidPlayerCell);
+      }
+      let aliveClankers = 0;
+      const raidClankers = raid.state.clankers;
+      for (let ci = 0; ci < raidClankers.length; ci += 1) {
+        if (raidClankers[ci].alive) aliveClankers += 1;
+      }
+      const secondsLeft = Math.max(
+        0,
+        Math.ceil(
+          (raid.state.durationTicks - raid.state.tick) /
+            LIVE_RAID_TICKS_PER_SECOND,
+        ),
+      );
+      setFpRaidHud(
+        true,
+        secondsLeft,
+        aliveClankers,
+        raid.state.clankers.length,
+        raid.state.breached,
+        raid.state.outcome,
+      );
+      if (fpRaidEnded(raid) && !raidResolvedRef.current) {
+        raidResolvedRef.current = true;
+        onResolveRaid?.(fpRaidReport(raid));
+      }
+      fpInput.act = false;
+      fpInput.actHeld = false;
+      fpInput.pryAct = false;
+    }
+
     fpCameraEuler.set(pitchRef.current, yawRef.current, 0);
     camera.quaternion.setFromEuler(fpCameraEuler);
     camera.position.set(move.px, move.py + FP_EYE_HEIGHT, move.pz);
-
-    const core = coreRef.current;
-    if (core) {
-      core.rotation.y = state.clock.elapsedTime * 0.7;
-      core.rotation.x = Math.sin(state.clock.elapsedTime * 0.9) * 0.12;
-    }
 
     // Crosshair raycast from the eye along the camera forward (scalar
     // yaw/pitch basis, no vector allocations).
@@ -1113,7 +1349,7 @@ function BunkerFpRig({
       } else if (placeOk) {
         outlineKind = FP_OUTLINE_BUILD;
       }
-      outline.visible = outlineKind >= 0;
+      outline.visible = outlineKind >= 0 && !raidActive;
       if (outlineKind >= 0) {
         outline.position.set(rayHit.x, rayHit.y, -rayHit.z);
         if (outlineKindRef.current !== outlineKind) {
@@ -1126,7 +1362,7 @@ function BunkerFpRig({
     // Ghost preview at the place cell (build mode only).
     const ghost = ghostRef.current;
     if (ghost) {
-      const ghostVisible = tool === "build" && placeOk;
+      const ghostVisible = !raidActive && tool === "build" && placeOk;
       ghost.visible = ghostVisible;
       if (ghostVisible) {
         ghost.position.set(rayHit.placeX, rayHit.placeY, -rayHit.placeZ);
@@ -1266,8 +1502,8 @@ function BunkerFpRig({
     // offset and swing rotation ride the camera basis into world space.
     const pickaxe = pickaxeRef.current;
     if (pickaxe) {
-      pickaxe.visible = isDig;
-      if (isDig) {
+      pickaxe.visible = isDig && !raidActive;
+      if (isDig && !raidActive) {
         const throwAmt = fpSwingThrow(swing);
         const bob = Math.sin(state.clock.elapsedTime * 2.1) * 0.006;
         fpPickOffset
@@ -1371,6 +1607,15 @@ function warmBunkerFpMaterials(
   );
   rockWarm.setColorAt(0, rockColor.setScalar(1));
   group.add(rockWarm);
+  // The interior dirt/ore-base blocks compile their own program here so a
+  // fresh room paints without a first-frame material stall (F-116).
+  group.add(
+    new InstancedMesh(
+      FP_WARMUP_GEOMETRY,
+      dirtBlockMaterial(FP_WARM_DIRT_HEX, detail),
+      1,
+    ),
+  );
   // Compile the pickaxe view-model's wood + metal programs here so the
   // first dig swing never stalls on a pipeline build.
   group.add(createFpPickaxe());
@@ -1406,6 +1651,8 @@ function BunkerFpScene({
   selectedPartId,
   onEdit,
   onWarmed,
+  liveRaid,
+  onResolveRaid,
 }: {
   bunker: BunkerState;
   entry: FpEntryCell;
@@ -1413,6 +1660,8 @@ function BunkerFpScene({
   selectedPartId: BasePartId;
   onEdit: (intent: FpEditIntent) => void;
   onWarmed: () => void;
+  liveRaid: LiveRaidActiveView | null;
+  onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
 }) {
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
@@ -1430,9 +1679,11 @@ function BunkerFpScene({
     );
   }
   const tier = tierRef.current;
-  const coreRef = useRef<Mesh | null>(null);
   const outlineRef = useRef<LineSegments | null>(null);
   const ghostRef = useRef<Group | null>(null);
+  // The live-raid runtime, shared: the rig steps it against the player
+  // cell, the Clanker layer reads it to render. Null when no raid runs.
+  const raidRuntimeRef = useRef<FpRaidRuntime | null>(null);
 
   useEffect(() => {
     const warm = warmBunkerFpMaterials(gl, scene, camera, detail, tier);
@@ -1467,7 +1718,10 @@ function BunkerFpScene({
       <FpRockInstances bunker={bunker} detail={detail} />
       <FpLootGlints bunker={bunker} />
       <FpPlacedParts bunker={bunker} detail={detail} tier={tier} />
-      <FpCore bunker={bunker} coreRef={coreRef} />
+      <FpClankerLayer
+        runtimeRef={raidRuntimeRef}
+        footprint={bunker.footprint}
+      />
       {/* Target outline and ghost preview: mounted once over shared
           singletons, positioned and shown imperatively by the rig. */}
       <lineSegments
@@ -1489,12 +1743,14 @@ function BunkerFpScene({
       <BunkerFpRig
         bunker={bunker}
         entry={entry}
-        coreRef={coreRef}
         tool={tool}
         onEdit={onEdit}
         outlineRef={outlineRef}
         ghostRef={ghostRef}
         detail={detail}
+        liveRaid={liveRaid}
+        onResolveRaid={onResolveRaid}
+        raidRuntimeRef={raidRuntimeRef}
       />
     </>
   );
@@ -1507,6 +1763,9 @@ export default function BunkerFpCanvas({
   selectedPartId,
   onEdit,
   onFirstFrame,
+  liveRaid,
+  onResolveRaid,
+  onForfeitRaid,
 }: BunkerFpCanvasProps) {
   const features = graphicsFeaturesFor(
     resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
@@ -1516,6 +1775,42 @@ export default function BunkerFpCanvas({
   // compile-gate.tsx for the reconciliation trap).
   const [frameloop, setFrameloop] = useState<"never" | "always">("never");
   const startFrames = useCallback(() => setFrameloop("always"), []);
+
+  // Forfeit an abandoned raid on the way out (F-160). Leaving first person
+  // while a raid is still unresolved (the player did not fight it to a
+  // natural win or loss) settles it as a forfeit now, so re-entering cannot
+  // spin up a fresh runtime against the same row and re-roll the outcome.
+  // This lives on the outer (plain DOM) canvas component, not inside the
+  // R3F scene: its unmount cleanup is a normal React DOM teardown that runs
+  // reliably when the fp view is torn down, and it keys off the `liveRaid`
+  // prop (still the active raid at unmount, since exiting fp does not clear
+  // the store) rather than the scene's runtime ref, so it fires even when
+  // the player leaves before the scene's runtime effect has committed.
+  const liveRaidRef = useRef<LiveRaidActiveView | null>(liveRaid ?? null);
+  liveRaidRef.current = liveRaid ?? null;
+  // The raid id the scene reported a natural win or loss for. Tracking the id
+  // (rather than a boolean flag reset between raids) means a fresh raid is
+  // unresolved by construction, so no prior raid's resolution can suppress
+  // this one's forfeit.
+  const resolvedRaidIdRef = useRef<string | null>(null);
+  const handleResolveRaid = useCallback(
+    (report: LiveRaidOutcomeReport) => {
+      resolvedRaidIdRef.current = liveRaidRef.current?.raidId ?? null;
+      onResolveRaid?.(report);
+    },
+    [onResolveRaid],
+  );
+  const onForfeitRaidRef = useRef(onForfeitRaid);
+  onForfeitRaidRef.current = onForfeitRaid;
+  useEffect(() => {
+    return () => {
+      const active = liveRaidRef.current;
+      if (active && resolvedRaidIdRef.current !== active.raidId) {
+        onForfeitRaidRef.current?.();
+      }
+    };
+  }, []);
+
   return (
     <Canvas
       camera={{ position: [3, 0.22, 0], fov: 75, near: 0.05, far: 30 }}
@@ -1531,6 +1826,8 @@ export default function BunkerFpCanvas({
         selectedPartId={selectedPartId}
         onEdit={onEdit}
         onWarmed={startFrames}
+        liveRaid={liveRaid ?? null}
+        onResolveRaid={handleResolveRaid}
       />
       <CanvasDrawCallProbe onFirstFrame={onFirstFrame} />
       <PerfProbeBridge source="bunker-fp" />

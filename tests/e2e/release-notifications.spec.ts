@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The first-dig bunker stamp no longer pops before you dig.",
+    "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "no longer unlocks the moment you claim a bunker",
+    "You now always spawn on the floor of the open starter room",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,17 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.273", "Spawn in the room, not inside the wall"],
+    ["0.1.272", "Old bunkers show their ore again"],
+    ["0.1.271", "Old bunkers need a fresh start"],
+    ["0.1.270", "The bunker core is gone"],
+    ["0.1.269", "Raids are first-person only now"],
+    ["0.1.268", "Abandon a live raid from your phone"],
+    ["0.1.267", "Leaving a live raid now forfeits it"],
+    ["0.1.266", "Spot breachers and tanks in first person"],
+    ["0.1.265", "Fight a bunker raid from inside"],
+    ["0.1.264", "Check your bag from inside the bunker"],
+    ["0.1.263", "Bunker walls show real dirt, rock, and ore"],
     ["0.1.262", "Groundbreaker waits for a real dig"],
     ["0.1.261", "Dig your bunker for ore, not just space"],
     ["0.1.260", "Stand up in a roomier bunker spawn"],

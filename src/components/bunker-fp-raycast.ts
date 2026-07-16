@@ -1,5 +1,4 @@
 import {
-  FP_CORE,
   FP_DOOR_OWNED,
   FP_OPEN,
   FP_ROCK_UNDUG,
@@ -31,7 +30,6 @@ export const FP_MAX_REACH = 3.5;
  * Interior undug rock is "rock-diggable". */
 export type FpRayHitKind =
   | "part"
-  | "core"
   | "spikes"
   | "door"
   | "rock-diggable"
@@ -82,8 +80,6 @@ export function createFpRayHit(): FpRayHit {
 
 function kindForSolidity(value: number): FpRayHitKind {
   switch (value) {
-    case FP_CORE:
-      return "core";
     case FP_SPIKES:
       return "spikes";
     case FP_DOOR_OWNED:

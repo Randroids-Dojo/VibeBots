@@ -2,8 +2,8 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>F-144 Require explicit approval before remote branch deletion</title>
-<meta name="dot-title" content="F-144 Require explicit approval before remote branch deletion">
+<title>F-186 Require explicit approval before remote branch deletion</title>
+<meta name="dot-title" content="F-186 Require explicit approval before remote branch deletion">
 <meta name="dot-status" content="open">
 <meta name="dot-priority" content="1">
 <meta name="dot-issue-type" content="task">
@@ -11,9 +11,10 @@
 </head>
 <body>
 <article>
-<h1>F-144 Require explicit approval before remote branch deletion</h1>
+<h1>F-186 Require explicit approval before remote branch deletion</h1>
 <section id="description">
 Before deleting a remote branch directly or as a merge side effect, require explicit current approval naming the branch and exact head. Detect repository auto-delete behavior in the merge preflight, prove the head is retained by the intended PR and main history, record the approval and deletion event, verify the ref is absent, and cover direct delete, merge-triggered delete, stale head, already-absent ref, missing approval, and approved cleanup.
+PR #239 adds a second verified occurrence: remote branch fix/rail-resync-blocking-recovery at head 6f26c6a0 was deleted after merge with no separate current approval naming the branch, exact head, mechanism, or reason. Keep the operator preflight fail closed for later cleanup commands as well as merge side effects.
 </section>
 </article>
 </body>

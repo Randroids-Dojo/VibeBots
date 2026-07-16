@@ -1,31 +1,36 @@
-import type { BunkerView } from "@/lib/bunker-api-types";
 import {
-  applyBunkerRaidWear,
+  BUNKER_LAYOUT_INCOMPATIBLE_CODE,
+  BUNKER_REVISION_CONFLICT_CODE,
+} from "@/lib/api-codes";
+import type { BunkerView, LiveRaidActiveView } from "@/lib/bunker-api-types";
+import {
   applyBunkerRepairs,
   applyBunkerReset,
+  applyBunkerStartFresh,
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
+  BUNKER_LAYOUT_VERSION,
   BUNKER_RAID_COOLDOWN_HOURS,
+  BUNKER_RAID_DURATION_SECONDS,
   BUNKER_SKIN_CATALOG,
   type BunkerFootprint,
   type BunkerLoot,
   type BunkerRaidRewardReport,
-  type BunkerRaidSnapshot,
   type BunkerSkinId,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
   bunkerRepairPlan,
   canBuyBasePart,
-  canCollectBunkerRaidPickupFrom,
   createBunker,
   DEFAULT_BUNKER_SKIN,
   type DugBunkerCell,
   EMPTY_BASE_PART_INVENTORY,
   excavateBunkerCell,
+  isBunkerLayoutIncompatible,
   isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
@@ -34,7 +39,6 @@ import {
   playerLevelProgress,
   proposedBunkerFootprint,
   removeBasePart,
-  resolveBunkerRaid,
   STARTER_BASE_PART_INVENTORY,
   takeBunkerLootAt,
 } from "@/sim/bunker";
@@ -43,6 +47,13 @@ import {
   deriveBunkerBlockSeed,
   withSpawnPocket,
 } from "@/sim/bunker-blocks";
+import {
+  BUNKER_RAID_LIVE_VERSION,
+  LIVE_RAID_EXPIRY_GRACE_TICKS,
+  LIVE_RAID_TICKS_PER_SECOND,
+  type LiveRaidOutcomeReport,
+  settleLiveRaidOutcome,
+} from "@/sim/bunker-raid-live";
 import {
   cellAt,
   createMine,
@@ -53,6 +64,7 @@ import {
   type WorldDiff,
 } from "@/sim/mine";
 import { applyAchievementProgress } from "./achievements";
+import type { OperationFailure } from "./api-boundary";
 import { recordBalanceEvent } from "./balance-telemetry";
 import type { db } from "./db";
 
@@ -60,7 +72,58 @@ type Sql = Awaited<ReturnType<typeof db>>;
 
 type BunkerOperationResult<T extends object = object> =
   | ({ ok: true; view: BunkerView } & T)
-  | { ok: false; status: number; error: string };
+  | OperationFailure;
+
+/**
+ * A banked edit lost its optimistic-concurrency race (the client's
+ * expected revision no longer matches, or a concurrent write won the
+ * guarded update). The 409 carries the authoritative view so the client
+ * replaces its stale state instead of retrying blind.
+ */
+function revisionConflict(view: BunkerView): OperationFailure {
+  return {
+    ok: false,
+    status: 409,
+    error: "bunker changed elsewhere, refreshed",
+    code: BUNKER_REVISION_CONFLICT_CODE,
+    body: { ...view },
+  };
+}
+
+/**
+ * A bunker whose persisted layout predates the current placement model
+ * cannot be edited (F-117). Every mutation entry point returns this so a
+ * legacy bunker fails fast and the client shows Start fresh (Q-022); the
+ * distinct code lets a racing client force the prompt. Returns null when
+ * the bunker is compatible, so callers guard with a single `?? next` check.
+ */
+function layoutIncompatibleFailure(
+  bunker: BunkerState,
+): OperationFailure | null {
+  if (!isBunkerLayoutIncompatible(bunker)) return null;
+  return {
+    ok: false,
+    status: 409,
+    error: "start fresh to rebuild under the new bunker layout",
+    code: BUNKER_LAYOUT_INCOMPATIBLE_CODE,
+  };
+}
+
+/**
+ * The revision the guarded write must match. A client that sends its
+ * expected revision gets full stale detection: if it no longer matches
+ * the stored value the write is rejected before it runs. An older client
+ * that omits it falls back to the loaded revision, which still serializes
+ * concurrent writes through the guarded UPDATE. Returns null when the
+ * caller's expected revision is already stale.
+ */
+function resolveExpectedRevision(
+  view: BunkerView,
+  expectedRevision: number | undefined,
+): number | null {
+  if (expectedRevision === undefined) return view.revision;
+  return expectedRevision === view.revision ? expectedRevision : null;
+}
 
 function isBasePartId(value: string): value is BasePartId {
   return BASE_PART_IDS.includes(value as BasePartId);
@@ -161,29 +224,27 @@ function normalizedBunkerLoot(value: unknown): BunkerLoot[] {
 function parseBunkerState(
   row: {
     footprint: unknown;
-    core: unknown;
     parts: unknown;
     dug?: unknown;
     block_seed?: unknown;
     loot?: unknown;
     skin?: unknown;
     skins_owned?: unknown;
+    layout_version?: unknown;
   } | null,
 ): BunkerState | null {
   if (!row) return null;
   const footprint = row.footprint as BunkerFootprint;
-  const storedCore = row.core as BunkerState["core"];
-  const core = {
-    ...storedCore,
-    depth: normalizedBunkerDepth(storedCore.depth),
-  };
   const parts = Array.isArray(row.parts) ? row.parts : [];
   const skinsOwned = Array.isArray(row.skins_owned)
     ? row.skins_owned.filter(isBunkerSkinId)
     : [];
   return {
     footprint,
-    core,
+    // Layout-model version (F-117). Absent or non-numeric means a row that
+    // predates the column: legacy 0, which reads as incompatible.
+    layoutVersion:
+      typeof row.layout_version === "number" ? row.layout_version : 0,
     // Guarantee an open spawn pocket even for legacy claims stored under
     // the old depth-0-open model (F-115), so nobody spawns in solid rock.
     dug: withSpawnPocket(footprint, normalizedDugCells(row.dug)),
@@ -213,43 +274,151 @@ function numberValue(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function normalizeBunkerRaidSnapshot(
-  snapshot: unknown,
-): BunkerRaidSnapshot | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const candidate = snapshot as Partial<BunkerRaidSnapshot>;
-  if (typeof candidate.raidId !== "string") return null;
+/** Server grace beyond a live raid's authored duration before it is treated
+ * as expired, in seconds (mirrors the sim's tick-based grace). */
+const LIVE_RAID_GRACE_SECONDS =
+  LIVE_RAID_EXPIRY_GRACE_TICKS / LIVE_RAID_TICKS_PER_SECOND;
+
+/** The frozen bunker snapshot persisted when a live raid starts (F-108). The
+ * bunker is stored in the bunkers-row shape so `parseBunkerState` reads it
+ * back with the same normalization the live view and settlement rely on. */
+interface LiveRaidStartSnapshot {
+  version: number;
+  raidId: string;
+  tier: number;
+  durationSeconds: number;
+  bunker: BunkerState;
+  // The bunker revision frozen at raid start (F-106). Raid start never bumps
+  // the bunkers row and every edit path is blocked while a raid is active, so
+  // this stays equal to the live revision until settlement. The settlement
+  // parts-write contends on it, so a bunker edit racing in the window after
+  // the raid row is claimed (which flips the raid inactive) makes exactly one
+  // of the two win instead of the settlement silently overwriting the edit. A
+  // snapshot written before this field existed reads back as null (no guard).
+  revision: number | null;
+}
+
+/** Serialize a BunkerState into the bunkers-row shape used inside a frozen
+ * live-raid snapshot, so it round-trips through `parseBunkerState`. */
+function bunkerRowSnapshot(bunker: BunkerState) {
   return {
+    footprint: bunker.footprint,
+    parts: bunker.parts,
+    dug: bunker.dug,
+    block_seed: bunker.blockSeed,
+    loot: bunker.loot,
+    skin: bunker.skin,
+    skins_owned: bunker.skinsOwned,
+    // Freeze the layout generation the raid ran against (F-117), so
+    // settlement can refuse to write its worn parts back if a Start fresh
+    // advanced the bunker past this generation in the meantime. A snapshot
+    // written before this field existed reads back as legacy 0.
+    layout_version: bunker.layoutVersion ?? 0,
+  };
+}
+
+function normalizeLiveRaidStartSnapshot(
+  snapshot: unknown,
+): LiveRaidStartSnapshot | null {
+  if (!snapshot || typeof snapshot !== "object") return null;
+  const candidate = snapshot as Partial<LiveRaidStartSnapshot> & {
+    bunker?: unknown;
+  };
+  if (typeof candidate.raidId !== "string") return null;
+  const bunker = parseBunkerState(
+    candidate.bunker && typeof candidate.bunker === "object"
+      ? (candidate.bunker as Parameters<typeof parseBunkerState>[0])
+      : null,
+  );
+  if (!bunker) return null;
+  return {
+    version: numberValue(candidate.version, BUNKER_RAID_LIVE_VERSION),
     raidId: candidate.raidId,
     tier: numberValue(candidate.tier, 1),
-    durationSeconds: numberValue(candidate.durationSeconds),
-    startedAtMs: numberValue(candidate.startedAtMs) || undefined,
-    clankers: Array.isArray(candidate.clankers)
-      ? (candidate.clankers as BunkerRaidSnapshot["clankers"]).map(
-          (clanker) => ({ ...clanker, kind: clanker.kind ?? "standard" }),
-        )
-      : [],
-    turretShots: numberValue(candidate.turretShots),
-    turretDamage: numberValue(candidate.turretDamage),
-    spikeTriggers: numberValue(candidate.spikeTriggers),
-    spikeDamage: numberValue(candidate.spikeDamage),
-    totalPartDurability: numberValue(candidate.totalPartDurability),
-    incomingDamage: numberValue(candidate.incomingDamage),
-    partDamage: Array.isArray(candidate.partDamage) ? candidate.partDamage : [],
-    coreDamage: numberValue(candidate.coreDamage),
-    xpPickups: Array.isArray(candidate.xpPickups) ? candidate.xpPickups : [],
-    allClankersDead: Boolean(candidate.allClankersDead),
-    breached: Boolean(candidate.breached),
-    minerKilled: Boolean(candidate.minerKilled),
-    survived: Boolean(candidate.survived),
-    // Pre-0.1.214 snapshots carry no sealed flag: old raids cannot
-    // prove an enclosure, so they never credit the Buttoned Up stamp.
-    sealed: candidate.sealed === true,
-    reward: {
-      vibes: numberValue(candidate.reward?.vibes),
-      defenseXp: numberValue(candidate.reward?.defenseXp),
-    },
+    durationSeconds: numberValue(
+      candidate.durationSeconds,
+      BUNKER_RAID_DURATION_SECONDS,
+    ),
+    bunker,
+    revision:
+      typeof candidate.revision === "number" &&
+      Number.isFinite(candidate.revision)
+        ? candidate.revision
+        : null,
   };
+}
+
+/** Build the client-facing view of a live raid from its stored row, or null
+ * when the snapshot is unreadable or the raid has run past duration + grace
+ * (an expired raid is reported inactive so it never wedges bunker ops). */
+function liveRaidActiveViewFrom(
+  snapshot: unknown,
+  startedAt: string | Date,
+): LiveRaidActiveView | null {
+  const start = normalizeLiveRaidStartSnapshot(snapshot);
+  if (!start) return null;
+  const startedAtMs = new Date(startedAt).getTime();
+  const expiresAtMs =
+    startedAtMs + (start.durationSeconds + LIVE_RAID_GRACE_SECONDS) * 1000;
+  if (Date.now() >= expiresAtMs) return null;
+  return {
+    raidId: start.raidId,
+    tier: start.tier,
+    startedAtMs,
+    durationSeconds: start.durationSeconds,
+    graceSeconds: LIVE_RAID_GRACE_SECONDS,
+    bunker: start.bunker,
+  };
+}
+
+/** True when any raid, interim or live, is currently blocking bunker
+ * operations. A live raid past its grace is not active (it returns null from
+ * `liveRaidActiveViewFrom`), so it never blocks. */
+function bunkerRaidActive(view: BunkerView): boolean {
+  return view.activeLiveRaid != null;
+}
+
+/** Settle any stale past-grace live raid row as a forfeit loss (no reward, no
+ * wear), so an abandoned raid closes lazily on the next load or bunker op
+ * (F-105) rather than lingering unresolved. Idempotent: the `result IS NULL`
+ * guard means a row settles at most once. */
+async function finalizeExpiredLiveRaids(
+  sql: Sql,
+  playerId: string,
+): Promise<void> {
+  await sql`
+    UPDATE bunker_raids
+    SET result = ${JSON.stringify({ outcome: "forfeit", survived: false })}::jsonb,
+        rewarded_at = now()
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}
+      AND started_at
+        < now() - make_interval(secs => duration_seconds + ${LIVE_RAID_GRACE_SECONDS})`;
+}
+
+/**
+ * Forfeit the active live raid on demand (F-160). Leaving the first-person
+ * view mid-raid abandons the fight: the row settles as a forfeit now (no
+ * reward, no wear), exactly like the expiry path but without waiting out the
+ * duration and grace. This closes the raid immediately so re-entering
+ * first person cannot spin up a fresh runtime against the same row and
+ * re-roll the outcome. Idempotent via the `result IS NULL` guard: a natural
+ * resolve (or a prior forfeit) that already claimed the row wins, and this
+ * becomes a no-op that just returns the current view.
+ */
+export async function forfeitLiveRaid(
+  sql: Sql,
+  playerId: string,
+): Promise<BunkerOperationResult> {
+  await sql`
+    UPDATE bunker_raids
+    SET result = ${JSON.stringify({ outcome: "forfeit", survived: false })}::jsonb,
+        rewarded_at = now()
+    WHERE player_id = ${playerId}
+      AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}`;
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
 async function ensureStarterBaseParts(
@@ -283,6 +452,67 @@ async function ensureStarterBaseParts(
   return { ...STARTER_BASE_PART_INVENTORY };
 }
 
+/**
+ * Backfill a bunker claimed before block seeds existed (F-116, seed-only
+ * recovery tracked under PR #228 F-165). A null block_seed makes every undug
+ * cell render as plain dirt and pay no ore, so an old bunker looks empty,
+ * and Start fresh never wrote the column, so a reset does not fix it. Derive
+ * the same deterministic seed a fresh claim would use from the player's mine
+ * seed and this footprint, persist it, and return the seeded bunker so its
+ * walls generate the mine's dirt, rock, and ore for that depth.
+ *
+ * The write is guarded on the column still being NULL (idempotent, never
+ * overwrites a real seed) and RETURNING reports whether it landed: a winner
+ * returns its stored value, a zero-row loser reads the authoritative seed a
+ * concurrent backfill already wrote rather than trusting the local value.
+ * The seed is deterministic so the two always agree, but reading the row
+ * keeps the returned view consistent with the database instead of
+ * synthesizing success. It does not bump the revision: the backfill changes
+ * no edit-relevant state (parts, dug, loot are untouched), so bumping would
+ * only 409 an in-flight client edit for no benefit. A missing or malformed
+ * mine seed cannot derive real blocks, so the bunker is returned unchanged
+ * (renders as dirt) rather than seeded from a garbage value. Only remaining
+ * undug cells ever pay ore, so filling the seed never re-credits cells the
+ * player already dug (banked digs credit at excavate time; a pending claim
+ * is always seeded at claim).
+ */
+async function backfillMissingBlockSeed(
+  sql: Sql,
+  playerId: string,
+  bunker: BunkerState,
+): Promise<BunkerState> {
+  if (bunker.blockSeed !== undefined) return bunker;
+  const worlds = (await sql`
+    SELECT seed
+    FROM mine_worlds
+    WHERE player_id = ${playerId}`) as Array<{ seed: string | number }>;
+  const mineSeed =
+    worlds[0] === undefined ? Number.NaN : Number(worlds[0].seed);
+  if (!Number.isFinite(mineSeed)) return bunker;
+  const blockSeed = deriveBunkerBlockSeed(mineSeed, bunker.footprint);
+  const won = (await sql`
+    UPDATE bunkers
+    SET block_seed = ${blockSeed}
+    WHERE player_id = ${playerId} AND block_seed IS NULL
+    RETURNING block_seed`) as Array<{ block_seed: unknown }>;
+  if (won[0] !== undefined) {
+    return {
+      ...bunker,
+      blockSeed: normalizedBlockSeed(won[0].block_seed) ?? blockSeed,
+    };
+  }
+  // Lost the race: another load already backfilled. Adopt the persisted
+  // seed rather than the locally derived one.
+  const stored = (await sql`
+    SELECT block_seed
+    FROM bunkers
+    WHERE player_id = ${playerId}`) as Array<{ block_seed: unknown }>;
+  const authoritative = normalizedBlockSeed(stored[0]?.block_seed);
+  return authoritative === undefined
+    ? bunker
+    : { ...bunker, blockSeed: authoritative };
+}
+
 export async function loadBunkerView(
   sql: Sql,
   playerId: string,
@@ -296,35 +526,66 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, core, parts, dug, block_seed, loot, skin, skins_owned
+    SELECT footprint, parts, dug, block_seed, loot, skin, skins_owned, revision, layout_version
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
-    core: unknown;
     parts: unknown;
     dug: unknown;
     block_seed: unknown;
     loot: unknown;
     skin: unknown;
     skins_owned: unknown;
+    revision: unknown;
+    layout_version: unknown;
   }>;
   const raidRows = (await sql`
-    SELECT snapshot
+    SELECT snapshot, raid_version, started_at
     FROM bunker_raids
     WHERE player_id = ${playerId}
       AND result IS NULL
     ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ snapshot: unknown }>;
+    LIMIT 1`) as Array<{
+    snapshot: unknown;
+    raid_version: unknown;
+    started_at: string | Date;
+  }>;
   const player = playerRows[0] ?? {
     emeralds: 0,
     track_xp: 0,
     defense_xp: 0,
   };
   const progress = playerLevelProgress(player.defense_xp);
+  const revisionValue = Number(bunkerRows[0]?.revision);
+  const raidRow = raidRows[0];
+  const isLiveRaidRow =
+    raidRow !== undefined &&
+    Number(raidRow.raid_version) === BUNKER_RAID_LIVE_VERSION;
+  let activeLiveRaid: LiveRaidActiveView | null = null;
+  if (isLiveRaidRow) {
+    activeLiveRaid = liveRaidActiveViewFrom(
+      raidRow.snapshot,
+      raidRow.started_at,
+    );
+    if (!activeLiveRaid && normalizeLiveRaidStartSnapshot(raidRow.snapshot)) {
+      // A readable but past-grace live raid: settle it as a forfeit loss now
+      // (F-105), so an abandoned raid closes on the next load, not only at the
+      // next raid start.
+      await finalizeExpiredLiveRaids(sql, playerId);
+    }
+  }
+  // A legacy interim (raid_version NULL) row is ignored: the interim raid is
+  // retired, so only a live raid can be active. Such rows remain opaque
+  // history and cannot wedge a new live raid.
+  const parsedBunker = parseBunkerState(bunkerRows[0] ?? null);
+  const bunker = parsedBunker
+    ? await backfillMissingBlockSeed(sql, playerId, parsedBunker)
+    : null;
   return {
-    bunker: parseBunkerState(bunkerRows[0] ?? null),
+    bunker,
     inventory: await ensureStarterBaseParts(sql, playerId),
-    activeRaid: normalizeBunkerRaidSnapshot(raidRows[0]?.snapshot),
+    activeLiveRaid,
+    revision: Number.isFinite(revisionValue) ? revisionValue : 0,
     player: {
       balance: player.emeralds,
       trackXp: player.track_xp,
@@ -386,15 +647,15 @@ export async function claimBunker(
   const bunker = createBunker(footprint, blockSeed);
   await ensureStarterBaseParts(sql, playerId);
   await sql`
-    INSERT INTO bunkers (player_id, footprint, core, parts, dug, block_seed, loot)
+    INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot, layout_version)
     VALUES (
       ${playerId},
       ${JSON.stringify(bunker.footprint)}::jsonb,
-      ${JSON.stringify(bunker.core)}::jsonb,
       ${JSON.stringify(bunker.parts)}::jsonb,
       ${JSON.stringify(bunker.dug)}::jsonb,
       ${blockSeed},
-      ${JSON.stringify(bunker.loot ?? [])}::jsonb
+      ${JSON.stringify(bunker.loot ?? [])}::jsonb,
+      ${bunker.layoutVersion ?? BUNKER_LAYOUT_VERSION}
     )`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
@@ -502,10 +763,17 @@ export async function placeBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const placed = placeBasePart(
     view.bunker,
     view.inventory,
@@ -517,7 +785,14 @@ export async function placeBunkerPart(
   if (!placed.ok) {
     return { ok: false, status: 409, error: `cannot place: ${placed.reason}` };
   }
-  await saveBunkerAndInventory(sql, playerId, placed.bunker, placed.inventory);
+  const won = await saveBunkerAndInventory(
+    sql,
+    playerId,
+    placed.bunker,
+    placed.inventory,
+    expected,
+  );
+  if (!won) return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -527,10 +802,17 @@ export async function removeBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const removed = removeBasePart(view.bunker, view.inventory, col, row, depth);
   if (!removed.ok) {
     return {
@@ -539,12 +821,14 @@ export async function removeBunkerPart(
       error: `cannot remove: ${removed.reason}`,
     };
   }
-  await saveBunkerAndInventory(
+  const won = await saveBunkerAndInventory(
     sql,
     playerId,
     removed.bunker,
     removed.inventory,
+    expected,
   );
+  if (!won) return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -557,10 +841,17 @@ export async function moveBunkerPart(
   toRow: number,
   fromDepth = 0,
   toDepth = 0,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const moved = moveBasePart(
     view.bunker,
     fromCol,
@@ -573,7 +864,14 @@ export async function moveBunkerPart(
   if (!moved.ok) {
     return { ok: false, status: 409, error: `cannot move: ${moved.reason}` };
   }
-  await saveBunkerAndInventory(sql, playerId, moved.bunker, view.inventory);
+  const won = await saveBunkerAndInventory(
+    sql,
+    playerId,
+    moved.bunker,
+    view.inventory,
+    expected,
+  );
+  if (!won) return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -583,10 +881,17 @@ export async function excavateBunker(
   col: number,
   row: number,
   depth: number,
+  expectedRevision?: number,
 ): Promise<BunkerOperationResult<{ newStamps?: string[]; oreVibes?: number }>> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (view.activeLiveRaid)
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const expected = resolveExpectedRevision(view, expectedRevision);
+  if (expected === null) return revisionConflict(view);
   const dug = excavateBunkerCell(view.bunker, col, row, depth);
   if (!dug.ok) {
     return { ok: false, status: 409, error: `cannot dig: ${dug.reason}` };
@@ -604,19 +909,42 @@ export async function excavateBunker(
     depth,
   );
   const oreVibes = drop ? drop.units * oreDef(drop.ore).value : 0;
-  await sql`
+  // The dug write carries the same optimistic-concurrency guard as part
+  // edits (F-122): it only lands when the revision still matches, bumping
+  // it, and the ore payout is gated on that dig winning, so a concurrent
+  // edit can never leave a paid-but-undug (or double-paid) cell. dug_rows
+  // reports whether the guarded dig won so a loser returns 409. Parts are
+  // written in the same guarded update as dug so a floor that the dig
+  // cascades away (F-117: opening the cell below a grounded floor) cannot
+  // reappear on the next load; today no slotted floor persists yet, so this
+  // writes the unchanged parts back, but it keeps dig settlement durable
+  // once slots persist.
+  const guardResult = (await sql`
     WITH dug_update AS (
       UPDATE bunkers
       SET dug = ${JSON.stringify(dug.bunker.dug)}::jsonb,
+          parts = ${JSON.stringify(dug.bunker.parts)}::jsonb,
+          revision = revision + 1,
           updated_at = now()
       WHERE player_id = ${playerId}
+        AND revision = ${expected}
       RETURNING player_id
+    ), ore_pay AS (
+      UPDATE players
+      SET emeralds = emeralds + ${oreVibes}
+      WHERE id = ${playerId}
+        AND ${oreVibes} > 0
+        AND EXISTS (SELECT 1 FROM dug_update)
+      RETURNING id
     )
-    UPDATE players
-    SET emeralds = emeralds + ${oreVibes}
-    WHERE id = ${playerId}
-      AND ${oreVibes} > 0
-      AND EXISTS (SELECT 1 FROM dug_update)`;
+    SELECT (SELECT count(*) FROM dug_update)::int AS dug_rows,
+           (SELECT count(*) FROM ore_pay)::int AS ore_rows`) as Array<{
+    dug_rows: number;
+    ore_rows: number;
+  }>;
+  if ((guardResult[0]?.dug_rows ?? 0) === 0) {
+    return revisionConflict(await loadBunkerView(sql, playerId));
+  }
   // Groundbreaker is backfill-only: the empty patch increments nothing,
   // and the refresh inside applyAchievementProgress re-derives the
   // player-dug count from the durable bunkers.dug set (excluding the
@@ -689,25 +1017,38 @@ async function saveBasePartInventory(
   }
 }
 
+/**
+ * Persist a banked part edit under the optimistic-concurrency guard
+ * (F-122). The parts write only lands when the stored revision still
+ * equals `expectedRevision`; it bumps the revision so exactly one edit
+ * from a given expected revision can win. Returns whether the write won,
+ * so the caller can 409 a loser without touching inventory.
+ */
 async function saveBunkerAndInventory(
   sql: Sql,
   playerId: string,
   bunker: BunkerState,
   inventory: BasePartInventory,
-): Promise<void> {
-  await sql`
+  expectedRevision: number,
+): Promise<boolean> {
+  const won = (await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(bunker.parts)}::jsonb,
+        revision = revision + 1,
         updated_at = now()
-    WHERE player_id = ${playerId}`;
+    WHERE player_id = ${playerId}
+      AND revision = ${expectedRevision}
+    RETURNING player_id`) as Array<{ player_id: string }>;
+  if (won.length === 0) return false;
   await saveBasePartInventory(sql, playerId, inventory);
+  return true;
 }
 
 /**
  * Reset the bunker to a bare claim (F-093): undamaged placed parts
- * refund to inventory, damaged parts are lost, excavation refills, and
- * the core restores to full. The claim, skin, and owned skins stay.
- * Blocked while a raid is active, the same guard as repairs.
+ * refund to inventory, damaged parts are lost, and the excavation stays
+ * dug. The claim, skin, and owned skins stay. Blocked while a raid is
+ * active, the same guard as repairs.
  */
 export async function resetBunker(
   sql: Sql,
@@ -716,17 +1057,80 @@ export async function resetBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  if (view.activeRaid)
+  // A layout-incompatible bunker must Start fresh, which refunds nothing
+  // (Q-022): route it away from the refunding reset so a retired layout
+  // cannot be reset for a refund. The client already hides the reset button
+  // for an incompatible bunker; this closes the direct-request path too.
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const reset = applyBunkerReset(view.bunker, view.inventory);
+  // Bump the revision so an in-flight banked edit loses its guard and the
+  // client resyncs instead of clobbering the reset (F-122).
   await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(reset.bunker.parts)}::jsonb,
         dug = ${JSON.stringify(reset.bunker.dug)}::jsonb,
-        core = ${JSON.stringify(reset.bunker.core)}::jsonb,
+        revision = revision + 1,
         updated_at = now()
     WHERE player_id = ${playerId}`;
   await saveBasePartInventory(sql, playerId, reset.inventory);
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
+}
+
+/**
+ * Hard-reset a layout-incompatible bunker to a bare, current-version
+ * claim (F-117, Q-022). Unlike resetBunker this refunds nothing (the old
+ * layout is structurally gone) and stamps layout_version forward; the
+ * excavation, skin, seed, and loot stay. Safe and idempotent on an
+ * already-current bunker: it returns the view unchanged so a retry can
+ * never wipe a valid layout with no refund. The destructive write is a
+ * guarded compare-and-swap; a request that loses the race to a concurrent
+ * reset gets the standard F-122 revision-conflict 409 with the reloaded
+ * view rather than clobbering it. Blocked during an active raid.
+ */
+export async function startFreshBunker(
+  sql: Sql,
+  playerId: string,
+): Promise<BunkerOperationResult> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  // Only an incompatible bunker is wiped. A current one is returned as-is
+  // so a double-submit or a mistaken call never destroys a valid layout
+  // (Start fresh gives no refund; resetBunker is the refunding path).
+  if (!isBunkerLayoutIncompatible(view.bunker)) {
+    return { ok: true, view };
+  }
+  if (bunkerRaidActive(view))
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const fresh = applyBunkerStartFresh(view.bunker);
+  // Guarded compare-and-swap (F-117): only wipe a bunker that is STILL the
+  // incompatible one this request loaded. The load-then-check above has a
+  // TOCTOU window, so guard the write on both the loaded revision and the
+  // layout still being below current, and RETURNING tells us whether it
+  // landed. If a concurrent Start fresh already reset the bunker (and the
+  // player even rebuilt it to a current layout) in between, this write
+  // matches zero rows and never wipes the rebuilt state. Bumping the
+  // revision also drops any in-flight banked edit's guard.
+  const won = (await sql`
+    UPDATE bunkers
+    SET parts = ${JSON.stringify(fresh.parts)}::jsonb,
+        dug = ${JSON.stringify(fresh.dug)}::jsonb,
+        layout_version = ${BUNKER_LAYOUT_VERSION},
+        revision = revision + 1,
+        updated_at = now()
+    WHERE player_id = ${playerId}
+      AND revision = ${view.revision}
+      AND layout_version < ${BUNKER_LAYOUT_VERSION}
+    RETURNING player_id`) as Array<{ player_id: string }>;
+  // A loser follows the same F-122 conflict contract as every other bunker
+  // edit: a 409 carrying the authoritative reloaded view, so the client
+  // adopts the winner's already-reset (or rebuilt) bunker while its own
+  // Start fresh reports as failed rather than a phantom success.
+  if (won.length === 0)
+    return revisionConflict(await loadBunkerView(sql, playerId));
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 
@@ -737,7 +1141,12 @@ export async function repairBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  if (view.activeRaid)
+  // A layout-incompatible bunker cannot be repaired: its parts are about to
+  // be cleared by Start fresh, so spending vibes to patch them would waste
+  // them (F-117). Start fresh is the only edit an old layout accepts.
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const plan = bunkerRepairPlan(view.bunker);
   if (plan.totalCost <= 0)
@@ -759,8 +1168,8 @@ export async function repairBunker(
   const repaired = applyBunkerRepairs(view.bunker);
   await sql`
     UPDATE bunkers
-    SET core = ${JSON.stringify(repaired.core)},
-        parts = ${JSON.stringify(repaired.parts)}
+    SET parts = ${JSON.stringify(repaired.parts)},
+        revision = revision + 1
     WHERE player_id = ${playerId}`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
@@ -820,15 +1229,28 @@ export async function setBunkerSkin(
   return { ok: true, view: await loadBunkerView(sql, playerId), newStamps };
 }
 
-export async function startBunkerRaid(
+/**
+ * Start a live first-person raid (Q-024 option D, F-108), the only raid path.
+ * Nothing is resolved and no wear is applied here: the current bunker is frozen
+ * into a versioned snapshot the client runs the raid against in real time, then
+ * reports a bounded outcome for the resolve route to settle against this same
+ * snapshot.
+ */
+export async function startLiveRaid(
   sql: Sql,
   playerId: string,
   tier: number,
-): Promise<BunkerOperationResult<{ raid: BunkerRaidSnapshot }>> {
+): Promise<BunkerOperationResult<{ liveRaid: LiveRaidActiveView }>> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
-  if (view.activeRaid)
+  // A layout-incompatible bunker must Start fresh before it can raid
+  // (F-117). Blocking the start keeps an old layout from ever freezing a
+  // raid snapshot, which closes the settlement/Start-fresh race entirely:
+  // every live raid now runs on a current-version bunker.
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
+  if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "raid already active" };
   const tierCeiling = maxBunkerRaidTier(view.player.overallLevel);
   if (tier > tierCeiling) {
@@ -847,8 +1269,8 @@ export async function startBunkerRaid(
   const lastStartedAt = recentRows[0]?.started_at;
   if (lastStartedAt) {
     const cooldownMs = BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
-    const availableAt = new Date(lastStartedAt).getTime() + cooldownMs;
-    const remainingMs = availableAt - Date.now();
+    const remainingMs =
+      new Date(lastStartedAt).getTime() + cooldownMs - Date.now();
     if (remainingMs > 0) {
       const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
       return {
@@ -858,228 +1280,176 @@ export async function startBunkerRaid(
       };
     }
   }
+  // A stale past-grace live row was already settled as a forfeit loss by the
+  // loadBunkerView call above (F-105), so no cleanup is needed here before
+  // opening the new raid.
   const startedAtMs = Date.now();
-  const worlds = (await sql`
-    SELECT seed, diff
-    FROM mine_worlds
-    WHERE player_id = ${playerId}`) as Array<{
-    seed: string | number;
-    diff: unknown;
-  }>;
-  const world = worlds[0];
-  const diff = Array.isArray(world?.diff) ? (world.diff as WorldDiff) : [];
-  const mine =
-    world === undefined
-      ? null
-      : createMine(Number(world.seed), DEFAULT_GEAR, NO_CONSUMABLES, diff);
-  const raidId = `raid-${startedAtMs.toString(36)}`;
-  const raid = resolveBunkerRaid(view.bunker, tier, raidId, {
-    startedAtMs,
-    terrainAt:
-      mine === null
-        ? undefined
-        : (col, row) => cellAt(mine, col, row)?.kind ?? "empty",
-  });
-  const wornBunker = applyBunkerRaidWear(view.bunker, raid);
-  await sql`
-    UPDATE bunkers
-    SET parts = ${JSON.stringify(wornBunker.parts)}::jsonb,
-        core = ${JSON.stringify(wornBunker.core)}::jsonb,
-        updated_at = now()
-    WHERE player_id = ${playerId}`;
+  const raidId = `live-${startedAtMs.toString(36)}`;
+  // Frozen snapshot: the bunker is stored in the bunkers-row shape so it reads
+  // back through parseBunkerState. Its type is inferred, not LiveRaidStartSnapshot
+  // (whose bunker is the parsed BunkerState, not the row shape).
+  const snapshot = {
+    version: BUNKER_RAID_LIVE_VERSION,
+    raidId,
+    tier,
+    durationSeconds: BUNKER_RAID_DURATION_SECONDS,
+    bunker: bunkerRowSnapshot(view.bunker),
+    // Freeze the bunker revision so settlement can contend its parts-write on
+    // it (F-106), refusing to overwrite a bunker a concurrent edit changed in
+    // the window after the raid row is claimed.
+    revision: view.revision,
+  };
   await sql`
     INSERT INTO bunker_raids (
       player_id,
       raid_id,
       tier,
       snapshot,
-      duration_seconds
+      duration_seconds,
+      raid_version
     )
     VALUES (
       ${playerId},
-      ${raid.raidId},
-      ${raid.tier},
-      ${JSON.stringify(raid)}::jsonb,
-      ${raid.durationSeconds}
+      ${raidId},
+      ${tier},
+      ${JSON.stringify(snapshot)}::jsonb,
+      ${BUNKER_RAID_DURATION_SECONDS},
+      ${BUNKER_RAID_LIVE_VERSION}
     )`;
-  return { ok: true, view: await loadBunkerView(sql, playerId), raid };
+  const refreshed = await loadBunkerView(sql, playerId);
+  if (!refreshed.activeLiveRaid) {
+    return { ok: false, status: 500, error: "failed to start live raid" };
+  }
+  return { ok: true, view: refreshed, liveRaid: refreshed.activeLiveRaid };
 }
 
-export async function collectBunkerRaidPickup(
+/**
+ * Resolve a live raid from a client-reported outcome (Q-024 option D,
+ * F-105/F-106). The report is settled against the frozen start snapshot (never
+ * the live bunker), and the row is claimed with a `result IS NULL` compare-and-set
+ * so exactly one resolve wins. Defense wear stands on a win or a loss; only a
+ * survive credits vibes and defense XP, mirroring the interim finish. Edits are
+ * frozen during a live raid, so overwriting the bunker with the settled snapshot
+ * cannot clobber a concurrent change.
+ */
+export async function resolveLiveRaid(
   sql: Sql,
   playerId: string,
-  col: number,
-  row: number,
-): Promise<BunkerOperationResult<{ raid: BunkerRaidSnapshot }>> {
-  const rows = (await sql`
-    SELECT raid_id, snapshot
-    FROM bunker_raids
-    WHERE player_id = ${playerId}
-      AND result IS NULL
-    ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ raid_id: string; snapshot: unknown }>;
-  const rowData = rows[0];
-  if (!rowData || typeof rowData.snapshot !== "object") {
-    return { ok: false, status: 409, error: "no active raid" };
-  }
-  const raid = normalizeBunkerRaidSnapshot(rowData.snapshot);
-  if (!raid) return { ok: false, status: 409, error: "no active raid" };
-  if (!raid.survived) {
-    return { ok: true, view: await loadBunkerView(sql, playerId), raid };
-  }
-  let collected = false;
-  const updatedRaid: BunkerRaidSnapshot = {
-    ...raid,
-    xpPickups: raid.xpPickups.map((pickup) => {
-      if (!canCollectBunkerRaidPickupFrom(pickup, col, row)) {
-        return pickup;
-      }
-      collected = true;
-      return { ...pickup, collected: true };
-    }),
-  };
-  if (collected) {
-    const collectedXp = updatedRaid.xpPickups.reduce((sum, pickup) => {
-      return sum + (pickup.collected ? pickup.defenseXp : 0);
-    }, 0);
-    updatedRaid.reward = {
-      ...updatedRaid.reward,
-      defenseXp: collectedXp,
-    };
-    await sql`
-      UPDATE bunker_raids
-      SET snapshot = ${JSON.stringify(updatedRaid)}::jsonb
-      WHERE player_id = ${playerId}
-        AND raid_id = ${rowData.raid_id}
-        AND result IS NULL`;
-  }
-  return {
-    ok: true,
-    view: await loadBunkerView(sql, playerId),
-    raid: updatedRaid,
-  };
-}
-
-export async function finishBunkerRaid(
-  sql: Sql,
-  playerId: string,
+  report: LiveRaidOutcomeReport,
 ): Promise<
-  BunkerOperationResult<{
-    raid: BunkerRaidSnapshot;
-    reward: BunkerRaidRewardReport;
-  }>
+  BunkerOperationResult<{ reward: BunkerRaidRewardReport; sealed: boolean }>
 > {
   const rows = (await sql`
-    SELECT raid_id, snapshot, started_at, duration_seconds
+    SELECT raid_id, tier, snapshot
     FROM bunker_raids
     WHERE player_id = ${playerId}
       AND result IS NULL
+      AND raid_version = ${BUNKER_RAID_LIVE_VERSION}
     ORDER BY started_at DESC
-    LIMIT 1`) as Array<{
-    raid_id: string;
-    snapshot: unknown;
-    started_at: string;
-    duration_seconds: number;
-  }>;
+    LIMIT 1`) as Array<{ raid_id: string; tier: number; snapshot: unknown }>;
   const row = rows[0];
-  if (!row || typeof row.snapshot !== "object") {
-    return { ok: false, status: 409, error: "no active raid" };
-  }
-  const raid = normalizeBunkerRaidSnapshot(row.snapshot);
-  if (!raid) return { ok: false, status: 409, error: "no active raid" };
-  const elapsed = Date.now() - new Date(row.started_at).getTime();
-  if (!raid.allClankersDead && elapsed < row.duration_seconds * 1000) {
-    return { ok: false, status: 409, error: "raid still in progress" };
-  }
-  const uncollectedXpPickups = raid.survived
-    ? raid.xpPickups.filter((pickup) => !pickup.collected)
-    : [];
-  if (uncollectedXpPickups.length > 0) {
+  if (!row) return { ok: false, status: 409, error: "no active live raid" };
+  const start = normalizeLiveRaidStartSnapshot(row.snapshot);
+  if (!start) return { ok: false, status: 409, error: "no active live raid" };
+  const settled = settleLiveRaidOutcome(start.bunker, start.tier, report);
+  if (!settled.ok) {
     return {
       ok: false,
-      status: 409,
-      error: "collect raid XP pickups first",
+      status: 422,
+      error: `invalid raid outcome: ${settled.reason}`,
     };
   }
-  const collectedDefenseXp = raid.survived
-    ? raid.xpPickups.reduce((sum, pickup) => {
-        return sum + (pickup.collected ? pickup.defenseXp : 0);
-      }, 0)
-    : 0;
-  const completedRaid: BunkerRaidSnapshot = {
-    ...raid,
-    reward: raid.survived
-      ? { ...raid.reward, defenseXp: collectedDefenseXp }
-      : { vibes: 0, defenseXp: 0 },
-  };
-  const rewarded = (await sql`
+  const { settlement } = settled;
+  // Exactly-once settle: only the first resolve for this row claims it.
+  const claimed = (await sql`
     UPDATE bunker_raids
-    SET result = ${JSON.stringify(completedRaid)}::jsonb,
+    SET result = ${JSON.stringify({
+      outcome: report.outcome,
+      survived: settlement.survived,
+      sealed: settlement.sealed,
+      reward: settlement.reward,
+    })}::jsonb,
         rewarded_at = now()
     WHERE player_id = ${playerId}
       AND raid_id = ${row.raid_id}
       AND result IS NULL
     RETURNING raid_id`) as Array<{ raid_id: string }>;
-  if (rewarded.length === 0) {
+  if (claimed.length === 0) {
     return { ok: false, status: 409, error: "raid already finished" };
   }
+  // Defense damage stands on a win or a loss: write the settled parts (the
+  // frozen snapshot worn by the report) back to the bunker. Two guards, both
+  // so this write loses cleanly to a concurrent change instead of silently
+  // overwriting it. (1) Layout generation (F-117): if a Start fresh advanced
+  // the bunker past the frozen generation, drop the worn old parts rather than
+  // restore them onto the freshly reset bunker. (2) Frozen revision (F-106):
+  // claiming the raid row above flips the raid inactive, so an ordinary bunker
+  // edit can now succeed at the same generation; contending on the revision
+  // frozen at raid start means exactly one of {this settlement, that edit}
+  // wins (the edit already bumped the revision, so this write misses and its
+  // newer parts stand). A pre-revision snapshot (revision null) keeps the
+  // layout-only guard. The reward below is unaffected either way: surviving
+  // the raid still pays out.
+  await sql`
+    UPDATE bunkers
+    SET parts = ${JSON.stringify(settlement.bunker.parts)}::jsonb,
+        revision = revision + 1,
+        updated_at = now()
+    WHERE player_id = ${playerId}
+      AND layout_version = ${start.bunker.layoutVersion ?? 0}
+      AND (${start.revision}::int IS NULL OR revision = ${start.revision}::int)`;
   const beforeRows = (await sql`
     SELECT track_xp, defense_xp
     FROM players
-    WHERE id = ${playerId}`) as Array<{
-    track_xp: number;
-    defense_xp: number;
-  }>;
+    WHERE id = ${playerId}`) as Array<{ track_xp: number; defense_xp: number }>;
   const before = beforeRows[0] ?? { track_xp: 0, defense_xp: 0 };
   const beforeProgress = playerLevelProgress(before.defense_xp);
   let defenseXpAfter = before.defense_xp;
   let newStamps: string[] = [];
-  if (raid.survived) {
+  if (settlement.survived) {
     const playerRows = (await sql`
       UPDATE players
-      SET emeralds = emeralds + ${completedRaid.reward.vibes},
-          defense_xp = defense_xp + ${completedRaid.reward.defenseXp}
+      SET emeralds = emeralds + ${settlement.reward.vibes},
+          defense_xp = defense_xp + ${settlement.reward.defenseXp}
       WHERE id = ${playerId}
       RETURNING defense_xp`) as Array<{ defense_xp: number }>;
     defenseXpAfter = playerRows[0]?.defense_xp ?? defenseXpAfter;
     try {
       newStamps = await applyAchievementProgress(sql, playerId, {
         bunkerRaidsSurvived: 1,
-        raidsSurvivedSealed: raid.sealed ? 1 : 0,
+        raidsSurvivedSealed: settlement.sealed ? 1 : 0,
       });
     } catch {
       // Stamps are cosmetic and must never block a raid reward.
     }
   }
   const afterProgress = playerLevelProgress(defenseXpAfter);
-  if (raid.survived) {
+  if (settlement.survived) {
     try {
-      await recordBalanceEvent(sql, playerId, "bunker.raid_reward", {
+      await recordBalanceEvent(sql, playerId, "bunker.live_raid_reward", {
         raidId: row.raid_id,
-        tier: raid.tier,
-        survived: raid.survived,
-        vibesGained: completedRaid.reward.vibes,
-        defenseXpGained: completedRaid.reward.defenseXp,
+        tier: start.tier,
+        survived: settlement.survived,
+        sealed: settlement.sealed,
+        vibesGained: settlement.reward.vibes,
+        defenseXpGained: settlement.reward.defenseXp,
         defenseXpBefore: before.defense_xp,
         defenseXpAfter,
         levelBefore: beforeProgress.level,
         levelAfter: afterProgress.level,
-        clankers: raid.clankers.length,
-        incomingDamage: raid.incomingDamage,
-        breached: raid.breached,
+        clankersKilled: report.clankersKilled,
       });
     } catch {
-      // Balance events support tuning, but should not fail a raid reward.
+      // Balance events support tuning, but must not fail a raid reward.
     }
   }
   return {
     ok: true,
     view: await loadBunkerView(sql, playerId),
-    raid: completedRaid,
     reward: {
-      survived: raid.survived,
-      vibesGained: completedRaid.reward.vibes,
-      xpGained: completedRaid.reward.defenseXp,
+      survived: settlement.survived,
+      vibesGained: settlement.reward.vibes,
+      xpGained: settlement.reward.defenseXp,
       defenseXpBefore: before.defense_xp,
       defenseXpAfter,
       levelBefore: beforeProgress.level,
@@ -1089,5 +1459,6 @@ export async function finishBunkerRaid(
       beaconLimitAfter: afterProgress.beaconLimit,
       newStamps,
     },
+    sealed: settlement.sealed,
   };
 }

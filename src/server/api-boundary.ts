@@ -10,9 +10,19 @@ export interface PlayerRouteContext {
   playerId: string;
 }
 
-type OperationResult<T extends object> =
-  | ({ ok: true } & T)
-  | { ok: false; status: number; error: string };
+/** The failure variant shared by every {@link OperationResult}. */
+export interface OperationFailure {
+  ok: false;
+  status: number;
+  error: string;
+  /** Stable low-cardinality reason code for the client to branch on. */
+  code?: string;
+  /** Extra fields merged into the failure JSON, e.g. authoritative
+   * state the client should adopt on a conflict (F-122). */
+  body?: Record<string, unknown>;
+}
+
+type OperationResult<T extends object> = ({ ok: true } & T) | OperationFailure;
 
 interface JsonRouteOptions {
   invalidJsonError?: string;
@@ -77,7 +87,16 @@ export function operationResultResponse<T extends object>(
   successProjector: (result: { ok: true } & T) => unknown,
 ): Response {
   if (!result.ok) {
-    return Response.json({ error: result.error }, { status: result.status });
+    // Body first, then the envelope, so `error`/`code` always win: a `body`
+    // carrying either key can never shadow the failure's own reason (F-122).
+    return Response.json(
+      {
+        ...(result.body ?? {}),
+        error: result.error,
+        ...(result.code ? { code: result.code } : {}),
+      },
+      { status: result.status },
+    );
   }
   return Response.json(successProjector(result));
 }

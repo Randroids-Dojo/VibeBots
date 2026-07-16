@@ -1,5 +1,8 @@
 import { expect, type Page, test } from "@playwright/test";
-import { imagePixelDifferenceRatio } from "./support/image-pixels";
+import {
+  imagePixelDifferenceRatio,
+  imageRegionWarmNeutralFractions,
+} from "./support/image-pixels";
 import {
   aimFp,
   armFpPointer,
@@ -39,7 +42,6 @@ const FP_PLANE_DUG = (() => {
 const FP_BUNKER_VIEW = {
   bunker: {
     footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-    core: { col: START_COL, row: 3, durability: 160 },
     dug: FP_PLANE_DUG,
     parts: [
       {
@@ -58,7 +60,6 @@ const FP_BUNKER_VIEW = {
     "basic-turret": 0,
     "floor-spikes": 0,
   },
-  activeRaid: null,
   player: {
     balance: 120,
     trackXp: 40,
@@ -70,7 +71,126 @@ const FP_BUNKER_VIEW = {
     nextLevelXp: 200,
     beaconLimit: 3,
   },
+  // Banked edits echo this as expectedRevision (F-122).
+  revision: 0,
 };
+
+/** Turn the opt-in deep collector on before the app boots (F-054). */
+function enablePerfAnalyzer() {
+  window.localStorage.setItem("vibebots-perf-analyzer-v1", "on");
+}
+
+/** Shrink both telemetry cadences so a test sees several windows in
+ * seconds. The one-hour min-send interval is left at its default on
+ * purpose: it is exactly what proves the compact throttle is scoped per
+ * source (a recent mine sample must not suppress the first bunker-fp
+ * sample). */
+function speedUpPerf() {
+  const w = window as typeof window & Record<string, number>;
+  w.__vibebotsPerfTraceSnapshotMs = 1_500;
+  w.__vibebotsPerfTraceFlushMs = 2_500;
+  w.__vibebotsPerfInitialDelayMs = 500;
+  w.__vibebotsPerfSampleMs = 2_000;
+  w.__vibebotsPerfRepeatMs = 1_500;
+}
+
+interface PerfPayload {
+  source?: string;
+  snapshots?: Array<{
+    probe?: { backend?: string; meshCount?: number } | null;
+  }>;
+}
+
+const bySource = (list: PerfPayload[], source: string): PerfPayload[] =>
+  list.filter((payload) => payload.source === source);
+
+test("performance telemetry attributes samples to the active surface (F-100)", async ({
+  page,
+}) => {
+  // Enters and exits fp, each a slow software-GL scene compile, and
+  // waits out several telemetry windows on both surfaces.
+  test.setTimeout(300_000);
+
+  const compact: PerfPayload[] = [];
+  const deep: PerfPayload[] = [];
+  await page.route("**/api/performance", async (route) => {
+    compact.push(route.request().postDataJSON() as PerfPayload);
+    await route.fulfill({ json: { saved: true } });
+  });
+  await page.route("**/api/performance/trace", async (route) => {
+    deep.push(route.request().postDataJSON() as PerfPayload);
+    await route.fulfill({ json: { saved: 1 } });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+  await page.addInitScript(enablePerfAnalyzer);
+  await page.addInitScript(speedUpPerf);
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  // In the flat mine, both collectors label their payloads "mine", and
+  // no bunker sample can exist before the fp canvas ever mounts.
+  await expect
+    .poll(() => bySource(compact, "mine").length, { timeout: 40_000 })
+    .toBeGreaterThan(0);
+  await expect
+    .poll(() => bySource(deep, "mine").length, { timeout: 40_000 })
+    .toBeGreaterThan(0);
+  const mineDeep = bySource(deep, "mine").at(-1);
+  expect(mineDeep?.snapshots?.find((snap) => snap.probe)?.probe).toBeTruthy();
+  expect(bySource(compact, "bunker-fp")).toHaveLength(0);
+  expect(bySource(deep, "bunker-fp")).toHaveLength(0);
+
+  // Enter the first-person bunker: the fp canvas swaps in.
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // The deep collector now reads the registered bunker probe and labels
+  // the batch bunker-fp: a non-null probe over the bunker scene.
+  await expect
+    .poll(() => bySource(deep, "bunker-fp").length, { timeout: 60_000 })
+    .toBeGreaterThan(0);
+  const bunkerDeep = bySource(deep, "bunker-fp").at(-1);
+  const probe = bunkerDeep?.snapshots?.find((snap) => snap.probe)?.probe;
+  expect(probe).toBeTruthy();
+  expect(probe?.backend === "webgpu" || probe?.backend === "webgl2").toBe(true);
+  expect(probe?.meshCount ?? 0).toBeGreaterThan(0);
+
+  // The compact throttle is scoped per source: a mine sample fired
+  // moments ago (default one-hour interval), yet the bunker-fp sample
+  // still sends because it tracks its own last-sent timestamp.
+  await expect
+    .poll(() => bySource(compact, "bunker-fp").length, { timeout: 40_000 })
+    .toBeGreaterThan(0);
+
+  // No mixed-surface window: once the fp batches flow, the mine
+  // collector has stopped, so no later batch straddles the boundary.
+  const mineDeepAfterEntry = bySource(deep, "mine").length;
+  await page.waitForTimeout(4_000);
+  expect(bySource(deep, "mine").length).toBe(mineDeepAfterEntry);
+
+  // Exit restores mine attribution: the deep collector resumes labeling
+  // batches mine (it carries no per-source hour throttle).
+  const mineDeepAtExit = bySource(deep, "mine").length;
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await awaitMineSceneReady(page);
+  await expect
+    .poll(() => bySource(deep, "mine").length, { timeout: 60_000 })
+    .toBeGreaterThan(mineDeepAtExit);
+});
 
 test("first-person bunker viewer walks, looks, jumps, and exits in place", async ({
   page,
@@ -232,7 +352,7 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   ).toBeVisible();
 });
 
-test("the bunker status panel's 3D row enters the banked bunker", async ({
+test("the single floating entry enters the banked bunker and the sheet has no redundant 3D row", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly.
@@ -249,25 +369,67 @@ test("the bunker status panel's 3D row enters the banked bunker", async ({
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  // The second Enter affordance: the row inside the bunker status
-  // sheet (the toolbelt button is covered by the walk/look/jump test).
+  // The single Enter affordance: the floating Enter bunker button. The
+  // sheet's redundant 3D-entry row was removed in the menu consolidation
+  // (F-119), and the status sheet must offer no second way in.
   await page.getByRole("button", { name: "Open bunker status" }).click();
-  const panelEnter = page.getByTestId("bunker-fp-enter-panel");
-  await expect(panelEnter).toBeVisible();
-  await panelEnter.click();
+  await expect(page.getByTestId("bunker-fp-enter-panel")).toHaveCount(0);
+  await page.getByRole("button", { name: "Dismiss bunker status" }).click();
+  const enter = page.getByTestId("bunker-fp-enter");
+  await expect(enter).toBeVisible();
+  await enter.click();
 
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-fp-mode", "1");
-  // Entering closes the sheet so it cannot sit over the fp view.
-  await expect(page.getByRole("region", { name: "Bunker status" })).toHaveCount(
-    0,
-  );
   const canvas = page.locator("canvas");
   await expect
     .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
       timeout: 45_000,
     })
     .not.toBeNull();
+
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await awaitMineSceneReady(page);
+});
+
+test("the first-person bag chip opens the cargo bag and Escape returns to the view", async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(FP_BUNKER_VIEW),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // The bag chip rides in the first-person HUD and opens the same cargo bag.
+  const bagChip = page.getByTestId("bunker-fp-bag");
+  await expect(bagChip).toBeVisible();
+  await expect(bagChip).toHaveAttribute("aria-expanded", "false");
+  await bagChip.click();
+  const bagPanel = page.locator("#mine-bag-panel");
+  await expect(bagPanel).toBeVisible();
+  await expect(bagChip).toHaveAttribute("aria-expanded", "true");
+
+  // Escape closes the bag and stays in first person (does not exit the view).
+  await page.keyboard.press("Escape");
+  await expect(bagPanel).toHaveCount(0);
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
 
   await page.getByRole("button", { name: "Exit bunker" }).click();
   await expect(status).toHaveAttribute("data-fp-mode", "0");
@@ -300,85 +462,6 @@ test("second Escape leaves the first-person view", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(status).toHaveAttribute("data-fp-mode", "0");
   await awaitMineSceneReady(page);
-});
-
-test("the first-person entry hides while a failed raid blocks editing", async ({
-  page,
-}) => {
-  await page.route("**/api/bunker", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ...FP_BUNKER_VIEW,
-        bunker: {
-          ...FP_BUNKER_VIEW.bunker,
-          core: { col: START_COL, row: 3, durability: 128 },
-        },
-        activeRaid: {
-          raidId: "raid-fp-gate",
-          tier: 1,
-          durationSeconds: 3,
-          startedAtMs: Date.now() - 3000,
-          clankers: [
-            {
-              id: "clanker-1",
-              col: START_COL - 6,
-              row: 0,
-              targetCol: START_COL,
-              targetRow: 3,
-              batterySteps: 9,
-              deathStep: 8,
-              status: "self-destructed",
-              path: [
-                { col: START_COL - 6, row: 0 },
-                { col: START_COL, row: 3 },
-              ],
-            },
-          ],
-          turretShots: 0,
-          turretDamage: 0,
-          spikeTriggers: 0,
-          spikeDamage: 0,
-          totalPartDurability: 90,
-          incomingDamage: 32,
-          partDamage: [
-            {
-              clankerId: "clanker-1",
-              col: START_COL,
-              row: 3,
-              target: "core",
-              damage: 32,
-            },
-          ],
-          coreDamage: 32,
-          xpPickups: [],
-          allClankersDead: true,
-          breached: true,
-          minerKilled: true,
-          survived: false,
-          reward: { vibes: 0, defenseXp: 0 },
-        },
-      }),
-    });
-  });
-
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await digTo(page, 1);
-
-  // Editing is blocked after the failed raid: no toolbelt, no Enter
-  // affordance anywhere, and the panel offers no 3D row either.
-  await expect(
-    page.getByRole("region", { name: "Bunker build tool" }),
-  ).toHaveCount(0);
-  await expect(page.getByTestId("bunker-fp-enter")).toHaveCount(0);
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  const builder = page.getByRole("region", { name: "Bunker status" });
-  await expect(builder).toContainText("Miner killed");
-  await expect(page.getByTestId("bunker-fp-enter-panel")).toHaveCount(0);
-  const status = page.getByLabel("Mine status");
-  await expect(status).toHaveAttribute("data-fp-mode", "0");
 });
 
 test("first-person building loop on a pending claim: place, chained pry refunds, dig, place from stock", async ({
@@ -423,7 +506,6 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });
@@ -468,13 +550,13 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     .not.toBeNull();
 
   // A fresh claim opens only the pre-mined spawn pocket (3x3x3 = 27
-  // cells, one of which the core occupies, leaving 26 walkable); the rest
+  // walkable cells now that F-118 freed the former core cell); the rest
   // of the volume is solid claim rock (F-115).
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 20_000,
     })
-    .toBe("26");
+    .toBe("27");
 
   // Spawn faces -z: the ray crosses the open pocket cells (3,0,1) and
   // (3,0,2) and lands on the first claim rock behind them at depth 3.
@@ -536,7 +618,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
       timeout: 10_000,
     })
     .toBe("2:0:0:part");
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
   await expect(page.locator(".bunker-fp-target-label")).toHaveText(
     "Wall 90/90",
   );
@@ -574,7 +656,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     `Wall x${wallCount - 2}`,
     { timeout: 10_000 },
   );
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "24");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
 
   // Right-click pry refunds the wall straight to the pack: the count
   // rises, the mesh disappears, and no carried chip ever shows.
@@ -592,7 +674,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     { timeout: 10_000 },
   );
   await expect(carried).toHaveCount(0);
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
   const afterPry = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforePry, afterPry),
@@ -611,7 +693,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     timeout: 10_000,
   });
   await expect(carried).toHaveCount(0);
-  await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "27");
   const afterPries = await page.evaluate(() => {
     const trip = JSON.parse(
       localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
@@ -642,7 +724,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
     })
-    .toBe("27");
+    .toBe("28");
   const afterDig = await canvas.screenshot();
   expect(
     await imagePixelDifferenceRatio(page, beforeDig, afterDig),
@@ -737,7 +819,6 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
       body: JSON.stringify({
         bunker: null,
         inventory: FP_BUNKER_VIEW.inventory,
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });
@@ -777,7 +858,7 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 45_000,
     })
-    .toBe("26");
+    .toBe("27");
 
   // Entry arms the pick; aim level so the ray runs straight down the
   // claim-rock column ahead. The spawn pocket opens depths 0-2, so the
@@ -873,15 +954,13 @@ test.describe("phone viewport", () => {
     test.skip(browserName !== "chromium", "uses CDP touch events");
     // Software-GL phone runs compile the fp scene slowly.
     test.setTimeout(240_000);
-    // A three-block plateau on the room floor to the spawn's right, and
-    // the core moved off the spawn column so its cell cannot trip the
-    // auto-jump headroom guard. Climbing the first face proves the hop;
-    // the plateau keeps the mover grounded on top for stable asserts.
+    // A three-block plateau on the room floor to the spawn's right.
+    // Climbing the first face proves the hop; the plateau keeps the
+    // mover grounded on top for stable asserts.
     const stepView = {
       ...FP_BUNKER_VIEW,
       bunker: {
         footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-        core: { col: START_COL - 2, row: 3, durability: 160 },
         dug: FP_PLANE_DUG,
         parts: [1, 2, 3].map((offset) => ({
           partId: "wall-panel",
@@ -1065,15 +1144,17 @@ test.describe("phone viewport", () => {
       .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
         timeout: 10_000,
       })
-      .toBe("34");
-    expect(removeBodies).toEqual([{ col: START_COL + 2, row: 5, depth: 0 }]);
+      .toBe("35");
+    expect(removeBodies).toEqual([
+      { col: START_COL + 2, row: 5, depth: 0, expectedRevision: 0 },
+    ]);
 
     // Releasing the hold must NOT also fire the tap act: with build
     // armed and a valid place cell, a stray act would spend a wall
     // back into (4,0,0). Stock, cells, and the place API stay quiet.
     await page.waitForTimeout(400);
     await expect(wallSlot).toHaveAttribute("aria-label", "Wall x7");
-    await expect(canvas).toHaveAttribute("data-fp-open-cells", "34");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "35");
     expect(removeBodies).toHaveLength(1);
     expect(placeBodies).toEqual([]);
   });
@@ -1189,12 +1270,13 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
       timeout: 45_000,
     })
     .not.toBeNull();
-  // 35 tunnel-plane cells minus the core and the fixture's wall.
+  // 35 tunnel-plane cells minus the fixture's wall (F-118 freed the
+  // former core cell, so it counts as open now).
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 20_000,
     })
-    .toBe("33");
+    .toBe("34");
 
   // Dig the rock straight ahead through the banked excavate API.
   await page.keyboard.press("0");
@@ -1209,8 +1291,10 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
     })
-    .toBe("34");
-  expect(excavateBodies).toEqual([{ col: START_COL, row: 5, depth: 1 }]);
+    .toBe("35");
+  expect(excavateBodies).toEqual([
+    { col: START_COL, row: 5, depth: 1, expectedRevision: 0 },
+  ]);
 
   // Place a wall into the dug cell through the banked place API.
   await page.keyboard.press("1");
@@ -1226,7 +1310,13 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     })
     .toBe("3:0:1:part");
   expect(placeBodies).toEqual([
-    { partId: "wall-panel", col: START_COL, row: 5, depth: 1 },
+    {
+      partId: "wall-panel",
+      col: START_COL,
+      row: 5,
+      depth: 1,
+      expectedRevision: 0,
+    },
   ]);
   await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
     "aria-label",
@@ -1287,7 +1377,6 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
           "basic-turret": 0,
           "floor-spikes": 0,
         },
-        activeRaid: null,
         player: FP_BUNKER_VIEW.player,
       }),
     });
@@ -1765,4 +1854,513 @@ test("first-person walking over a banked bunker's overflow loot collects it", as
     .toBeGreaterThan(3.6);
   await page.keyboard.up("d");
   expect(collectBodies).toHaveLength(1);
+});
+
+/** Claim a fresh pending bunker at depth 5 and enter first-person, so the
+ * interior carries a real block seed and its undug cells render the mine's
+ * depth-appropriate dirt/rock/ore art (F-116). Seed 1 exposes ore on the
+ * spawn-facing wall. */
+async function enterFreshClaimFp(page: Page, seed: number): Promise<void> {
+  const mine = createMine(seed, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: FP_BUNKER_VIEW.inventory,
+        player: FP_BUNKER_VIEW.player,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "5");
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await claimSheet.getByRole("button", { name: "Close" }).click();
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+}
+
+test("first-person bunker interior renders dirt, rock, and ore, not one flat gray", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly and this decodes a full
+  // screenshot for the pixel check.
+  test.setTimeout(180_000);
+  await enterFreshClaimFp(page, 1);
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
+      timeout: 45_000,
+    })
+    .toBe("27");
+  // Let the scene settle real frames before sampling.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 20_000 })
+    .not.toBeNull();
+  await page.waitForTimeout(1200);
+
+  // Seed 1 exposes ore on the spawn-facing wall, so the crystal overlay
+  // must actually render (the warm/neutral pixel check alone would pass with
+  // every ore cluster absent). The probe counts exposed ore veins.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-ore-cells")), {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(0);
+
+  // The undug walls surrounding the spawn pocket carry the depth's dirt and
+  // rock. Before per-kind meshes the whole interior was one flat rock gray
+  // (the node materials ignore instanceColor), so warm dirt pixels were
+  // absent. Sample the full canvas: both buckets must be well populated.
+  const shot = await canvas.screenshot();
+  const { warm, neutral } = await imageRegionWarmNeutralFractions(page, shot, {
+    left: 0,
+    top: 0,
+    right: 1,
+    bottom: 1,
+  });
+  expect(warm).toBeGreaterThan(0.04);
+  expect(neutral).toBeGreaterThan(0.04);
+});
+
+/** A banked raid start: the store adopts activeLiveRaid and the fp view
+ * switches into the fight. The frozen snapshot carries depth on its
+ * parts (the server normalizes these), so the client sim reads them. */
+const RAID_BUNKER = {
+  footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+  dug: FP_PLANE_DUG,
+  parts: [
+    {
+      partId: "wall-panel",
+      col: START_COL - 3,
+      row: 1,
+      depth: 0,
+      durability: 90,
+    },
+  ],
+  blockSeed: 1,
+};
+
+const LIVE_RAID_ACTIVE = {
+  raidId: "live-test-1",
+  // Tier 3 so the wave fields specialists (breachers from tier 2, tanks from
+  // tier 3): the render layer must tint them, verified via the kinds probe.
+  tier: 3,
+  startedAtMs: 1_000,
+  durationSeconds: 180,
+  graceSeconds: 60,
+  bunker: RAID_BUNKER,
+};
+
+const LIVE_RAID_START = {
+  ...FP_BUNKER_VIEW,
+  activeLiveRaid: LIVE_RAID_ACTIVE,
+  liveRaid: LIVE_RAID_ACTIVE,
+};
+
+const LIVE_RAID_RESOLVED = {
+  ...FP_BUNKER_VIEW,
+  activeLiveRaid: null,
+  reward: {
+    survived: false,
+    vibesGained: 0,
+    xpGained: 0,
+    defenseXpBefore: 120,
+    defenseXpAfter: 120,
+    levelBefore: 2,
+    levelAfter: 2,
+    leveledUp: false,
+    beaconLimitBefore: 3,
+    beaconLimitAfter: 3,
+    newStamps: [],
+  },
+  newStamps: [],
+};
+
+test("first-person live raid starts, animates, and resolves", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const resolveBodies: unknown[] = [];
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ json: FP_BUNKER_VIEW });
+  });
+  await page.route("**/api/bunker/raid/start", async (route) => {
+    await route.fulfill({ json: LIVE_RAID_START });
+  });
+  await page.route("**/api/bunker/raid/resolve", async (route) => {
+    resolveBodies.push(route.request().postDataJSON());
+    await route.fulfill({ json: LIVE_RAID_RESOLVED });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // Look level into the room so the approaching wave is in frame.
+  await aimFp(page, 0, 0);
+
+  // Start the raid: the start control gives way to the raid banner and
+  // the player stays inside (fp mode never drops).
+  await page.getByTestId("bunker-fp-raid-start-button").click();
+  await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+
+  // The Clanker render layer actually draws the wave (not just the HUD
+  // counting it): its dataset probe reports the number of Clanker bodies
+  // it makes visible each frame, and that rises above zero while the raid
+  // is live.
+  await expect
+    .poll(
+      async () => Number(await canvas.getAttribute("data-fp-clankers-visible")),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThan(0);
+
+  // Specialists reach the render layer (F-159): a tier-3 wave fields
+  // breachers and tanks, and the layer mirrors the distinct kinds it draws.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-clanker-kinds"), {
+      timeout: 15_000,
+    })
+    .toMatch(/breacher/);
+  expect(await canvas.getAttribute("data-fp-clanker-kinds")).toMatch(/tank/);
+
+  // Capture a short sequence while the player retreats so the Clanker
+  // wave chases into frame, and prove motion with a consecutive-frame
+  // diff. Holding "s" backs the miner away from the converging wave: the
+  // Clankers stay ahead of the camera (in view) and the raid lasts long
+  // enough to catch them crossing the open depth-0 plane, instead of the
+  // stationary player being reached in a couple of frames.
+  await aimFp(page, 0, -0.28);
+  await page.keyboard.down("s");
+  const frames: Buffer[] = [];
+  for (let i = 0; i < 12; i++) {
+    const shot = await canvas.screenshot();
+    frames.push(shot);
+    await testInfo.attach(`raid-frame-${i}`, {
+      body: shot,
+      contentType: "image/png",
+    });
+    if (process.env.FP_RAID_CAPTURE_DIR) {
+      const { writeFileSync } = await import("node:fs");
+      writeFileSync(
+        `${process.env.FP_RAID_CAPTURE_DIR}/raid-frame-${i}.png`,
+        shot,
+      );
+    }
+  }
+  await page.keyboard.up("s");
+  // Motion somewhere across the retreat (the sim animates the wave and
+  // the walk moves the camera).
+  let maxDiff = 0;
+  for (let i = 1; i < frames.length; i++) {
+    maxDiff = Math.max(
+      maxDiff,
+      await imagePixelDifferenceRatio(page, frames[i - 1], frames[i]),
+    );
+  }
+  expect(maxDiff).toBeGreaterThan(0.001);
+
+  // The stationary player is reached, so the raid ends and the client
+  // submits exactly one bounded outcome report to the resolve route.
+  await expect
+    .poll(() => resolveBodies.length, { timeout: 120_000 })
+    .toBeGreaterThan(0);
+
+  // Once settled the view clears the raid and the start control returns.
+  await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+    timeout: 20_000,
+  });
+});
+
+test("leaving a live raid mid-fight forfeits it instead of re-rolling on re-entry", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const forfeitBodies: unknown[] = [];
+  let resolveCalls = 0;
+
+  // Pause the render loop on demand. The live raid steps its sim inside the
+  // R3F frame loop, and a headless runner stutters rAF and then processes a
+  // catch-up burst on each interaction; against a player who spawns at the
+  // entry edge (reachable from the un-wallable mine-approach cell directly in
+  // front, so no in-bunker wall can seal it), that lets the fight resolve on
+  // its own and race the forfeit. Freezing rAF once the raid is on screen
+  // holds the sim at its opening tick, so leaving is unambiguously a
+  // mid-fight abandon. React effects (the unmount forfeit) run off the
+  // scheduler, not rAF, so they still fire while the loop is frozen.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __freezeRaf?: boolean };
+    w.__freezeRaf = false;
+    const real = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (cb) =>
+      real((t) => {
+        // While frozen, defer the frame callback instead of running it: keep
+        // the rAF chain alive (so R3F's shared render loop resumes cleanly
+        // once unfrozen for the re-entry) but never advance the sim.
+        if (w.__freezeRaf) {
+          window.requestAnimationFrame(cb);
+          return;
+        }
+        cb(t);
+      });
+  });
+  const setFreeze = (frozen: boolean) =>
+    page.evaluate((f) => {
+      (window as unknown as { __freezeRaf?: boolean }).__freezeRaf = f;
+    }, frozen);
+
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({ json: FP_BUNKER_VIEW });
+  });
+  await page.route("**/api/bunker/raid/start", async (route) => {
+    await route.fulfill({ json: LIVE_RAID_START });
+  });
+  await page.route("**/api/bunker/raid/resolve", async (route) => {
+    resolveCalls += 1;
+    await route.fulfill({ json: LIVE_RAID_RESOLVED });
+  });
+  // Leaving fp mid-raid settles the abandoned fight as a forfeit; the cleared
+  // view carries no active raid, so the store drops it on adoption (F-160).
+  await page.route("**/api/bunker/raid/forfeit", async (route) => {
+    forfeitBodies.push(route.request().postDataJSON());
+    await route.fulfill({ json: { ...FP_BUNKER_VIEW, activeLiveRaid: null } });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  await aimFp(page, 0, 0);
+  await page.getByTestId("bunker-fp-raid-start-button").click();
+  // The raid is up on screen: the HUD banner replaced the Start control.
+  await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByTestId("bunker-fp-raid-start-button")).toHaveCount(0);
+  // Freeze the sim at its opening tick so leaving is a clean mid-fight abandon.
+  await setFreeze(true);
+
+  // Leave first person while the raid runs. The Exit control is hidden during
+  // a raid, so a player abandons a fight the only way they can: Escape drops
+  // out of the bunker view (no pointer lock is held in this headless run, so a
+  // single Escape reaches the exit handler). The canvas unmounts with the raid
+  // unresolved, so the client forfeits the abandoned raid once.
+  await page.keyboard.press("Escape");
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await expect.poll(() => forfeitBodies.length, { timeout: 15_000 }).toBe(1);
+  // A forfeit is a server-derived no-reward settlement, not a fought outcome,
+  // so the client never submits a resolve report for the abandoned raid.
+  expect(resolveCalls).toBe(0);
+
+  // Re-enter with the loop running again: the forfeited raid is gone (the
+  // store adopted the cleared view), so the fight does not re-roll. The Start
+  // control returns, not the raid panel.
+  await setFreeze(false);
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+  await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByTestId("bunker-fp-raid-panel")).toHaveCount(0);
+});
+
+test.describe("phone viewport (touch abandon)", () => {
+  test.use({
+    viewport: { width: 390, height: 760 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test("the touch abandon control forfeits a live raid behind a two-step confirm", async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== "chromium", "uses touch tap events");
+    test.setTimeout(240_000);
+    const forfeitBodies: unknown[] = [];
+    let resolveCalls = 0;
+
+    // Same rAF freeze harness as the Escape-forfeit test above: hold the sim at
+    // its opening tick so leaving is an unambiguous mid-fight abandon and cannot
+    // race a self-resolving fight. See that test for why deferring (not
+    // skipping) the frame callback keeps R3F's shared loop alive for re-entry.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __freezeRaf?: boolean };
+      w.__freezeRaf = false;
+      const real = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = (cb) =>
+        real((t) => {
+          if (w.__freezeRaf) {
+            window.requestAnimationFrame(cb);
+            return;
+          }
+          cb(t);
+        });
+    });
+    const setFreeze = (frozen: boolean) =>
+      page.evaluate((f) => {
+        (window as unknown as { __freezeRaf?: boolean }).__freezeRaf = f;
+      }, frozen);
+
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({ json: FP_BUNKER_VIEW });
+    });
+    await page.route("**/api/bunker/raid/start", async (route) => {
+      await route.fulfill({ json: LIVE_RAID_START });
+    });
+    await page.route("**/api/bunker/raid/resolve", async (route) => {
+      resolveCalls += 1;
+      await route.fulfill({ json: LIVE_RAID_RESOLVED });
+    });
+    await page.route("**/api/bunker/raid/forfeit", async (route) => {
+      forfeitBodies.push(route.request().postDataJSON());
+      await route.fulfill({
+        json: { ...FP_BUNKER_VIEW, activeLiveRaid: null },
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+
+    await aimFp(page, 0, 0);
+    await page.getByTestId("bunker-fp-raid-start-button").click();
+    await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+      timeout: 15_000,
+    });
+    await setFreeze(true);
+
+    // On a phone the abandon control has to be an honest touch target: at least
+    // 44px tall and fully inside the 390px viewport, not clipped off-screen.
+    const abandon = page.getByTestId("bunker-fp-raid-abandon");
+    const box = await abandon.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) {
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(390);
+    }
+
+    // Touch players have no Escape key, so the raid HUD carries an in-panel
+    // abandon affordance. Arming it must NOT leave on its own: a stray tap
+    // while fighting cannot cost the raid. The first tap only reveals the
+    // confirm.
+    await abandon.tap();
+    await expect(
+      page.getByTestId("bunker-fp-raid-abandon-confirm"),
+    ).toBeVisible();
+    await expect(page.getByTestId("bunker-fp-raid-abandon")).toHaveCount(0);
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    expect(forfeitBodies.length).toBe(0);
+
+    // "Stay" backs out: the confirm collapses to the arming button and the
+    // player is still in first person, still raiding, nothing forfeited.
+    await page.getByTestId("bunker-fp-raid-abandon-no").tap();
+    await expect(
+      page.getByTestId("bunker-fp-raid-abandon-confirm"),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("bunker-fp-raid-abandon")).toBeVisible();
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    expect(forfeitBodies.length).toBe(0);
+
+    // Re-arm, then commit: "Forfeit" leaves first person and settles the
+    // abandoned fight, exactly like the desktop Escape path (F-160).
+    await page.getByTestId("bunker-fp-raid-abandon").tap();
+    await expect(
+      page.getByTestId("bunker-fp-raid-abandon-confirm"),
+    ).toBeVisible();
+    await page.getByTestId("bunker-fp-raid-abandon-yes").tap();
+    await expect(status).toHaveAttribute("data-fp-mode", "0");
+    await expect.poll(() => forfeitBodies.length, { timeout: 15_000 }).toBe(1);
+    expect(resolveCalls).toBe(0);
+
+    // Re-enter with the loop running again: the forfeited raid is gone, so the
+    // fight does not re-roll. The Start control returns, not the raid panel.
+    await setFreeze(false);
+    await page.getByTestId("bunker-fp-enter").click();
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+    await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId("bunker-fp-raid-panel")).toHaveCount(0);
+  });
 });

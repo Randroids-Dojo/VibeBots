@@ -40,18 +40,6 @@ describe("mine transient animation lifetime contract", () => {
     expect(dissipatingOpacity(2, 1)).toBe(0);
   });
 
-  it("keeps Clanker self-destruct bursts finite and fading", () => {
-    const overlay = readProjectFile("src/components/mine-bunker-overlay.tsx");
-
-    expect(overlay).toContain("transientAnimationActive(");
-    expect(overlay).toContain("transientAnimationProgress(");
-    expect(overlay).toContain("dissipatingOpacity(");
-    expect(overlay).toContain("setGroupMaterialOpacity(");
-    expect(overlay).not.toMatch(
-      /burstActive\s*=\s*dead\s*&&\s*clanker\.status\s*===\s*"self-destructed"\s*;/,
-    );
-  });
-
   it("keeps spawned mine particles on finite countdown life", () => {
     const particles = readProjectFile("src/components/mine-particles.ts");
     const canvas = readProjectFile("src/components/mine-canvas.tsx");

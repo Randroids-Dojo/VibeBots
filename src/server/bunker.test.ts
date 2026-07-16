@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  BUNKER_LAYOUT_VERSION,
   type BunkerFootprint,
+  type BunkerState,
   bunkerCells,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -9,20 +11,21 @@ import {
   bunkerSpawnPocketCells,
   deriveBunkerBlockSeed,
 } from "@/sim/bunker-blocks";
+import { BUNKER_RAID_LIVE_VERSION } from "@/sim/bunker-raid-live";
 import { applyAchievementProgress } from "./achievements";
 import {
   buyBasePart,
   claimBunker,
   collectBunkerLoot,
-  collectBunkerRaidPickup,
   excavateBunker,
-  finishBunkerRaid,
   loadBunkerView,
+  moveBunkerPart,
   placeBunkerPart,
+  removeBunkerPart,
   repairBunker,
   resetBunker,
   setBunkerSkin,
-  startBunkerRaid,
+  startFreshBunker,
 } from "./bunker";
 
 /** An ore cell plus a face-adjacent in-footprint cell to pre-open, so an
@@ -77,11 +80,10 @@ function makeBuySql({
     if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
       return [{ emeralds: 200, track_xp: trackXp, defense_xp: defenseXp }];
     }
-    if (query.includes("SELECT footprint, core, parts")) {
+    if (query.includes("SELECT footprint, parts")) {
       return [
         {
           footprint: { col: 1, row: 1, width: 7, height: 5 },
-          core: { col: 4, row: 3, durability: 160 },
           parts,
         },
       ];
@@ -104,371 +106,6 @@ describe("bunker server helpers", () => {
     vi.mocked(applyAchievementProgress).mockClear();
   });
 
-  it("normalizes legacy active raid rows before returning the bunker view", async () => {
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
-      }
-      if (query.includes("SELECT footprint, core, parts")) return [];
-      if (query.includes("SELECT snapshot")) {
-        return [
-          {
-            snapshot: {
-              raidId: "raid-legacy",
-              tier: 1,
-              durationSeconds: 180,
-              clankers: [],
-              turretShots: 0,
-              turretDamage: 0,
-              spikeTriggers: 0,
-              spikeDamage: 0,
-              totalPartDurability: 160,
-              incomingDamage: 40,
-              breached: false,
-              survived: true,
-              reward: { vibes: 30 },
-            },
-          },
-        ];
-      }
-      if (query.includes("SELECT part_id, count")) return [];
-      if (query.includes("INSERT INTO player_base_parts")) return [];
-      return [];
-    });
-
-    const view = await loadBunkerView(sql as never, "player-1");
-
-    expect(view.activeRaid).toMatchObject({
-      raidId: "raid-legacy",
-      partDamage: [],
-      coreDamage: 0,
-      xpPickups: [],
-      allClankersDead: false,
-      minerKilled: false,
-      reward: { vibes: 30, defenseXp: 0 },
-    });
-  });
-
-  it("finishes a survived legacy raid row without XP pickup fields", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:05:00.000Z"));
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT raid_id, snapshot")) {
-        return [
-          {
-            raid_id: "raid-legacy",
-            started_at: "2026-06-18T00:00:00.000Z",
-            duration_seconds: 180,
-            snapshot: {
-              raidId: "raid-legacy",
-              tier: 1,
-              durationSeconds: 180,
-              clankers: [],
-              turretShots: 0,
-              turretDamage: 0,
-              spikeTriggers: 0,
-              spikeDamage: 0,
-              totalPartDurability: 160,
-              incomingDamage: 40,
-              breached: false,
-              survived: true,
-              reward: { vibes: 30 },
-            },
-          },
-        ];
-      }
-      if (query.includes("UPDATE bunker_raids"))
-        return [{ raid_id: "raid-legacy" }];
-      if (query.includes("SELECT track_xp, defense_xp")) {
-        return [{ track_xp: 0, defense_xp: 0 }];
-      }
-      if (query.includes("SELECT achievement_id")) return [];
-      if (query.includes("UPDATE players")) return [{ defense_xp: 0 }];
-      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        return [{ emeralds: 60, track_xp: 0, defense_xp: 0 }];
-      }
-      if (query.includes("SELECT footprint, core, parts")) return [];
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT part_id, count")) return [];
-      if (query.includes("INSERT INTO player_base_parts")) return [];
-      return [];
-    });
-
-    const result = await finishBunkerRaid(sql as never, "player-1");
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.raid.xpPickups).toEqual([]);
-    expect(result.reward).toMatchObject({
-      survived: true,
-      vibesGained: 30,
-      xpGained: 0,
-    });
-  });
-
-  it("does not pay a raid reward when the finish row was already claimed", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:05:00.000Z"));
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT raid_id, snapshot")) {
-        return [
-          {
-            raid_id: "raid-1",
-            started_at: "2026-06-18T00:00:00.000Z",
-            duration_seconds: 180,
-            snapshot: {
-              raidId: "raid-1",
-              tier: 1,
-              durationSeconds: 180,
-              clankers: [],
-              turretShots: 0,
-              turretDamage: 0,
-              spikeTriggers: 0,
-              spikeDamage: 0,
-              totalPartDurability: 180,
-              incomingDamage: 100,
-              partDamage: [],
-              coreDamage: 0,
-              xpPickups: [],
-              allClankersDead: true,
-              breached: false,
-              minerKilled: false,
-              survived: true,
-              reward: { vibes: 30, defenseXp: 60 },
-            },
-          },
-        ];
-      }
-      if (query.includes("UPDATE bunker_raids")) return [];
-      if (query.includes("UPDATE players")) {
-        throw new Error("reward should not be paid");
-      }
-      return [];
-    });
-
-    const result = await finishBunkerRaid(sql as never, "player-1");
-
-    expect(result).toEqual({
-      ok: false,
-      status: 409,
-      error: "raid already finished",
-    });
-  });
-
-  it("refuses to finish a survived raid while XP pickups are uncollected", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:00:10.000Z"));
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT raid_id, snapshot")) {
-        return [
-          {
-            raid_id: "raid-1",
-            started_at: "2026-06-18T00:00:00.000Z",
-            duration_seconds: 180,
-            snapshot: {
-              raidId: "raid-1",
-              tier: 1,
-              durationSeconds: 3,
-              clankers: [],
-              turretShots: 0,
-              turretDamage: 0,
-              spikeTriggers: 0,
-              spikeDamage: 0,
-              totalPartDurability: 180,
-              incomingDamage: 100,
-              partDamage: [],
-              coreDamage: 0,
-              xpPickups: [
-                {
-                  id: "raid-1-clanker-1-xp",
-                  col: 4,
-                  row: 5,
-                  defenseXp: 25,
-                  collected: false,
-                },
-              ],
-              allClankersDead: true,
-              breached: false,
-              minerKilled: false,
-              survived: true,
-              reward: { vibes: 30, defenseXp: 25 },
-            },
-          },
-        ];
-      }
-      if (query.includes("UPDATE players")) {
-        throw new Error("reward should wait for pickup collection");
-      }
-      return [];
-    });
-
-    const result = await finishBunkerRaid(sql as never, "player-1");
-
-    expect(result).toEqual({
-      ok: false,
-      status: 409,
-      error: "collect raid XP pickups first",
-    });
-  });
-
-  it("marks XP pickups collected when the miner overlaps their visible cell", async () => {
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT raid_id, snapshot")) {
-        return [
-          {
-            raid_id: "raid-1",
-            snapshot: {
-              raidId: "raid-1",
-              tier: 1,
-              durationSeconds: 3,
-              clankers: [],
-              turretShots: 0,
-              turretDamage: 0,
-              spikeTriggers: 0,
-              spikeDamage: 0,
-              totalPartDurability: 180,
-              incomingDamage: 100,
-              partDamage: [],
-              coreDamage: 0,
-              xpPickups: [
-                {
-                  id: "raid-1-clanker-1-xp",
-                  col: 4,
-                  row: 5,
-                  defenseXp: 25,
-                  collected: false,
-                },
-              ],
-              allClankersDead: true,
-              breached: false,
-              minerKilled: false,
-              survived: true,
-              reward: { vibes: 30, defenseXp: 25 },
-            },
-          },
-        ];
-      }
-      if (query.includes("UPDATE bunker_raids")) return [];
-      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
-      }
-      if (query.includes("SELECT footprint, core, parts")) return [];
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT part_id, count")) return [];
-      if (query.includes("INSERT INTO player_base_parts")) return [];
-      return [];
-    });
-
-    const missed = await collectBunkerRaidPickup(
-      sql as never,
-      "player-1",
-      8,
-      5,
-    );
-    expect(missed.ok).toBe(true);
-    if (!missed.ok) return;
-    expect(missed.raid.xpPickups[0]?.collected).toBe(false);
-
-    const collected = await collectBunkerRaidPickup(
-      sql as never,
-      "player-1",
-      5,
-      5,
-    );
-    expect(collected.ok).toBe(true);
-    if (!collected.ok) return;
-    expect(collected.raid.xpPickups[0]?.collected).toBe(true);
-    expect(collected.raid.reward.defenseXp).toBe(25);
-  });
-
-  it("reports collected defense XP, level-up rewards, and the first defense stamp", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:00:10.000Z"));
-    vi.mocked(applyAchievementProgress).mockResolvedValueOnce([
-      "survival-first-defense",
-    ]);
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT raid_id, snapshot")) {
-        return [
-          {
-            raid_id: "raid-1",
-            started_at: "2026-06-18T00:00:00.000Z",
-            duration_seconds: 180,
-            snapshot: {
-              raidId: "raid-1",
-              tier: 1,
-              durationSeconds: 180,
-              clankers: [],
-              turretShots: 0,
-              turretDamage: 0,
-              spikeTriggers: 0,
-              spikeDamage: 0,
-              totalPartDurability: 180,
-              incomingDamage: 100,
-              partDamage: [],
-              coreDamage: 0,
-              xpPickups: [
-                {
-                  id: "raid-1-clanker-1-xp",
-                  col: 4,
-                  row: 5,
-                  defenseXp: 100,
-                  collected: true,
-                },
-              ],
-              allClankersDead: true,
-              breached: false,
-              minerKilled: false,
-              survived: true,
-              sealed: true,
-              reward: { vibes: 30, defenseXp: 100 },
-            },
-          },
-        ];
-      }
-      if (query.includes("UPDATE bunker_raids")) return [{ raid_id: "raid-1" }];
-      if (query.includes("SELECT track_xp, defense_xp")) {
-        return [{ track_xp: 0, defense_xp: 60 }];
-      }
-      if (query.includes("UPDATE players")) return [{ defense_xp: 160 }];
-      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        return [{ emeralds: 30, track_xp: 0, defense_xp: 160 }];
-      }
-      if (query.includes("SELECT footprint, core, parts")) return [];
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT part_id, count")) return [];
-      return [];
-    });
-
-    const result = await finishBunkerRaid(sql as never, "player-1");
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.reward).toEqual({
-      survived: true,
-      vibesGained: 30,
-      xpGained: 100,
-      defenseXpBefore: 60,
-      defenseXpAfter: 160,
-      levelBefore: 1,
-      levelAfter: 2,
-      leveledUp: true,
-      beaconLimitBefore: 2,
-      beaconLimitAfter: 3,
-      newStamps: ["survival-first-defense"],
-    });
-    expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {
-      bunkerRaidsSurvived: 1,
-      raidsSurvivedSealed: 1,
-    });
-  });
-
   it("adds missing starter base parts once for existing base inventories", async () => {
     const sql = vi.fn(
       async (strings: TemplateStringsArray, ..._values: unknown[]) => {
@@ -476,7 +113,7 @@ describe("bunker server helpers", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) return [];
+        if (query.includes("SELECT footprint, parts")) return [];
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) {
           return [
@@ -537,52 +174,6 @@ describe("bunker server helpers", () => {
     });
   });
 
-  it("starts raids with clanker paths from the saved mine world", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-18T00:00:00.000Z"));
-    const footprint = { col: 7, row: 6, width: 7, height: 5 };
-    const diff = [
-      [4, 5, { kind: "empty" }],
-      [5, 5, { kind: "empty" }],
-      [6, 5, { kind: "empty" }],
-      [7, 5, { kind: "empty" }],
-    ];
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        return [{ emeralds: 100, track_xp: 0, defense_xp: 0 }];
-      }
-      if (query.includes("SELECT footprint, core, parts")) {
-        return [
-          { footprint, core: { col: 10, row: 8, durability: 160 }, parts: [] },
-        ];
-      }
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT part_id, count")) return [];
-      if (query.includes("SELECT started_at")) return [];
-      if (query.includes("SELECT seed, diff")) return [{ seed: 123, diff }];
-      if (query.includes("UPDATE bunkers")) return [];
-      if (query.includes("INSERT INTO bunker_raids")) return [];
-      if (query.includes("INSERT INTO player_base_parts")) return [];
-      return [];
-    });
-
-    const result = await startBunkerRaid(sql as never, "player-1", 1);
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.raid.clankers[0]).toMatchObject({
-      col: 4,
-      row: 5,
-      targetCol: 10,
-      targetRow: 8,
-    });
-    expect(result.raid.clankers[0].path?.at(-1)).toEqual({
-      col: 10,
-      row: 8,
-    });
-  });
-
   it("repairs the bunker for vibes and rejects an unaffordable repair", async () => {
     const footprint = { col: 1, row: 1, width: 7, height: 5 };
     const damagedParts = [
@@ -598,12 +189,12 @@ describe("bunker server helpers", () => {
           // Guarded debit: only returns a row when the player can afford it.
           return emeralds >= 7 ? [{ emeralds: emeralds - 7 }] : [];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 3, durability: 140 },
               parts: damagedParts,
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -627,7 +218,7 @@ describe("bunker server helpers", () => {
       true,
     );
     // The persisted bunker carries the restored durabilities, not just any
-    // UPDATE: inspect the core/parts JSON bound into the UPDATE bunkers call.
+    // UPDATE: inspect the parts JSON bound into the UPDATE bunkers call.
     const updateCall = rich.mock.calls.find((call) =>
       (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
     );
@@ -635,13 +226,8 @@ describe("bunker server helpers", () => {
     const bound = ((updateCall ?? []) as unknown[])
       .slice(1)
       .filter((value): value is string => typeof value === "string");
-    const coreJson = bound.find(
-      (value) => value.includes('"durability"') && !value.includes('"partId"'),
-    );
     const partsJson = bound.find((value) => value.includes('"partId"'));
-    expect(coreJson).toBeDefined();
     expect(partsJson).toBeDefined();
-    expect(JSON.parse(coreJson ?? "{}").durability).toBe(160);
     expect(
       JSON.parse(partsJson ?? "[]").map(
         (part: { durability: number }) => part.durability,
@@ -657,11 +243,10 @@ describe("bunker server helpers", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 50, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 3, depth: 0, durability: 100 },
               parts: [
                 { partId: "wall-panel", col: 3, row: 3, durability: 90 },
                 { partId: "wall-panel", col: 5, row: 3, durability: 45 },
@@ -670,11 +255,38 @@ describe("bunker server helpers", () => {
               dug: [{ col: 4, row: 3, depth: 1 }],
               skin: "gilded",
               skins_owned: ["gilded"],
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
         if (query.includes("SELECT snapshot")) {
-          return activeRaid ? [{ snapshot: { raidId: "raid-live" } }] : [];
+          // An active live raid freezes bunker edits (F-108): the reset guard
+          // reads it as an in-flight raid and rejects. The row mirrors the live
+          // start shape (versioned, recent start, readable frozen bunker).
+          return activeRaid
+            ? [
+                {
+                  snapshot: {
+                    version: BUNKER_RAID_LIVE_VERSION,
+                    raidId: "live-active",
+                    tier: 1,
+                    durationSeconds: 180,
+                    bunker: {
+                      footprint,
+                      parts: [],
+                      dug: [],
+                      block_seed: null,
+                      loot: [],
+                      skin: null,
+                      skins_owned: [],
+                      revision: 0,
+                    },
+                  },
+                  raid_version: BUNKER_RAID_LIVE_VERSION,
+                  started_at: new Date().toISOString(),
+                },
+              ]
+            : [];
         }
         if (query.includes("SELECT part_id, count")) {
           return [
@@ -705,8 +317,8 @@ describe("bunker server helpers", () => {
     const result = await resetBunker(sql as never, "player-1");
     expect(result.ok).toBe(true);
 
-    // One UPDATE persists the emptied parts, the preserved excavation
-    // (F-120: reset keeps dug-out rock), and the restored core together.
+    // One UPDATE persists the emptied parts and the preserved excavation
+    // (F-120: reset keeps dug-out rock) together.
     const updateCall = sql.mock.calls.find((call) =>
       (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
     );
@@ -716,7 +328,6 @@ describe("bunker server helpers", () => {
     ).join(" ");
     expect(updateQuery).toContain("SET parts");
     expect(updateQuery).toContain("dug");
-    expect(updateQuery).toContain("core");
     const bound = ((updateCall ?? []) as unknown[]).slice(1);
     expect(bound[0]).toBe("[]");
     // The dug set survives the reset (F-120) and always carries the spawn
@@ -725,7 +336,6 @@ describe("bunker server helpers", () => {
     const persistedDug = JSON.parse(String(bound[1]));
     expect(persistedDug).toContainEqual({ col: 4, row: 3, depth: 1 });
     expect(persistedDug).toHaveLength(27);
-    expect(JSON.parse(String(bound[2])).durability).toBe(160);
 
     // The inventory upsert carries the refunds: the undamaged wall and
     // door return (2 -> 3, 0 -> 1); the damaged wall is lost.
@@ -747,7 +357,7 @@ describe("bunker server helpers", () => {
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 50, track_xp: 0, defense_xp: 0 }];
       }
-      if (query.includes("SELECT footprint, core, parts")) return [];
+      if (query.includes("SELECT footprint, parts")) return [];
       if (query.includes("SELECT snapshot")) return [];
       if (query.includes("SELECT part_id, count")) return [];
       return [];
@@ -769,11 +379,10 @@ describe("bunker server helpers", () => {
           // Guarded debit: only returns a row when the player can afford it.
           return emeralds >= 120 ? [{ emeralds: emeralds - 120 }] : [];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 3, durability: 160 },
               parts: [],
               skin: "steelworks",
               skins_owned: skinsOwned,
@@ -831,34 +440,6 @@ describe("bunker server helpers", () => {
     expect(vi.mocked(applyAchievementProgress)).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects a raid tier above the player's level gate (F-084)", async () => {
-    const footprint = { col: 1, row: 1, width: 7, height: 5 };
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-        // Level 1 player: only tier 1 is startable.
-        return [{ emeralds: 100, track_xp: 0, defense_xp: 0 }];
-      }
-      if (query.includes("SELECT footprint, core, parts")) {
-        return [
-          { footprint, core: { col: 4, row: 3, durability: 160 }, parts: [] },
-        ];
-      }
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT part_id, count")) return [];
-      if (query.includes("SELECT started_at")) return [];
-      if (query.includes("SELECT seed, diff")) return [{ seed: 5, diff: [] }];
-      return [];
-    });
-
-    const result = await startBunkerRaid(sql as never, "player-1", 3);
-
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.status).toBe(422);
-    expect(result.error).toContain("unlocks at player level");
-  });
-
   it("rejects Basic Turret buys below player level 2 before spending", async () => {
     const sql = makeBuySql({});
 
@@ -914,11 +495,10 @@ describe("bunker depth normalization", () => {
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
       }
-      if (query.includes("SELECT footprint, core, parts")) {
+      if (query.includes("SELECT footprint, parts")) {
         return [
           {
             footprint: { col: 1, row: 4, width: 7, height: 5 },
-            core: { col: 4, row: 6, durability: 160 },
             parts: [
               { partId: "wall-panel", col: 1, row: 4, durability: 90 },
               {
@@ -940,7 +520,6 @@ describe("bunker depth normalization", () => {
 
     const view = await loadBunkerView(sql as never, "player-1");
 
-    expect(view.bunker?.core).toMatchObject({ col: 4, row: 6, depth: 0 });
     expect(view.bunker?.parts).toEqual([
       { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
       { partId: "door-panel", col: 2, row: 4, depth: 0, durability: 60 },
@@ -950,6 +529,333 @@ describe("bunker depth normalization", () => {
     expect(view.bunker?.dug).toEqual(
       bunkerSpawnPocketCells({ col: 1, row: 4, width: 7, height: 5 }),
     );
+  });
+
+  it("ignores a legacy core field on a stored bunker row (F-118)", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        // A row written before the core was removed may still carry one as
+        // a stray property; the parser no longer reads it, so it is ignored
+        // and the bunker loads without a core rather than crashing.
+        return [
+          {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            core: { col: 4, row: 6, depth: 0, durability: 160 },
+            parts: [{ partId: "wall-panel", col: 1, row: 4, durability: 90 }],
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("INSERT INTO player_base_parts")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker).not.toBeNull();
+    expect(view.bunker).not.toHaveProperty("core");
+    expect(view.bunker?.parts).toEqual([
+      { partId: "wall-panel", col: 1, row: 4, depth: 0, durability: 90 },
+    ]);
+  });
+});
+
+describe("bunker block-seed backfill", () => {
+  const footprint = { col: 1, row: 4, width: 7, height: 5 };
+
+  it("backfills a missing block seed from the player's mine world (F-116)", async () => {
+    // A bunker claimed before block seeds existed stores block_seed NULL, so
+    // every cell renders as flat dirt and pays no ore. Loading it derives and
+    // persists the same seed a fresh claim would, so its walls gain ore.
+    const worldSeed = 777;
+    const expected = deriveBunkerBlockSeed(worldSeed, footprint);
+    const queries: string[] = [];
+    const seedWrites: unknown[][] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        queries.push(query);
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint,
+              parts: [],
+              dug: [],
+              block_seed: null,
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
+        }
+        if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+          return [{ seed: worldSeed }];
+        }
+        if (
+          query.includes("UPDATE bunkers") &&
+          query.includes("SET block_seed")
+        ) {
+          seedWrites.push(values);
+          // The guarded write wins and RETURNING echoes the stored seed.
+          return [{ block_seed: expected }];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        return [];
+      },
+    );
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    // The returned seed is the one the write reported, not a local guess.
+    expect(view.bunker?.blockSeed).toBe(expected);
+    // The seeded bunker now generates real ore for at least one cell.
+    const hasOre = Array.from({ length: 7 }, (_, x) => x).some((x) =>
+      Array.from({ length: 5 }, (_, y) => y).some((y) =>
+        Array.from({ length: 5 }, (_, z) => z).some(
+          (z) => bunkerCellBlock(expected, footprint, x, y, z).kind === "ore",
+        ),
+      ),
+    );
+    expect(hasOre).toBe(true);
+    // Persisted exactly once, guarded on the column still being NULL so it is
+    // idempotent and never overwrites a real seed.
+    expect(seedWrites).toHaveLength(1);
+    expect(seedWrites[0]).toContain(expected);
+    const write = queries.find(
+      (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+    );
+    expect(write).toContain("block_seed IS NULL");
+    expect(write).toContain("RETURNING block_seed");
+  });
+
+  it("adopts the authoritative seed when it loses the backfill race", async () => {
+    // A concurrent load already backfilled: the guarded write matches zero
+    // rows, so the view must read the persisted seed rather than trust the
+    // locally derived value.
+    const worldSeed = 777;
+    const concurrentSeed = deriveBunkerBlockSeed(worldSeed, footprint);
+    let sawReread = false;
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: worldSeed }];
+      }
+      if (
+        query.includes("UPDATE bunkers") &&
+        query.includes("SET block_seed")
+      ) {
+        // Zero-row loser: the column was no longer NULL.
+        return [];
+      }
+      if (
+        query.includes("SELECT block_seed") &&
+        query.includes("FROM bunkers")
+      ) {
+        sawReread = true;
+        return [{ block_seed: concurrentSeed }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(sawReread).toBe(true);
+    expect(view.bunker?.blockSeed).toBe(concurrentSeed);
+  });
+
+  it("leaves an old bunker unseeded when the mine seed is malformed", async () => {
+    // A non-numeric seed cannot derive real blocks; the bunker is returned
+    // as-is (renders as dirt) rather than seeded from a garbage value.
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: "not-a-seed" }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBeUndefined();
+    expect(
+      queries.some(
+        (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves a bunker that already has a seed untouched", async () => {
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: 4242,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBe(4242);
+    // No world lookup and no backfill write for an already-seeded bunker.
+    expect(queries.some((q) => q.includes("mine_worlds"))).toBe(false);
+    expect(
+      queries.some(
+        (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves an old bunker unseeded when the player has no mine world", async () => {
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBeUndefined();
+    expect(
+      queries.some(
+        (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+      ),
+    ).toBe(false);
+  });
+
+  it("preserves parts, dug cells, and loot while filling the seed", async () => {
+    // The backfill fills only block_seed; the player's build and digging must
+    // survive untouched. Use a cell outside the spawn pocket (x 6, depth 3) so
+    // its presence proves preservation, not the pocket seeding.
+    const worldSeed = 555;
+    const expected = deriveBunkerBlockSeed(worldSeed, footprint);
+    const bottomRow = footprint.row + footprint.height - 1;
+    const part = {
+      partId: "wall-panel",
+      col: footprint.col + 2,
+      row: bottomRow,
+      depth: 0,
+      durability: 90,
+    };
+    const dugCell = { col: footprint.col + 6, row: bottomRow, depth: 3 };
+    const lootPile = {
+      col: footprint.col + 6,
+      row: bottomRow,
+      depth: 3,
+      ores: { coal: 3 },
+    };
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [part],
+            dug: [dugCell],
+            loot: [lootPile],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: worldSeed }];
+      }
+      if (
+        query.includes("UPDATE bunkers") &&
+        query.includes("SET block_seed")
+      ) {
+        return [{ block_seed: expected }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBe(expected);
+    expect(view.bunker?.parts).toContainEqual(part);
+    expect(view.bunker?.dug).toContainEqual(dugCell);
+    expect(view.bunker?.loot).toContainEqual(lootPile);
   });
 });
 
@@ -962,15 +868,15 @@ describe("bunker excavation wrapper", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint: { col: 1, row: 4, width: 7, height: 5 },
-              core: { col: 4, row: 6, depth: 0, durability: 160 },
               parts: [],
               // One open floor cell so the depth-1 dig below chains from
               // it; depth-3 stays unreachable (no open neighbor).
               dug: [{ col: 2, row: 5, depth: 0 }],
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -980,7 +886,9 @@ describe("bunker excavation wrapper", () => {
         }
         if (query.includes("UPDATE bunkers")) {
           writes.push(values.map(String).join("|"));
-          return [];
+          // The guarded dig CTE reports the row it wrote so the wrapper
+          // knows the revision guard was satisfied (F-122).
+          return [{ dug_rows: 1, ore_rows: 0 }];
         }
         if (query.includes("INSERT INTO player_base_parts")) return [];
         return [];
@@ -1022,22 +930,25 @@ describe("bunker excavation wrapper", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 42, depth: 0, durability: 160 },
               parts: [],
               dug: [target.open],
               block_seed: blockSeed,
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];
         if (query.includes("UPDATE players")) {
+          // The excavate write is one CTE that digs and pays ore, so this
+          // branch matches the whole statement; report the guarded dig as
+          // won (F-122) while capturing the ore payout's bound values.
           playerCredit = values;
-          return [];
+          return [{ dug_rows: 1, ore_rows: 1 }];
         }
         return [];
       },
@@ -1054,6 +965,82 @@ describe("bunker excavation wrapper", () => {
     // The single CTE credited the balance with the ore's vibes.
     expect(playerCredit).not.toBeNull();
   });
+
+  it("persists cascaded parts atomically with the dug cell (F-117)", async () => {
+    // A grounded slotted floor whose cell below is still rock. Digging that
+    // cell out drops the floor (F-117 cascade). The guarded write must bind
+    // both the new dug cell and the emptied parts array in one statement, and
+    // a subsequent load must read the settled state, so the drop is durable.
+    const footprint: BunkerFootprint = { col: 1, row: 4, width: 7, height: 5 };
+    // Stateful store: the SELECT returns whatever the last winning UPDATE
+    // wrote, so a reload models real persistence rather than a fixed row.
+    let storedDug: Array<{ col: number; row: number; depth: number }> = [
+      { col: 2, row: 7, depth: 0 },
+    ];
+    let storedParts: unknown[] = [
+      {
+        partId: "floor-panel",
+        col: 2,
+        row: 7,
+        depth: 0,
+        slot: "floor",
+        durability: 70,
+      },
+    ];
+    let bunkerUpdateQuery: string | null = null;
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint,
+              parts: storedParts,
+              dug: storedDug,
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        if (query.includes("UPDATE bunkers")) {
+          // The guarded dig CTE binds dug then parts; apply both to the store
+          // so the next load observes the settled bunker.
+          bunkerUpdateQuery = query;
+          storedDug = JSON.parse(values[0] as string);
+          storedParts = JSON.parse(values[1] as string);
+          return [{ dug_rows: 1, ore_rows: 0 }];
+        }
+        return [];
+      },
+    );
+    // Dig the cell below the floor. It is reachable from the open floor cell
+    // and pulls the floor's ground away.
+    const result = await excavateBunker(sql as never, "player-1", 2, 8, 0);
+    expect(result.ok).toBe(true);
+    // The success result carries a fresh post-write reload; it must show the
+    // cascaded floor gone, proving the guarded write did not resurrect it.
+    if (result.ok) {
+      expect(result.view.bunker?.parts ?? []).toEqual([]);
+      expect(result.view.bunker?.dug.some((cell) => cell.row === 8)).toBe(true);
+    }
+    // One statement carried the dug write, the parts write, the revision
+    // guard, and the ore-pay CTE, so dug and parts settle under one revision.
+    expect(bunkerUpdateQuery).not.toBeNull();
+    const updateSql = bunkerUpdateQuery ?? "";
+    expect(updateSql).toContain("SET dug");
+    expect(updateSql).toContain("parts =");
+    expect(updateSql).toContain("revision = revision + 1");
+    expect(updateSql).toContain("AND revision =");
+    expect(updateSql).toContain("ore_pay");
+    // The winning write also settled the underlying store (the next load's
+    // source): the new cell is dug and the cascaded floor is gone.
+    expect(storedDug.some((cell) => cell.row === 8)).toBe(true);
+    expect(storedParts).toEqual([]);
+  });
 });
 
 describe("bunker loot collection", () => {
@@ -1067,11 +1054,10 @@ describe("bunker loot collection", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 5, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint,
-              core: { col: 4, row: 42, depth: 0, durability: 160 },
               parts: [],
               dug: [{ col: 2, row: 44, depth: 0 }],
               loot: [{ col: 2, row: 44, depth: 0, ores: { coal: 4 } }],
@@ -1104,11 +1090,10 @@ describe("bunker loot collection", () => {
       if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
         return [{ emeralds: 5, track_xp: 0, defense_xp: 0 }];
       }
-      if (query.includes("SELECT footprint, core, parts")) {
+      if (query.includes("SELECT footprint, parts")) {
         return [
           {
             footprint,
-            core: { col: 4, row: 42, depth: 0, durability: 160 },
             parts: [],
             dug: [{ col: 2, row: 44, depth: 0 }],
             loot: [],
@@ -1139,17 +1124,17 @@ describe("bunker part wrappers with depth", () => {
         if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
-        if (query.includes("SELECT footprint, core, parts")) {
+        if (query.includes("SELECT footprint, parts")) {
           return [
             {
               footprint: { col: 1, row: 4, width: 7, height: 5 },
-              core: { col: 4, row: 6, depth: 0, durability: 160 },
               parts: [],
               dug: [
                 { col: 2, row: 5, depth: 1 },
                 { col: 2, row: 5, depth: 2 },
                 { col: 2, row: 5, depth: 3 },
               ],
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -1159,7 +1144,9 @@ describe("bunker part wrappers with depth", () => {
         }
         if (query.includes("UPDATE bunkers")) {
           writes.push(values.map(String).join("|"));
-          return [];
+          // The guarded parts write returns its row so the wrapper sees
+          // the revision guard was satisfied (F-122).
+          return [{ player_id: "player-1" }];
         }
         if (query.includes("INSERT INTO player_base_parts")) return [];
         return [];
@@ -1178,5 +1165,366 @@ describe("bunker part wrappers with depth", () => {
     expect(result.ok).toBe(true);
     expect(writes.length).toBeGreaterThan(0);
     expect(writes[0]).toContain('"depth":3');
+  });
+});
+
+describe("banked edit revision guard (F-122)", () => {
+  function guardSql(opts: { revision: number; writeWins?: boolean }) {
+    const guardedValues: unknown[][] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 1, width: 7, height: 5 },
+              parts: [],
+              // The placement cell (1,1,0) is dug open so placeBasePart
+              // reaches the revision-guarded write.
+              dug: [{ col: 1, row: 1, depth: 0 }],
+              block_seed: 123,
+              loot: [],
+              skin: null,
+              skins_owned: [],
+              revision: opts.revision,
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [{ part_id: "wall-panel", count: 5 }];
+        }
+        if (query.includes("revision = revision + 1")) {
+          guardedValues.push(values);
+          return opts.writeWins === false ? [] : [{ player_id: "player-1" }];
+        }
+        if (query.includes("INSERT INTO player_base_parts")) return [];
+        return [];
+      },
+    );
+    return { sql, guardedValues };
+  }
+
+  it("places when the expected revision matches and the guarded write wins", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 3 });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+      3,
+    );
+    expect(result.ok).toBe(true);
+    // The guarded write ran with the client's expected revision bound in.
+    expect(guardedValues).toHaveLength(1);
+    expect(guardedValues[0]).toContain(3);
+  });
+
+  it("409s a stale expected revision before it ever writes", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 5 });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+      3,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+      // The conflict carries the authoritative view so the client resyncs.
+      expect(result.body).toMatchObject({ revision: 5 });
+    }
+    expect(guardedValues).toHaveLength(0);
+  });
+
+  it("409s when a concurrent write won the guarded update", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 3, writeWins: false });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+      3,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+    }
+    // The guard ran (and lost) exactly once, so nothing double-writes.
+    expect(guardedValues).toHaveLength(1);
+  });
+
+  it("falls back to the loaded revision when the client omits it", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 7 });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      1,
+      1,
+      0,
+    );
+    expect(result.ok).toBe(true);
+    expect(guardedValues[0]).toContain(7);
+  });
+
+  it("409s a stale dig before touching the dug set", async () => {
+    const { sql, guardedValues } = guardSql({ revision: 4 });
+    const result = await excavateBunker(sql as never, "player-1", 1, 5, 0, 2);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+    }
+    expect(guardedValues).toHaveLength(0);
+  });
+});
+
+describe("layout-incompatible bunker fail-fast (F-117)", () => {
+  // A legacy bunker row: it carries built parts but no layout_version, so it
+  // parses as version 0 and reads as incompatible with the current model.
+  function legacySql() {
+    const updates: string[] = [];
+    const upserts: Array<[string, number]> = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 4, width: 7, height: 5 },
+              parts: [
+                {
+                  partId: "wall-panel",
+                  col: 1,
+                  row: 4,
+                  depth: 0,
+                  durability: 90,
+                },
+              ],
+              dug: [{ col: 2, row: 5, depth: 1 }],
+              block_seed: 4242,
+              revision: 3,
+              // No layout_version: legacy, reads as incompatible.
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [{ part_id: "wall-panel", count: 5 }];
+        }
+        if (query.includes("UPDATE bunkers")) {
+          updates.push(query);
+          return [{ player_id: "player-1" }];
+        }
+        if (query.includes("ON CONFLICT (player_id, part_id)")) {
+          upserts.push([String(values[1]), Number(values[2])]);
+          return [];
+        }
+        return [];
+      },
+    );
+    return { sql, updates, upserts };
+  }
+
+  it("rejects every edit on a legacy bunker with the layout-incompatible code", async () => {
+    for (const call of [
+      (sql: unknown) =>
+        placeBunkerPart(sql as never, "player-1", "wall-panel", 2, 5, 1),
+      (sql: unknown) => removeBunkerPart(sql as never, "player-1", 1, 4, 0),
+      (sql: unknown) =>
+        moveBunkerPart(sql as never, "player-1", 1, 4, 2, 4, 0, 0),
+      (sql: unknown) => excavateBunker(sql as never, "player-1", 2, 5, 2),
+      // The refunding reset and repair are blocked too: an old layout can
+      // only Start fresh (no refund, Q-022), so it must not be reset for a
+      // refund or have vibes spent patching parts about to be cleared.
+      (sql: unknown) => resetBunker(sql as never, "player-1"),
+      (sql: unknown) => repairBunker(sql as never, "player-1"),
+    ]) {
+      const { sql, updates } = legacySql();
+      const result = await call(sql);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.status).toBe(409);
+        expect(result.code).toBe("bunker-layout-incompatible");
+      }
+      // It fails before any write: no bunker UPDATE ran.
+      expect(updates).toHaveLength(0);
+    }
+  });
+
+  it("Start fresh wipes a legacy bunker with no refund and stamps the version", async () => {
+    const { sql, updates, upserts } = legacySql();
+    const result = await startFreshBunker(sql as never, "player-1");
+    expect(result.ok).toBe(true);
+
+    // One UPDATE clears parts, stamps the version, and keeps the excavation.
+    const update = sql.mock.calls.find((call) =>
+      (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+    );
+    expect(update).toBeDefined();
+    const updateQuery = (
+      (update?.[0] ?? []) as unknown as TemplateStringsArray
+    ).join(" ");
+    expect(updateQuery).toContain("SET parts");
+    expect(updateQuery).toContain("layout_version =");
+    expect(updateQuery).toContain("dug");
+    expect(updateQuery).toContain("revision = revision + 1");
+    // Guarded compare-and-swap: the write only lands on the still-legacy
+    // bunker at the loaded revision, so a concurrent reset+rebuild is not
+    // clobbered (F-117 TOCTOU).
+    expect(updateQuery).toContain("AND revision =");
+    expect(updateQuery).toContain("layout_version <");
+    // RETURNING lets the wrapper tell a winning write from a lost race so a
+    // loser can 409 instead of reporting a phantom success (F-122).
+    expect(updateQuery).toContain("RETURNING");
+    const bound = ((update ?? []) as unknown[]).slice(1);
+    // parts cleared to [], excavation preserved.
+    expect(bound[0]).toBe("[]");
+    const persistedDug = JSON.parse(String(bound[1]));
+    expect(persistedDug).toContainEqual({ col: 2, row: 5, depth: 1 });
+    // Exactly one bunker UPDATE ran (no second guarded rewrite).
+    expect(updates).toHaveLength(1);
+    // No refund: Start fresh never upserts the base-part inventory.
+    expect(upserts).toHaveLength(0);
+  });
+
+  it("does not clobber a bunker a concurrent request already reset and rebuilt", async () => {
+    // The first load sees the legacy bunker this request will try to wipe.
+    // Before its guarded write lands, a concurrent Start fresh has reset the
+    // bunker to current and the player rebuilt a wall: the reload sees that.
+    let advanced = false;
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return advanced
+          ? [
+              {
+                footprint: { col: 1, row: 4, width: 7, height: 5 },
+                parts: [
+                  {
+                    partId: "wall-panel",
+                    col: 1,
+                    row: 4,
+                    depth: 0,
+                    durability: 90,
+                  },
+                ],
+                dug: [{ col: 2, row: 5, depth: 1 }],
+                revision: 5,
+                layout_version: BUNKER_LAYOUT_VERSION,
+              },
+            ]
+          : [
+              {
+                footprint: { col: 1, row: 4, width: 7, height: 5 },
+                parts: [
+                  {
+                    partId: "wall-panel",
+                    col: 1,
+                    row: 4,
+                    depth: 0,
+                    durability: 90,
+                  },
+                ],
+                dug: [{ col: 2, row: 5, depth: 1 }],
+                revision: 3,
+                // Legacy: no layout_version.
+              },
+            ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) {
+        return [{ part_id: "wall-panel", count: 5 }];
+      }
+      if (query.includes("UPDATE bunkers")) {
+        // The guarded write matches nothing: the bunker is no longer at the
+        // loaded revision and is already current. Simulate the concurrent
+        // advance the guard is protecting against.
+        advanced = true;
+        return [];
+      }
+      return [];
+    });
+
+    const result = await startFreshBunker(sql as never, "player-1");
+
+    // A race loser follows the same F-122 conflict contract as every other
+    // bunker edit: a 409 carrying the authoritative reloaded view, never a
+    // phantom success and never a clobber.
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+      // The rebuilt wall on the now-current bunker survives, not wiped, and
+      // the client adopts it from the conflict body.
+      const body = result.body as { bunker?: BunkerState };
+      expect(body.bunker?.parts).toHaveLength(1);
+      expect(body.bunker?.layoutVersion).toBe(BUNKER_LAYOUT_VERSION);
+    }
+  });
+
+  it("Start fresh is a safe no-op on an already-current bunker", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            parts: [
+              {
+                partId: "wall-panel",
+                col: 1,
+                row: 4,
+                depth: 0,
+                durability: 90,
+              },
+            ],
+            dug: [{ col: 2, row: 5, depth: 1 }],
+            revision: 3,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) {
+        return [{ part_id: "wall-panel", count: 5 }];
+      }
+      return [];
+    });
+    const result = await startFreshBunker(sql as never, "player-1");
+    expect(result.ok).toBe(true);
+    // A current bunker is returned unchanged: no UPDATE ever runs, so a
+    // retry can never wipe a valid layout with no refund.
+    expect(
+      sql.mock.calls.some((call) =>
+        (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+      ),
+    ).toBe(false);
+    if (result.ok) {
+      expect(result.view.bunker?.parts).toHaveLength(1);
+    }
   });
 });

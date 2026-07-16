@@ -11,7 +11,7 @@ import {
 } from "./support/mine-helpers";
 
 // Capture driver for bunker-arc playtest evidence (F-087), not a smoke
-// test: it saves screenshots of the repair, skin, and raid loop into the
+// test: it saves screenshots of the repair and skin loop into the
 // directory named by PLAYTEST_CAPTURE_DIR. Server responses are simulated
 // at the API boundary (same harness as mine-bunker.spec.ts) so the run
 // needs no Postgres; the client experience is the real build.
@@ -41,7 +41,6 @@ test("bunker arc capture run", async ({ page }) => {
   const view = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 140 },
       parts: damagedParts,
       skin: "steelworks",
       skinsOwned: [] as string[],
@@ -54,7 +53,6 @@ test("bunker arc capture run", async ({ page }) => {
       "basic-turret": 0,
       "floor-spikes": 0,
     },
-    activeRaid: null as unknown,
     player: {
       balance: 250,
       trackXp: 40,
@@ -89,12 +87,13 @@ test("bunker arc capture run", async ({ page }) => {
   );
   await page.route("**/api/bunker/repair", (route) => {
     current = structuredClone(current);
-    current.bunker.core.durability = 160;
     current.bunker.parts = current.bunker.parts.map((part) => ({
       ...part,
       durability: 90,
     }));
-    current.player = { ...current.player, balance: current.player.balance - 7 };
+    // Parts-only cost now the core is gone (F-118): the one wall at 45/90
+    // durability (price 6) repairs for ceil(0.5 * 6 * 0.5) = 2 vibes.
+    current.player = { ...current.player, balance: current.player.balance - 2 };
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -119,53 +118,6 @@ test("bunker arc capture run", async ({ page }) => {
       status: 200,
       contentType: "application/json",
       body: JSON.stringify(current),
-    });
-  });
-  await page.route("**/api/bunker/raid/start", (route) => {
-    current = structuredClone(current);
-    current.activeRaid = {
-      raidId: "raid-playtest",
-      tier: 1,
-      durationSeconds: 180,
-      startedAtMs: Date.now(),
-      clankers: [
-        {
-          id: "clanker-1",
-          col: START_COL - 6,
-          row: 0,
-          targetCol: START_COL - 3,
-          targetRow: 2,
-          batterySteps: 9,
-          deathStep: 9,
-          status: "battery-drained",
-          path: [
-            { col: START_COL - 6, row: 0 },
-            { col: START_COL - 5, row: 0 },
-            { col: START_COL - 4, row: 0 },
-          ],
-          kind: "standard",
-        },
-      ],
-      turretShots: 0,
-      turretDamage: 0,
-      spikeTriggers: 0,
-      spikeDamage: 0,
-      totalPartDurability: 540,
-      incomingDamage: 40,
-      partDamage: [],
-      coreDamage: 0,
-      xpPickups: [],
-      allClankersDead: false,
-      breached: false,
-      minerKilled: false,
-      survived: true,
-      sealed: false,
-      reward: { vibes: 30, defenseXp: 25 },
-    };
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ ...current, raid: current.activeRaid }),
     });
   });
 
@@ -208,10 +160,4 @@ test("bunker arc capture run", async ({ page }) => {
   await builder.getByRole("button", { name: "Close" }).click();
   await page.waitForTimeout(600);
   await shot("06-skin-gilded-world");
-
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  await expect(builder).toBeVisible();
-  await builder.getByRole("button", { name: "Start Clanker raid" }).click();
-  await page.waitForTimeout(1200);
-  await shot("07-raid-gilded");
 });

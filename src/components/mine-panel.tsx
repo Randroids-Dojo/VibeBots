@@ -29,11 +29,11 @@ import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
   BASE_PART_IDS,
   type BasePartId,
-  type BunkerRaidSnapshot,
   bunkerCells,
-  canCollectBunkerRaidPickupFrom,
   containsBunkerCell,
   isBasePartDamaged,
+  isBunkerLayoutIncompatible,
+  maxBunkerRaidTier,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
 import {
@@ -68,7 +68,6 @@ import {
   MINE_BOTTOM_ROW,
   MINE_VERSION,
   type MineAction,
-  type MineCoord,
   type MineGear,
   type MineState,
   maxEnergy,
@@ -324,18 +323,21 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Follow the XP arrow to the bright pickup, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
+  "Tip: Inside your bunker, Start raid drops you into a live first-person fight. The Clankers hunt you through the halls, and stopping one drops XP to walk over.",
+  "Tip: Leaving a live raid forfeits it: press Escape or tap Leave raid in the HUD. You cannot slip out and re-enter to retry, so hold your ground.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person, hold the pick and drag your aim to mine claim rock cell after cell. Parts place at the crosshair; pry returns them to your pack.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
+  "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
-  "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
+  "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
+  "Tip: Sealed yourself in? Reset bunker in the sheet clears the build and refunds undamaged parts.",
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -367,79 +369,6 @@ type ViewportSize = {
   width: number;
   height: number;
 };
-
-function raidHasUncollectedPickupAt(
-  raid: BunkerRaidSnapshot | null,
-  pickupId: string,
-  col: number,
-  row: number,
-): boolean {
-  return Boolean(
-    raid?.survived &&
-      raid.xpPickups.some(
-        (pickup) =>
-          pickup.id === pickupId &&
-          canCollectBunkerRaidPickupFrom(pickup, col, row),
-      ),
-  );
-}
-
-function raidAllowsBunkerEditing(raid: BunkerRaidSnapshot | null): boolean {
-  return !raid || (raid.survived && raid.allClankersDead);
-}
-
-function raidXpLocator(
-  raid: BunkerRaidSnapshot | null,
-  miner: MineCoord,
-): {
-  direction: string;
-  rowDistance: number;
-  colDistance: number;
-  label: string;
-  side: "left" | "right" | "center";
-} | null {
-  if (!raid?.survived || !raid.allClankersDead) return null;
-  const pickups = raid.xpPickups.filter((pickup) => !pickup.collected);
-  let nearest: (typeof pickups)[number] | null = null;
-  let nearestDistance = Number.POSITIVE_INFINITY;
-  for (const pickup of pickups) {
-    const rowDistance = Math.abs(pickup.row - miner.row);
-    const colDistance = Math.abs(pickup.col - miner.col);
-    if (canCollectBunkerRaidPickupFrom(pickup, miner.col, miner.row)) {
-      return {
-        direction: "here",
-        rowDistance,
-        colDistance,
-        label: "XP here",
-        side: "center",
-      };
-    }
-    const distance = rowDistance + colDistance;
-    if (distance < nearestDistance) {
-      nearest = pickup;
-      nearestDistance = distance;
-    }
-  }
-  if (!nearest) return null;
-  const rowDelta = nearest.row - miner.row;
-  const colDelta = nearest.col - miner.col;
-  const rowDirection = rowDelta < 0 ? "up" : rowDelta > 0 ? "down" : null;
-  const colDirection = colDelta < 0 ? "left" : colDelta > 0 ? "right" : null;
-  const rowDistance = Math.abs(rowDelta);
-  const colDistance = Math.abs(colDelta);
-  const labelParts = ["XP"];
-  if (rowDirection) labelParts.push(rowDirection === "up" ? "↑" : "↓");
-  if (rowDistance > 0) labelParts.push(String(rowDistance));
-  if (colDirection) labelParts.push(colDirection === "left" ? "←" : "→");
-  if (colDistance > 0) labelParts.push(String(colDistance));
-  return {
-    direction: [rowDirection, colDirection].filter(Boolean).join("-") || "here",
-    rowDistance,
-    colDistance,
-    label: labelParts.join(" "),
-    side: colDirection ?? "center",
-  };
-}
 
 function baseReturnTarget(
   minerCol: number,
@@ -1166,7 +1095,6 @@ function JuiceOverlays() {
 }
 
 export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
-  useMinePerformanceSampling(appRelease);
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const miner = mine.miner;
@@ -1218,13 +1146,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (s) => s.elevatorPlacementRequired,
   );
   const shopNote = useMineStore((s) => s.shopNote);
+  const railResyncFailed = useMineStore((s) => s.railResyncFailed);
+  const retryRailResync = useMineStore((s) => s.retryRailResync);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const buyElevator = useMineStore((s) => s.buyElevator);
   const teleportToBase = useMineStore((s) => s.teleportToBase);
   const bunker = useBunkerStore((s) => s.bunker);
   const bunkerInventory = useBunkerStore((s) => s.inventory);
-  const activeBunkerRaid = useBunkerStore((s) => s.activeRaid);
   const bunkerPlayer = useBunkerStore((s) => s.player);
   const loadBunker = useBunkerStore((s) => s.loadBunker);
   const buyBasePart = useBunkerStore((s) => s.buyBasePart);
@@ -1232,12 +1161,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const removeBunkerPart = useBunkerStore((s) => s.removePart);
   const excavateBunkerCellRemote = useBunkerStore((s) => s.excavateCell);
   const collectBunkerLootRemote = useBunkerStore((s) => s.collectLoot);
-  const startBunkerRaid = useBunkerStore((s) => s.startRaid);
+  const activeBunkerLiveRaid = useBunkerStore((s) => s.activeLiveRaid);
+  const startBunkerLiveRaid = useBunkerStore((s) => s.startLiveRaid);
+  const resolveBunkerLiveRaid = useBunkerStore((s) => s.resolveLiveRaid);
+  const forfeitBunkerLiveRaid = useBunkerStore((s) => s.forfeitLiveRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
   const resetBankedBunker = useBunkerStore((s) => s.resetBunker);
+  const startFreshBankedBunker = useBunkerStore((s) => s.startFreshBunker);
   const setBunkerSkin = useBunkerStore((s) => s.setSkin);
-  const collectBunkerRaidPickup = useBunkerStore((s) => s.collectRaidPickup);
-  const finishBunkerRaid = useBunkerStore((s) => s.finishRaid);
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
   const [recoveryMenuOpen, setRecoveryMenuOpen] = useState(false);
@@ -1252,6 +1183,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     useState<ElevatorPresentation>(() => initialElevatorPresentation(0));
   const [elevatorPlacementMode, setElevatorPlacementMode] = useState(false);
   const [elevatorPurchasePending, setElevatorPurchasePending] = useState(false);
+  const [railRetryPending, setRailRetryPending] = useState(false);
   const [elevatorPlacementError, setElevatorPlacementError] = useState<
     string | null
   >(null);
@@ -1366,14 +1298,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const [teleportBurstKey, setTeleportBurstKey] = useState(0);
   const [mineSurfaceTip, setMineSurfaceTip] = useState<string | null>(null);
   const mineSurfaceTipRef = useRef<string | null>(null);
-  const collectingRaidPickupIdsRef = useRef<Set<string>>(new Set());
-  const raidPickupRetryTimeoutRef = useRef<number | null>(null);
-  const [raidPickupRetryTick, setRaidPickupRetryTick] = useState(0);
   const [bunkerClaimMode, setBunkerClaimMode] = useState(false);
   const [bunkerPanelOpen, setBunkerPanelOpen] = useState(false);
   // First-person bunker viewer mode: the fp canvas replaces MineCanvas
   // and the 2D movement inputs are suppressed while it is on.
   const [fpBunkerActive, setFpBunkerActive] = useState(false);
+  // Performance telemetry is attributed to whichever surface owns the
+  // canvas right now (F-100): the fp canvas swaps in while active, so
+  // both the compact sampler and the deep collector report bunker-fp
+  // and read the bunker probe instead of mislabeling it as mine.
+  const perfSurfaceSource = fpBunkerActive ? "bunker-fp" : "mine";
+  useMinePerformanceSampling(appRelease, perfSurfaceSource);
   // Tool state lives here (not in the fp canvas) so exits and forced
   // exits can always reset it; only the fp hotbar writes it now.
   const [bunkerToolSelection, setBunkerToolSelection] =
@@ -1432,12 +1367,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
   const pendingBunkerActive = pendingBunker !== null;
   const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
-  const bunkerEditingAllowed = raidAllowsBunkerEditing(activeBunkerRaid);
-  // The one first-person gate (used by the Enter affordance path and
-  // the forced-exit effect only): the live-raid slice lifts this single
-  // predicate when raids move inside.
+  // A banked bunker built under an older layout model cannot be entered or
+  // edited (F-117): it fails fast in the 2D status sheet and offers Start
+  // fresh instead. A pending (unbanked) claim is born current, so it is
+  // never gated here (and its version is stamped server-side at bank).
+  const bunkerLayoutIncompatible =
+    !pendingBunkerActive &&
+    activeBunker !== null &&
+    isBunkerLayoutIncompatible(activeBunker);
+  // The one first-person gate (used by the Enter affordance path and the
+  // forced-exit effect only). The interim 2D raid used to freeze bunker
+  // editing/entry; it is retired, and a live raid is fought in first person
+  // with its own forfeit/exit lifecycle, so nothing raid-related gates this now.
   const fpBunkerAllowed =
-    Boolean(activeBunker) && !terminalMineState && bunkerEditingAllowed;
+    Boolean(activeBunker) && !terminalMineState && !bunkerLayoutIncompatible;
   const selectedBasePart: BasePartId =
     bunkerToolSelection &&
     bunkerToolSelection !== "pry" &&
@@ -2291,6 +2234,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     }
   }, [buyElevator, elevatorPurchasePending]);
 
+  // Recover from a rail resync that failed offline mid-conflict. The buy and
+  // retry controls never show at once (the buy is blocked while the recovery
+  // box is up), so a dedicated pending flag keeps each label honest.
+  const retryRailResyncNow = useCallback(async () => {
+    if (railRetryPending) return;
+    setRailRetryPending(true);
+    try {
+      await retryRailResync();
+    } finally {
+      setRailRetryPending(false);
+    }
+  }, [retryRailResync, railRetryPending]);
+
   const isInsideOpenFloatingMenu = useCallback(
     (target: EventTarget | null, path: readonly EventTarget[]) => {
       if (
@@ -2492,7 +2448,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     tvMode,
   ]);
 
-  const activeRaidXpLocator = raidXpLocator(activeBunkerRaid, miner);
   const currentCell = cellAt(mine, miner.col, miner.row);
   const stratum = stratumAt(miner.row);
   const horizontalDistance = miner.col - START_COL;
@@ -2567,11 +2522,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     0,
   );
   const bunkerCanvasEditing = Boolean(
-    miner.row > 0 &&
-      activeBunker &&
-      bunkerPanelOpen &&
-      !activeBunkerRaid &&
-      !terminalMineState,
+    miner.row > 0 && activeBunker && bunkerPanelOpen && !terminalMineState,
   );
   const jumpAvailable = canJump(mine);
   const jumpButtonVisible =
@@ -2768,52 +2719,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [activeBunker, miner.row]);
 
   useEffect(() => {
-    return () => {
-      if (raidPickupRetryTimeoutRef.current !== null) {
-        window.clearTimeout(raidPickupRetryTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    void raidPickupRetryTick;
-    if (!activeBunkerRaid?.survived) return;
-    const pickup = activeBunkerRaid.xpPickups.find((candidate) => {
-      return canCollectBunkerRaidPickupFrom(candidate, miner.col, miner.row);
-    });
-    if (!pickup || collectingRaidPickupIdsRef.current.has(pickup.id)) return;
-    collectingRaidPickupIdsRef.current.add(pickup.id);
-    void collectBunkerRaidPickup(miner.col, miner.row)
-      .then((response) => {
-        const pickupStillUncollected =
-          response === null ||
-          raidHasUncollectedPickupAt(
-            response.activeRaid,
-            pickup.id,
-            miner.col,
-            miner.row,
-          );
-        if (!pickupStillUncollected) return;
-        if (raidPickupRetryTimeoutRef.current !== null) {
-          window.clearTimeout(raidPickupRetryTimeoutRef.current);
-        }
-        raidPickupRetryTimeoutRef.current = window.setTimeout(() => {
-          raidPickupRetryTimeoutRef.current = null;
-          setRaidPickupRetryTick((tick) => tick + 1);
-        }, 900);
-      })
-      .finally(() => {
-        collectingRaidPickupIdsRef.current.delete(pickup.id);
-      });
-  }, [
-    activeBunkerRaid,
-    collectBunkerRaidPickup,
-    miner.col,
-    miner.row,
-    raidPickupRetryTick,
-  ]);
-
-  useEffect(() => {
     if (!collectMode) return;
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
@@ -2821,16 +2726,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [collectMode]);
 
   useEffect(() => {
-    if (!terminalMineState && miner.row > 0 && bunkerEditingAllowed) return;
+    if (!terminalMineState && miner.row > 0) return;
     setBunkerClaimMode(false);
     setBunkerPanelOpen(false);
     setBunkerToolSelection(null);
-  }, [bunkerEditingAllowed, miner.row, terminalMineState]);
+  }, [miner.row, terminalMineState]);
 
   useEffect(() => {
-    if (activeBunker && bunkerEditingAllowed) return;
+    if (activeBunker) return;
     setBunkerToolSelection(null);
-  }, [activeBunker, bunkerEditingAllowed]);
+  }, [activeBunker]);
 
   const showFpDenyNotice = useCallback((notice: string) => {
     setFpDenyNotice(notice);
@@ -2882,6 +2787,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineCanvasPainted(false);
   }, []);
 
+  // Open the cargo bag from inside first person. Releasing the pointer
+  // lock frees the cursor for the panel; the keyboard and tool-key
+  // effects detach while the bag is open (they gate on bagPanelOpen), and
+  // the bag overlay (z 36) sits above the fp touch zones, so digging and
+  // walking pause behind it and the miner stays put.
+  const openBagFromFp = useCallback(() => {
+    if (typeof document !== "undefined") document.exitPointerLock?.();
+    setBagPanelOpen(true);
+  }, []);
+
   // Forced exit: if the gate closes while inside (raid resolves against
   // the player, terminal collapse, bunker vanishes), drop back to 2D.
   useEffect(() => {
@@ -2907,7 +2822,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
    */
   const applyFpBunkerEdit = useCallback(
     (intent: FpEditIntent) => {
-      if (!activeBunker || !bunkerEditingAllowed) return;
+      if (!activeBunker) return;
       const { col, row, depth } = intent.cell;
       const feedback = (ok: boolean, sfx: "plank" | "clang" | "dig-rock") => {
         triggerShopHaptic(ok ? "commit" : "deny");
@@ -2996,7 +2911,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     [
       activeBunker,
       activeBunkerInventory,
-      bunkerEditingAllowed,
       collectBunkerLootRemote,
       excavateBunkerCellRemote,
       excavatePendingBunkerCell,
@@ -3023,9 +2937,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, []);
 
   // First-person tool keys: 0 or backtick = pick, 1-6 = part slots,
-  // q = pry toggle. Movement keys live in attachFpKeyboard.
+  // q = pry toggle. Movement keys live in attachFpKeyboard. Both pause
+  // while the bag panel is open so typing does not reselect a tool.
   useEffect(() => {
-    if (!fpBunkerActive) return;
+    if (!fpBunkerActive || bagPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (bunkerToolKeyIgnored(event)) return;
       if (event.key === "0" || event.code === "Backquote") {
@@ -3050,6 +2965,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   }, [
     activeBunkerInventory,
     fpBunkerActive,
+    bagPanelOpen,
     selectFpPart,
     selectFpPick,
     toggleFpPry,
@@ -3058,19 +2974,22 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // First-person keyboard: WASD/arrows plus Space live in the shared
   // fp input singleton while the mode is on; detach zeroes everything.
   useEffect(() => {
-    if (!fpBunkerActive) return;
+    // Detached while the bag panel is open so WASD and dig do not drive
+    // the miner behind the modal; resetFpInput zeroes any held input.
+    if (!fpBunkerActive || bagPanelOpen) return;
     const detach = attachFpKeyboard();
     return () => {
       detach();
       resetFpInput();
     };
-  }, [fpBunkerActive]);
+  }, [fpBunkerActive, bagPanelOpen]);
 
   // Second-Escape exit: while pointer lock is held the browser consumes
   // the first Escape to leave the lock, so any Escape that reaches this
-  // handler means "leave the bunker view".
+  // handler means "leave the bunker view". Paused while the bag is open so
+  // Escape closes the bag (its own handler) instead of exiting the view.
   useEffect(() => {
-    if (!fpBunkerActive) return;
+    if (!fpBunkerActive || bagPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (document.pointerLockElement) return;
@@ -3079,7 +2998,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [exitFpBunker, fpBunkerActive]);
+  }, [exitFpBunker, fpBunkerActive, bagPanelOpen]);
 
   // The flat view's only bunker key: "f" enters first person. The old
   // 2D part-selection digits and Escape-stow retired with the hammer,
@@ -3482,7 +3401,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         minerRow: miner.row,
         hasActiveBunker: Boolean(activeBunker),
         bunkerPanelOpen,
-        activeBunkerRaid: Boolean(activeBunkerRaid),
         collectMode,
         creditsOpen,
         mineSceneReady,
@@ -3496,7 +3414,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     }).catch(() => {});
   }, [
     activeBunker,
-    activeBunkerRaid,
     activeSlot,
     appRelease,
     bunkerClaimMode,
@@ -3591,7 +3508,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           minerRow: miner.row,
           hasActiveBunker: Boolean(activeBunker),
           bunkerPanelOpen,
-          activeBunkerRaid: Boolean(activeBunkerRaid),
           collectMode,
           creditsOpen,
           mineSceneReady,
@@ -3620,7 +3536,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     return () => window.cancelAnimationFrame(frame);
   }, [
     activeBunker,
-    activeBunkerRaid,
     activeSlot,
     appRelease,
     bunkerPanelOpen,
@@ -3683,6 +3598,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               onEdit={applyFpBunkerEdit}
               onExit={exitFpBunker}
               onFirstFrame={handleMineFirstFrame}
+              liveRaid={activeBunkerLiveRaid}
+              onResolveRaid={(report) => void resolveBunkerLiveRaid(report)}
+              onForfeitRaid={() => void forfeitBunkerLiveRaid()}
             />
           ) : (
             <MineCanvas
@@ -3694,7 +3612,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               bunkerPreview={bunkerPreview}
               bunkerBlockedCells={localBlockedBunkerCells}
               bunker={activeBunker}
-              activeBunkerRaid={activeBunkerRaid}
               onToggleSupport={toggleCollectTarget}
               onElevatorStageComplete={handleElevatorStageComplete}
               onFirstFrame={handleMineFirstFrame}
@@ -3710,10 +3627,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           tool={bunkerToolAction}
           selectedPartId={selectedBasePart}
           denyNotice={fpDenyNotice}
+          bagOreCount={carriedOreCount}
+          bagStackCount={carriedOreStackCount}
+          bagCapacity={bagCapacity}
+          bagOpen={bagPanelOpen}
           onSelectPart={selectFpPart}
           onSelectPick={selectFpPick}
           onTogglePry={toggleFpPry}
+          onOpenBag={openBagFromFp}
           onExit={exitFpBunker}
+          onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
+          raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
+          raidStartAllowed={!pendingBunkerActive}
         />
       )}
       {!fpBunkerActive && mineSceneReady && (
@@ -3838,7 +3763,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         onResolve={resolveSaveConflict}
       />
       <PerfTelemetry
-        source="mine"
+        source={perfSurfaceSource}
         appVersion={appRelease.version}
         appBuild={appRelease.build}
         mineVersion={MINE_VERSION}
@@ -4176,18 +4101,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           )}
         </>
       )}
-      {activeRaidXpLocator && (
-        <div
-          role="status"
-          aria-label={`Raid XP is ${activeRaidXpLocator.direction}`}
-          className={`mine-raid-xp-indicator mine-raid-xp-indicator-${activeRaidXpLocator.side}`}
-          data-raid-xp-direction={activeRaidXpLocator.direction}
-          data-raid-xp-row-distance={activeRaidXpLocator.rowDistance}
-          data-raid-xp-col-distance={activeRaidXpLocator.colDistance}
-        >
-          {activeRaidXpLocator.label}
-        </div>
-      )}
       {elevatorPlacementVisible && (
         <section
           ref={elevatorPlacementRef}
@@ -4418,8 +4331,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               setBunkerPanelOpen(true);
             }
           }}
-          onStartRaid={(tier) => void startBunkerRaid(tier)}
-          onFinishRaid={() => void finishBunkerRaid()}
           onRepair={() => void repairBunker()}
           onReset={() => {
             // The same pending/banked branch as every other bunker
@@ -4431,22 +4342,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               void resetBankedBunker();
             }
           }}
+          // Only a banked bunker is ever layout-incompatible (F-117): a
+          // pending claim is born current, so Start fresh always runs the
+          // server hard-reset route.
+          onStartFresh={() => void startFreshBankedBunker()}
           onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
-          onEnterFp={
-            activeBunker &&
-            containsBunkerCell(activeBunker.footprint, miner.col, miner.row)
-              ? enterFpBunker
-              : undefined
-          }
         />
       )}
       {/* THE build entry point: the hammer toolbelt retired, so a
           single floating button enters the first-person builder while
-          the miner stands inside an editable claim. */}
+          the miner stands inside an editable claim. Shares the same
+          fpBunkerAllowed gate as the forced-exit effect so the two never
+          drift; activeBunker stays for the footprint narrowing below. */}
       {!fpBunkerActive &&
+        fpBunkerAllowed &&
         activeBunker &&
-        bunkerEditingAllowed &&
-        !terminalMineState &&
         containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
           <button
             type="button"
@@ -4471,6 +4381,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           cashOutPending={cashOut.state === "pending"}
           elevatorPurchasePending={elevatorPurchasePending}
           elevatorPlacementRequired={elevatorPlacementRequired}
+          railResyncFailed={railResyncFailed}
+          railRetryPending={railRetryPending}
+          onRetryRailResync={() => void retryRailResyncNow()}
           onBuyConsumable={(item, quantity) =>
             void buyConsumable(item, quantity)
           }

@@ -247,42 +247,6 @@
   opacity: 0.45;
 }
 
-.bunker-raid-tier {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 6px;
-  font-size: 0.85rem;
-}
-
-.bunker-raid-tier button {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: 1px solid #26304a;
-  background: rgba(17, 21, 31, 0.72);
-  color: inherit;
-  font-weight: 700;
-}
-
-.bunker-raid-tier button:disabled {
-  opacity: 0.35;
-}
-
-.bunker-raid-button {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid #f59e0b;
-  border-radius: 9px;
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  font-weight: 900;
-}
-
 /* THE build entry point since the hammer toolbelt retired: a single
  * floating pill under the Bunker status trigger while the miner
  * stands inside an editable claim. */
@@ -932,39 +896,6 @@
   animation: mine-base-pulse 1.1s ease-in-out infinite;
 }
 
-.mine-raid-xp-indicator {
-  position: absolute;
-  top: 42%;
-  z-index: 9;
-  min-width: 74px;
-  min-height: 42px;
-  border-radius: 999px;
-  border: 2px solid #f5c542;
-  background: rgba(17, 21, 31, 0.92);
-  color: #ffe59a;
-  transform: translateY(-50%);
-  display: grid;
-  place-items: center;
-  padding: 0 12px;
-  font-size: 0.92rem;
-  font-weight: 900;
-  pointer-events: none;
-  animation: mine-base-pulse 1.1s ease-in-out infinite;
-}
-
-.mine-raid-xp-indicator-left {
-  left: 16px;
-}
-
-.mine-raid-xp-indicator-right {
-  right: 84px;
-}
-
-.mine-raid-xp-indicator-center {
-  left: 50%;
-  transform: translate(-50%, -50%);
-}
-
 button[data-bag-full-flash="true"] {
   animation: mine-bag-full-flash 0.58s ease-out;
 }
@@ -1536,7 +1467,6 @@ button[data-bag-full-flash="true"] {
   .mine-juice,
   .mine-lost-locator,
   .mine-base-indicator,
-  .mine-raid-xp-indicator,
   .mine-base-teleport-burst,
   .mine-base-teleport-burst span,
   .mine-scene-loader-bit,
@@ -1562,6 +1492,173 @@ button[data-bag-full-flash="true"] {
   border-radius: 999px;
   background: rgba(14, 20, 28, 0.92);
   color: #8ef3df;
+  font-weight: 900;
+  font-size: 0.82rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Live-raid HUD: a top-center status banner while a raid runs (above
+   every fixed canvas control per Rule 10), and a start control shown in
+   its place when no raid is active. */
+.bunker-fp-raid-panel {
+  position: absolute;
+  z-index: 14;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 12px;
+  align-items: center;
+  max-width: min(92vw, 520px);
+  padding: 8px 18px;
+  border: 1px solid #f5715a;
+  border-radius: 22px;
+  background: rgba(22, 10, 12, 0.92);
+  color: #ffd6cc;
+  font-weight: 900;
+  font-size: 0.88rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.bunker-fp-raid-banner {
+  color: #ffb4a2;
+}
+
+.bunker-fp-raid-timer {
+  min-width: 44px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.bunker-fp-raid-breach {
+  color: #ff5a3c;
+}
+
+.bunker-fp-raid-result {
+  font-size: 1.1rem;
+}
+
+.bunker-fp-raid-won {
+  color: #7bffb0;
+}
+
+.bunker-fp-raid-lost {
+  color: #ff8a7a;
+}
+
+/* Leave-raid control (F-162): a deliberate, two-step forfeit path so touch
+   players (no Escape key) can bail out of a live raid. The panel is
+   pointer-events: none, so every control here re-enables pointer events. */
+.bunker-fp-raid-abandon,
+.bunker-fp-raid-abandon-yes,
+.bunker-fp-raid-abandon-no {
+  min-height: 44px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.78rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bunker-fp-raid-abandon {
+  border: 1px solid rgba(245, 113, 90, 0.55);
+  background: rgba(22, 10, 12, 0.5);
+  color: #ffb4a2;
+}
+
+.bunker-fp-raid-abandon-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  font-size: 0.8rem;
+}
+
+.bunker-fp-raid-abandon-yes {
+  border: 1px solid #f5715a;
+  background: #f5715a;
+  color: #1a0709;
+  font-weight: 900;
+}
+
+.bunker-fp-raid-abandon-no {
+  border: 1px solid rgba(226, 232, 240, 0.4);
+  background: rgba(14, 20, 28, 0.85);
+  color: #e2e8f0;
+}
+
+.bunker-fp-raid-start {
+  position: absolute;
+  z-index: 12;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.bunker-fp-raid-tier {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffd6cc;
+  font-weight: 800;
+}
+
+.bunker-fp-raid-tier button {
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid #f5715a;
+  border-radius: 8px;
+  background: rgba(22, 10, 12, 0.92);
+  color: #ffd6cc;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.bunker-fp-raid-tier button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.bunker-fp-raid-start-button {
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid #f5715a;
+  border-radius: 999px;
+  background: rgba(44, 14, 12, 0.95);
+  color: #ffb4a2;
+  font-weight: 900;
+  font-size: 0.88rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bunker-fp-raid-start-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.bunker-fp-bag {
+  position: absolute;
+  z-index: 12;
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgba(245, 197, 66, 0.75);
+  border-radius: 999px;
+  background: rgba(14, 20, 28, 0.92);
+  color: #f5c542;
   font-weight: 900;
   font-size: 0.82rem;
   pointer-events: auto;
@@ -1631,16 +1728,6 @@ button[data-bag-full-flash="true"] {
   border-radius: 50%;
   background: rgba(84, 224, 199, 0.55);
   box-shadow: 0 0 14px rgba(84, 224, 199, 0.4);
-}
-
-.bunker-enter-fp-button {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid #54e0c7;
-  border-radius: 9px;
-  background: rgba(84, 224, 199, 0.12);
-  color: #8ef3df;
-  font-weight: 900;
 }
 
 /* First-person crosshair: a 2px cross that stays readable over any

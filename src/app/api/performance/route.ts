@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PERF_SOURCES } from "@/lib/perf-trace";
 import { db, storageConfigured } from "@/server/db";
 import { getOrCreatePlayerId } from "@/server/player";
 
@@ -15,7 +16,7 @@ const optionalInteger = z
   .transform((value) => value ?? null);
 
 const performanceSchema = z.object({
-  source: z.literal("mine"),
+  source: z.enum(PERF_SOURCES as [string, ...string[]]),
   appVersion: z.string().min(1).max(40),
   appBuild: optionalInteger,
   mineVersion: z.number().int().nonnegative(),

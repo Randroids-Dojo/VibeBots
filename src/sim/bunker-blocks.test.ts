@@ -6,6 +6,7 @@ import {
   BUNKER_POCKET_WIDTH,
   type BunkerBlock,
   bunkerCellBlock,
+  bunkerCellGenCoords,
   bunkerCellMineRow,
   bunkerCellOreYield,
   bunkerSpawnPocketCells,
@@ -64,6 +65,25 @@ describe("bunkerCellMineRow", () => {
     // rows span footprint.row .. footprint.row + height - 1 (40..44).
     expect(bunkerCellMineRow(FOOTPRINT, 0)).toBe(44);
     expect(bunkerCellMineRow(FOOTPRINT, 4)).toBe(40);
+  });
+});
+
+describe("bunkerCellGenCoords", () => {
+  it("returns the exact col/row the block generator samples", () => {
+    // Row matches bunkerCellMineRow; col offsets each depth layer by a
+    // fixed stride so stacked layers differ. The ore-crystal art hashes
+    // off these so its layout tracks the cell's real generated identity.
+    expect(bunkerCellGenCoords(FOOTPRINT, 0, 0, 0)).toEqual({
+      col: 100,
+      row: 44,
+    });
+    const a = bunkerCellGenCoords(FOOTPRINT, 3, 2, 0);
+    const b = bunkerCellGenCoords(FOOTPRINT, 3, 2, 1);
+    expect(a.row).toBe(bunkerCellMineRow(FOOTPRINT, 2));
+    expect(b.row).toBe(a.row);
+    // A one-layer depth step shifts the column by more than the 7-wide
+    // room, so no two layers of the same (x,y) alias to the same column.
+    expect(b.col - a.col).toBeGreaterThan(FOOTPRINT.width);
   });
 });
 

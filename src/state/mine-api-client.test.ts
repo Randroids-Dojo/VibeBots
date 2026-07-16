@@ -513,7 +513,6 @@ describe("mine API client", () => {
       claimedAtMoveCount: 6,
       bunker: {
         footprint: { col: 3, row: 4, width: 3, height: 3 },
-        core: { col: 4, row: 5, durability: 10 },
         parts: [],
       },
       inventory: {
@@ -565,7 +564,7 @@ describe("mine API client", () => {
           ...baseTrip,
           pendingBunker: {
             ...validPendingBunker,
-            bunker: { footprint: {}, core: {}, parts: "nope" },
+            bunker: { footprint: {}, parts: "nope" },
           },
         },
       }),
@@ -786,6 +785,17 @@ describe("mine API client", () => {
       {},
     );
 
+    await buyRemoteElevator(-17, 3);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      column: -17,
+      expectedDepth: 3,
+    });
+
+    await buyRemoteElevator(undefined, 4);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      expectedDepth: 4,
+    });
+
     await teleportRemoteBase(7);
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/mine/base-teleport");
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
@@ -834,7 +844,6 @@ describe("account trip pending bunker depth normalization", () => {
           claimedAtMoveCount: 0,
           bunker: {
             footprint: { col: 1, row: 4, width: 7, height: 5 },
-            core: { col: 4, row: 6, durability: 160 },
             parts: [{ partId: "wall-panel", col: 2, row: 5, durability: 90 }],
           },
           inventory: {},
@@ -842,7 +851,6 @@ describe("account trip pending bunker depth normalization", () => {
       },
     });
 
-    expect(trip?.pendingBunker?.bunker.core.depth).toBe(0);
     expect(trip?.pendingBunker?.bunker.parts).toEqual([
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
     ]);

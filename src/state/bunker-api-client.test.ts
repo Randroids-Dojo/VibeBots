@@ -1,25 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
 import { EMPTY_BASE_PART_INVENTORY } from "@/sim/bunker";
+import type { LiveRaidOutcomeReport } from "@/sim/bunker-raid-live";
 import {
   bunkerErrorMessage,
   buyRemoteBasePart,
   claimRemoteBunker,
-  collectRemoteRaidPickup,
   excavateRemoteBunkerCell,
-  finishRemoteBunkerRaid,
   loadRemoteBunker,
   moveRemoteBunkerPart,
   placeRemoteBunkerPart,
   removeRemoteBunkerPart,
   resetRemoteBunker,
-  startRemoteBunkerRaid,
+  resolveRemoteLiveRaid,
+  startFreshRemoteBunker,
+  startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 
 const view: BunkerRouteResponse = {
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
-  activeRaid: null,
   player: {
     balance: 12,
     trackXp: 0,
@@ -31,6 +31,7 @@ const view: BunkerRouteResponse = {
     nextLevelXp: 100,
     beaconLimit: 2,
   },
+  revision: 0,
 };
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -131,27 +132,45 @@ describe("bunker API client", () => {
     );
     expect(lastBody()).toEqual({ col: 8, row: 6, depth: 1 });
 
-    await startRemoteBunkerRaid();
+    await resetRemoteBunker();
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
+    expect(lastBody()).toEqual({});
+
+    await startFreshRemoteBunker();
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
+      "/api/bunker/start-fresh",
+    );
+    expect(lastBody()).toEqual({});
+  });
+
+  it("keeps the live-raid request shapes", async () => {
+    await startRemoteLiveBunkerRaid();
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
       "/api/bunker/raid/start",
     );
     expect(lastBody()).toEqual({ tier: 1 });
 
-    await collectRemoteRaidPickup(9, 4);
-    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
-      "/api/bunker/raid/collect",
-    );
-    expect(lastBody()).toEqual({ col: 9, row: 4 });
+    await startRemoteLiveBunkerRaid(3);
+    expect(lastBody()).toEqual({ tier: 3 });
 
-    await finishRemoteBunkerRaid();
+    const report: LiveRaidOutcomeReport = {
+      version: 1,
+      raidId: "live-abc",
+      outcome: "won",
+      minerKilled: false,
+      sealed: true,
+      endedTick: 42,
+      clankersKilled: 6,
+      defenseXp: 150,
+      partWear: [
+        { partId: "wall-panel", col: 8, row: 6, depth: 1, durability: 40 },
+      ],
+    };
+    await resolveRemoteLiveRaid(report);
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
-      "/api/bunker/raid/finish",
+      "/api/bunker/raid/resolve",
     );
-    expect(lastBody()).toEqual({});
-
-    await resetRemoteBunker();
-    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
-    expect(lastBody()).toEqual({});
+    expect(lastBody()).toEqual(report);
   });
 
   it("returns non-ok responses with their parsed error bodies", async () => {
@@ -160,7 +179,7 @@ describe("bunker API client", () => {
       vi.fn().mockResolvedValue(jsonResponse({ error: "blocked" }, 409)),
     );
 
-    await expect(startRemoteBunkerRaid()).resolves.toEqual({
+    await expect(startRemoteLiveBunkerRaid()).resolves.toEqual({
       ok: false,
       status: 409,
       body: { error: "blocked" },

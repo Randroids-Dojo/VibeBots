@@ -283,3 +283,64 @@ export async function imageRegionRgbStats(
     { encoded: image.toString("base64"), bounds },
   );
 }
+
+/**
+ * Classify a region's pixels into warm (dirt) and neutral (rock) fractions.
+ * Dirt blocks render warm brown (red well above blue); rock renders a near
+ * gray (the channels cluster). Used to prove the first-person bunker interior
+ * renders BOTH dirt and rock, not the single flat gray the node materials
+ * produced before per-kind meshes (they ignore instanceColor). Near-black
+ * background and bright UI chrome fall into neither bucket.
+ */
+export async function imageRegionWarmNeutralFractions(
+  page: Page,
+  image: Buffer,
+  bounds: { left: number; top: number; right: number; bottom: number },
+): Promise<{ warm: number; neutral: number }> {
+  return page.evaluate(
+    async ({ encoded, bounds }) => {
+      const response = await fetch(`data:image/png;base64,${encoded}`);
+      const bitmap = await createImageBitmap(await response.blob());
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) {
+        bitmap.close();
+        return { warm: 0, neutral: 0 };
+      }
+      context.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      const left = Math.floor(canvas.width * bounds.left);
+      const top = Math.floor(canvas.height * bounds.top);
+      const right = Math.ceil(canvas.width * bounds.right);
+      const bottom = Math.ceil(canvas.height * bounds.bottom);
+      const pixels = context.getImageData(
+        left,
+        top,
+        right - left,
+        bottom - top,
+      ).data;
+      const count = pixels.length / 4;
+      let warm = 0;
+      let neutral = 0;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const red = pixels[i];
+        const green = pixels[i + 1];
+        const blue = pixels[i + 2];
+        const max = Math.max(red, green, blue);
+        // Dirt: distinctly warm and bright enough to read as brown.
+        if (red - blue > 24 && red > 48) {
+          warm += 1;
+          continue;
+        }
+        // Rock: channels cluster (gray), mid-brightness, not background/UI.
+        if (max >= 28 && max <= 210 && max - Math.min(red, green, blue) <= 18) {
+          neutral += 1;
+        }
+      }
+      return { warm: warm / count, neutral: neutral / count };
+    },
+    { encoded: image.toString("base64"), bounds },
+  );
+}

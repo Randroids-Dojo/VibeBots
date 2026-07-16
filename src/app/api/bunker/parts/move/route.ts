@@ -22,6 +22,7 @@ const bodySchema = z.object({
   toRow: z.number().int().min(1),
   fromDepth: depthSchema,
   toDepth: depthSchema,
+  expectedRevision: z.number().int().nonnegative().optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -39,6 +40,7 @@ export async function POST(request: Request): Promise<Response> {
           body.toRow,
           body.fromDepth,
           body.toDepth,
+          body.expectedRevision,
         ),
         (result) => result.view,
       ),

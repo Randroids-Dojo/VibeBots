@@ -23,8 +23,7 @@ import { generatedCell } from "./mine/world";
  * deep (local z), centered on the spawn column at the bunker floor, so
  * the player spawns standing in an open chamber, with headroom overhead
  * and diggable rock a few steps ahead, instead of pressed inside a
- * cramped box. The bunker core sits at the top-front-center of this
- * volume and reads as the room's exposed centerpiece. */
+ * cramped box. */
 export const BUNKER_POCKET_WIDTH = 3;
 export const BUNKER_POCKET_HEIGHT = 3;
 export const BUNKER_POCKET_DEPTH = 3;
@@ -72,6 +71,24 @@ export function bunkerCellMineRow(
 }
 
 /**
+ * The generator column/row a bunker cell samples. Exposed so first-person
+ * ore-crystal art can hash off the SAME cell identity the block kind came
+ * from, keeping the crystal layout deterministic with the cell instead of
+ * an ad-hoc stride. Integer math only.
+ */
+export function bunkerCellGenCoords(
+  footprint: BunkerFootprint,
+  x: number,
+  y: number,
+  z: number,
+): { col: number; row: number } {
+  return {
+    col: footprint.col + x + z * BUNKER_DEPTH_COLUMN_STRIDE,
+    row: bunkerCellMineRow(footprint, y),
+  };
+}
+
+/**
  * The mineable block at a bunker cell, generated like the surface mine
  * at that depth. `x`/`y`/`z` are room-local (x across, y up from the
  * floor, z into the rock). Each depth layer draws from a distinct slice
@@ -86,8 +103,7 @@ export function bunkerCellBlock(
   y: number,
   z: number,
 ): BunkerBlock {
-  const row = bunkerCellMineRow(footprint, y);
-  const col = footprint.col + x + z * BUNKER_DEPTH_COLUMN_STRIDE;
+  const { col, row } = bunkerCellGenCoords(footprint, x, y, z);
   return coerceBunkerBlock(generatedCell(blockSeed, col, row));
 }
 

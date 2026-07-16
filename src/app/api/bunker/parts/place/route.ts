@@ -18,6 +18,7 @@ const bodySchema = z.object({
     .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1)
     .default(0),
+  expectedRevision: z.number().int().nonnegative().optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -33,6 +34,7 @@ export async function POST(request: Request): Promise<Response> {
           body.col,
           body.row,
           body.depth,
+          body.expectedRevision,
         ),
         (result) => result.view,
       ),

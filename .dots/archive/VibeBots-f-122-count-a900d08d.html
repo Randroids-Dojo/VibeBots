@@ -4,10 +4,12 @@
 <meta charset="utf-8">
 <title>F-122 Serialize held bunker edits and resync conflicts</title>
 <meta name="dot-title" content="F-122 Serialize held bunker edits and resync conflicts">
-<meta name="dot-status" content="open">
+<meta name="dot-status" content="closed">
 <meta name="dot-priority" content="1">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-14T00:03:21.136330-05:00">
+<meta name="dot-closed-at" content="2026-07-14T18:36:17.823662-05:00">
+<meta name="dot-close-reason" content="Shipped in PR #202 (squash 10643679). Optimistic-concurrency revision guard on banked bunker edits; store serializes every bunker write and resyncs the authoritative view on 409. 1464 unit tests + 18 fp e2e green.">
 </head>
 <body>
 <article>

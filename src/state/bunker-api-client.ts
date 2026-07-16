@@ -1,5 +1,6 @@
 import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
 import type { BasePartId, BunkerSkinId } from "@/sim/bunker";
+import type { LiveRaidOutcomeReport } from "@/sim/bunker-raid-live";
 
 export type BunkerApiResult =
   | { ok: true; status: number; body: BunkerRouteResponse }
@@ -59,15 +60,24 @@ export function placeRemoteBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  expectedRevision?: number,
 ) {
   return bunkerApi(
     "/api/bunker/parts/place",
-    jsonPost({ partId, col, row, depth }),
+    jsonPost({ partId, col, row, depth, expectedRevision }),
   );
 }
 
-export function removeRemoteBunkerPart(col: number, row: number, depth = 0) {
-  return bunkerApi("/api/bunker/parts/remove", jsonPost({ col, row, depth }));
+export function removeRemoteBunkerPart(
+  col: number,
+  row: number,
+  depth = 0,
+  expectedRevision?: number,
+) {
+  return bunkerApi(
+    "/api/bunker/parts/remove",
+    jsonPost({ col, row, depth, expectedRevision }),
+  );
 }
 
 export function moveRemoteBunkerPart(
@@ -77,10 +87,19 @@ export function moveRemoteBunkerPart(
   toRow: number,
   fromDepth = 0,
   toDepth = 0,
+  expectedRevision?: number,
 ) {
   return bunkerApi(
     "/api/bunker/parts/move",
-    jsonPost({ fromCol, fromRow, toCol, toRow, fromDepth, toDepth }),
+    jsonPost({
+      fromCol,
+      fromRow,
+      toCol,
+      toRow,
+      fromDepth,
+      toDepth,
+      expectedRevision,
+    }),
   );
 }
 
@@ -88,8 +107,12 @@ export function excavateRemoteBunkerCell(
   col: number,
   row: number,
   depth: number,
+  expectedRevision?: number,
 ) {
-  return bunkerApi("/api/bunker/excavate", jsonPost({ col, row, depth }));
+  return bunkerApi(
+    "/api/bunker/excavate",
+    jsonPost({ col, row, depth, expectedRevision }),
+  );
 }
 
 export function collectRemoteBunkerLoot(
@@ -108,18 +131,34 @@ export function resetRemoteBunker() {
   return bunkerApi("/api/bunker/reset", jsonPost({}));
 }
 
+/** Hard-reset a layout-incompatible bunker to a bare current-version claim
+ * (F-117, Q-022): no refund, keeps the excavation, stamps the new layout
+ * version so building is allowed again. */
+export function startFreshRemoteBunker() {
+  return bunkerApi("/api/bunker/start-fresh", jsonPost({}));
+}
+
 export function setRemoteBunkerSkin(skinId: BunkerSkinId) {
   return bunkerApi("/api/bunker/skin", jsonPost({ skinId }));
 }
 
-export function startRemoteBunkerRaid(tier = 1) {
+/** Start the live first-person raid (Q-024 option D), the only raid path: the
+ * start route freezes a snapshot the client fights against and later resolves. */
+export function startRemoteLiveBunkerRaid(tier = 1) {
   return bunkerApi("/api/bunker/raid/start", jsonPost({ tier }));
 }
 
-export function collectRemoteRaidPickup(col: number, row: number) {
-  return bunkerApi("/api/bunker/raid/collect", jsonPost({ col, row }));
+/** Submit the bounded outcome of a live raid the client just fought.
+ * The server validates it against the frozen start snapshot before it
+ * settles wear and rewards (single-submission guarded server-side). */
+export function resolveRemoteLiveRaid(report: LiveRaidOutcomeReport) {
+  return bunkerApi("/api/bunker/raid/resolve", jsonPost(report));
 }
 
-export function finishRemoteBunkerRaid() {
-  return bunkerApi("/api/bunker/raid/finish", jsonPost({}));
+/** Forfeit the active live raid on demand (F-160): leaving first person
+ * mid-raid abandons it now (no reward, no wear) so it cannot be re-rolled by
+ * re-entering. Idempotent server-side; a raid that already resolved is a
+ * no-op that just returns the current view. */
+export function forfeitRemoteLiveRaid() {
+  return bunkerApi("/api/bunker/raid/forfeit", jsonPost({}));
 }

@@ -30,6 +30,7 @@ import {
   shouldFireFpLongPress,
   shouldFireFpTapAct,
 } from "./bunker-fp-press";
+import { getFpRaidHudSnapshot, subscribeFpRaidHud } from "./bunker-fp-raid-hud";
 import {
   type FpTargetInfo,
   getFpBoxedInSnapshot,
@@ -243,22 +244,57 @@ export function BunkerFpHud({
   tool,
   selectedPartId,
   denyNotice,
+  bagOreCount,
+  bagStackCount,
+  bagCapacity,
+  bagOpen,
   onSelectPart,
   onSelectPick,
   onTogglePry,
+  onOpenBag,
   onExit,
+  onStartLiveRaid,
+  raidTierCeiling,
+  raidStartAllowed,
 }: {
   inventory: BasePartInventory;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
   denyNotice: string | null;
+  bagOreCount: number;
+  bagStackCount: number;
+  bagCapacity: number;
+  bagOpen: boolean;
   onSelectPart: (partId: BasePartId) => void;
   onSelectPick: () => void;
   onTogglePry: () => void;
+  onOpenBag: () => void;
   onExit: () => void;
+  /** Start a live first-person raid at the chosen tier. */
+  onStartLiveRaid: (tier: number) => void;
+  /** Highest raid tier the player's level unlocks. */
+  raidTierCeiling: number;
+  /** False while the bunker is a mid-trip claim (raids need it banked). */
+  raidStartAllowed: boolean;
 }) {
   const [coarse, setCoarse] = useState(false);
   const [locked, setLocked] = useState(false);
+  const raid = useSyncExternalStore(
+    subscribeFpRaidHud,
+    getFpRaidHudSnapshot,
+    getFpRaidHudSnapshot,
+  );
+  const raidActive = raid.active;
+  // Two-step guard for leaving a live raid (F-162). The in-fight Exit control
+  // is hidden on purpose, so touch players (no Escape key) get a deliberate
+  // Leave-raid control that arms a forfeit confirmation before it drops out.
+  // Reset whenever a raid is not running so a stale arm never greets the next.
+  const [abandonArmed, setAbandonArmed] = useState(false);
+  useEffect(() => {
+    if (!raidActive) setAbandonArmed(false);
+  }, [raidActive]);
+  const [raidTier, setRaidTier] = useState(1);
+  const pickedTier = Math.min(raidTier, Math.max(1, raidTierCeiling));
   const js = useRef(createJoystick());
   const ringRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLDivElement | null>(null);
@@ -458,75 +494,200 @@ export function BunkerFpHud({
         data-testid="bunker-fp-crosshair"
         aria-hidden="true"
       />
-      <FpTargetLabel />
-      <FpBoxedInHint />
-      <BunkerFpTutorial coarse={coarse} />
-      <div
-        className="bunker-fp-hotbar"
-        role="toolbar"
-        aria-label="Bunker tools"
-      >
-        <button
-          type="button"
-          className="bunker-fp-slot bunker-fp-slot-pick"
-          data-testid="bunker-fp-pick"
-          aria-label="Pick (dig claim rock)"
-          aria-pressed={tool === "dig"}
-          onClick={onSelectPick}
-        >
-          <PickIcon />
-          <small>Pick</small>
-        </button>
-        <span className="bunker-fp-hotbar-divider" aria-hidden="true" />
-        {BASE_PART_IDS.map((partId, index) => {
-          const count = inventory[partId];
-          const active = tool === "build" && selectedPartId === partId;
-          return (
-            <button
-              key={partId}
-              type="button"
-              className="bunker-fp-slot"
-              data-testid={`bunker-fp-slot-${partId}`}
-              aria-label={`${BASE_PART_CATALOG[partId].name} x${count}`}
-              aria-pressed={active}
-              disabled={count <= 0}
-              onClick={() => onSelectPart(partId)}
-            >
-              <span className="bunker-fp-slot-key">{index + 1}</span>
-              <strong>{BASE_PART_CATALOG[partId].name}</strong>
-              <small>x{count}</small>
-            </button>
-          );
-        })}
-        <button
-          type="button"
-          className="bunker-fp-slot bunker-fp-slot-pry"
-          data-testid="bunker-fp-pry"
-          aria-label="Pry"
-          aria-pressed={tool === "pry"}
-          onClick={onTogglePry}
-        >
-          <strong>Pry</strong>
-          <small>Q</small>
-        </button>
-      </div>
-      {denyNotice && (
+      {raidActive ? (
         <div
-          className="bunker-fp-deny"
-          data-testid="bunker-fp-deny"
+          className="bunker-fp-raid-panel"
+          data-testid="bunker-fp-raid-panel"
           role="status"
         >
-          {denyNotice}
+          {raid.outcome === "active" ? (
+            <>
+              <strong className="bunker-fp-raid-banner">
+                {`Raid: ${raid.clankersAlive}/${raid.clankersTotal} Clankers left`}
+              </strong>
+              <span className="bunker-fp-raid-timer">{`${raid.secondsLeft}s`}</span>
+              {raid.breached && (
+                <span className="bunker-fp-raid-breach">
+                  Breached! Seal your cell
+                </span>
+              )}
+              {abandonArmed ? (
+                <div
+                  className="bunker-fp-raid-abandon-confirm"
+                  data-testid="bunker-fp-raid-abandon-confirm"
+                >
+                  <span>Leave and forfeit this raid?</span>
+                  <button
+                    type="button"
+                    className="bunker-fp-raid-abandon-yes"
+                    data-testid="bunker-fp-raid-abandon-yes"
+                    onClick={onExit}
+                  >
+                    Forfeit
+                  </button>
+                  <button
+                    type="button"
+                    className="bunker-fp-raid-abandon-no"
+                    data-testid="bunker-fp-raid-abandon-no"
+                    onClick={() => setAbandonArmed(false)}
+                  >
+                    Stay
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="bunker-fp-raid-abandon"
+                  data-testid="bunker-fp-raid-abandon"
+                  aria-expanded={false}
+                  onClick={() => setAbandonArmed(true)}
+                >
+                  Leave raid
+                </button>
+              )}
+            </>
+          ) : (
+            <strong
+              className={
+                raid.outcome === "won"
+                  ? "bunker-fp-raid-result bunker-fp-raid-won"
+                  : "bunker-fp-raid-result bunker-fp-raid-lost"
+              }
+              data-testid="bunker-fp-raid-result"
+            >
+              {raid.outcome === "won" ? "Bunker held!" : "Bunker breached!"}
+            </strong>
+          )}
         </div>
+      ) : (
+        <>
+          <FpTargetLabel />
+          <FpBoxedInHint />
+          <BunkerFpTutorial coarse={coarse} />
+          <div
+            className="bunker-fp-hotbar"
+            role="toolbar"
+            aria-label="Bunker tools"
+          >
+            <button
+              type="button"
+              className="bunker-fp-slot bunker-fp-slot-pick"
+              data-testid="bunker-fp-pick"
+              aria-label="Pick (dig claim rock)"
+              aria-pressed={tool === "dig"}
+              onClick={onSelectPick}
+            >
+              <PickIcon />
+              <small>Pick</small>
+            </button>
+            <span className="bunker-fp-hotbar-divider" aria-hidden="true" />
+            {BASE_PART_IDS.map((partId, index) => {
+              const count = inventory[partId];
+              const active = tool === "build" && selectedPartId === partId;
+              return (
+                <button
+                  key={partId}
+                  type="button"
+                  className="bunker-fp-slot"
+                  data-testid={`bunker-fp-slot-${partId}`}
+                  aria-label={`${BASE_PART_CATALOG[partId].name} x${count}`}
+                  aria-pressed={active}
+                  disabled={count <= 0}
+                  onClick={() => onSelectPart(partId)}
+                >
+                  <span className="bunker-fp-slot-key">{index + 1}</span>
+                  <strong>{BASE_PART_CATALOG[partId].name}</strong>
+                  <small>x{count}</small>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              className="bunker-fp-slot bunker-fp-slot-pry"
+              data-testid="bunker-fp-pry"
+              aria-label="Pry"
+              aria-pressed={tool === "pry"}
+              onClick={onTogglePry}
+            >
+              <strong>Pry</strong>
+              <small>Q</small>
+            </button>
+          </div>
+          {denyNotice && (
+            <div
+              className="bunker-fp-deny"
+              data-testid="bunker-fp-deny"
+              role="status"
+            >
+              {denyNotice}
+            </div>
+          )}
+          <button
+            type="button"
+            className="bunker-fp-bag"
+            data-testid="bunker-fp-bag"
+            aria-label="Open bag"
+            aria-controls="mine-bag-panel"
+            aria-expanded={bagOpen}
+            title={`Open bag. ${bagOreCount} ore chunks in ${bagStackCount}/${bagCapacity} stack slots.`}
+            onClick={onOpenBag}
+          >
+            &#127890; {bagOreCount} ({bagStackCount}/{bagCapacity})
+          </button>
+          <div
+            className="bunker-fp-raid-start"
+            data-testid="bunker-fp-raid-start"
+          >
+            {raidTierCeiling > 1 && (
+              <span className="bunker-fp-raid-tier">
+                <button
+                  type="button"
+                  aria-label="Lower raid tier"
+                  disabled={pickedTier <= 1}
+                  onClick={() => setRaidTier(Math.max(1, pickedTier - 1))}
+                >
+                  -
+                </button>
+                <span data-testid="bunker-fp-raid-tier">{`Tier ${pickedTier}`}</span>
+                <button
+                  type="button"
+                  aria-label="Raise raid tier"
+                  disabled={pickedTier >= raidTierCeiling}
+                  onClick={() =>
+                    setRaidTier(Math.min(raidTierCeiling, pickedTier + 1))
+                  }
+                >
+                  +
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              className="bunker-fp-raid-start-button"
+              data-testid="bunker-fp-raid-start-button"
+              disabled={!raidStartAllowed}
+              title={
+                raidStartAllowed
+                  ? undefined
+                  : "Bank the bunker at the surface first"
+              }
+              onClick={() => onStartLiveRaid(pickedTier)}
+            >
+              {raidTierCeiling > 1
+                ? `Start raid (T${pickedTier})`
+                : "Start raid"}
+            </button>
+          </div>
+          <button
+            type="button"
+            className="bunker-fp-exit"
+            aria-label="Exit bunker"
+            onClick={onExit}
+          >
+            Exit bunker
+          </button>
+        </>
       )}
-      <button
-        type="button"
-        className="bunker-fp-exit"
-        aria-label="Exit bunker"
-        onClick={onExit}
-      >
-        Exit bunker
-      </button>
     </>
   );
 }

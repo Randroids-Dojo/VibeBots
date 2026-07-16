@@ -6,6 +6,7 @@ import {
 } from "@/server/account-session";
 import { db, storageConfigured } from "@/server/db";
 import { currentPlayerId } from "@/server/player";
+import { createBunker, STARTER_BASE_PART_INVENTORY } from "@/sim/bunker";
 import { DEFAULT_GEAR, MINE_VERSION, NO_CONSUMABLES } from "@/sim/mine";
 import { DELETE, GET, PUT } from "./route";
 
@@ -199,6 +200,30 @@ describe("/api/account/trip", () => {
       error: "invalid trip checkpoint",
       code: "invalid_trip_checkpoint",
     });
+  });
+
+  it("rejects a malformed pending bunker before storage writes (F-112)", async () => {
+    const sql = sqlWithRows();
+    mockedDb.mockResolvedValue(
+      sql as unknown as Awaited<ReturnType<typeof db>>,
+    );
+    const bunker = createBunker({ col: 1, row: 1, width: 7, height: 5 });
+    const pendingBunker = {
+      claimCol: 4,
+      claimRow: 5,
+      claimedAtMoveCount: 0,
+      // A null part element would throw in the old client normalizer; the
+      // bounded schema rejects it at the write boundary instead.
+      bunker: { ...bunker, parts: [null] },
+      inventory: { ...STARTER_BASE_PART_INVENTORY },
+    };
+
+    const res = await PUT(sameOriginPut({ trip: { ...trip, pendingBunker } }));
+
+    expect(res.status).toBe(400);
+    expectNoStore(res);
+    expect(sql).not.toHaveBeenCalled();
+    expect(await res.json()).toMatchObject({ code: "invalid_trip_checkpoint" });
   });
 
   it("requires a current guest save before storing a checkpoint", async () => {

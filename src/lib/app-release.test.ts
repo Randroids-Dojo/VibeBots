@@ -24,17 +24,202 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest groundbreaker-real-dig note complete", () => {
+  it("keeps the latest fp-spawn note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-14-0.1.262-groundbreaker-real-dig");
+    expect(release.noticeId).toBe("2026-07-16-0.1.273-bunker-fp-spawn");
     expect(latestNote).toMatchObject({
+      version: "0.1.273",
+      title: "Spawn in the room, not inside the wall",
+      intro:
+        "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
+      "This only changes where you appear when you step inside; your bunker layout, your digging, and your saves are untouched. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-ore-backfill note complete", () => {
+    const release = getAppRelease();
+    const oreNote = release.notes.find((note) => note.version === "0.1.272");
+
+    expect(oreNote).toMatchObject({
+      version: "0.1.272",
+      title: "Old bunkers show their ore again",
+      intro:
+        "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
+    });
+    expect(oreNote?.changes.map((change) => change.text)).toEqual([
+      "If you claimed a bunker before its walls started generating ore, it was stuck as solid dirt that paid nothing when you dug it, and even a reset did not fix it. Opening the bunker now fills in the ore it should have had, so its walls show the mine's dirt, rock, and ore for that depth and digging pays again.",
+      "This only fills in ore that was missing. It never regrows ore you already mined, and it leaves any bunker that already had ore unchanged. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-layout-reset note complete", () => {
+    const release = getAppRelease();
+    const resetNote = release.notes.find((note) => note.version === "0.1.271");
+
+    expect(resetNote).toMatchObject({
+      version: "0.1.271",
+      title: "Old bunkers need a fresh start",
+      intro:
+        "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+    });
+    expect(resetNote?.changes.map((change) => change.text)).toEqual([
+      "If your bunker was built under the old whole-block layout, it can no longer be edited as it is. Open the bunker sheet and it now shows a Start fresh button instead of the Enter button. Start fresh clears the old build and lets you build again under the new system, and it keeps every room you dug out, so you never lose your digging.",
+      "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-core-removed note complete", () => {
+    const release = getAppRelease();
+    const coreNote = release.notes.find((note) => note.version === "0.1.270");
+
+    expect(coreNote).toMatchObject({
+      version: "0.1.270",
+      title: "The bunker core is gone",
+      intro:
+        "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
+    });
+    expect(coreNote?.changes.map((change) => change.text)).toEqual([
+      "The spinning core that sat in the center of every bunker is removed. It never did anything you could use, and it took up a buildable cell, so it is gone. The cell it stood in is now ordinary open space you can walk through, build on, or dig behind.",
+      "Repairs now cover only your placed parts, since there is no core left to patch. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived first-person-raids-only note complete", () => {
+    const release = getAppRelease();
+    const raidsOnlyNote = release.notes.find(
+      (note) => note.version === "0.1.269",
+    );
+
+    expect(raidsOnlyNote).toMatchObject({
+      version: "0.1.269",
+      title: "Raids are first-person only now",
+      intro:
+        "The flat Start-raid button is gone; you defend your bunker from inside.",
+    });
+    expect(raidsOnlyNote?.changes.map((change) => change.text)).toEqual([
+      "The old flat raid, started from the bunker sheet and watched as a top-down replay, is retired. To raid now, stand in your claim, enter your bunker in first person, and start a live raid from inside, where the Clankers hunt you through your dug halls in real time.",
+      "The bunker sheet keeps claiming, repairs, skins, and reset; only the raid moved inside. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived touch-raid-abandon note complete", () => {
+    const release = getAppRelease();
+    const abandonNote = release.notes.find(
+      (note) => note.version === "0.1.268",
+    );
+
+    expect(abandonNote).toMatchObject({
+      version: "0.1.268",
+      title: "Abandon a live raid from your phone",
+      intro:
+        "The first-person raid HUD now has a way to leave a fight without a keyboard.",
+    });
+    expect(abandonNote?.changes.map((change) => change.text)).toEqual([
+      "On a phone there is no Escape key, so a live raid now carries a Leave raid button in its HUD. It asks you to confirm before it drops you out, so a stray tap while you are fighting cannot cost you the raid.",
+      "Confirming leaves and forfeits the raid, exactly like stepping out on desktop: no rewards, and it is gone when you come back. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived raid-forfeit-on-exit note complete", () => {
+    const release = getAppRelease();
+    const forfeitNote = release.notes.find(
+      (note) => note.version === "0.1.267",
+    );
+
+    expect(forfeitNote).toMatchObject({
+      version: "0.1.267",
+      title: "Leaving a live raid now forfeits it",
+      intro:
+        "Walk out of a first-person raid mid-fight and it counts as a loss.",
+    });
+    expect(forfeitNote?.changes.map((change) => change.text)).toEqual([
+      "Step out of the bunker while a live raid is still going and it now settles right away as a forfeit. The raid ends, you earn no rewards, and it is gone when you come back, instead of lingering until it timed out.",
+      "That means you can no longer duck out of a raid that is going badly and re-enter to fight it again from the start. The choice to leave is final. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-specialist-tints note complete", () => {
+    const release = getAppRelease();
+    const tintsNote = release.notes.find((note) => note.version === "0.1.266");
+
+    expect(tintsNote).toMatchObject({
+      version: "0.1.266",
+      title: "Spot breachers and tanks in first person",
+      intro:
+        "Specialist Clankers now wear their colors inside a first-person raid.",
+    });
+    expect(tintsNote?.changes.map((change) => change.text)).toEqual([
+      "Breachers and tanks now show their rust and armor shells when you fight a raid in first person, just like the flat view, so you can read a specialist coming down the hall and prioritize it instead of meeting every Clanker as an unknown.",
+      "This is a visual change only; the raid plays out exactly as before. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-live-raid note complete", () => {
+    const release = getAppRelease();
+    const raidNote = release.notes.find((note) => note.version === "0.1.265");
+
+    expect(raidNote).toMatchObject({
+      version: "0.1.265",
+      title: "Fight a bunker raid from inside",
+      intro:
+        "Start a live raid in the first-person bunker and hold the Clankers off yourself.",
+    });
+    expect(raidNote?.changes.map((change) => change.text)).toEqual([
+      "Standing inside your bunker in first person, a Start raid control now waits with a tier stepper. Begin the raid and the Clankers hunt you through your dug halls in real time while you stay in to defend, instead of watching a flat replay from the sheet.",
+      "A banner tracks how many Clankers are left and your remaining time. Every Clanker that falls drops XP where it dies for you to collect by walking over it, and the raid ends the moment a Clanker reaches your cell or the whole wave is spent. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived fp-bunker-bag note complete", () => {
+    const release = getAppRelease();
+    const bagNote = release.notes.find((note) => note.version === "0.1.264");
+
+    expect(bagNote).toMatchObject({
+      version: "0.1.264",
+      title: "Check your bag from inside the bunker",
+      intro: "The first-person bunker HUD now shows and opens your cargo bag.",
+    });
+    expect(bagNote?.changes.map((change) => change.text)).toEqual([
+      "A bag chip now rides in the top corner of the first-person bunker view, showing your carried ore and stack slots at a glance. Tap it to open the full bag, drop cargo, and read your haul without leaving the bunker.",
+      "Opening the bag pauses your walking and digging behind it, and Escape closes the bag and drops you straight back into the view. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-block-art note complete", () => {
+    const release = getAppRelease();
+    const blockArtNote = release.notes.find(
+      (note) => note.version === "0.1.263",
+    );
+
+    expect(blockArtNote).toMatchObject({
+      version: "0.1.263",
+      title: "Bunker walls show real dirt, rock, and ore",
+      intro:
+        "Your bunker interior now renders the mine's blocks instead of one flat gray.",
+    });
+    expect(blockArtNote?.changes.map((change) => change.text)).toEqual([
+      "Undug bunker cells now render as the dirt, rock, and ore you would find in the mine at that exact depth, instead of a single flat gray. You can read the room at a glance and watch the stone turn richer the deeper you dig.",
+      "Ore crystals now actually show in the walls at the mine's ore distribution for that depth, so you can spot a cell worth breaking before you swing. This is a visual change only; MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived groundbreaker-real-dig note complete", () => {
+    const release = getAppRelease();
+    const groundbreakerNote = release.notes.find(
+      (note) => note.version === "0.1.262",
+    );
+
+    expect(groundbreakerNote).toMatchObject({
       version: "0.1.262",
       title: "Groundbreaker waits for a real dig",
       intro: "The first-dig bunker stamp no longer pops before you dig.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(groundbreakerNote?.changes.map((change) => change.text)).toEqual([
       "Groundbreaker, the stamp for digging your first cell of bunker claim rock, no longer unlocks the moment you claim a bunker. It now counts only cells you actually dig out, not the pre-mined starter room, so it pops on your real first dig.",
       "Anyone who already earned it keeps it. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

@@ -19,10 +19,12 @@ import {
 import {
   loadLocalTrip,
   localTripKey,
+  normalizePendingBunker,
   removeLocalTrip,
   replaySavedTrip,
   type SavedTrip,
   saveLocalTrip,
+  storedTripPendingBunkerIsCorrupt,
 } from "./mine-trip-persistence";
 
 function savedTrip(overrides: Partial<SavedTrip> = {}): SavedTrip {
@@ -334,11 +336,6 @@ describe("pending bunker depth normalization", () => {
       claimedAtMoveCount: 0,
       bunker: {
         footprint: bunker.footprint,
-        core: {
-          col: bunker.core.col,
-          row: bunker.core.row,
-          durability: bunker.core.durability,
-        },
         parts: [
           { partId: "wall-panel", col: 2, row: 5, durability: 90 },
           { partId: "door-panel", col: 3, row: 5, depth: 9, durability: 60 },
@@ -353,7 +350,6 @@ describe("pending bunker depth normalization", () => {
 
     const loaded = loadLocalTrip(1);
 
-    expect(loaded?.pendingBunker?.bunker.core.depth).toBe(0);
     expect(loaded?.pendingBunker?.bunker.parts).toEqual([
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
       { partId: "door-panel", col: 3, row: 5, depth: 0, durability: 60 },
@@ -376,3 +372,144 @@ function savedTripWithPending(pending: PendingBunkerBuild): SavedTrip {
     pendingBunker: pending,
   };
 }
+
+describe("pending bunker validation (F-112)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    const local = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => local.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => local.set(key, value)),
+      removeItem: vi.fn((key: string) => local.delete(key)),
+    });
+  });
+
+  function validPending(): PendingBunkerBuild {
+    return {
+      claimCol: START_COL,
+      claimRow: 5,
+      claimedAtMoveCount: 0,
+      bunker: createBunker({ col: START_COL - 3, row: 1, width: 7, height: 5 }),
+      inventory: { ...STARTER_BASE_PART_INVENTORY },
+    };
+  }
+
+  function withBunker(patch: Record<string, unknown>): unknown {
+    const valid = validPending();
+    return { ...valid, bunker: { ...valid.bunker, ...patch } };
+  }
+
+  it("returns null for a null part instead of throwing", () => {
+    const malformed = withBunker({ parts: [null] });
+    expect(() => normalizePendingBunker(malformed)).not.toThrow();
+    expect(normalizePendingBunker(malformed)).toBeNull();
+  });
+
+  it("returns null for non-array parts", () => {
+    expect(normalizePendingBunker(withBunker({ parts: {} }))).toBeNull();
+  });
+
+  it("strips a legacy core field from a stored checkpoint (F-118)", () => {
+    // A checkpoint saved before the core was removed still carries one; the
+    // object schema drops the unknown key rather than rejecting the trip.
+    const result = normalizePendingBunker(
+      withBunker({ core: { col: 3, row: 3, depth: 0, durability: 160 } }),
+    );
+    expect(result).not.toBeNull();
+    expect(result?.bunker).not.toHaveProperty("core");
+    expect(result?.bunker.footprint).toBeDefined();
+    expect(Array.isArray(result?.bunker.parts)).toBe(true);
+  });
+
+  it("returns null for a malformed dug cell", () => {
+    expect(normalizePendingBunker(withBunker({ dug: [null] }))).toBeNull();
+    // Missing depth: dug cells always carry a real depth, so this is corruption.
+    expect(
+      normalizePendingBunker(withBunker({ dug: [{ col: 1, row: 1 }] })),
+    ).toBeNull();
+  });
+
+  it("caps the checkpoint parts array at the 175-cell volume, not the old 174", () => {
+    // Checkpoint validation only bounds shape and array length (the bank
+    // route is the authoritative placement/occupancy boundary; see its
+    // "maxed 175-part bunker" test). This proves the length cap moved off
+    // 174 to the full 5 x 5 x 7 = 175-cell volume now the core is gone.
+    const uniqueParts = [];
+    for (let depth = 0; depth < 5; depth++) {
+      for (let row = 1; row <= 5; row++) {
+        for (let col = 1; col <= 7; col++) {
+          uniqueParts.push({
+            partId: "wall-panel",
+            col,
+            row,
+            depth,
+            durability: 10,
+          });
+        }
+      }
+    }
+    expect(uniqueParts).toHaveLength(175);
+    const accepted = normalizePendingBunker(withBunker({ parts: uniqueParts }));
+    expect(accepted).not.toBeNull();
+    expect(accepted?.bunker.parts).toHaveLength(175);
+    // A 176th part (one cell repeated) exceeds the volume and is rejected.
+    expect(
+      normalizePendingBunker(
+        withBunker({ parts: [...uniqueParts, uniqueParts[0]] }),
+      ),
+    ).toBeNull();
+  });
+
+  it("passes a null pending through as no checkpoint", () => {
+    expect(normalizePendingBunker(null)).toBeNull();
+    expect(normalizePendingBunker(undefined)).toBeNull();
+  });
+
+  it("accepts a valid pending bunker and seeds the spawn pocket", () => {
+    const valid = validPending();
+    const normalized = normalizePendingBunker(valid);
+    expect(normalized).not.toBeNull();
+    expect(normalized?.bunker.dug).toEqual(valid.bunker.dug);
+  });
+
+  it("drops a stored trip whose pending bunker is malformed", () => {
+    const malformed = withBunker({ parts: [null] });
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(malformed as PendingBunkerBuild)),
+    );
+    // The corrupt checkpoint is flagged for the fresh-start notice.
+    expect(storedTripPendingBunkerIsCorrupt(1)).toBe(true);
+    // Rejects (no crash) and clears the unusable blob so it cannot nag.
+    expect(loadLocalTrip(1)).toBeNull();
+    expect(localStorage.getItem(localTripKey(1))).toBeNull();
+  });
+
+  it("keeps loading a stored trip whose pending bunker is valid", () => {
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(validPending())),
+    );
+    expect(storedTripPendingBunkerIsCorrupt(1)).toBe(false);
+    expect(loadLocalTrip(1)?.pendingBunker).not.toBeNull();
+  });
+
+  it("does not flag a version mismatch as a corrupt checkpoint", () => {
+    // A routine version bump is expected, not corruption: it must not trigger
+    // the fresh-start notice (F-112 scope).
+    const stale = savedTripWithPending(validPending());
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify({ ...stale, mineVersion: MINE_VERSION - 1 }),
+    );
+    expect(storedTripPendingBunkerIsCorrupt(1)).toBe(false);
+    expect(loadLocalTrip(1)).toBeNull();
+  });
+
+  it("coerces an unknown skin to the default instead of rejecting the trip", () => {
+    const skinned = withBunker({ skin: "future-skin" });
+    const normalized = normalizePendingBunker(skinned);
+    expect(normalized).not.toBeNull();
+    expect(normalized?.bunker.skin).toBeUndefined();
+  });
+});

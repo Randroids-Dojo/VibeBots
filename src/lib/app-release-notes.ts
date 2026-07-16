@@ -1,9 +1,195 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-14-0.1.262-groundbreaker-real-dig";
+export const RELEASE_NOTICE_ID = "2026-07-16-0.1.273-bunker-fp-spawn";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.273",
+      date: "2026-07-16",
+      title: "Spawn in the room, not inside the wall",
+      intro:
+        "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
+      changes: [
+        {
+          build,
+          text: "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
+        },
+        {
+          build,
+          text: "This only changes where you appear when you step inside; your bunker layout, your digging, and your saves are untouched. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.272",
+      date: "2026-07-16",
+      title: "Old bunkers show their ore again",
+      intro:
+        "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
+      changes: [
+        {
+          build,
+          text: "If you claimed a bunker before its walls started generating ore, it was stuck as solid dirt that paid nothing when you dug it, and even a reset did not fix it. Opening the bunker now fills in the ore it should have had, so its walls show the mine's dirt, rock, and ore for that depth and digging pays again.",
+        },
+        {
+          build,
+          text: "This only fills in ore that was missing. It never regrows ore you already mined, and it leaves any bunker that already had ore unchanged. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.271",
+      date: "2026-07-16",
+      title: "Old bunkers need a fresh start",
+      intro:
+        "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+      changes: [
+        {
+          build,
+          text: "If your bunker was built under the old whole-block layout, it can no longer be edited as it is. Open the bunker sheet and it now shows a Start fresh button instead of the Enter button. Start fresh clears the old build and lets you build again under the new system, and it keeps every room you dug out, so you never lose your digging.",
+        },
+        {
+          build,
+          text: "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.270",
+      date: "2026-07-15",
+      title: "The bunker core is gone",
+      intro:
+        "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
+      changes: [
+        {
+          build,
+          text: "The spinning core that sat in the center of every bunker is removed. It never did anything you could use, and it took up a buildable cell, so it is gone. The cell it stood in is now ordinary open space you can walk through, build on, or dig behind.",
+        },
+        {
+          build,
+          text: "Repairs now cover only your placed parts, since there is no core left to patch. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.269",
+      date: "2026-07-15",
+      title: "Raids are first-person only now",
+      intro:
+        "The flat Start-raid button is gone; you defend your bunker from inside.",
+      changes: [
+        {
+          build,
+          text: "The old flat raid, started from the bunker sheet and watched as a top-down replay, is retired. To raid now, stand in your claim, enter your bunker in first person, and start a live raid from inside, where the Clankers hunt you through your dug halls in real time.",
+        },
+        {
+          build,
+          text: "The bunker sheet keeps claiming, repairs, skins, and reset; only the raid moved inside. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.268",
+      date: "2026-07-15",
+      title: "Abandon a live raid from your phone",
+      intro:
+        "The first-person raid HUD now has a way to leave a fight without a keyboard.",
+      changes: [
+        {
+          build,
+          text: "On a phone there is no Escape key, so a live raid now carries a Leave raid button in its HUD. It asks you to confirm before it drops you out, so a stray tap while you are fighting cannot cost you the raid.",
+        },
+        {
+          build,
+          text: "Confirming leaves and forfeits the raid, exactly like stepping out on desktop: no rewards, and it is gone when you come back. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.267",
+      date: "2026-07-15",
+      title: "Leaving a live raid now forfeits it",
+      intro:
+        "Walk out of a first-person raid mid-fight and it counts as a loss.",
+      changes: [
+        {
+          build,
+          text: "Step out of the bunker while a live raid is still going and it now settles right away as a forfeit. The raid ends, you earn no rewards, and it is gone when you come back, instead of lingering until it timed out.",
+        },
+        {
+          build,
+          text: "That means you can no longer duck out of a raid that is going badly and re-enter to fight it again from the start. The choice to leave is final. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.266",
+      date: "2026-07-15",
+      title: "Spot breachers and tanks in first person",
+      intro:
+        "Specialist Clankers now wear their colors inside a first-person raid.",
+      changes: [
+        {
+          build,
+          text: "Breachers and tanks now show their rust and armor shells when you fight a raid in first person, just like the flat view, so you can read a specialist coming down the hall and prioritize it instead of meeting every Clanker as an unknown.",
+        },
+        {
+          build,
+          text: "This is a visual change only; the raid plays out exactly as before. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.265",
+      date: "2026-07-15",
+      title: "Fight a bunker raid from inside",
+      intro:
+        "Start a live raid in the first-person bunker and hold the Clankers off yourself.",
+      changes: [
+        {
+          build,
+          text: "Standing inside your bunker in first person, a Start raid control now waits with a tier stepper. Begin the raid and the Clankers hunt you through your dug halls in real time while you stay in to defend, instead of watching a flat replay from the sheet.",
+        },
+        {
+          build,
+          text: "A banner tracks how many Clankers are left and your remaining time. Every Clanker that falls drops XP where it dies for you to collect by walking over it, and the raid ends the moment a Clanker reaches your cell or the whole wave is spent. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.264",
+      date: "2026-07-14",
+      title: "Check your bag from inside the bunker",
+      intro: "The first-person bunker HUD now shows and opens your cargo bag.",
+      changes: [
+        {
+          build,
+          text: "A bag chip now rides in the top corner of the first-person bunker view, showing your carried ore and stack slots at a glance. Tap it to open the full bag, drop cargo, and read your haul without leaving the bunker.",
+        },
+        {
+          build,
+          text: "Opening the bag pauses your walking and digging behind it, and Escape closes the bag and drops you straight back into the view. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.263",
+      date: "2026-07-14",
+      title: "Bunker walls show real dirt, rock, and ore",
+      intro:
+        "Your bunker interior now renders the mine's blocks instead of one flat gray.",
+      changes: [
+        {
+          build,
+          text: "Undug bunker cells now render as the dirt, rock, and ore you would find in the mine at that exact depth, instead of a single flat gray. You can read the room at a glance and watch the stone turn richer the deeper you dig.",
+        },
+        {
+          build,
+          text: "Ore crystals now actually show in the walls at the mine's ore distribution for that depth, so you can spot a cell worth breaking before you swing. This is a visual change only; MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.262",
       date: "2026-07-14",

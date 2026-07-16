@@ -9,7 +9,7 @@ import {
   bunkerRepairPlan,
   DEFAULT_BUNKER_SKIN,
   DEFENSE_XP_PER_LEVEL,
-  maxBunkerRaidTier,
+  isBunkerLayoutIncompatible,
 } from "@/sim/bunker";
 import type { MineCoord } from "@/sim/mine";
 import { useBunkerStore } from "@/state/bunker-store";
@@ -36,12 +36,10 @@ export function BunkerControlPanel({
   onOpenPanel,
   onDismissPanel,
   onClaim,
-  onStartRaid,
   onRepair,
   onReset,
+  onStartFresh,
   onSelectSkin,
-  onFinishRaid,
-  onEnterFp,
 }: {
   minerRow: number;
   claimMode: boolean;
@@ -56,49 +54,33 @@ export function BunkerControlPanel({
   onOpenPanel: () => void;
   onDismissPanel: () => void;
   onClaim: () => void;
-  onStartRaid: (tier: number) => void;
   onRepair?: () => void;
   /** Resets the bunker to a bare claim (F-093): undamaged parts refund
    * to inventory, damaged parts are lost, dug cells refill. */
   onReset?: () => void;
+  /** Hard-reset a layout-incompatible bunker (F-117, Q-022): clears built
+   * parts with no refund, keeps the excavation, stamps the new layout so
+   * building is allowed again. */
+  onStartFresh?: () => void;
   onSelectSkin?: (skinId: BunkerSkinId) => void;
-  onFinishRaid: () => void;
-  /** Enters the first-person bunker view (shown only while no raid is
-   * active and the caller provides the callback). */
-  onEnterFp?: () => void;
 }) {
   const status = useBunkerStore((s) => s.status);
-  const activeRaid = useBunkerStore((s) => s.activeRaid);
   const player = useBunkerStore((s) => s.player);
   const lastReward = useBunkerStore((s) => s.lastRaidReward);
   const note = useBunkerStore((s) => s.note);
   const hasBunker = Boolean(bunker);
+  // A banked bunker built under an older layout model cannot be edited
+  // (F-117). It fails fast with a no-refund Start fresh (Q-022) in place of
+  // the normal build/repair/reset affordances. A pending (unbanked) claim
+  // is always current, so this only fires on a loaded banked bunker.
+  const layoutIncompatible =
+    bunker !== null && !pendingClaim && isBunkerLayoutIncompatible(bunker);
   const localBlockerCount = localBlockedCells.length;
   const canClaim =
     !hasBunker &&
     status !== "loading" &&
     preview !== null &&
     localBlockerCount === 0;
-  const uncollectedPickups = (activeRaid?.xpPickups ?? []).filter(
-    (pickup) => !pickup.collected,
-  );
-  const uncollectedPickupXp = uncollectedPickups.reduce(
-    (sum, pickup) => sum + pickup.defenseXp,
-    0,
-  );
-  const collectedPickupXp = (activeRaid?.xpPickups ?? []).reduce(
-    (sum, pickup) => sum + (pickup.collected ? pickup.defenseXp : 0),
-    0,
-  );
-  const finishDisabled =
-    pendingClaim ||
-    Boolean(activeRaid?.survived && uncollectedPickups.length > 0);
-  // Raid tier selection (F-084): one tier per player level, capped by
-  // the sim's ceiling. The pick clamps whenever the level changes so it
-  // never exceeds what the server will accept.
-  const tierCeiling = maxBunkerRaidTier(player?.overallLevel ?? 1);
-  const [raidTier, setRaidTier] = useState(1);
-  const pickedTier = Math.min(raidTier, tierCeiling);
   // Memoized: the parts scan only reruns when a mutation response swaps
   // the bunker reference, not on every raid-tick re-render.
   const repairPlan = useMemo(
@@ -136,6 +118,9 @@ export function BunkerControlPanel({
     }
     setResetArmed(false);
   }, [panelOpen]);
+  // The same two-step confirm drives both destructive actions (they are
+  // mutually exclusive): Reset on a compatible bunker, Start fresh on a
+  // layout-incompatible one.
   const handleReset = () => {
     if (!resetArmed) {
       setResetArmed(true);
@@ -146,24 +131,23 @@ export function BunkerControlPanel({
       return;
     }
     disarmReset();
-    onReset?.();
+    if (layoutIncompatible) onStartFresh?.();
+    else onReset?.();
   };
   // Reset only clears placed parts now; it preserves the excavation and
   // the spawn pocket (F-120: no ore regen, never respawn in rock), so a
-  // dug-out-but-unbuilt claim has nothing to reset.
+  // dug-out-but-unbuilt claim has nothing to reset. Start fresh replaces it
+  // on an incompatible bunker and needs no built parts to be worth showing.
+  const startFreshAvailable = layoutIncompatible && onStartFresh !== undefined;
   const resetAvailable =
     hasBunker &&
-    !activeRaid &&
+    !layoutIncompatible &&
     onReset !== undefined &&
     (bunker?.parts.length ?? 0) > 0;
+  const confirmAvailable = layoutIncompatible
+    ? startFreshAvailable
+    : resetAvailable;
   const balance = player?.balance ?? 0;
-  const raidButtonLabel = activeRaid
-    ? activeRaid.survived
-      ? uncollectedPickups.length > 0
-        ? "Walk over raid XP"
-        : "Finish raid"
-      : "End failed raid"
-    : "Start Clanker raid";
   const levelProgressMax =
     player?.nextLevelXp === null
       ? DEFENSE_XP_PER_LEVEL
@@ -213,7 +197,7 @@ export function BunkerControlPanel({
           if (!resetArmed) return;
           if (
             event.target instanceof Element &&
-            event.target.closest('[data-testid="bunker-reset"]')
+            event.target.closest("[data-confirm-button]")
           ) {
             return;
           }
@@ -237,7 +221,9 @@ export function BunkerControlPanel({
 
         <p className="bunker-status-copy">
           {hasBunker
-            ? "Enter the bunker to build inside: place, pry, and dig in first person."
+            ? layoutIncompatible
+              ? "This bunker was built under the old layout and can't be edited. Start fresh to rebuild."
+              : "Enter the bunker to build inside: place, pry, and dig in first person."
             : !preview
               ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
               : localBlockerCount > 0
@@ -271,6 +257,20 @@ export function BunkerControlPanel({
           </fieldset>
         )}
 
+        {layoutIncompatible && (
+          <div
+            className="bunker-result bunker-result-failed"
+            role="alert"
+            data-testid="bunker-layout-incompatible"
+          >
+            <strong>Layout needs a fresh start</strong>
+            <span>
+              Bunkers built before the new build system can't be edited. Start
+              fresh keeps your dug-out rooms but clears built parts (no refund).
+            </span>
+          </div>
+        )}
+
         {lastReward && (
           <div
             className={
@@ -291,7 +291,7 @@ export function BunkerControlPanel({
           </div>
         )}
 
-        {!hasBunker ? (
+        {!hasBunker && (
           <div className="bunker-status-actions">
             <button
               type="button"
@@ -309,59 +309,9 @@ export function BunkerControlPanel({
               Cancel
             </button>
           </div>
-        ) : (
-          <>
-            {!activeRaid && tierCeiling > 1 && (
-              <fieldset className="bunker-raid-tier" aria-label="Raid tier">
-                <button
-                  type="button"
-                  aria-label="Lower raid tier"
-                  onClick={() => setRaidTier(Math.max(1, pickedTier - 1))}
-                  disabled={pickedTier <= 1}
-                >
-                  -
-                </button>
-                <span data-testid="bunker-raid-tier">
-                  {`Tier ${pickedTier}`}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Raise raid tier"
-                  onClick={() =>
-                    setRaidTier(Math.min(tierCeiling, pickedTier + 1))
-                  }
-                  disabled={pickedTier >= tierCeiling}
-                >
-                  +
-                </button>
-              </fieldset>
-            )}
-            <button
-              type="button"
-              className="bunker-raid-button"
-              onClick={
-                activeRaid ? onFinishRaid : () => onStartRaid(pickedTier)
-              }
-              disabled={finishDisabled || (!activeRaid && pendingClaim)}
-            >
-              {activeRaid
-                ? raidButtonLabel
-                : `${raidButtonLabel} (T${pickedTier})`}
-            </button>
-            {!activeRaid && onEnterFp && (
-              <button
-                type="button"
-                className="bunker-enter-fp-button"
-                data-testid="bunker-fp-enter-panel"
-                onClick={onEnterFp}
-              >
-                Enter bunker (3D)
-              </button>
-            )}
-          </>
         )}
 
-        {hasBunker && !activeRaid && !pendingClaim && (
+        {hasBunker && !pendingClaim && !layoutIncompatible && (
           <>
             <p
               className="bunker-balance"
@@ -421,32 +371,30 @@ export function BunkerControlPanel({
           </>
         )}
 
-        {resetAvailable && (
+        {confirmAvailable && (
           <button
             type="button"
             className="bunker-reset-button"
-            data-testid="bunker-reset"
+            data-testid={
+              layoutIncompatible ? "bunker-start-fresh" : "bunker-reset"
+            }
+            data-confirm-button=""
             aria-pressed={resetArmed}
             onClick={handleReset}
           >
-            {resetArmed
-              ? "Really reset? Parts return to inventory"
-              : "Reset bunker"}
+            {layoutIncompatible
+              ? resetArmed
+                ? "Really start fresh? Built parts are lost"
+                : "Start fresh"
+              : resetArmed
+                ? "Really reset? Parts return to inventory"
+                : "Reset bunker"}
           </button>
         )}
 
         {pendingClaim && hasBunker && (
           <p className="bunker-status-note">
             Raids unlock after the bunker saves at the surface.
-          </p>
-        )}
-        {activeRaid && (
-          <p className="bunker-status-note">
-            {activeRaid.survived
-              ? uncollectedPickups.length > 0
-                ? `${activeRaid.clankers.length} ${activeRaid.clankers.length === 1 ? "Clanker" : "Clankers"} dead. Walk over ${uncollectedPickupXp} defense XP on the ground.`
-                : `All raid XP collected: ${collectedPickupXp} defense XP.`
-              : `Miner killed. The raid ended and all XP vanished. ${BUNKER_MINER_DEATH_TIP}`}
           </p>
         )}
         {note && <p className="bunker-status-note">{note}</p>}

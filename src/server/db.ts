@@ -150,12 +150,24 @@ async function applySchema(sql: Sql): Promise<void> {
     CREATE TABLE IF NOT EXISTS bunkers (
       player_id uuid PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
       footprint jsonb NOT NULL,
-      core jsonb NOT NULL,
       parts jsonb NOT NULL DEFAULT '[]'::jsonb,
       skin text,
       skins_owned jsonb NOT NULL DEFAULT '[]'::jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
     )`;
+  // F-118 retired the bunker core. Fresh databases never create the column;
+  // existing ones keep their now-dead `core` jsonb but drop its NOT NULL so
+  // inserts that no longer supply it succeed. The column data is left in
+  // place rather than dropped (non-destructive); a later cleanup can drop it.
+  await sql`
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'bunkers' AND column_name = 'core'
+      ) THEN
+        ALTER TABLE bunkers ALTER COLUMN core DROP NOT NULL;
+      END IF;
+    END $$`;
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS skin text`;
@@ -171,6 +183,19 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS loot jsonb NOT NULL DEFAULT '[]'::jsonb`;
+  // Optimistic-concurrency counter for banked bunker edits (F-122): each
+  // successful mutation bumps it, and a write only lands when the client's
+  // expected revision still matches, so reordered or duplicate edits lose.
+  await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0`;
+  // Layout-model version stamped per bunker (F-117). New DEFAULT 0 means
+  // every pre-existing row reads as legacy: incompatible with the current
+  // placement model, so it fails fast and offers Start fresh (Q-022).
+  // Fresh claims and Start fresh write BUNKER_LAYOUT_VERSION instead.
+  await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS layout_version integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS bunker_raids (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -183,6 +208,13 @@ async function applySchema(sql: Sql): Promise<void> {
       rewarded_at timestamptz,
       PRIMARY KEY (player_id, raid_id)
     )`;
+  // Discriminates a live first-person raid row (Q-024 option D) from the
+  // interim server-resolved raid. NULL on legacy and interim rows; the live
+  // lifecycle sets it to BUNKER_RAID_LIVE_VERSION so the view can tell the two
+  // snapshot shapes apart.
+  await sql`
+    ALTER TABLE bunker_raids
+    ADD COLUMN IF NOT EXISTS raid_version integer`;
   await sql`
     CREATE TABLE IF NOT EXISTS match_records (
       id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

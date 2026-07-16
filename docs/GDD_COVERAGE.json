@@ -870,16 +870,25 @@
       "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
+        "src/sim/bunker-raid-live.ts",
         "src/server/bunker.ts",
         "src/app/api/bunker/raid/collect/route.ts",
         "src/app/api/bunker/raid/finish/route.ts",
+        "src/app/api/bunker/raid/start/route.ts",
+        "src/app/api/bunker/raid/resolve/route.ts",
         "src/components/mine-canvas.tsx",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/components/bunker-fp-raid.ts",
+        "src/components/bunker-fp-clankers.tsx",
+        "src/components/bunker-fp-canvas.tsx"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
+        "src/sim/bunker-raid-live.test.ts",
         "src/server/bunker.test.ts",
-        "tests/e2e/mine-bunker.spec.ts"
+        "src/components/bunker-fp-raid.test.ts",
+        "tests/e2e/mine-bunker.spec.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-092",
@@ -981,7 +990,7 @@
     },
     {
       "id": "REQ-041",
-      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits. Extended 2026-07-07 with root-cause attribution: network request timing, heap span (GC sawtooth), hidden time and visibility flips, LoAF invoker attribution, a reliable build id, per-session rollups with a software-renderer flag, and session and device filters on the insights endpoint.",
+      "requirement": "The mine collects lightweight real-session performance samples so old-device glitches and low frame rates can be diagnosed by version, renderer, viewport, hardware hints, draw calls, and frame-time percentiles. Extended 2026-07-06 with the opt-in deep performance analyzer: snapshot traces pairing frame distributions with renderer and scene composition, GPU pass time, main-thread attribution, and memory, across mine, arena, workshop, and holodeck, stored in player_perf_traces with anonymized aggregate insights and A/B variant splits. Extended 2026-07-07 with root-cause attribution: network request timing, heap span (GC sawtooth), hidden time and visibility flips, LoAF invoker attribution, a reliable build id, per-session rollups with a software-renderer flag, and session and device filters on the insights endpoint. Extended 2026-07-14 (F-100) with first-person bunker attribution: both the compact sampler and the deep collector pick their source from the active surface (mine or bunker-fp) and read the matching registered probe, the collectors restart their window on a surface change so none spans both, the compact throttle is scoped per source, and the compact route accepts every performance source.",
       "gddRef": "docs/gdd/06-mining.html#controls",
       "status": "done",
       "implementationRefs": [
@@ -1010,7 +1019,8 @@
         "src/components/perf-probe.test.ts",
         "src/app/api/performance/trace/route.test.ts",
         "src/app/api/performance/insights/route.test.ts",
-        "tests/e2e/perf-telemetry.spec.ts"
+        "tests/e2e/perf-telemetry.spec.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-100",
@@ -1040,6 +1050,8 @@
         "src/lib/account-provider-status.ts",
         "src/state/mine-api-client.ts",
         "src/state/mine-store.ts",
+        "src/state/mine-trip-persistence.ts",
+        "src/server/mine-trip-schema.ts",
         "src/server/account-handoff.ts",
         "src/lib/account-link-core.ts",
         "src/server/account-linking.ts",
@@ -1074,6 +1086,7 @@
         "src/lib/account-provider-status.test.ts",
         "src/state/mine-api-client.test.ts",
         "src/state/mine-store.test.ts",
+        "src/state/mine-trip-persistence.test.ts",
         "src/server/account-handoff.test.ts",
         "src/server/account-env-preflight.test.ts",
         "src/lib/account-link-core.test.ts",
@@ -1112,7 +1125,7 @@
         "F-114",
         "F-116",
         "F-122",
-        "F-135"
+        "F-177"
       ]
     },
     {
@@ -1141,7 +1154,7 @@
     },
     {
       "id": "REQ-045",
-      "requirement": "Bunker rock uses deterministic mine generation and break rules, spends no battery, deposits ore into the shared cargo flow, preserves depletion, and cannot pay rewards again after reset or retry.",
+      "requirement": "Bunker rock uses deterministic mine generation and break rules, spends no battery, deposits ore into the shared cargo flow, preserves depletion, and cannot pay rewards again after reset or retry. Banked edits carry an optimistic revision guard (F-122): each dig or part edit echoes the loaded revision, exactly one write per revision wins, a lost or stale race returns HTTP 409 with the authoritative view and pays no ore, and the client serializes edits and resyncs on conflict.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
       "status": "partial",
       "implementationRefs": [
@@ -1150,15 +1163,23 @@
         "src/server/bunker.ts",
         "src/app/api/mine/bank/route.ts",
         "src/app/api/bunker/excavate/route.ts",
+        "src/app/api/bunker/parts/place/route.ts",
+        "src/app/api/bunker/parts/remove/route.ts",
+        "src/app/api/bunker/parts/move/route.ts",
         "src/app/api/bunker/collect/route.ts",
+        "src/server/api-boundary.ts",
+        "src/lib/bunker-api-types.ts",
         "src/state/mine-store.ts",
         "src/state/bunker-store.ts",
+        "src/state/bunker-api-client.ts",
         "src/components/bunker-fp-canvas.tsx"
       ],
       "testRefs": [
         "src/sim/bunker-blocks.test.ts",
         "src/sim/bunker.test.ts",
         "src/server/bunker.test.ts",
+        "src/app/api/bunker/route.test.ts",
+        "src/state/bunker-store.test.ts",
         "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
@@ -1166,17 +1187,31 @@
         "F-120",
         "F-122",
         "F-133",
-        "F-139",
-        "F-142"
+        "F-181",
+        "F-184"
       ]
     },
     {
       "id": "REQ-046",
       "requirement": "Bunker construction uses rotatable sub-cell slots for thin floors, walls, roofs, and stairs, with deterministic support and destruction rules plus a confirmed hard reset for incompatible old layouts.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/server/db.ts",
+        "src/app/api/bunker/start-fresh/route.ts",
+        "src/components/mine-bunker-control-panel.tsx",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/server/bunker.test.ts",
+        "src/app/api/bunker/route.test.ts",
+        "src/state/bunker-store.test.ts",
+        "src/state/bunker-api-client.test.ts",
+        "tests/e2e/mine-bunker.spec.ts"
+      ],
       "followupRefs": [
         "F-117"
       ]
@@ -1185,9 +1220,22 @@
       "id": "REQ-047",
       "requirement": "The bunker core is removed as state, geometry, and target; live Clankers hunt the player under explicit disconnect and expiry behavior.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "done",
+      "implementationRefs": [
+        "src/sim/bunker.ts",
+        "src/sim/bunker-raid-live.ts",
+        "src/components/bunker-fp-canvas.tsx",
+        "src/components/bunker-fp-grid.ts",
+        "src/components/mine-bunker-overlay.tsx",
+        "src/server/bunker.ts"
+      ],
+      "testRefs": [
+        "src/sim/bunker.test.ts",
+        "src/components/bunker-fp-grid.test.ts",
+        "src/sim/bunker-raid-live.test.ts",
+        "src/server/bunker-raid-live-server.test.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
+      ],
       "followupRefs": [
         "F-104",
         "F-105",

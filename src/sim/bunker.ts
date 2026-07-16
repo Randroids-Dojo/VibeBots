@@ -8,6 +8,16 @@ export const BUNKER_CLAIM_HEIGHT = 5;
 /** Cells of buildable depth behind the tunnel plane. Depth 0 is the plane
  * the 2D mine view shows; deeper cells extend into the claim rock. */
 export const BUNKER_CLAIM_DEPTH = 5;
+/**
+ * Build-era generation stamped on every bunker (F-117). It marks which
+ * bunker-design era a layout was created or last reset under, not a
+ * specific part model: version 1 is the current 7x5x5 dig-out redesign.
+ * A bunker from an older era fails fast and offers a confirmed Start
+ * fresh (Q-022, a product decision to clear pre-redesign layouts rather
+ * than migrate them) instead of being edited under the new design. Rows
+ * that predate the marker persist as 0 and read as an older era. Bump
+ * this only when a redesign should force existing layouts to reset. */
+export const BUNKER_LAYOUT_VERSION = 1;
 export const BUNKER_RAID_DURATION_SECONDS = 180;
 export const BUNKER_RAID_COOLDOWN_HOURS = 4;
 export const DEFENSE_XP_PER_LEVEL = 100;
@@ -15,15 +25,12 @@ export const PLAYER_LEVEL_CAP = 100;
 export const LEVEL_ONE_BEACON_LIMIT = 2;
 export const LEVEL_TWO_BEACON_LIMIT = 3;
 export const BASIC_TURRET_AMMO = 3;
-export const BASIC_TURRET_DAMAGE = 18;
 export const FLOOR_SPIKES_DURABILITY = 3;
 export const FLOOR_SPIKES_DAMAGE = 16;
 export const BASIC_TURRET_MIN_LEVEL = 2;
 export const BASIC_TURRET_OWNED_LIMIT = 1;
 export const FLOOR_SPIKES_LEVEL_ONE_LIMIT = 4;
 export const FLOOR_SPIKES_LEVEL_TWO_LIMIT = 6;
-export const CLANKER_BASE_BATTERY_STEPS = 7;
-export const CLANKER_BATTERY_STEPS_PER_TIER = 2;
 export const CLANKER_BASE_BITE_DAMAGE = 24;
 export const CLANKER_BITE_DAMAGE_PER_TIER = 8;
 export const CLANKER_SELF_DESTRUCT_XP = 25;
@@ -33,7 +40,6 @@ export const CLANKER_TANK_XP = 50;
 export const CLANKER_BREACHER_BITE_FACTOR = 2;
 /** Turret shots needed to stop a tank. */
 export const CLANKER_TANK_TURRET_SHOTS = 2;
-export const BUNKER_RAID_PICKUP_COLLECTION_RADIUS = 1;
 
 export const BASE_PART_IDS = [
   "wall-panel",
@@ -122,7 +128,7 @@ export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
 
 /**
  * Enough to fully enclose the player cell on day one: a sealed 3x3
- * room around the core takes 3 floors, 3 roofs, 1 wall, and the door,
+ * room around the spawn takes 3 floors, 3 roofs, 1 wall, and the door,
  * which leaves spare walls for layering or a roomier shape. Every
  * granted part blocks Clankers, so a sealed starter room genuinely
  * survives a raid (see "the starter kit seals the player cell").
@@ -143,12 +149,62 @@ export interface BunkerFootprint {
   height: number;
 }
 
-export interface BunkerCore {
-  col: number;
-  row: number;
-  /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
-  depth: number;
-  durability: number;
+/**
+ * Sub-cell slots a thin part occupies (F-117). One cell holds at most one
+ * part per slot: four wall faces on the horizontal boundaries, a floor
+ * slab, a roof slab, and one interior mount (turret, spikes, or stair).
+ * Wall faces sit on the boundary *between* two cells; `canonicalWallSlot`
+ * pins each divider to a single (cell, face) so it cannot be placed from
+ * both sides. Axes match the fp grid: `px`/`nx` face col+1/col-1, `pz`/`nz`
+ * face depth+1/depth-1; floor is the cell's bottom (toward the cell below,
+ * row+1), roof its top (toward the cell above, row-1).
+ */
+export const BUNKER_SLOTS = [
+  "floor",
+  "roof",
+  "wall-px",
+  "wall-nx",
+  "wall-pz",
+  "wall-nz",
+  "mount",
+] as const;
+export type BunkerSlot = (typeof BUNKER_SLOTS)[number];
+
+export function isBunkerWallSlot(slot: BunkerSlot): boolean {
+  return (
+    slot === "wall-px" ||
+    slot === "wall-nx" ||
+    slot === "wall-pz" ||
+    slot === "wall-nz"
+  );
+}
+
+const WALL_SLOTS: readonly BunkerSlot[] = [
+  "wall-px",
+  "wall-nx",
+  "wall-pz",
+  "wall-nz",
+];
+
+/**
+ * Which slots a part may occupy under the thin model (F-117). Walls and
+ * doors are boundary dividers (any of the four wall faces); floor and roof
+ * are the horizontal slabs; turrets, spikes, and future stairs stand in
+ * the cell interior (the single mount slot).
+ */
+export function allowedBunkerSlots(partId: BasePartId): readonly BunkerSlot[] {
+  switch (partId) {
+    case "wall-panel":
+    case "door-panel":
+      return WALL_SLOTS;
+    case "floor-panel":
+      return ["floor"];
+    case "roof-panel":
+      return ["roof"];
+    case "basic-turret":
+    case "floor-spikes":
+      return ["mount"];
+  }
 }
 
 export interface PlacedBasePart {
@@ -158,6 +214,15 @@ export interface PlacedBasePart {
   /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
   depth: number;
   durability: number;
+  /**
+   * Sub-cell slot this thin part occupies (F-117). Absent on legacy
+   * full-cell parts placed before the thin model. Wall slots are stored in
+   * canonical form (see `canonicalWallSlot`). The slice that lets the UI
+   * place thin parts writes this field and enforces the slot invariants
+   * (occupancy, support, roof-top-only); this foundation slice only defines
+   * the vocabulary. Stair orientation lands with the stair part.
+   */
+  slot?: BunkerSlot;
 }
 
 /** Cosmetic bunker skins (F-087, REQ-034/REQ-038): palette variants for
@@ -221,7 +286,6 @@ export interface BunkerLoot {
 
 export interface BunkerState {
   footprint: BunkerFootprint;
-  core: BunkerCore;
   parts: PlacedBasePart[];
   /** Excavated cells in dig order (now including the depth-0 plane and
    * the pre-mined spawn pocket); legacy rows normalize to []. */
@@ -237,6 +301,10 @@ export interface BunkerState {
   skin?: BunkerSkinId;
   /** Skins this player owns beyond the free default. */
   skinsOwned?: BunkerSkinId[];
+  /** Layout-model version this bunker was built under (F-117). Absent or
+   * below BUNKER_LAYOUT_VERSION means the persisted layout predates the
+   * current placement model and must Start fresh before editing. */
+  layoutVersion?: number;
 }
 
 export interface PendingBunkerBuild {
@@ -257,21 +325,6 @@ export interface PendingBunkerClaimPayload {
 
 export type ClankerKind = "standard" | "breacher" | "tank";
 
-export interface ClankerState {
-  id: string;
-  /** Specialist behavior (F-085): breachers bite blockers twice as hard,
-   * tanks soak two turret shots. Old snapshots normalize to standard. */
-  kind: ClankerKind;
-  col: number;
-  row: number;
-  targetCol: number;
-  targetRow: number;
-  path?: Array<{ col: number; row: number }>;
-  batterySteps: number;
-  deathStep: number;
-  status: "turret-destroyed" | "self-destructed" | "battery-drained";
-}
-
 /** Deterministic specialist assignment: tier 2 unlocks breachers (every
  * third slot), tier 3 unlocks tanks (every fourth slot, checked first so
  * the mix stays stable as waves grow). */
@@ -286,80 +339,6 @@ export function clankerXpFor(kind: ClankerKind): number {
   if (kind === "tank") return CLANKER_TANK_XP;
   if (kind === "breacher") return CLANKER_BREACHER_XP;
   return CLANKER_SELF_DESTRUCT_XP;
-}
-
-export interface BunkerRaidDamageEvent {
-  clankerId: string;
-  col: number;
-  row: number;
-  target: "part" | "core";
-  partId?: BasePartId;
-  damage: number;
-}
-
-export interface BunkerRaidSnapshot {
-  raidId: string;
-  tier: number;
-  durationSeconds: number;
-  startedAtMs?: number;
-  clankers: ClankerState[];
-  turretShots: number;
-  turretDamage: number;
-  spikeTriggers: number;
-  spikeDamage: number;
-  totalPartDurability: number;
-  incomingDamage: number;
-  partDamage: BunkerRaidDamageEvent[];
-  coreDamage: number;
-  xpPickups: Array<{
-    id: string;
-    col: number;
-    row: number;
-    defenseXp: number;
-    collected: boolean;
-  }>;
-  allClankersDead: boolean;
-  breached: boolean;
-  minerKilled: boolean;
-  survived: boolean;
-  /**
-   * True when the raid was survived AND no clanker could even target
-   * the player cell: the enclosure held. Absent on snapshots stored
-   * before 0.1.214 (treated as false; old raids cannot prove a seal).
-   */
-  sealed: boolean;
-  reward: {
-    vibes: number;
-    defenseXp: number;
-  };
-}
-
-export function canCollectBunkerRaidPickupFrom(
-  pickup: { col: number; row: number; collected: boolean },
-  minerCol: number,
-  minerRow: number,
-): boolean {
-  return (
-    !pickup.collected &&
-    Math.abs(pickup.col - minerCol) <= BUNKER_RAID_PICKUP_COLLECTION_RADIUS &&
-    Math.abs(pickup.row - minerRow) <= BUNKER_RAID_PICKUP_COLLECTION_RADIUS
-  );
-}
-
-export type BunkerRaidTerrainKind =
-  | "empty"
-  | "dirt"
-  | "ore"
-  | "part-cache"
-  | "rock"
-  | "boulder"
-  | "gas"
-  | "magma"
-  | "metal";
-
-export interface BunkerRaidPathingOptions {
-  startedAtMs?: number;
-  terrainAt?: (col: number, row: number) => BunkerRaidTerrainKind;
 }
 
 export interface BunkerRaidRewardReport {
@@ -400,14 +379,10 @@ export function maxBunkerRaidTier(playerLevel: number): number {
 
 /** Repair pricing (F-086): proportional to the damage, half the part's
  * shop price for a full restore, always at least 1 vibe per damaged
- * part; the core repairs at a flat rate per missing point. */
-export const CORE_REPAIR_COST_PER_POINT = 0.25;
-export const BUNKER_CORE_MAX_DURABILITY = 160;
-
+ * part. */
 export interface BunkerRepairPlan {
   totalCost: number;
   partCount: number;
-  coreMissing: number;
 }
 
 export function bunkerRepairPlan(bunker: BunkerState): BunkerRepairPlan {
@@ -423,22 +398,14 @@ export function bunkerRepairPlan(bunker: BunkerState): BunkerRepairPlan {
       Math.ceil((missing / def.durability) * def.price * 0.5),
     );
   }
-  const coreMissing = Math.max(
-    0,
-    BUNKER_CORE_MAX_DURABILITY - bunker.core.durability,
-  );
-  if (coreMissing > 0) {
-    totalCost += Math.ceil(coreMissing * CORE_REPAIR_COST_PER_POINT);
-  }
-  return { totalCost, partCount, coreMissing };
+  return { totalCost, partCount };
 }
 
-/** Restore every damaged part and the core to full durability. Pure:
- * affordability is the caller's (server's) concern. */
+/** Restore every damaged part to full durability. Pure: affordability is
+ * the caller's (server's) concern. */
 export function applyBunkerRepairs(bunker: BunkerState): BunkerState {
   return {
     ...bunker,
-    core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
     parts: bunker.parts.map((part) => ({
       ...part,
       durability: BASE_PART_CATALOG[part.partId].durability,
@@ -461,10 +428,9 @@ export function isBasePartDamaged(part: PlacedBasePart): boolean {
  * Reset the bunker to a bare claim (F-093). Refund rule: every placed
  * part still at full catalog durability returns to inventory; damaged
  * parts are lost, matching removeBasePart's "damaged parts do not
- * refund" contract. Placed parts and excavated cells clear, the core
- * restores to full durability, and the claim itself (footprint, core
- * position, skin, owned skins) is untouched. Pure: raid gating and
- * persistence are the caller's (server's) concern.
+ * refund" contract. Placed parts clear, excavated cells stay dug, and
+ * the claim itself (footprint, skin, owned skins) is untouched. Pure:
+ * raid gating and persistence are the caller's (server's) concern.
  */
 export function applyBunkerReset(
   bunker: BunkerState,
@@ -478,13 +444,42 @@ export function applyBunkerReset(
   return {
     bunker: {
       ...bunker,
-      core: { ...bunker.core, durability: BUNKER_CORE_MAX_DURABILITY },
       parts: [],
       // Keep the excavation and its depletion (F-120): reset clears the
       // built layout, not the dug-out rock, so mined ore never regrows
       // and the spawn pocket stays open and grounded.
     },
     inventory: refunded,
+  };
+}
+
+/**
+ * True when this bunker's persisted layout predates the current layout
+ * model and cannot be edited under the present placement rules (F-117).
+ * Legacy rows carry no version (read as 0); anything below the current
+ * version is incompatible. The caller (server + client) blocks editing
+ * and offers Start fresh instead of migrating (Q-022).
+ */
+export function isBunkerLayoutIncompatible(bunker: BunkerState): boolean {
+  return (bunker.layoutVersion ?? 0) < BUNKER_LAYOUT_VERSION;
+}
+
+/**
+ * Hard reset an incompatible bunker to a bare, current-version claim
+ * (F-117, Q-022). Unlike applyBunkerReset this refunds nothing: the old
+ * layout is structurally gone, so its parts do not return to inventory.
+ * The excavation, footprint, skin, seed, and loot survive (all still
+ * valid under the new model); only the built parts clear and the layout
+ * version stamps forward. Pure: persistence is the caller's concern.
+ */
+export function applyBunkerStartFresh(bunker: BunkerState): BunkerState {
+  return {
+    ...bunker,
+    parts: [],
+    layoutVersion: BUNKER_LAYOUT_VERSION,
+    // Dug cells, footprint, skin, seed, and loot stay: they carry no
+    // layout-model assumptions, so mined ore never regrows and the
+    // spawn pocket stays open (matches applyBunkerReset's F-120 rule).
   };
 }
 
@@ -633,6 +628,199 @@ export function containsBunkerCell3D(
   );
 }
 
+/** One sub-cell slot anchored to an absolute cell (F-117). */
+export interface BunkerSlotRef {
+  col: number;
+  row: number;
+  depth: number;
+  slot: BunkerSlot;
+}
+
+/**
+ * Canonical (cell, face) for a wall divider (F-117). A wall between two
+ * cells is one physical slab; addressing it from either side must resolve
+ * to the same slot so it cannot be placed twice. We pin it to the lower
+ * coordinate on its axis when that neighbor is in-footprint: a `wall-nx`
+ * becomes the `wall-px` of the cell to its left, a `wall-nz` the `wall-pz`
+ * of the cell in front of it. An edge wall whose lower neighbor is outside
+ * the footprint keeps its own face. Non-wall slots are returned unchanged.
+ */
+export function canonicalWallSlot(
+  footprint: BunkerFootprint,
+  col: number,
+  row: number,
+  depth: number,
+  slot: BunkerSlot,
+): BunkerSlotRef {
+  if (
+    slot === "wall-nx" &&
+    containsBunkerCell3D(footprint, col - 1, row, depth)
+  ) {
+    return { col: col - 1, row, depth, slot: "wall-px" };
+  }
+  if (
+    slot === "wall-nz" &&
+    containsBunkerCell3D(footprint, col, row, depth - 1)
+  ) {
+    return { col, row, depth: depth - 1, slot: "wall-pz" };
+  }
+  return { col, row, depth, slot };
+}
+
+/** The slotted part occupying an exact canonical slot, or undefined. A
+ * legacy whole-cell part (no slot) never matches a defined slot ref. */
+function bunkerPartAtSlot(
+  bunker: BunkerState,
+  ref: BunkerSlotRef,
+): PlacedBasePart | undefined {
+  return bunker.parts.find(
+    (part) =>
+      part.col === ref.col &&
+      part.row === ref.row &&
+      part.depth === ref.depth &&
+      part.slot === ref.slot,
+  );
+}
+
+/** True when a part already occupies `ref`'s slot (F-117). A legacy
+ * full-cell part (no slot) fills its whole cell, so it conflicts with any
+ * slot in that cell; a slotted part conflicts only on the same canonical
+ * slot. A wall divides two cells, so a legacy whole-cell part on the far
+ * side of the boundary also blocks the divider (a canonical wall ref always
+ * faces +col or +depth). Legacy and slotted parts never coexist in a live
+ * bunker (Q-022 hard-resets an old layout before the thin model loads), so
+ * the cross-cell legacy case only matters defensively until that boundary
+ * lands. */
+function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
+  const here = bunker.parts.some((part) => {
+    if (
+      part.col !== ref.col ||
+      part.row !== ref.row ||
+      part.depth !== ref.depth
+    ) {
+      return false;
+    }
+    return part.slot === undefined || part.slot === ref.slot;
+  });
+  if (here) return true;
+  if (!isBunkerWallSlot(ref.slot)) return false;
+  const farCol = ref.slot === "wall-px" ? ref.col + 1 : ref.col;
+  const farDepth = ref.slot === "wall-pz" ? ref.depth + 1 : ref.depth;
+  return bunker.parts.some(
+    (part) =>
+      part.slot === undefined &&
+      part.col === farCol &&
+      part.row === ref.row &&
+      part.depth === farDepth,
+  );
+}
+
+/** True when a thin wall divider already sits on any of a cell's four
+ * boundaries (F-117). A whole-cell legacy part fills the cell out to its
+ * shared edges, so it physically collides with such a divider; this is the
+ * legacy-side of the boundary rule that `bunkerSlotOccupied` enforces from
+ * the wall side, so legacy placement and a legacy move target are blocked in
+ * the same case regardless of which part landed first. It ignores legacy
+ * neighbors (they carry no wall slot), matching only slotted dividers. */
+function bunkerCellBlockedByWall(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  for (const face of WALL_SLOTS) {
+    const ref = canonicalWallSlot(bunker.footprint, col, row, depth, face);
+    if (bunkerPartAtSlot(bunker, ref)) return true;
+  }
+  return false;
+}
+
+/** Minimum walls an overhead floor needs beneath it to stand (F-117). */
+export const BUNKER_OVERHEAD_FLOOR_MIN_WALLS = 2;
+
+/** A floor slab rests on solid ground when the cell directly below it is
+ * not open. Room-local y counts up as `row` decreases (see the fp grid),
+ * so the cell below is `row + 1`. A grounded floor needs no walls; an
+ * overhead floor (open space below) must be held up. */
+function isGroundedBunkerFloor(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  return !isOpenBunkerCell(bunker, col, row + 1, depth);
+}
+
+/** Walls holding up a floor slab: the wall faces of the cell directly
+ * below it, which rise to meet the floor's underside. Counts the canonical
+ * wall slots that carry a load-bearing part (only walls and doors can sit
+ * in a wall slot, and both are structural dividers). A part chewed down to
+ * zero durability is rubble, not support, so the support count is recomputed
+ * on each settlement pass. Today a settlement pass runs only on a pry or an
+ * excavation. Live raids are already active, so before any thin-part
+ * persistence or activation the live-raid wear resolution must run this
+ * settlement itself, with exact slot identity, at the moment a support is
+ * destroyed; leaning on a later unrelated mutation to settle is not
+ * acceptable. That integration is tracked as deferred in the F-117 slice
+ * log. */
+function bunkerFloorSupportWalls(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): number {
+  let count = 0;
+  for (const face of WALL_SLOTS) {
+    const ref = canonicalWallSlot(bunker.footprint, col, row + 1, depth, face);
+    const part = bunkerPartAtSlot(bunker, ref);
+    if (part && part.durability > 0) count++;
+  }
+  return count;
+}
+
+/** True when a floor slab at the cell may stand: grounded, or overhead
+ * with at least the minimum supporting walls beneath it (F-117). */
+function isBunkerFloorSupported(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  if (isGroundedBunkerFloor(bunker, col, row, depth)) return true;
+  return (
+    bunkerFloorSupportWalls(bunker, col, row, depth) >=
+    BUNKER_OVERHEAD_FLOOR_MIN_WALLS
+  );
+}
+
+/**
+ * Drop every overhead floor that has lost its support (F-117): a floor with
+ * open space below it and fewer than the minimum supporting walls falls.
+ * A caller runs this after a wall is pried or destroyed. Floors do not
+ * support other floors, so a single pass settles it. Pure; returns the
+ * culled bunker and the fallen floors (destroyed, so callers do not refund
+ * them).
+ */
+export function cascadeUnsupportedFloors(bunker: BunkerState): {
+  bunker: BunkerState;
+  fallen: PlacedBasePart[];
+} {
+  const fallen = bunker.parts.filter(
+    (part) =>
+      part.slot === "floor" &&
+      !isBunkerFloorSupported(bunker, part.col, part.row, part.depth),
+  );
+  if (fallen.length === 0) return { bunker, fallen };
+  const dropped = new Set(fallen);
+  return {
+    bunker: {
+      ...bunker,
+      parts: bunker.parts.filter((part) => !dropped.has(part)),
+    },
+    fallen,
+  };
+}
+
 /** Open = walkable/buildable air. Every cell (including the depth-0
  * plane) starts as solid claim rock (F-115/F-116); a cell is open only
  * if it has been excavated, and the pre-mined spawn pocket is seeded
@@ -658,7 +846,7 @@ export function excavateBunkerCell(
   row: number,
   depth: number,
 ):
-  | { ok: true; bunker: BunkerState }
+  | { ok: true; bunker: BunkerState; fallen?: PlacedBasePart[] }
   | { ok: false; reason: "outside" | "open" | "unreachable" } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
@@ -674,10 +862,18 @@ export function excavateBunkerCell(
     isOpenBunkerCell(bunker, col, row, depth - 1) ||
     isOpenBunkerCell(bunker, col, row, depth + 1);
   if (!reachable) return { ok: false, reason: "unreachable" };
-  return {
-    ok: true,
-    bunker: { ...bunker, dug: [...bunker.dug, { col, row, depth }] },
+  // Opening this cell can pull the ground out from under a floor one row up
+  // (its below-cell just became open), so settle unsupported floors here on
+  // the same path a pried wall uses (F-117). Fallen floors are destroyed, so
+  // callers do not refund them.
+  const dug: BunkerState = {
+    ...bunker,
+    dug: [...bunker.dug, { col, row, depth }],
   };
+  const settled = cascadeUnsupportedFloors(dug);
+  return settled.fallen.length > 0
+    ? { ok: true, bunker: settled.bunker, fallen: settled.fallen }
+    : { ok: true, bunker: settled.bunker };
 }
 
 function bunkerLootKey(col: number, row: number, depth: number): string {
@@ -803,37 +999,19 @@ export function takeBunkerLootAt(
   return { bunker: { ...bunker, loot: nextLoot }, ores: { ...entry.ores } };
 }
 
-export function isBunkerPerimeterCell(
-  footprint: BunkerFootprint,
-  col: number,
-  row: number,
-): boolean {
-  return (
-    containsBunkerCell(footprint, col, row) &&
-    (col === footprint.col ||
-      col === footprint.col + footprint.width - 1 ||
-      row === footprint.row ||
-      row === footprint.row + footprint.height - 1)
-  );
-}
-
 export function createBunker(
   footprint: BunkerFootprint,
   blockSeed?: number,
 ): BunkerState {
   return {
     footprint,
-    core: {
-      col: footprint.col + Math.floor(footprint.width / 2),
-      row: footprint.row + Math.floor(footprint.height / 2),
-      depth: 0,
-      durability: BUNKER_CORE_MAX_DURABILITY,
-    },
     parts: [],
     // The whole volume starts solid; the spawn pocket is the only open
     // room a fresh claim ships with (F-115).
     dug: bunkerSpawnPocketCells(footprint),
     blockSeed,
+    // Fresh claims are born under the current layout model (F-117).
+    layoutVersion: BUNKER_LAYOUT_VERSION,
   };
 }
 
@@ -844,11 +1022,19 @@ export function placeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
-      reason: "outside" | "rock" | "core" | "occupied" | "stock";
+      reason:
+        | "outside"
+        | "rock"
+        | "occupied"
+        | "stock"
+        | "slot"
+        | "roof-top"
+        | "unsupported";
     } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
@@ -856,29 +1042,77 @@ export function placeBasePart(
   if (!isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "rock" };
   }
-  if (
-    bunker.core.col === col &&
-    bunker.core.row === row &&
-    bunker.core.depth === depth
-  ) {
-    return { ok: false, reason: "core" };
+  const def = BASE_PART_CATALOG[partId];
+  // Legacy whole-cell placement (no slot): one part per cell, as before.
+  if (slot === undefined) {
+    if (
+      bunker.parts.some(
+        (part) => part.col === col && part.row === row && part.depth === depth,
+      )
+    ) {
+      return { ok: false, reason: "occupied" };
+    }
+    // A whole-cell part also collides with any thin wall already on one of
+    // its boundaries, so the physical boundary rule holds whichever part was
+    // placed first (F-117).
+    if (bunkerCellBlockedByWall(bunker, col, row, depth)) {
+      return { ok: false, reason: "occupied" };
+    }
+    if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
+    return {
+      ok: true,
+      bunker: {
+        ...bunker,
+        parts: [
+          ...bunker.parts,
+          { partId, col, row, depth, durability: def.durability },
+        ],
+      },
+      inventory: addBasePartInventory(inventory, partId, -1),
+    };
   }
-  if (
-    bunker.parts.some(
-      (part) => part.col === col && part.row === row && part.depth === depth,
-    )
-  ) {
+  // Thin sub-cell placement: validate the slot, resolve the canonical
+  // divider, and enforce the structural rules so the layout can never hold
+  // an unsupported floor or a roof off the top of its room.
+  if (!allowedBunkerSlots(partId).includes(slot)) {
+    return { ok: false, reason: "slot" };
+  }
+  const ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  if (bunkerSlotOccupied(bunker, ref)) {
     return { ok: false, reason: "occupied" };
   }
+  // A roof is the bunker's actual ceiling, so it may sit only in the topmost
+  // row of the claim volume (Q-025, dev direction 2026-07-16: "only the very
+  // top gets actual roof"). row counts up as it decreases, so the top row is
+  // footprint.row. An interior room that tops out against rock is capped with
+  // a second-story floor (the deck above doubles as that room's ceiling), not
+  // a roof.
+  if (slot === "roof" && row !== bunker.footprint.row) {
+    return { ok: false, reason: "roof-top" };
+  }
+  // An overhead floor must already have the walls that hold it up beneath
+  // it; a grounded floor stands on its own.
+  if (
+    slot === "floor" &&
+    !isBunkerFloorSupported(bunker, ref.col, ref.row, ref.depth)
+  ) {
+    return { ok: false, reason: "unsupported" };
+  }
   if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
-  const def = BASE_PART_CATALOG[partId];
   return {
     ok: true,
     bunker: {
       ...bunker,
       parts: [
         ...bunker.parts,
-        { partId, col, row, depth, durability: def.durability },
+        {
+          partId,
+          col: ref.col,
+          row: ref.row,
+          depth: ref.depth,
+          durability: def.durability,
+          slot: ref.slot,
+        },
       ],
     },
     inventory: addBasePartInventory(inventory, partId, -1),
@@ -891,14 +1125,49 @@ export function removeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
 ):
-  | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
+  | {
+      ok: true;
+      bunker: BunkerState;
+      inventory: BasePartInventory;
+      /** Overhead floors dropped because this part held them up (F-117).
+       * Destroyed, not refunded; absent when nothing fell. */
+      fallen?: PlacedBasePart[];
+    }
   | {
       ok: false;
       reason: "missing" | "damaged";
     } {
+  // With a slot, target that exact divider; without one, the legacy
+  // whole-cell match (first part in the cell) is preserved for one-part
+  // layouts.
+  let ref: BunkerSlotRef | null = null;
+  if (slot !== undefined) {
+    // Canonicalize only from an open origin cell. A wall is pried from the
+    // open side you stand on, so the origin must be excavated air, not solid
+    // rock or out of bounds. Without this an out-of-footprint or solid-side
+    // coordinate could alias onto a real divider (wall-nx at col 7 folds to
+    // wall-px at col 6; wall-nz at a solid cell folds onto the open cell's
+    // shared face) and pry a part through a cell the player is not in.
+    if (!isOpenBunkerCell(bunker, col, row, depth)) {
+      return { ok: false, reason: "missing" };
+    }
+    ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  }
   const part = bunker.parts.find((candidate) => {
+    if (ref) {
+      return (
+        candidate.col === ref.col &&
+        candidate.row === ref.row &&
+        candidate.depth === ref.depth &&
+        candidate.slot === ref.slot
+      );
+    }
+    // Legacy removal targets only a whole-cell part; a slotted divider in
+    // the same cell is pried by naming its slot, never by a bare cell match.
     return (
+      candidate.slot === undefined &&
       candidate.col === col &&
       candidate.row === row &&
       candidate.depth === depth
@@ -906,13 +1175,22 @@ export function removeBasePart(
   });
   if (!part) return { ok: false, reason: "missing" };
   if (isBasePartDamaged(part)) return { ok: false, reason: "damaged" };
+  let next: BunkerState = {
+    ...bunker,
+    parts: bunker.parts.filter((candidate) => candidate !== part),
+  };
+  // Prying a wall can drop the overhead floors it was holding up.
+  let fallen: PlacedBasePart[] = [];
+  if (part.slot !== undefined && isBunkerWallSlot(part.slot)) {
+    const cascade = cascadeUnsupportedFloors(next);
+    next = cascade.bunker;
+    fallen = cascade.fallen;
+  }
   return {
     ok: true,
-    bunker: {
-      ...bunker,
-      parts: bunker.parts.filter((candidate) => candidate !== part),
-    },
+    bunker: next,
     inventory: addBasePartInventory(inventory, part.partId, 1),
+    ...(fallen.length > 0 ? { fallen } : {}),
   };
 }
 
@@ -928,10 +1206,14 @@ export function moveBasePart(
   | { ok: true; bunker: BunkerState }
   | {
       ok: false;
-      reason: "missing" | "outside" | "rock" | "core" | "occupied";
+      reason: "missing" | "outside" | "rock" | "occupied";
     } {
+  // Whole-cell move only: a thin (slotted) part is never relocated by the
+  // cell mover, so a multi-part cell cannot be moved ambiguously. Slot-aware
+  // move lands with the slice that lets the UI relocate a thin part.
   const part = bunker.parts.find((candidate) => {
     return (
+      candidate.slot === undefined &&
       candidate.col === fromCol &&
       candidate.row === fromRow &&
       candidate.depth === fromDepth
@@ -945,13 +1227,6 @@ export function moveBasePart(
     return { ok: false, reason: "rock" };
   }
   if (
-    bunker.core.col === toCol &&
-    bunker.core.row === toRow &&
-    bunker.core.depth === toDepth
-  ) {
-    return { ok: false, reason: "core" };
-  }
-  if (
     bunker.parts.some((candidate) => {
       return (
         candidate !== part &&
@@ -961,6 +1236,11 @@ export function moveBasePart(
       );
     })
   ) {
+    return { ok: false, reason: "occupied" };
+  }
+  // The moved whole-cell part cannot land on a boundary a thin wall already
+  // divides, matching the legacy-placement boundary rule (F-117).
+  if (bunkerCellBlockedByWall(bunker, toCol, toRow, toDepth)) {
     return { ok: false, reason: "occupied" };
   }
   if (fromCol === toCol && fromRow === toRow && fromDepth === toDepth) {
@@ -976,571 +1256,5 @@ export function moveBasePart(
           : candidate,
       ),
     },
-  };
-}
-
-function perimeterTargets(footprint: BunkerFootprint): Array<{
-  col: number;
-  row: number;
-}> {
-  return bunkerCells(footprint).filter((cell) =>
-    isBunkerPerimeterCell(footprint, cell.col, cell.row),
-  );
-}
-
-const coordKey = (col: number, row: number) => `${col},${row}`;
-
-function terrainCost(kind: BunkerRaidTerrainKind): number {
-  if (kind === "empty") return 1;
-  if (kind === "dirt" || kind === "ore") return 8;
-  return Number.POSITIVE_INFINITY;
-}
-
-function findPartAt(
-  bunker: BunkerState,
-  col: number,
-  row: number,
-): PlacedBasePart | undefined {
-  return bunker.parts.find((part) => part.col === col && part.row === row);
-}
-
-function bunkerCellCost(
-  bunker: BunkerState,
-  col: number,
-  row: number,
-  target: { col: number; row: number },
-): number {
-  if (bunker.core.col === col && bunker.core.row === row) {
-    return target.col === col && target.row === row
-      ? 12
-      : Number.POSITIVE_INFINITY;
-  }
-  const part = findPartAt(bunker, col, row);
-  if (!part) return 1;
-  const def = BASE_PART_CATALOG[part.partId];
-  if (!def.blocksClankers) return 1;
-  return target.col === col && target.row === row
-    ? 10
-    : Number.POSITIVE_INFINITY;
-}
-
-function candidateTargets(
-  bunker: BunkerState,
-): Array<{ col: number; row: number }> {
-  const targets = perimeterTargets(bunker.footprint);
-  const blockingParts = bunker.parts
-    .filter((part) => BASE_PART_CATALOG[part.partId].blocksClankers)
-    .filter((part) =>
-      isBunkerPerimeterCell(bunker.footprint, part.col, part.row),
-    )
-    .map((part) => ({ col: part.col, row: part.row }));
-  return [...blockingParts, ...targets, bunker.core];
-}
-
-function chooseClankerSpawn(
-  bunker: BunkerState,
-  index: number,
-  options: BunkerRaidPathingOptions,
-  reservations: Set<string>,
-): { col: number; row: number } {
-  const sideIndex = Math.floor(index / 2);
-  const left = index % 2 === 0;
-  const idealCol = left
-    ? bunker.footprint.col - 3 - sideIndex
-    : bunker.footprint.col + bunker.footprint.width + 2 + sideIndex;
-  const idealRow = Math.max(0, bunker.footprint.row - 1);
-  const candidates: Array<{ col: number; row: number; score: number }> = [];
-  const maxRowLift = idealRow;
-  const maxSideStep = 6 + sideIndex;
-  for (let rowLift = 0; rowLift <= maxRowLift; rowLift++) {
-    const row = idealRow - rowLift;
-    for (let sideStep = 0; sideStep <= maxSideStep; sideStep++) {
-      const col = idealCol + (left ? -sideStep : sideStep);
-      if (containsBunkerCell(bunker.footprint, col, row)) continue;
-      if ((options.terrainAt?.(col, row) ?? "empty") !== "empty") continue;
-      const reservationPenalty = reservations.has(coordKey(col, row)) ? 100 : 0;
-      candidates.push({
-        col,
-        row,
-        score: rowLift * 3 + sideStep + reservationPenalty,
-      });
-    }
-  }
-  candidates.sort((a, b) => {
-    return a.score - b.score || a.row - b.row || a.col - b.col;
-  });
-  return candidates[0] ?? { col: idealCol, row: 0 };
-}
-
-function routeToTarget(
-  bunker: BunkerState,
-  start: { col: number; row: number },
-  target: { col: number; row: number },
-  options: BunkerRaidPathingOptions,
-  reservations: Map<string, number>,
-): { path: Array<{ col: number; row: number }>; score: number } | null {
-  const margin = 10 + Math.max(bunker.footprint.width, bunker.footprint.height);
-  const minCol = bunker.footprint.col - margin;
-  const maxCol = bunker.footprint.col + bunker.footprint.width + margin;
-  const minRow = Math.max(0, bunker.footprint.row - margin);
-  const maxRow = bunker.footprint.row + bunker.footprint.height + margin;
-  const startKey = coordKey(start.col, start.row);
-  const targetKey = coordKey(target.col, target.row);
-  const costs = new Map<string, number>([[startKey, 0]]);
-  const parents = new Map<string, string>();
-  const open = [startKey];
-
-  while (open.length > 0) {
-    open.sort((a, b) => {
-      const costDiff = (costs.get(a) ?? 0) - (costs.get(b) ?? 0);
-      return costDiff || a.localeCompare(b);
-    });
-    const currentKey = open.shift();
-    if (!currentKey) break;
-    if (currentKey === targetKey) break;
-    const [col, row] = currentKey.split(",").map(Number);
-    for (const next of [
-      { col: col + 1, row },
-      { col: col - 1, row },
-      { col, row: row + 1 },
-      { col, row: row - 1 },
-    ]) {
-      if (
-        next.col < minCol ||
-        next.col > maxCol ||
-        next.row < minRow ||
-        next.row > maxRow
-      ) {
-        continue;
-      }
-      let stepCost = terrainCost(
-        options.terrainAt?.(next.col, next.row) ?? "empty",
-      );
-      if (containsBunkerCell(bunker.footprint, next.col, next.row)) {
-        stepCost = bunkerCellCost(bunker, next.col, next.row, target);
-      }
-      if (!Number.isFinite(stepCost)) continue;
-      const reservationPenalty =
-        (reservations.get(coordKey(next.col, next.row)) ?? 0) * 6;
-      const nextCost =
-        (costs.get(currentKey) ?? 0) + stepCost + reservationPenalty;
-      const key = coordKey(next.col, next.row);
-      if (nextCost >= (costs.get(key) ?? Number.POSITIVE_INFINITY)) continue;
-      costs.set(key, nextCost);
-      parents.set(key, currentKey);
-      if (!open.includes(key)) open.push(key);
-    }
-  }
-
-  const score = costs.get(targetKey);
-  if (score === undefined) return null;
-  const path: Array<{ col: number; row: number }> = [];
-  let current = targetKey;
-  while (current) {
-    const [col, row] = current.split(",").map(Number);
-    path.unshift({ col, row });
-    if (current === startKey) break;
-    const parent = parents.get(current);
-    if (!parent) return null;
-    current = parent;
-  }
-  return { path, score };
-}
-
-function planClankerRoute(
-  bunker: BunkerState,
-  start: { col: number; row: number },
-  targets: Array<{ col: number; row: number }>,
-  options: BunkerRaidPathingOptions,
-  reservations: Map<string, number>,
-): {
-  target: { col: number; row: number };
-  path: Array<{ col: number; row: number }>;
-} {
-  const coreRoute = routeToTarget(
-    bunker,
-    start,
-    bunker.core,
-    options,
-    reservations,
-  );
-  if (coreRoute) return { target: bunker.core, path: coreRoute.path };
-
-  let best: {
-    target: { col: number; row: number };
-    path: Array<{ col: number; row: number }>;
-    score: number;
-  } | null = null;
-  for (const target of targets) {
-    const route = routeToTarget(bunker, start, target, options, reservations);
-    if (!route) continue;
-    const finalPenalty =
-      (reservations.get(coordKey(target.col, target.row)) ?? 0) * 20;
-    const part = findPartAt(bunker, target.col, target.row);
-    const targetPriority =
-      part && BASE_PART_CATALOG[part.partId].blocksClankers
-        ? 0
-        : bunker.core.col === target.col && bunker.core.row === target.row
-          ? 6
-          : 50;
-    const score = route.score + finalPenalty + targetPriority;
-    if (
-      !best ||
-      score < best.score ||
-      (score === best.score &&
-        (target.row < best.target.row ||
-          (target.row === best.target.row && target.col < best.target.col)))
-    ) {
-      best = { target, path: route.path, score };
-    }
-  }
-  if (best) return { target: best.target, path: best.path };
-  return { target: bunker.core, path: [start, bunker.core] };
-}
-
-function reservePath(
-  reservations: Map<string, number>,
-  path: Array<{ col: number; row: number }>,
-): void {
-  for (const cell of path) {
-    const key = coordKey(cell.col, cell.row);
-    reservations.set(key, (reservations.get(key) ?? 0) + 1);
-  }
-}
-
-function clankerBatterySteps(tier: number): number {
-  return CLANKER_BASE_BATTERY_STEPS + tier * CLANKER_BATTERY_STEPS_PER_TIER;
-}
-
-function clankerBiteDamage(tier: number): number {
-  return CLANKER_BASE_BITE_DAMAGE + tier * CLANKER_BITE_DAMAGE_PER_TIER;
-}
-
-function clankerBlockerAttackCount(
-  batterySteps: number,
-  routeSteps: number,
-): number {
-  return Math.max(1, batterySteps - routeSteps + 1);
-}
-
-function extendPathForBlockerAttack(
-  path: Array<{ col: number; row: number }>,
-  attackCount: number,
-): Array<{ col: number; row: number }> {
-  const finalCell = path.at(-1);
-  if (!finalCell || attackCount <= 1) return path;
-  const extended = [...path];
-  for (let i = 1; i < attackCount; i++) {
-    extended.push(finalCell);
-  }
-  return extended;
-}
-
-function reachableDropCellBeforeTarget(
-  path: Array<{ col: number; row: number }>,
-): { col: number; row: number } {
-  return path[Math.max(0, path.length - 2)] ?? path[0] ?? { col: 0, row: 0 };
-}
-
-export function resolveBunkerRaid(
-  fullBunker: BunkerState,
-  tier: number,
-  raidId = "raid-1",
-  options: BunkerRaidPathingOptions = {},
-): BunkerRaidSnapshot {
-  // Interim depth rule: raids resolve over the tunnel plane only. Parts
-  // placed deeper are interior build space with no raid effect until the
-  // live 3D raid resolver replaces this one. Identity when every part is
-  // already at depth 0, so pre-depth layouts produce bit-identical raids.
-  const bunker = fullBunker.parts.every((part) => part.depth === 0)
-    ? fullBunker
-    : {
-        ...fullBunker,
-        parts: fullBunker.parts.filter((part) => part.depth === 0),
-      };
-  const normalizedTier = Math.max(1, Math.floor(tier));
-  const targets = candidateTargets(bunker);
-  const clankerCount = 4 + normalizedTier * 2;
-  const plannedRoutes: Array<{
-    id: string;
-    start: { col: number; row: number };
-    target: { col: number; row: number };
-    path: Array<{ col: number; row: number }>;
-  }> = [];
-  const reservations = new Map<string, number>();
-  const spawnReservations = new Set<string>();
-  for (let i = 0; i < clankerCount; i++) {
-    const start = chooseClankerSpawn(bunker, i, options, spawnReservations);
-    spawnReservations.add(coordKey(start.col, start.row));
-    const route = planClankerRoute(
-      bunker,
-      start,
-      targets,
-      options,
-      reservations,
-    );
-    reservePath(reservations, route.path);
-    plannedRoutes.push({
-      id: `${raidId}-clanker-${i + 1}`,
-      start,
-      target: route.target,
-      path: route.path,
-    });
-  }
-  const totalPartDurability = bunker.parts.reduce((sum, part) => {
-    const def = BASE_PART_CATALOG[part.partId];
-    if (!def.blocksClankers) return sum;
-    return sum + Math.max(0, part.durability);
-  }, 0);
-  const turretAmmo = bunker.parts.reduce((sum, part) => {
-    if (part.partId !== "basic-turret") return sum;
-    return sum + (BASE_PART_CATALOG["basic-turret"].ammo ?? 0);
-  }, 0);
-  const turretShots = Math.min(clankerCount, turretAmmo);
-  const turretDamage = turretShots * BASIC_TURRET_DAMAGE;
-  const liveSpikeCount = bunker.parts.filter(
-    (part) => part.partId === "floor-spikes" && part.durability > 0,
-  ).length;
-  const spikeTriggers = Math.min(clankerCount, liveSpikeCount);
-  const spikeDamage = spikeTriggers * FLOOR_SPIKES_DAMAGE;
-  const clankers: ClankerState[] = [];
-  const partDamage: BunkerRaidDamageEvent[] = [];
-  const xpPickups: BunkerRaidSnapshot["xpPickups"] = [];
-  const biteDamage = clankerBiteDamage(normalizedTier);
-  const batterySteps = clankerBatterySteps(normalizedTier);
-  let coreDamage = 0;
-  let remainingTurretShots = turretShots;
-  let minerDeathStep: number | null = null;
-
-  let routeIndex = -1;
-  for (const route of plannedRoutes) {
-    routeIndex++;
-    const kind = clankerKindFor(routeIndex, normalizedTier);
-    const shotsToStop = kind === "tank" ? CLANKER_TANK_TURRET_SHOTS : 1;
-    if (remainingTurretShots >= shotsToStop) {
-      remainingTurretShots -= shotsToStop;
-      const deathCell = route.path[0] ?? route.start;
-      clankers.push({
-        id: route.id,
-        kind,
-        col: route.start.col,
-        row: route.start.row,
-        targetCol: route.target.col,
-        targetRow: route.target.row,
-        path: route.path,
-        batterySteps,
-        deathStep: 0,
-        status: "turret-destroyed",
-      });
-      xpPickups.push({
-        id: `${route.id}-xp`,
-        col: deathCell.col,
-        row: deathCell.row,
-        defenseXp: clankerXpFor(kind),
-        collected: false,
-      });
-      continue;
-    }
-
-    const routeSteps = Math.max(0, route.path.length - 1);
-    const reachedTarget = routeSteps <= batterySteps;
-    const deathStep = reachedTarget ? routeSteps : batterySteps;
-    const deathCell =
-      route.path[Math.min(deathStep, Math.max(0, route.path.length - 1))] ??
-      route.start;
-    const targetIsCore =
-      reachedTarget &&
-      route.target.col === bunker.core.col &&
-      route.target.row === bunker.core.row;
-    const targetPart = reachedTarget
-      ? findPartAt(bunker, route.target.col, route.target.row)
-      : undefined;
-    let clankerPath = route.path;
-    let clankerDeathStep = deathStep;
-    let status: ClankerState["status"] = "self-destructed";
-
-    if (targetPart) {
-      const attackCount = clankerBlockerAttackCount(batterySteps, routeSteps);
-      const kindBite =
-        kind === "breacher"
-          ? biteDamage * CLANKER_BREACHER_BITE_FACTOR
-          : biteDamage;
-      const damage = kindBite * attackCount;
-      const pickupCell =
-        damage >= targetPart.durability
-          ? deathCell
-          : reachableDropCellBeforeTarget(route.path);
-      clankerPath = extendPathForBlockerAttack(route.path, attackCount);
-      clankerDeathStep = batterySteps;
-      status = "battery-drained";
-      partDamage.push({
-        clankerId: route.id,
-        col: targetPart.col,
-        row: targetPart.row,
-        target: "part",
-        partId: targetPart.partId,
-        damage,
-      });
-      xpPickups.push({
-        id: `${route.id}-xp`,
-        col: pickupCell.col,
-        row: pickupCell.row,
-        defenseXp: clankerXpFor(kind),
-        collected: false,
-      });
-    } else if (targetIsCore) {
-      coreDamage += biteDamage;
-      minerDeathStep = Math.min(minerDeathStep ?? deathStep, deathStep);
-      partDamage.push({
-        clankerId: route.id,
-        col: bunker.core.col,
-        row: bunker.core.row,
-        target: "core",
-        damage: biteDamage,
-      });
-    }
-
-    if (!targetIsCore && !targetPart) {
-      xpPickups.push({
-        id: `${route.id}-xp`,
-        col: deathCell.col,
-        row: deathCell.row,
-        defenseXp: clankerXpFor(kind),
-        collected: false,
-      });
-    }
-
-    clankers.push({
-      id: route.id,
-      kind,
-      col: route.start.col,
-      row: route.start.row,
-      targetCol: route.target.col,
-      targetRow: route.target.row,
-      path: clankerPath,
-      batterySteps,
-      deathStep: clankerDeathStep,
-      status,
-    });
-  }
-
-  const incomingDamage = partDamage.reduce((sum, event) => {
-    return sum + event.damage;
-  }, 0);
-  const lastDeathStep = clankers.reduce((maxStep, clanker) => {
-    return Math.max(maxStep, clanker.deathStep);
-  }, 0);
-  const terminalStep = minerDeathStep ?? lastDeathStep;
-  const durationSeconds = Math.min(
-    BUNKER_RAID_DURATION_SECONDS,
-    Math.max(3, terminalStep),
-  );
-  const minerKilled = minerDeathStep !== null;
-  const breached = minerKilled || coreDamage >= bunker.core.durability;
-  const survived = !breached;
-  // The enclosure held outright: nobody could even target the core.
-  const sealed =
-    survived &&
-    clankers.every(
-      (clanker) =>
-        clanker.targetCol !== bunker.core.col ||
-        clanker.targetRow !== bunker.core.row,
-    );
-  const finalXpPickups = survived ? xpPickups : [];
-  const pickupXp = finalXpPickups.reduce((sum, pickup) => {
-    return sum + pickup.defenseXp;
-  }, 0);
-  return {
-    raidId,
-    tier: normalizedTier,
-    durationSeconds,
-    startedAtMs: options.startedAtMs,
-    clankers,
-    turretShots,
-    turretDamage,
-    spikeTriggers,
-    spikeDamage,
-    totalPartDurability,
-    incomingDamage,
-    partDamage,
-    coreDamage,
-    xpPickups: finalXpPickups,
-    allClankersDead: true,
-    breached,
-    minerKilled,
-    survived,
-    sealed,
-    reward: survived
-      ? {
-          vibes: 20 + normalizedTier * 10,
-          defenseXp: pickupXp,
-        }
-      : { vibes: 0, defenseXp: 0 },
-  };
-}
-
-export function applyBunkerRaidWear(
-  bunker: BunkerState,
-  raid: {
-    clankers: readonly unknown[];
-    spikeTriggers: number;
-    turretShots: number;
-    partDamage?: BunkerRaidDamageEvent[];
-    coreDamage?: number;
-  },
-): BunkerState {
-  let remainingSpikeSteps = raid.spikeTriggers;
-  let remainingTurretHits = Math.max(
-    0,
-    raid.clankers.length - raid.turretShots,
-  );
-  const damageByPartCell = new Map<string, number>();
-  for (const event of raid.partDamage ?? []) {
-    if (event.target !== "part") continue;
-    const key = coordKey(event.col, event.row);
-    damageByPartCell.set(key, (damageByPartCell.get(key) ?? 0) + event.damage);
-  }
-  return {
-    ...bunker,
-    core: {
-      ...bunker.core,
-      durability: Math.max(0, bunker.core.durability - (raid.coreDamage ?? 0)),
-    },
-    parts: bunker.parts
-      .flatMap((part) => {
-        if (
-          part.partId !== "floor-spikes" ||
-          part.depth !== 0 ||
-          remainingSpikeSteps <= 0
-        ) {
-          return [part];
-        }
-        remainingSpikeSteps--;
-        const nextDurability = Math.max(0, part.durability - 1);
-        if (nextDurability <= 0) return [];
-        return [{ ...part, durability: nextDurability }];
-      })
-      .flatMap((part) => {
-        if (
-          part.partId !== "basic-turret" ||
-          part.depth !== 0 ||
-          remainingTurretHits <= 0
-        ) {
-          return [part];
-        }
-        const damage = Math.min(part.durability, remainingTurretHits);
-        remainingTurretHits -= damage;
-        const nextDurability = Math.max(0, part.durability - damage);
-        if (nextDurability <= 0) return [];
-        return [{ ...part, durability: nextDurability }];
-      })
-      .flatMap((part) => {
-        if (part.depth !== 0) return [part];
-        const damage = damageByPartCell.get(coordKey(part.col, part.row)) ?? 0;
-        if (damage <= 0) return [part];
-        const nextDurability = Math.max(0, part.durability - damage);
-        if (nextDurability <= 0) return [];
-        return [{ ...part, durability: nextDurability }];
-      }),
   };
 }

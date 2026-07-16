@@ -1546,6 +1546,55 @@ describe("mine store upgrade flow", () => {
     expect(worldFetches).toBe(2);
   });
 
+  it("joins a different-slot Retry onto the single global refresh and finalizes only the owner slot", async () => {
+    // The single global pinned action: if activeSlot drifts while a refresh runs,
+    // a later Retry joins that ONE chain (no parallel destructive chain), and the
+    // owner finalizes ONLY its pinned slot, never the joiner's slot off a foreign
+    // result.
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-2", "1");
+    const gear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    useMineStore.setState({
+      activeSlot: 1,
+      railResyncFailed: true,
+      accountSync: { ...store().accountSync, mode: "guest", state: "ready" },
+    });
+    let releaseWorld!: () => void;
+    const worldHeld = new Promise<void>((resolve) => {
+      releaseWorld = resolve;
+    });
+    let worldFetches = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        worldFetches += 1;
+        await worldHeld;
+        return jsonResponse({ activeSlot: 1, seed: 123, tripIndex: 4, diff: [] });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({ gear, consumables: NO_CONSUMABLES, balance: 40 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = store().retryRailResync(); // owner pins slot 1
+    await vi.waitFor(() => expect(store().railResyncInFlight).toBe(true));
+    useMineStore.setState({ activeSlot: 2 }); // active slot drifts
+    const second = store().retryRailResync(); // uses slot 2, joins the global
+    releaseWorld();
+    await Promise.all([first, second]);
+
+    // One global chain: a single world fetch, no parallel slot-2 chain.
+    expect(worldFetches).toBe(1);
+    // Owner finalized ONLY slot 1; slot 2's marker was not cleared off slot 1's result.
+    expect(
+      localStorage.getItem("vibebots-rail-resync-blocked-slot-1"),
+    ).toBeNull();
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-2")).toBe(
+      "1",
+    );
+  });
+
   it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {
     // The regression the fix targets: another device won the rail (depth 3 -> 5)
     // WITHOUT advancing the trip count, so the account-trip endpoint still holds

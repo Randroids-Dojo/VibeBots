@@ -1303,6 +1303,95 @@ describe("mine store upgrade flow", () => {
     );
   });
 
+  it("blocks on a non-JSON 200 rail-buy response (uncertain-committed)", async () => {
+    // mineApi maps a 200 whose body is not JSON to {ok:false, status:200}: a 200
+    // means the server likely committed, so it reconciles through the block, not
+    // the generic purchase-failed note. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return new Response("<html>not json</html>", { status: 200 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().gear.elevator).toBe(3);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("blocks on a JSON null 200 rail-buy response without throwing", async () => {
+    // A JSON null 200 stays {ok:true, body:null}. Reading body.elevator on it
+    // used to throw; it reconciles through the block instead. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") return jsonResponse(null);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().gear.elevator).toBe(3);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("blocks on a 200 whose rail depth is fractional (not a clean integer)", async () => {
+    // The depth guard requires a non-negative integer, so a fractional depth is
+    // treated as uncertain rather than adopted as a real rail. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse({ elevator: 4.5, elevatorColumn: 17, balance: 40 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().gear.elevator).toBe(3);
+  });
+
   it("fails closed from another slot's marker on an unresolved cold offline load", async () => {
     // Slot 2 has a persisted block whose failed resync deleted its trip. A cold
     // store defaults to slot 1 and cannot resolve the real slot offline, so it

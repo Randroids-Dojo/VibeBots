@@ -1906,15 +1906,20 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const banked = await get().submitCashOut();
         if (!banked) return false;
       }
+      // Capture the buying slot BEFORE the awaited POST. The active slot can
+      // drift while the request is in flight, so the durable block must be
+      // persisted against the slot that made the buy, not whichever slot is
+      // active when the response returns (F-121 slot-drift hardening).
+      const requestSlot = get().activeSlot;
       // An uncertain outcome (a lost transport response, or a 200 whose body is
       // not the expected shape) may or may not have committed the charge on the
       // server. Enter the reload-durable stale-rail block so the next action is a
       // resync to authoritative state rather than a blind second buy: the server
       // expectedDepth guard plus the durable request outbox (F-121) make that
       // reconciliation idempotent, so a lost-after-commit response cannot advance
-      // a second row. (F-190)
+      // a second row. (partial F-190; the retained-identity replay stays open)
       const blockOnUncertainRailOutcome = () => {
-        saveRailResyncBlock(get().activeSlot, true);
+        saveRailResyncBlock(requestSlot, true);
         set({
           railResyncFailed: true,
           shopNote: "couldn't confirm the rail buy; tap Retry to reconcile",
@@ -2018,6 +2023,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           });
           return false;
         }
+        // No decoded reason code. The elevator route always codes its definitive
+        // rejects, so a code-less response is unexpected. A non-JSON 200 (mineApi
+        // maps it to {ok:false, status:200}) or a 5xx may have committed before
+        // the malformed or failed response, so it is uncertain: reconcile through
+        // the block. A code-less 4xx is a client-side validation reject that
+        // never reached a write, so it keeps its plain error note. (F-190)
+        if (res.status === 200 || res.status >= 500) {
+          blockOnUncertainRailOutcome();
+          return false;
+        }
         set({
           shopNote:
             body && typeof body.error === "string"
@@ -2026,19 +2041,25 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         });
         return false;
       }
-      const body = res.body as Record<string, unknown>;
-      if (
-        typeof body.elevator !== "number" ||
-        !Number.isFinite(body.elevator)
-      ) {
-        // A 200 whose body is not the expected shape is uncertain-committed: do
-        // not persist a NaN rail depth, reconcile through the block instead.
+      const rawBody = res.body as Record<string, unknown> | null;
+      // Optional chaining so a JSON `null` 200 body (res.ok true, body null)
+      // does not throw on the property read. A valid accepted response carries a
+      // non-negative integer rail depth; a null, non-object, missing, NaN,
+      // fractional, or negative depth is uncertain-committed, so reconcile
+      // through the block rather than persist a bad depth. This is a narrow
+      // rail-DEPTH guard, not a full accepted-authority contract validation
+      // (column, trip index, and inventory keep their existing per-field
+      // fallbacks below); the exhaustive current-shape validation stays an open
+      // F-121 item. (F-190)
+      const depth = rawBody?.elevator;
+      if (typeof depth !== "number" || !Number.isInteger(depth) || depth < 0) {
         blockOnUncertainRailOutcome();
         return false;
       }
+      const body = rawBody as Record<string, unknown>;
       enqueueStampAlertsFromResponse(body);
       const { gear, consumables, bought, moves, seed: s0, tick } = get();
-      const elevator = body.elevator as number;
+      const elevator = depth;
       // Adopt the full authoritative inventory when the accepted response
       // carries it (F-121), validated and coherence-checked as one atomic unit.
       // A concurrent player-only purchase at this same trip could have changed a

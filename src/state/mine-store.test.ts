@@ -399,7 +399,7 @@ describe("mine store upgrade flow", () => {
     expect(store().tripIndex).toBe(3);
   });
 
-  it("surfaces the reason and balance on a rejected buy without touching the trip", async () => {
+  it("keeps the trip intact on a non-stale reject and shows only balance plus reason", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);
     useMineStore.setState({
@@ -413,14 +413,14 @@ describe("mine store upgrade flow", () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse(
         {
-          code: "elevator-stale-rail-state",
-          error: "your rail moved; refresh and retry",
+          code: "elevator-insufficient-balance",
+          error: "not enough vibes",
           balance: 12,
-          elevator: 5,
+          elevator: 3,
           elevatorColumn: 17,
-          ladders: 9,
-          planks: 4,
-          tripIndex: 7,
+          ladders: 1,
+          planks: 1,
+          tripIndex: 2,
           elevatorPlacementRequired: false,
         },
         409,
@@ -434,24 +434,87 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       expectedDepth: 3,
     });
-    // The rejected buy changed nothing server-side, so only the display-safe
-    // balance and the coded reason update. The rail depth, trip index, and
-    // supports stay put (rewriting them without a world rebuild would corrupt
-    // the persisted trip), and no trip is saved.
-    expect(store().balance).toBe(12);
-    expect(store().shopNote).toBe(
-      "your rail changed on another device; reopen the shop",
+    // Insufficient balance changed nothing server-side, so no world refetch
+    // fires and only the display-safe balance and the coded reason update. The
+    // rail depth, trip index, and supports stay put (rewriting them without a
+    // world rebuild would corrupt the persisted trip).
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain(
+      "/api/mine/world",
     );
+    expect(store().balance).toBe(12);
+    expect(store().shopNote).toBe("not enough vibes for the next rail");
     expect(store().gear).toMatchObject({ elevator: 3, elevatorColumn: 17 });
     expect(store().consumables).toMatchObject({ ladder: 1, plank: 1 });
     expect(store().tripIndex).toBe(2);
     // Any persisted trip stays self-consistent: the original index against the
-    // original rail, never the server's advanced index against a stale world.
+    // original rail, never the server's index against a stale world.
     const savedTrip = JSON.parse(
       vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
     );
     expect(savedTrip.tripIndex).toBe(2);
     expect(savedTrip.gear.elevator).toBe(3);
+  });
+
+  it("does one bounded world and gear refetch on a stale rail reject", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const reloadedGear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          {
+            code: "elevator-stale-rail-state",
+            error: "your rail moved",
+            balance: 88,
+            elevator: 5,
+            tripIndex: 12,
+          },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 12,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: reloadedGear,
+          consumables: NO_CONSUMABLES,
+          balance: 88,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // A stale reject routes through the bounded refetch: the world and gear are
+    // rebuilt from the server as one checkpoint, not a scalar merge that leaves
+    // the rail depth and trip index disagreeing with the world.
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/mine/world");
+    expect(urls).toContain("/api/gear");
+    expect(store().tripIndex).toBe(12);
+    expect(store().gear).toMatchObject({ elevator: 5 });
+    expect(store().balance).toBe(88);
+    expect(store().shopNote).toBe(
+      "your rail moved on another device; refreshed to the latest",
+    );
   });
 
   it("replaces support stock from the accepted rail response", async () => {

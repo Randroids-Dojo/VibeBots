@@ -111,9 +111,9 @@ function elevatorConflictNote(code: string | null): string {
     case "elevator-insufficient-balance":
       return "not enough vibes for the next rail";
     case "elevator-stale-rail-state":
-      return "your rail changed on another device; reopen the shop";
+      return "your rail moved on another device; refreshed to the latest";
     case "elevator-stale-checkpoint":
-      return "the mine changed under you; head up and back to refresh";
+      return "the mine changed under you; refreshed to the latest";
     case "elevator-rail-at-bottom":
       return "the rail already reaches the mine bottom";
     case "elevator-column-required":
@@ -1644,17 +1644,29 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       if (!res.ok) {
         const body = res.body as Record<string, unknown> | null;
         const code = body && typeof body.code === "string" ? body.code : null;
-        // A rejected buy changed nothing server-side (the guarded write matched
-        // no rows), so the client's trip replay state (seed, moves, world diff,
-        // rail depth, supports) is still valid as it stands. Surface only the
-        // authoritative balance (display state, not part of the saved trip) and
-        // a reason from the stable code. Deliberately do NOT rewrite the rail
-        // depth, trip index, or supports and persist here: that would save a
-        // trip whose index no longer matches its world (a real corruption when
-        // the checkpoint moved) and leave the rendered mine out of step with a
-        // scalar gear edit. When the rail or checkpoint actually moved under
-        // the client, the coded note tells the player to refresh; a bounded
-        // rail/world refetch on reject is the tracked F-121 follow-up.
+        // A stale reject means another request already moved the world under
+        // this client, so the local trip is genuinely out of date. Do one
+        // bounded authoritative refetch, the same primitive the stale-checkpoint
+        // and cross-device paths use: it drops the local trip and rebuilds the
+        // world, gear, balance, trip index, and supports from the server as one
+        // checkpoint. buyElevator already banked any non-surface log before the
+        // request, so dropping the surface-only trip loses nothing, and this
+        // never leaves stale controls active over a moved world.
+        if (
+          code === "elevator-stale-rail-state" ||
+          code === "elevator-stale-checkpoint"
+        ) {
+          set({ shopNote: elevatorConflictNote(code) });
+          await refreshCloudWorld(get().activeSlot);
+          set({ shopNote: elevatorConflictNote(code), tick: get().tick + 1 });
+          return false;
+        }
+        // Every other code changed nothing server-side (insufficient balance,
+        // rail already at the bottom, a bare lost race that re-read as buyable),
+        // so the local trip stays valid. Surface only the authoritative balance
+        // (display state, not part of the saved trip) and the reason; do not
+        // rewrite the rail, trip index, or supports and persist, which would
+        // save a trip whose index no longer matched its world.
         if (code !== null) {
           set({
             balance:

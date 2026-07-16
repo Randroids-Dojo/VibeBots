@@ -224,18 +224,38 @@ jobs:
         env:
           OVERRIDE_MS: ${{ inputs.full_e2e_global_timeout_ms }}
         run: |
-          if [ -n "$OVERRIDE_MS" ]; then
-            echo "Using dispatch override: ${OVERRIDE_MS}ms"
-            echo "ms=${OVERRIDE_MS}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          job_budget_s=$(( 20 * 60 ))
-          reserve_s=150   # teardown + HTML/JSON report + artifact upload
+          set -euo pipefail
+          job_budget_s=$(( 20 * 60 ))     # matches this job's timeout-minutes: 20
+          reserve_s=150                    # teardown + HTML/JSON report + artifact upload
+          # Smallest deadline we ever set. Its only job is to stay above 0:
+          # Playwright treats globalTimeout: 0 as "unlimited", which would put
+          # the cancel-at-job-deadline problem right back. If the safe budget
+          # ever falls below this, checkout/install/build already ate the job
+          # and evidence loss is unavoidable; the run fails red regardless.
+          floor_ms=30000
           elapsed_s=$(( $(date +%s) - JOB_START_EPOCH ))
-          remain_ms=$(( (job_budget_s - reserve_s - elapsed_s) * 1000 ))
-          if [ "$remain_ms" -lt 60000 ]; then remain_ms=60000; fi
-          echo "Elapsed ${elapsed_s}s; Playwright global timeout ${remain_ms}ms"
-          echo "ms=${remain_ms}" >> "$GITHUB_OUTPUT"
+          safe_ms=$(( (job_budget_s - reserve_s - elapsed_s) * 1000 ))
+          if [ "$safe_ms" -lt "$floor_ms" ]; then safe_ms=$floor_ms; fi
+          if [ -n "$OVERRIDE_MS" ]; then
+            # Manual proof knob. Reject non-numbers and clamp DOWN to the safe
+            # budget so a too-large override cannot re-introduce a cancel.
+            case "$OVERRIDE_MS" in
+              ''|*[!0-9]*)
+                echo "full_e2e_global_timeout_ms must be a positive integer of milliseconds" >&2
+                exit 1
+                ;;
+            esac
+            if [ "$OVERRIDE_MS" -lt "$safe_ms" ]; then
+              deadline_ms=$OVERRIDE_MS
+            else
+              deadline_ms=$safe_ms
+            fi
+            echo "Override ${OVERRIDE_MS}ms; using ${deadline_ms}ms (safe budget ${safe_ms}ms)"
+          else
+            deadline_ms=$safe_ms
+            echo "Elapsed ${elapsed_s}s; Playwright global timeout ${deadline_ms}ms"
+          fi
+          echo "ms=${deadline_ms}" >> "$GITHUB_OUTPUT"
 
       - name: Full E2E smoke tests
         env:
@@ -254,7 +274,11 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
-          if-no-files-found: ignore
+          # The HTML/JSON reporter always writes playwright-report/ on a failure,
+          # including a global-timeout failure, so this only fires when the report
+          # is genuinely absent. Warn (not ignore) so that evidence-loss case stays
+          # visible in the log instead of silently succeeding with an empty upload.
+          if-no-files-found: warn
 
   visual-baselines-update:
     name: Update Visual Baselines

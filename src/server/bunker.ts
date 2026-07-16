@@ -301,6 +301,11 @@ function bunkerRowSnapshot(bunker: BunkerState) {
     loot: bunker.loot,
     skin: bunker.skin,
     skins_owned: bunker.skinsOwned,
+    // Freeze the layout generation the raid ran against (F-117), so
+    // settlement can refuse to write its worn parts back if a Start fresh
+    // advanced the bunker past this generation in the meantime. A snapshot
+    // written before this field existed reads back as legacy 0.
+    layout_version: bunker.layoutVersion ?? 0,
   };
 }
 
@@ -1143,6 +1148,12 @@ export async function startLiveRaid(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  // A layout-incompatible bunker must Start fresh before it can raid
+  // (F-117). Blocking the start keeps an old layout from ever freezing a
+  // raid snapshot, which closes the settlement/Start-fresh race entirely:
+  // every live raid now runs on a current-version bunker.
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "raid already active" };
   const tierCeiling = maxBunkerRaidTier(view.player.overallLevel);
@@ -1267,13 +1278,19 @@ export async function resolveLiveRaid(
     return { ok: false, status: 409, error: "raid already finished" };
   }
   // Defense damage stands on a win or a loss: write the settled parts (the
-  // frozen snapshot worn by the report) back to the bunker.
+  // frozen snapshot worn by the report) back to the bunker. Guard the write
+  // on the frozen layout generation (F-117): if a Start fresh advanced the
+  // bunker past it between this settle claiming the raid row and writing the
+  // parts, the guard misses and the worn old parts are dropped rather than
+  // restored onto the freshly reset (now current, empty) bunker. The reward
+  // below is unaffected: surviving the raid still pays out.
   await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(settlement.bunker.parts)}::jsonb,
         revision = revision + 1,
         updated_at = now()
-    WHERE player_id = ${playerId}`;
+    WHERE player_id = ${playerId}
+      AND layout_version = ${start.bunker.layoutVersion ?? 0}`;
   const beforeRows = (await sql`
     SELECT track_xp, defense_xp
     FROM players

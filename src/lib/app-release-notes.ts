@@ -17,7 +17,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already on the new system. MINE_VERSION and SIM_VERSION are unchanged.",
+          text: "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
         },
       ],
     },

@@ -9,13 +9,14 @@ export const BUNKER_CLAIM_HEIGHT = 5;
  * the 2D mine view shows; deeper cells extend into the claim rock. */
 export const BUNKER_CLAIM_DEPTH = 5;
 /**
- * Layout-model version stamped on every bunker (F-117). Bunkers built
- * under an older model are structurally incompatible with the current
- * one, so they fail fast and offer a confirmed Start fresh rather than
- * silently migrating (Q-022). Version 1 is the slot-aware thin-part
- * model; legacy rows persist as 0 and read as incompatible. Bump this
- * whenever a change makes an older persisted layout unbuildable under
- * the new placement rules. */
+ * Build-era generation stamped on every bunker (F-117). It marks which
+ * bunker-design era a layout was created or last reset under, not a
+ * specific part model: version 1 is the current 7x5x5 dig-out redesign.
+ * A bunker from an older era fails fast and offers a confirmed Start
+ * fresh (Q-022, a product decision to clear pre-redesign layouts rather
+ * than migrate them) instead of being edited under the new design. Rows
+ * that predate the marker persist as 0 and read as an older era. Bump
+ * this only when a redesign should force existing layouts to reset. */
 export const BUNKER_LAYOUT_VERSION = 1;
 export const BUNKER_RAID_DURATION_SECONDS = 180;
 export const BUNKER_RAID_COOLDOWN_HOURS = 4;

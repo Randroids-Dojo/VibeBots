@@ -223,6 +223,138 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
   expect(redPixels).toBeGreaterThan(50);
 });
 
+test("an old-layout banked bunker fails fast and Start fresh clears it", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 390, height: 760 });
+  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  // Clear a shaft down to row 5 so the miner stands inside the claim.
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  const footprint = { col: START_COL - 3, row: 1, width: 7, height: 5 };
+  const inventory = {
+    "wall-panel": 2,
+    "floor-panel": 3,
+    "roof-panel": 3,
+    "door-panel": 1,
+    "basic-turret": 0,
+    "floor-spikes": 0,
+  };
+  const player = {
+    balance: 120,
+    trackXp: 40,
+    defenseXp: 120,
+    overallLevel: 2,
+    levelCap: 100,
+    progressXp: 20,
+    neededXp: 80,
+    nextLevelXp: 200,
+    beaconLimit: 3,
+  };
+  // The GET returns a legacy (layoutVersion 0) banked bunker until Start
+  // fresh flips it current, so a later reload cannot revive the old state.
+  let layoutVersion = 0;
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6061,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: {
+          footprint,
+          parts: [
+            { partId: "wall-panel", col: START_COL, row: 5, durability: 90 },
+          ],
+          dug: [],
+          layoutVersion,
+        },
+        inventory,
+        player,
+        revision: 3,
+      }),
+    });
+  });
+  await page.route("**/api/bunker/start-fresh", async (route) => {
+    // The server hard-resets to a bare current-version claim (no refund).
+    layoutVersion = 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: { footprint, parts: [], dug: [], layoutVersion: 1 },
+        inventory,
+        player,
+        revision: 4,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6061,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "5",
+  );
+
+  // The old layout fails fast: the sheet shows the incompatible alert and a
+  // Start fresh action, and the first-person Enter affordance is withheld.
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await expect(page.getByTestId("bunker-layout-incompatible")).toBeVisible();
+  const startFresh = page.getByTestId("bunker-start-fresh");
+  await expect(startFresh).toHaveText("Start fresh");
+  await expect(page.getByTestId("bunker-reset")).toHaveCount(0);
+  await expect(page.getByTestId("bunker-fp-enter")).toHaveCount(0);
+
+  // Two-step confirm: the first tap arms, the second runs the hard reset.
+  await startFresh.click();
+  await expect(startFresh).toHaveText(
+    "Really start fresh? Built parts are lost",
+  );
+  await startFresh.click();
+
+  // After Start fresh the bunker is current: the alert clears and the
+  // first-person Enter affordance returns (the miner is inside the claim).
+  await expect(page.getByTestId("bunker-layout-incompatible")).toHaveCount(0);
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
+});
+
 test("bunker claims can be edited before banking", async ({ page }) => {
   // Software-GL runners compile the fp scene slowly.
   test.setTimeout(240_000);

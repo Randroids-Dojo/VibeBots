@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="pr190-current-identity-and-ledger-preservation-correction" data-date="2026-07-16">
+    <h3>Keep PR #190 current identities direct and its ledger additions only</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f135-f136-followups</code>.</dd>
+      <dt>PR</dt><dd>#190. Additive tracking correction while the PR remains draft.</dd>
+      <dt>Changed</dt><dd>Exact-head review at <code>78d63e0b</code> found seven inherited followup records concatenated with their closing tags during conflict resolution, which made the final ledger diff report 13 deletions even though the record text survived. The merge-formatting artifacts are split back to the exact inherited lines, making <code>docs/FOLLOWUPS.html</code> additions only against current main. Every renumbered primary F-177 through F-187 now also appends a direct Current Dot reference to its real F-177 through F-187 file. A current-identity correction marks all preserved provisional F-135 through F-145 text and links as historical evidence only, never a live anchor, Dot, dependency, or owner.</dd>
+      <dt>Verification</dt><dd><code>git diff --numstat origin/main -- docs/FOLLOWUPS.html</code> reports zero deletions; all eleven Current Dot references resolve to existing HTML Dots; provisional records remain present; primary and document IDs remain unique; dash, diff, JSON, HTML Dot, typecheck, and lint gates are rerun before push.</dd>
+      <dt>Assumptions</dt><dd>The provisional records stay untouched as committed history. Current tools and humans use only the appended direct references and correction note.</dd>
+      <dt>GDD coverage</dt><dd>No status change. This is durable tracking integrity only.</dd>
+      <dt>Followups</dt><dd>No new followup ID. F-177 through F-187 remain the current primaries, and F-187 owns automated dangling-reference prevention.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-240-post-merge-recovery-and-review-correction" data-date="2026-07-16">
     <h3>Keep the stale-client rail guard safe, understandable, and reviewable</h3>
     <dl>

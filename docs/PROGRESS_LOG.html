@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-upgrade-resync-post-merge-correction" data-date="2026-07-16">
+    <h3>Correct the authoritative-resync claims after the rail conflict merge</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#TBD. Documentation and HTML Dots only. This monitoring correction does not change gameplay and must not be merged without normal exact-head review.</dd>
+      <dt>Changed</dt><dd>Additive correction for PR #234, merged as <code>0d8acac419c1969e52b4b6e4a9034fb54d7d76a9</code>. The earlier <code>elevator-upgrade-resync</code> article remains historical and is not edited here. Its statement that the later review rounds completed atomic resync is superseded: the shipped helper deletes local state before typed world and gear snapshots exist, can adopt a server-selected slot whose untouched local trip is replayed, mutates live world state before a later gear read can fail, accepts malformed HTTP 200 bodies as authority, accepts any successful checkpoint-clear status without requiring <code>{cleared:true}</code>, and issues an unconditional late DELETE that can erase a newer checkpoint PUT. The elevator mutation body is untyped, while a malformed success, status-null transport loss, or generic 503 can follow a committed write and currently leaves a blind retry available. F-121 and its canonical HTML Dot now name staged typed adoption, active-slot pinning, complete inventory replacement, compare-and-delete checkpoint cleanup, unknown-outcome reconciliation, persistent blocking recovery, and exact regression coverage. The user-approved <code>expectedDepth</code> deferral remains separate and is not used to dismiss these failures.</dd>
+      <dt>Verification</dt><dd>Inspected exact merge <code>0d8acac4</code>, <code>resyncCloudWorld</code>, <code>loadWorld</code>, <code>loadGear</code>, the generic API boundary, the elevator success path, and the account-trip DELETE. The existing tests do not exercise active-slot drift, malformed successful responses, <code>cleared:false</code>, a newer PUT racing cleanup, or unknown post-commit transport outcomes. The latest scheduled Full E2E run <code>29489140260</code> was cancelled and remains owned by F-131/F-132; this correction creates no duplicate scheduled-run primary.</dd>
+      <dt>Assumptions</dt><dd>Early-alpha compatibility does not justify carrying permissive recovery forever. Unsupported or ambiguous state should fail fast, keep controls blocked, explain Retry and Start fresh, and preserve the last coherent state until the player confirms a destructive reset.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains the release-blocking owner under the existing elevator and account-sync coverage. This slice adds acceptance detail without claiming any implementation has shipped.</dd>
+      <dt>Followups</dt><dd>F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code> remain open. A separate implementation slice must satisfy every newly appended boundary and race test before the resync can be called atomic.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-fp-spawn-post-merge-correction" data-date="2026-07-16">
+    <h3>Separate the proven bunker spawn fix from its remaining recovery and telemetry work</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#TBD. Documentation and HTML Dots only. This monitoring correction does not change gameplay and must not be merged without normal exact-head review.</dd>
+      <dt>Changed</dt><dd>Additive correction for PR #235, merged as <code>d8c8c634df239e4d09372d81f78a5f5e9b7c85ba</code>. The earlier <code>bunker-fp-spawn</code> article and F-120 text remain historical and are not edited again. Their in-place honesty edits are superseded by distinct live owners: F-175 covers a real off-center reset, remount, and re-entry browser discriminator plus release-copy narrowing; F-174 covers only the all-blocked <code>no-safe</code> recovery; and F-101 retains the six approved first-person fields while adding bounded <code>fpSpawnResult</code>, exposed-rendered <code>fpOreCells</code>, and <code>blockSeedPresent</code> through the complete source-aware telemetry path. F-174 and F-175 are polish tasks with separate canonical HTML Dots under the first-person arc. F-101 keeps its existing canonical Dot and does not create a competing telemetry primary.</dd>
+      <dt>Verification</dt><dd>Inspected exact merge <code>d8c8c634</code>, the collision-aware selector, its caller, the reset and re-entry e2e, the release note, the first-person dataset writes, and <code>collectCanvasDiagnostics</code>. Unit coverage distinguishes ordinary off-center and part-occupied relocation, but the browser test re-enters at the centered column and therefore passes on the old raw-entry implementation. The exhausted selector can still return a known blocked center. The collector still drops the first-person diagnostic keys required for live verification.</dd>
+      <dt>Assumptions</dt><dd>The preserved starter pocket makes the all-blocked path defensive polish today. If live evidence shows an ordinary valid layout reaches <code>no-safe</code>, append that evidence and promote F-174 through the normal ledger and Dot process. Do not merge F-175's proof task into that recovery task.</dd>
+      <dt>GDD coverage</dt><dd>REQ-044 stays done for the starter-room contract, with F-174 and F-175 appended as followup references. The existing performance requirement keeps F-101. No implementation or test reference changes in this documentation-only correction.</dd>
+      <dt>Followups</dt><dd>F-174 with Dot <code>VibeBots-f-174-fail-5173ceb0</code>; F-175 with Dot <code>VibeBots-f-175-prove-7e1c2add</code>; and existing F-101 with Dot <code>VibeBots-f-101-preserve-6cc8e8f6</code>. PR #228 comment <code>4992237732</code> reserves F-175 so its F-164 through F-173 sequence cannot reuse the id.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-fp-spawn" data-date="2026-07-16">
     <h3>Spawn in the open bunker room instead of inside the wall</h3>
     <dl>

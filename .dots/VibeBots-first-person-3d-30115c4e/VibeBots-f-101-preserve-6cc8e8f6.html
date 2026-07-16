@@ -13,7 +13,7 @@
 <article>
 <h1>F-101 Preserve first-person performance diagnostics</h1>
 <section id="description">
-F-101: Retain allocation-safe bunker context such as eye height, open cells, and grounded state in performance snapshots with unit and trace coverage.
+F-101: Retain the six approved allocation-safe bunker fields fpEyeY, fpOpenCells, fpGrounded, fpSwinging, fpRaidActive, and fpClankersAlive, then add fpSpawnResult with only direct, relocated, or no-safe values, fpOreCells as the exposed rendered ore count from 0 through 175, and blockSeedPresent as 0 or 1. Carry them through allocation-safe dataset writes, the source-aware client allowlist, payload persistence, source-specific server ingestion validation, and insights output. Reject raw eye X or Z, yaw, pitch, seed, footprint, player or raid identifiers, targets, aim data, cell keys, unknown keys, and cross-source keys before any write. Add focused client and route tests plus post-deploy byBuild evidence for direct idle entry, relocated entry, building, combat, terminal, and no-safe recovery.
 </section>
 </article>
 </body>

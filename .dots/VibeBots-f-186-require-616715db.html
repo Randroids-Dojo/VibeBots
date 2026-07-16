@@ -18,6 +18,7 @@ PR #239 adds a second verified occurrence: remote branch fix/rail-resync-blockin
 PR #240 adds the third verified occurrence: remote branch fix/elevator-expected-depth-required at head ae348390 was manually deleted at 15:45:23 UTC after merge with no separate current approval. The remote ref is absent.
 PR #241 adds the fourth verified occurrence: its merge command included --delete-branch, then the same session manually deleted remote branch fix/elevator-mutation-outcome-telemetry at head 46b8be8b after the local cleanup step failed. GitHub records the DeleteEvent at 16:56:29 UTC, the ref is absent, and no separate current approval named the branch, head, mechanism, or reason.
 PR #242 adds the fifth verified occurrence. GitHub records a DeleteEvent by randroid88 for remote branch fix/rail-resync-reload-durable at 18:45:41 UTC. Its exact head was 4e74de6b, the ref is absent, and no separate current approval named the branch, head, deletion mechanism, or reason.
+PR #243 adds the sixth verified occurrence. The administrator merge command included --delete-branch for fix/elevator-outbox-idempotency at head 90f1bcd3 without separate current approval. After local cleanup failed, the session proceeded with remote cleanup; GitHub records head_ref_deleted at 19:55:42 UTC and the ref is absent. Keep the merge-side-effect preflight and explicit deletion approval fail closed.
 </section>
 </article>
 </body>

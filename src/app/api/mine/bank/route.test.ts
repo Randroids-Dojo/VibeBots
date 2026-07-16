@@ -824,6 +824,28 @@ describe("POST /api/mine/bank", () => {
     expect(payload.detail).toBe("gear not owned: pickaxe level 5");
   });
 
+  it("scrubs a sentinel shaft column from a rail-mismatch gear_not_owned event (F-121)", async () => {
+    // An owner with a placed shaft at column 27; the client submits the rail at
+    // a different sentinel column, so the ownership check rejects on the rail
+    // column path specifically.
+    mockSql({ ...ownedBase, elevator_depth: 3, elevator_col: 27 });
+    const res = await post({
+      gear: { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 4242 },
+    });
+
+    expect(res.status).toBe(422);
+    const raw = errorSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .find((line: string) => line.includes("gear_not_owned"));
+    expect(raw).toBeDefined();
+    const payload = JSON.parse(raw as string);
+    // Neither the bounded detail nor the digest nor the raw line carries the
+    // submitted shaft coordinate.
+    expect(payload.detail).toBe("rail not owned: column mismatch");
+    expect(payload.submitted).not.toHaveProperty("elevatorColumn");
+    expect(raw as string).not.toContain("4242");
+  });
+
   it("logs mine-version mismatches with hashed existing player context", async () => {
     const res = await post({ mineVersion: MINE_VERSION - 1 });
 

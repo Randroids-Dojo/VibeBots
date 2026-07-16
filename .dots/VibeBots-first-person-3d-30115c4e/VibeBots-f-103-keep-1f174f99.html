@@ -14,6 +14,7 @@
 <h1>F-103 Keep real-device bunker rollups honest</h1>
 <section id="description">
 F-103: Treat unknown GPUs as unknown, prevent build comparisons from mixing surfaces, and expose stall, worst-frame, and heap-span data.
+Session-drilldown correction: the current 4-to-32-character hex prefix and starts_with query can match multiple session IDs, while sessionDetail omits sessionId and can mix their snapshots. Determine distinct-session cardinality before the row limit. Return detail only for exactly one matching session, with bounded source, app-build, and non-null hardware-GPU context. Return null detail plus an explicit none or ambiguous signal otherwise. Tests seed colliding prefixes and interleaved sequences, prove no mixed detail even at the row limit, and prove a unique match returns only its ordered snapshots.
 </section>
 </article>
 </body>

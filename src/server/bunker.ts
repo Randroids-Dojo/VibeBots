@@ -452,6 +452,43 @@ async function ensureStarterBaseParts(
   return { ...STARTER_BASE_PART_INVENTORY };
 }
 
+/**
+ * Backfill a bunker claimed before block seeds existed (F-116). A null
+ * block_seed makes every undug cell render as plain dirt and pay no ore, so
+ * an old bunker looks empty, and Start fresh never wrote the column, so a
+ * reset does not fix it. Derive the same deterministic seed a fresh claim
+ * would use from the player's mine seed and this footprint, persist it
+ * once, and return the seeded bunker so its walls generate the mine's
+ * dirt, rock, and ore for that depth. The write is guarded on the column
+ * still being NULL, so it is idempotent and never overwrites a real seed
+ * or bumps the revision (it is a data backfill, not a player edit). A
+ * player with no mine world row yet cannot derive a seed, so the bunker is
+ * returned unchanged. Only remaining undug cells ever pay ore, so filling
+ * the seed never re-credits cells the player already dug (banked digs
+ * credit at excavate time; a pending claim is always seeded at claim).
+ */
+async function backfillMissingBlockSeed(
+  sql: Sql,
+  playerId: string,
+  bunker: BunkerState,
+): Promise<BunkerState> {
+  if (bunker.blockSeed !== undefined) return bunker;
+  const worlds = (await sql`
+    SELECT seed
+    FROM mine_worlds
+    WHERE player_id = ${playerId}`) as Array<{ seed: string | number }>;
+  if (worlds[0] === undefined) return bunker;
+  const blockSeed = deriveBunkerBlockSeed(
+    Number(worlds[0].seed),
+    bunker.footprint,
+  );
+  await sql`
+    UPDATE bunkers
+    SET block_seed = ${blockSeed}
+    WHERE player_id = ${playerId} AND block_seed IS NULL`;
+  return { ...bunker, blockSeed };
+}
+
 export async function loadBunkerView(
   sql: Sql,
   playerId: string,
@@ -516,8 +553,12 @@ export async function loadBunkerView(
   // A legacy interim (raid_version NULL) row is ignored: the interim raid is
   // retired, so only a live raid can be active. Such rows remain opaque
   // history and cannot wedge a new live raid.
+  const parsedBunker = parseBunkerState(bunkerRows[0] ?? null);
+  const bunker = parsedBunker
+    ? await backfillMissingBlockSeed(sql, playerId, parsedBunker)
+    : null;
   return {
-    bunker: parseBunkerState(bunkerRows[0] ?? null),
+    bunker,
     inventory: await ensureStarterBaseParts(sql, playerId),
     activeLiveRaid,
     revision: Number.isFinite(revisionValue) ? revisionValue : 0,

@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-layout-reset note complete", () => {
+  it("keeps the latest bunker-ore-backfill note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-16-0.1.271-bunker-layout-reset");
+    expect(release.noticeId).toBe("2026-07-16-0.1.272-bunker-ore-backfill");
     expect(latestNote).toMatchObject({
+      version: "0.1.272",
+      title: "Old bunkers show their ore again",
+      intro:
+        "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "If you claimed a bunker before its walls started generating ore, it was stuck as solid dirt that paid nothing when you dug it, and even a reset did not fix it. Opening the bunker now fills in the ore it should have had, so its walls show the mine's dirt, rock, and ore for that depth and digging pays again.",
+      "This only fills in ore that was missing. It never regrows ore you already mined, and it leaves any bunker that already had ore unchanged. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-layout-reset note complete", () => {
+    const release = getAppRelease();
+    const resetNote = release.notes.find((note) => note.version === "0.1.271");
+
+    expect(resetNote).toMatchObject({
       version: "0.1.271",
       title: "Old bunkers need a fresh start",
       intro:
         "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(resetNote?.changes.map((change) => change.text)).toEqual([
       "If your bunker was built under the old whole-block layout, it can no longer be edited as it is. Open the bunker sheet and it now shows a Start fresh button instead of the Enter button. Start fresh clears the old build and lets you build again under the new system, and it keeps every room you dug out, so you never lose your digging.",
       "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

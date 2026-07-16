@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-16-0.1.271-bunker-layout-reset",
+      releaseNoticeId: "2026-07-16-0.1.272-bunker-ore-backfill",
       releaseSummary:
-        "Old bunkers need a fresh start: Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+        "Old bunkers show their ore again: A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-16-0.1.271-bunker-layout-reset",
+      releaseNoticeId: "2026-07-16-0.1.272-bunker-ore-backfill",
       attempted: 2,
       sent: 1,
       expired: 1,

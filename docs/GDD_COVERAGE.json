@@ -1184,7 +1184,8 @@
       "followupRefs": [
         "F-116",
         "F-120",
-        "F-122"
+        "F-122",
+        "F-174"
       ]
     },
     {
@@ -1209,7 +1210,8 @@
         "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
-        "F-117"
+        "F-117",
+        "F-175"
       ]
     },
     {

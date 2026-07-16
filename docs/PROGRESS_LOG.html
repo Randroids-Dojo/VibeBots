@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-seedless-ore-backfill" data-date="2026-07-16">
+    <h3>Backfill a block seed so old bunkers stop rendering as barren dirt</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-seedless-ore</code>.</dd>
+      <dt>PR</dt><dd>#TBD. Package 0.1.272.</dd>
+      <dt>Changed</dt><dd>A player in the first-person bunker builder reported seeing no ore. Root cause: a bunker claimed before block seeds existed (F-116) stores <code>block_seed</code> NULL, which the server reads as an undefined seed; with no seed every undug cell renders as plain dirt and pays nothing when dug, and Start fresh (F-117) never writes the column, so a reset does not fix it. <code>loadBunkerView</code> now backfills a seedless bunker: it derives <code>deriveBunkerBlockSeed(mineSeed, footprint)</code> from the player's <code>mine_worlds</code> seed (the exact value a fresh claim assigns) and persists it with a guarded write (<code>UPDATE bunkers SET block_seed = ... WHERE player_id = ... AND block_seed IS NULL</code>): idempotent, never overwrites a real seed, and does not bump the revision because it is a data backfill rather than a player edit. The existing exposed-ore rendering then shows the ore and future digs pay it, with no fake overlay and no generation or economy change. Backfilling cannot re-credit already-dug cells (banked digs credit at excavate time and a pending claim is always seeded at claim, so the bulk <code>settleBunkerDig</code> replay never runs on a backfilled row), and a player with no mine world yet is returned unchanged. This supersedes the closed PR #232, which tried to paint ore hints on the walls: those rendered inside the opaque wall block (occluded, so invisible) and decorated non-ore cells (misleading), and did not address the seedless root cause. Rule 13 tip review: the bunker-ore tip already covers walls showing dirt/rock/ore and is now accurate for backfilled bunkers too; no tip changed. Rule 14 stamp review: no new stamp (a data backfill, no new mechanic or milestone).</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean, type-check green. Three new <code>bunker.test.ts</code> cases: a seedless bunker gains the derived seed plus a guarded persist and now generates at least one ore cell; an already-seeded bunker is untouched with no world lookup or write; a seedless bunker with no mine world stays unseeded and writes nothing. Full unit suite green (1560, then 1563 with the new cases). The release-note fresh-browser and recent-list e2e are updated for 0.1.272 (run locally). The required parallel CI gate is verified per exact head in the PR comments.</dd>
+      <dt>Assumptions</dt><dd>The backfilled seed matches what a fresh claim would assign for the same footprint, so the client preview and the server payout agree exactly as they do for a freshly claimed bunker; and a bunker row always carries a valid footprint (written at claim), so the derivation never sees a null footprint.</dd>
+      <dt>GDD coverage</dt><dd>REQ-045 stays <code>done</code>; gained the F-174 followupRef (implementationRefs already include <code>src/server/bunker.ts</code> and testRefs <code>src/server/bunker.test.ts</code>). REQ-046 gained the F-175 followupRef (the thin-parts half of the same report).</dd>
+      <dt>Followups</dt><dd>Resolves <a href="FOLLOWUPS.html#F-174">F-174</a> (seedless-bunker ore backfill). Opens <a href="FOLLOWUPS.html#F-175">F-175</a> (replace the full-cell hotbar with the thin rotatable kit), the "old body parts" half of the same player report, sequenced as the next slice. Supersedes closed PR #232.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-layout-version-reset-settlement-revision" data-date="2026-07-16">
     <h3>Raid settlement contends its parts-write on the frozen bunker revision</h3>
     <dl>

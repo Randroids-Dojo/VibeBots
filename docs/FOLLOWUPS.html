@@ -84,6 +84,27 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-175" data-f="F-175" data-priority="nice-to-have">
+    <h3>F-175: Replace the full-cell bunker hotbar with the thin rotatable kit</h3>
+    <dl>
+      <dt>Context</dt><dd>A player entering the first-person bunker builder reported still seeing "all the old body parts": the hotbar offers the retired whole-cell Wall, Floor, and Roof parts (each fills an entire cell), not the thin, rotatable sub-cell kit the redesign calls for. REQ-046 (rotatable sub-cell slots for thin floors, walls, roofs, and stairs) is only partially delivered: the confirmed hard reset for incompatible old layouts shipped (F-117, PR #231), but the thin parts themselves and the slot-based placement they need have not, so the builder still hands out full-cell blocks.</dd>
+      <dt>Blocker (if any)</dt><dd>Larger than a one-slice change. It needs the sim slot model (sub-cell placement, rotation, and support/destruction rules), thin part geometry over those colliders, the placement UI (slot targeting and rotation control) in the first-person canvas and hotbar, and the wire/store plumbing to carry a slot and rotation, plus migration for any bunker built under the full-cell kit (the layout-version reset already gates those).</dd>
+      <dt>Unblock condition</dt><dd>Implement the thin rotatable build kit through the slot system per REQ-046: sub-cell floors, walls, roofs, and stairs a player can rotate and place into a cell's slots, with deterministic support and destruction, replacing the full-cell Wall/Floor/Roof hotbar. Keep part art render-only over the slot colliders (part-visuals rule), pin placement and support in sim tests, and add a first-person e2e that places and rotates a thin part and asserts the hotbar offers the new kit.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised from a player report on the first-person builder (alongside the seedless-ore backfill, F-174); child of the first-person 3D bunker arc; maps to REQ-046.</dd>
+    </dl>
+  </section>
+
+  <section id="F-174" data-f="F-174" data-priority="nice-to-have">
+    <h3>F-174: Backfill a block seed so old bunkers stop rendering as barren dirt</h3>
+    <dl>
+      <dt>Context</dt><dd>A player in the first-person bunker builder reported seeing "no ores." Root cause: a bunker claimed before block seeds existed (F-116) stores <code>block_seed</code> NULL, which the server maps to an undefined seed. With no seed, every undug cell renders as plain dirt (the fp build pass writes the dirt body and no rock or ore) and pays nothing when dug (<code>bunkerCellOreYield</code> returns null for an undefined seed), so the whole interior looks and behaves like empty dirt. Start fresh (F-117) never writes the column, so resetting an old bunker does not fix it. An earlier attempt (closed PR #232) tried to paint ore hints on the walls instead, but those rendered inside the opaque wall block (occluded) and decorated non-ore cells, so it was both invisible and misleading and did not touch the seedless root cause.</dd>
+      <dt>Blocker (if any)</dt><dd>None. A seedless bunker is a data gap, not a schema or economy change.</dd>
+      <dt>Unblock condition</dt><dd>Backfill the missing seed with the same deterministic value a fresh claim would use, so the walls generate the mine's real dirt, rock, and ore for that depth and digging pays again, without a fake overlay or a generation change.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised from a player report on the first-person builder; child of the first-person 3D bunker arc.</dd>
+      <dt>Resolved</dt><dd>2026-07-16, branch <code>fix/bunker-seedless-ore</code> (package 0.1.272). <code>loadBunkerView</code> now backfills a bunker with no <code>block_seed</code>: it derives <code>deriveBunkerBlockSeed(mineSeed, footprint)</code> from the player's <code>mine_worlds</code> seed (the exact value a fresh claim assigns) and persists it with a guarded write (<code>UPDATE bunkers SET block_seed = ... WHERE player_id = ... AND block_seed IS NULL</code>), so it is idempotent, never overwrites a real seed, and does not bump the revision (a data backfill, not a player edit). The seeded bunker's existing exposed-ore rendering then shows the ore, and future digs pay it. Filling the seed cannot re-credit already-dug cells: banked-bunker digs credit at excavate time, and a pending claim is always seeded at claim, so <code>settleBunkerDig</code> (the only bulk replay) never runs on a backfilled row. A player with no mine world row yet cannot derive a seed, so the bunker is returned unchanged. Covered by three server tests (a seedless bunker gains the derived seed and a guarded persist and now generates at least one ore cell; an already-seeded bunker is untouched with no world lookup or write; a seedless bunker with no mine world stays unseeded and writes nothing). Render-only over unchanged sim; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged. Follow-up F-175 tracks the separate "old body parts" half of the same report (the thin build kit).</dd>
+    </dl>
+  </section>
+
   <section id="F-158" data-f="F-158" data-priority="nice-to-have">
     <h3>F-158: Confirm the first-person Clanker orientation on a real phone</h3>
     <dl>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="html-dot-primary-identity-clarification" data-date="2026-07-15">
+    <h3>Distinguish primary followups from additive correction references</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Follow-on review of the F-164 tree-wide validator acceptance found that its <q>duplicate references</q> wording could reject valid append-only history. Extended F-164 and its HTML Dot additively. The check now requires exactly one primary <code>section[data-f]</code> and one matching Dot per in-scope identity while allowing repeated <code>data-f-ref</code> correction pairs that all resolve to that primary. Current-priority pointers remain separately validated under F-157.</dd>
+      <dt>Verification</dt><dd>Read F-157 at PR #223 exact head <code>5ac4cc19</code> and confirmed its primary definition, correction-reference semantics, and separate priority-pointer uniqueness contract. Compared those rules with F-164 on exact head <code>79a62a53</code>. Confirmed the previous phrase could conflate repeated correction references with duplicate primary identities. Preserved the pushed F-164 record, added an explicit correction, ran <code>dot-html show</code>, checked the new article's seven required fields, ran the dash check, and ran whitespace validation.</dd>
+      <dt>Assumptions</dt><dd>F-164 owns ledger-to-Dot pairing. F-157 owns the primary, correction-reference, and current-priority-pointer vocabulary. The two checks must agree after either held branch moves base.</dd>
+      <dt>GDD coverage</dt><dd>None. This is task-integrity validation with no game-design, runtime, schema, release, tip, stamp, or telemetry change.</dd>
+      <dt>Followups</dt><dd>No new followup. Extended F-164 and Dot <code>VibeBots-f-164-reconcile-71d4fd86</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="html-dot-review-ownership-clarifications" data-date="2026-07-15">
     <h3>Make the memory proof and Dot drift check single-owner and complete</h3>
     <dl>

@@ -399,7 +399,7 @@ describe("mine store upgrade flow", () => {
     expect(store().tripIndex).toBe(3);
   });
 
-  it("adopts the authoritative rail state when a buy is rejected", async () => {
+  it("surfaces the reason and balance on a rejected buy without touching the trip", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);
     useMineStore.setState({
@@ -434,13 +434,24 @@ describe("mine store upgrade flow", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       expectedDepth: 3,
     });
-    // Local state is replaced wholesale from the authoritative reject bundle.
-    expect(store().gear).toMatchObject({ elevator: 5, elevatorColumn: 17 });
+    // The rejected buy changed nothing server-side, so only the display-safe
+    // balance and the coded reason update. The rail depth, trip index, and
+    // supports stay put (rewriting them without a world rebuild would corrupt
+    // the persisted trip), and no trip is saved.
     expect(store().balance).toBe(12);
-    expect(store().consumables).toMatchObject({ ladder: 9, plank: 4 });
-    expect(store().tripIndex).toBe(7);
-    expect(store().elevatorPlacementRequired).toBe(false);
-    expect(store().shopNote).toBe("your rail moved; refreshed to the latest");
+    expect(store().shopNote).toBe(
+      "your rail changed on another device; reopen the shop",
+    );
+    expect(store().gear).toMatchObject({ elevator: 3, elevatorColumn: 17 });
+    expect(store().consumables).toMatchObject({ ladder: 1, plank: 1 });
+    expect(store().tripIndex).toBe(2);
+    // Any persisted trip stays self-consistent: the original index against the
+    // original rail, never the server's advanced index against a stale world.
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.tripIndex).toBe(2);
+    expect(savedTrip.gear.elevator).toBe(3);
   });
 
   it("replaces support stock from the accepted rail response", async () => {

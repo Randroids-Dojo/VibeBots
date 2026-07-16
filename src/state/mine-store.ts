@@ -111,11 +111,15 @@ function elevatorConflictNote(code: string | null): string {
     case "elevator-insufficient-balance":
       return "not enough vibes for the next rail";
     case "elevator-stale-rail-state":
-      return "your rail moved; refreshed to the latest";
+      return "your rail changed on another device; reopen the shop";
     case "elevator-stale-checkpoint":
-      return "the mine changed under you; refreshed the tower";
+      return "the mine changed under you; head up and back to refresh";
     case "elevator-rail-at-bottom":
       return "the rail already reaches the mine bottom";
+    case "elevator-column-required":
+      return "choose a surface column for the elevator shaft";
+    case "elevator-mine-world-missing":
+      return "the mine is still loading; try again in a moment";
     case "elevator-concurrent-loss":
       return "another change landed first; try again";
     default:
@@ -1639,40 +1643,27 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
       if (!res.ok) {
         const body = res.body as Record<string, unknown> | null;
-        // A rejected buy carries the authoritative rail state (F-121). Adopt it
-        // wholesale so the controls re-enable against the truth, and so a stale
-        // or retried buy the server refused cannot leave the client believing
-        // it advanced a row.
-        if (body && typeof body.elevator === "number") {
-          const { gear: g, consumables: c, tick: t } = get();
-          const nextConsumables: MineConsumables = { ...c };
-          if (typeof body.ladders === "number")
-            nextConsumables.ladder = body.ladders;
-          if (typeof body.planks === "number")
-            nextConsumables.plank = body.planks;
+        const code = body && typeof body.code === "string" ? body.code : null;
+        // A rejected buy changed nothing server-side (the guarded write matched
+        // no rows), so the client's trip replay state (seed, moves, world diff,
+        // rail depth, supports) is still valid as it stands. Surface only the
+        // authoritative balance (display state, not part of the saved trip) and
+        // a reason from the stable code. Deliberately do NOT rewrite the rail
+        // depth, trip index, or supports and persist here: that would save a
+        // trip whose index no longer matches its world (a real corruption when
+        // the checkpoint moved) and leave the rendered mine out of step with a
+        // scalar gear edit. When the rail or checkpoint actually moved under
+        // the client, the coded note tells the player to refresh; a bounded
+        // rail/world refetch on reject is the tracked F-121 follow-up.
+        if (code !== null) {
           set({
-            gear: {
-              ...g,
-              elevator: body.elevator,
-              elevatorColumn:
-                typeof body.elevatorColumn === "number"
-                  ? body.elevatorColumn
-                  : g.elevatorColumn,
-            },
-            consumables: nextConsumables,
             balance:
-              typeof body.balance === "number" ? body.balance : get().balance,
-            elevatorPlacementRequired: body.elevatorPlacementRequired === true,
-            tripIndex:
-              typeof body.tripIndex === "number"
-                ? body.tripIndex
-                : get().tripIndex,
-            shopNote: elevatorConflictNote(
-              typeof body.code === "string" ? body.code : null,
-            ),
-            tick: t + 1,
+              body && typeof body.balance === "number"
+                ? body.balance
+                : get().balance,
+            shopNote: elevatorConflictNote(code),
+            tick: get().tick + 1,
           });
-          persistCurrentTrip();
           return false;
         }
         set({

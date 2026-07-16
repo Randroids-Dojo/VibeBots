@@ -513,18 +513,32 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   // plus trip count, not rail depth, so a concurrent rail winner can leave the
   // same tripIndex while the account-trip payload still carries stale rail gear
   // and moves. Restoring it would let loadWorld replay a mixed checkpoint whose
-  // gear disagrees with the authoritative rail. Dropping the local trip and
-  // clearing moves makes loadWorld rebuild fresh over the authoritative world
-  // diff and loadGear rebuild mine.gear over the authoritative gear. Returns
-  // true only when BOTH authoritative reads succeeded, so the caller does not
-  // claim "refreshed" over a failed fetch. Safe here because the buy runs at the
-  // surface with any non-surface log already banked, so the dropped trip carries
-  // no unbanked progress.
+  // gear disagrees with the authoritative rail. Dropping the local trip makes
+  // loadWorld rebuild fresh over the authoritative world diff (its no-local-trip
+  // branch also zeroes moves), and loadGear then rebuilds mine.gear over the
+  // authoritative gear. Returns true only when BOTH authoritative reads
+  // succeeded, so the caller does not claim "refreshed" over a failed fetch.
+  // Safe here because the buy runs at the surface with any non-surface log
+  // already banked, so the dropped trip carries no unbanked progress.
   const resyncCloudWorld = async (slot: SaveSlotId): Promise<boolean> => {
     removeLocalTrip(slot);
-    set({ moves: [] });
+    // Do NOT pre-clear moves: loadWorld's no-local-trip branch already zeroes
+    // them on success, so clearing first would only tear coherent in-memory
+    // state (mine paired with its moves) if the read then failed.
     if (!(await get().loadWorld())) return false;
-    if (!(await get().loadGear())) return false;
+    // loadGear persists the rebuilt trip before its own fetch; if that fetch
+    // then fails, the persisted checkpoint pairs the new world and tripIndex
+    // with the old gear. It has no moves, so loadWorld's resume would ignore
+    // it, but drop it anyway so no mixed checkpoint can survive a failure.
+    if (!(await get().loadGear())) {
+      removeLocalTrip(slot);
+      return false;
+    }
+    // The remote /api/account/trip checkpoint can still hold the pre-conflict
+    // gear at this same tripIndex; a later refreshCloudWorld would download and
+    // restore it. Drop it best-effort so it cannot resurrect the stale rail (a
+    // failed clear reconciles on the next authoritative load).
+    clearAccountTripCheckpoint();
     void get().loadSaveSlots();
     return true;
   };
@@ -1694,12 +1708,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           });
           return false;
         }
-        // Every other code changed nothing server-side (insufficient balance
-        // over an in-sync checkpoint, or the rail already at the bottom), so the
-        // local trip stays valid. Surface only the authoritative balance
-        // (display state, not part of the saved trip) and the reason; do not
-        // rewrite the rail, trip index, or supports and persist, which would
-        // save a trip whose index no longer matched its world.
+        // The remaining codes do not move the world checkpoint: insufficient
+        // balance (the guarded write lost only on the price gate, and tripIndex
+        // is confirmed in sync, else it classified as stale-checkpoint above)
+        // and the rail already at the bottom. The world stays in step with the
+        // local trip, so surface only the authoritative balance (display state,
+        // not part of the saved trip) and the reason; do not rewrite the rail,
+        // trip index, or supports and persist, which would desync the saved
+        // trip from its world. A concurrent player-only purchase could still
+        // leave the wallet's consumables or gear briefly stale at this same
+        // tripIndex; that inventory lag syncs on the next gear load and is the
+        // open F-121 "authoritative inventory on every reject" item, not a world
+        // desync.
         if (code !== null) {
           set({
             balance:

@@ -681,6 +681,111 @@ describe("mine store upgrade flow", () => {
     expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
   });
 
+  it("drops the local trip and reopens when only the gear refetch fails", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", elevator: 5, tripIndex: 9 },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 9,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      // The gear read fails after the world rebuilt: the resync must drop the
+      // persisted trip so no new-world/old-gear checkpoint lingers, and it must
+      // not claim a refresh.
+      if (url === "/api/gear") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
+    expect(localStorage.removeItem).toHaveBeenCalled();
+  });
+
+  it("clears the remote account-trip checkpoint after a signed-in resync", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      accountSync: {
+        state: "ready",
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        mode: "signed_in",
+        accountEmail: "player@example.com",
+        currentSave: null,
+        accountSave: null,
+      },
+    });
+    const fetchMock = vi.fn(async (url: string, opts?: RequestInit) => {
+      void opts;
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", elevator: 5, tripIndex: 9 },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 9,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 },
+          consumables: NO_CONSUMABLES,
+          balance: 88,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // The stale same-index remote checkpoint is dropped so a later refresh
+    // cannot download and resurrect the pre-conflict rail gear.
+    const cleared = fetchMock.mock.calls.some(
+      ([u, opts]) => u === "/api/account/trip" && opts?.method === "DELETE",
+    );
+    expect(cleared).toBe(true);
+  });
+
   it("replaces support stock from the accepted rail response", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);

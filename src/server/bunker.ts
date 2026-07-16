@@ -288,6 +288,14 @@ interface LiveRaidStartSnapshot {
   tier: number;
   durationSeconds: number;
   bunker: BunkerState;
+  // The bunker revision frozen at raid start (F-106). Raid start never bumps
+  // the bunkers row and every edit path is blocked while a raid is active, so
+  // this stays equal to the live revision until settlement. The settlement
+  // parts-write contends on it, so a bunker edit racing in the window after
+  // the raid row is claimed (which flips the raid inactive) makes exactly one
+  // of the two win instead of the settlement silently overwriting the edit. A
+  // snapshot written before this field existed reads back as null (no guard).
+  revision: number | null;
 }
 
 /** Serialize a BunkerState into the bunkers-row shape used inside a frozen
@@ -332,6 +340,11 @@ function normalizeLiveRaidStartSnapshot(
       BUNKER_RAID_DURATION_SECONDS,
     ),
     bunker,
+    revision:
+      typeof candidate.revision === "number" &&
+      Number.isFinite(candidate.revision)
+        ? candidate.revision
+        : null,
   };
 }
 
@@ -1216,6 +1229,10 @@ export async function startLiveRaid(
     tier,
     durationSeconds: BUNKER_RAID_DURATION_SECONDS,
     bunker: bunkerRowSnapshot(view.bunker),
+    // Freeze the bunker revision so settlement can contend its parts-write on
+    // it (F-106), refusing to overwrite a bunker a concurrent edit changed in
+    // the window after the raid row is claimed.
+    revision: view.revision,
   };
   await sql`
     INSERT INTO bunker_raids (
@@ -1296,19 +1313,26 @@ export async function resolveLiveRaid(
     return { ok: false, status: 409, error: "raid already finished" };
   }
   // Defense damage stands on a win or a loss: write the settled parts (the
-  // frozen snapshot worn by the report) back to the bunker. Guard the write
-  // on the frozen layout generation (F-117): if a Start fresh advanced the
-  // bunker past it between this settle claiming the raid row and writing the
-  // parts, the guard misses and the worn old parts are dropped rather than
-  // restored onto the freshly reset (now current, empty) bunker. The reward
-  // below is unaffected: surviving the raid still pays out.
+  // frozen snapshot worn by the report) back to the bunker. Two guards, both
+  // so this write loses cleanly to a concurrent change instead of silently
+  // overwriting it. (1) Layout generation (F-117): if a Start fresh advanced
+  // the bunker past the frozen generation, drop the worn old parts rather than
+  // restore them onto the freshly reset bunker. (2) Frozen revision (F-106):
+  // claiming the raid row above flips the raid inactive, so an ordinary bunker
+  // edit can now succeed at the same generation; contending on the revision
+  // frozen at raid start means exactly one of {this settlement, that edit}
+  // wins (the edit already bumped the revision, so this write misses and its
+  // newer parts stand). A pre-revision snapshot (revision null) keeps the
+  // layout-only guard. The reward below is unaffected either way: surviving
+  // the raid still pays out.
   await sql`
     UPDATE bunkers
     SET parts = ${JSON.stringify(settlement.bunker.parts)}::jsonb,
         revision = revision + 1,
         updated_at = now()
     WHERE player_id = ${playerId}
-      AND layout_version = ${start.bunker.layoutVersion ?? 0}`;
+      AND layout_version = ${start.bunker.layoutVersion ?? 0}
+      AND (${start.revision}::int IS NULL OR revision = ${start.revision}::int)`;
   const beforeRows = (await sql`
     SELECT track_xp, defense_xp
     FROM players

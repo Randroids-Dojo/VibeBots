@@ -394,6 +394,60 @@ describe("resolveLiveRaid (F-105/F-106)", () => {
     expect(bunkerWrite).toContain("layout_version =");
   });
 
+  it("contends the settled parts-write on the frozen bunker revision (F-106)", async () => {
+    // A snapshot frozen at bunker revision 7. Claiming the raid row flips the
+    // raid inactive, so an ordinary edit can then succeed at the same layout
+    // version; contending the settlement write on the frozen revision makes it
+    // lose to that edit (which already bumped the revision) instead of silently
+    // overwriting the newer parts. Here the write matches zero rows, standing
+    // in for that lost race; the resolve still succeeds and pays the reward.
+    const queries: string[] = [];
+    const bunkerWriteValues: unknown[] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        queries.push(query);
+        if (query.includes("SELECT raid_id, tier, snapshot"))
+          return [
+            {
+              raid_id: "live-existing",
+              tier: 2,
+              snapshot: { ...liveSnapshot(88, "live-existing"), revision: 7 },
+            },
+          ];
+        if (query.includes("UPDATE bunker_raids"))
+          return [{ raid_id: "live-existing" }];
+        if (query.includes("UPDATE bunkers")) {
+          bunkerWriteValues.push(...values);
+          // Zero rows: a concurrent same-version edit already moved the
+          // revision, so the settlement write misses and its parts do not land.
+          return [];
+        }
+        if (query.includes("SELECT track_xp, defense_xp"))
+          return [{ track_xp: 1000, defense_xp: 500 }];
+        if (query.includes("UPDATE players")) return [{ defense_xp: 540 }];
+        if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+          return [{ emeralds: 100, track_xp: 1000, defense_xp: 540 }];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(20)];
+        return [];
+      },
+    );
+
+    const result = await resolveLiveRaid(sql as never, "player-1", WON_REPORT);
+
+    expect(result.ok).toBe(true);
+    const bunkerWrite = queries.find((q) => q.includes("UPDATE bunkers"));
+    expect(bunkerWrite).toBeDefined();
+    // The write is contended on the frozen revision, and it is bound with the
+    // snapshot's revision (7), so the DB refuses it when a concurrent edit has
+    // moved the bunker on.
+    expect(bunkerWrite).toContain("IS NULL OR revision =");
+    expect(bunkerWriteValues).toContain(7);
+    // The reward still lands even though the parts-write missed: settlement
+    // does not depend on its parts-write winning.
+    if (result.ok) expect(result.reward.survived).toBe(true);
+  });
+
   it("rejects an invalid report with 422 and its reason", async () => {
     const { sql } = makeResolveSql();
     const bad = { ...WON_REPORT, defenseXp: 999999 };

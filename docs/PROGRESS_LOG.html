@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-layout-version-reset-settlement-revision" data-date="2026-07-16">
+    <h3>Raid settlement contends its parts-write on the frozen bunker revision</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-layout-version-reset</code>.</dd>
+      <dt>PR</dt><dd>#231 (F-117 slice 3). Additive record; supersedes the "review-corrections" article below on one point (the same-generation settlement race is fixed here, not deferred).</dd>
+      <dt>Changed</dt><dd>A review pressed the same-generation lost-update on the raid settlement's parts-write: the write was guarded on <code>layout_version</code> (which closes the cross-version Start-fresh race) but still only on the layout version, so a bunker edit landing in the window after the raid row is claimed (claiming flips the raid inactive, unblocking edits) could be silently overwritten. This lost-update predates the PR (<code>origin/main</code> writes the settled parts unconditionally, <code>WHERE player_id</code>), but the write is one this slice directly changed and documented, so the guard is completed here rather than deferred. The raid snapshot now freezes the bunker revision at start (raid start never bumps the bunkers row and every edit is blocked while a raid is active, so it stays equal to the live revision until settlement), and the settlement contends its write on it (<code>AND (&lt;frozen&gt;::int IS NULL OR revision = &lt;frozen&gt;::int)</code>). A concurrent same-generation edit bumps the revision first, so the settlement write misses and the newer parts stand; exactly one of the two wins instead of a silent overwrite. A pre-revision snapshot (revision null) keeps the layout-only guard. F-106 stays open for the broader live-raid lifecycle conflict and resync contract (concurrent starts, duplicate resolves, expiry).</dd>
+      <dt>Verification</dt><dd>type-check green, Biome clean, sim-purity clean. New <code>resolveLiveRaid</code> test: a revision-bearing snapshot makes the settlement write contend on the frozen revision (the guard signature is present and the bound value is the snapshot revision), and a write that matches zero rows (standing in for the lost race) still pays the reward. The existing layout-version-guard and no-wear-at-start tests still pass unchanged (their snapshots carry no revision, so they exercise the layout-only fallback). Full unit suite green (1557). The required parallel CI gate is verified per exact head in the PR comments.</dd>
+      <dt>Assumptions</dt><dd>The freeze value is correct because no path bumps the bunker revision during an active raid: raid start only inserts the raid row, the forfeit and expiry paths write no bunker parts, and every mutation entry point is blocked while the raid is active. So the live revision at settlement equals the frozen one unless a concurrent edit landed in the post-claim window, which is exactly the case the guard is meant to lose to.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 stays <code>partial</code>. implementationRefs already include <code>src/server/bunker.ts</code>; testRefs already include <code>src/server/bunker-raid-live-server.test.ts</code>.</dd>
+      <dt>Followups</dt><dd>Advances F-117; F-106 narrowed to the remaining live-raid lifecycle hardening (this closes only the settlement-vs-edit parts-write lost-update).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-layout-version-reset-review-corrections" data-date="2026-07-16">
     <h3>Raid-start guard, F-107 framing, and forward-compat followup after review</h3>
     <dl>

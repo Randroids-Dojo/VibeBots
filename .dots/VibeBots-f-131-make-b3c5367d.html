@@ -36,6 +36,12 @@ Unapproved run 29532206397 repeated the same 30-second override on head 72f20097
 <section id="pr-244-q029-policy-contract-2026-07-16">
 Exact head 72f20097 leaves Q-029 internally stale. Option A and its recommendation still evaluate a 150-second reserve with a 60-second minimum test window, while the workflow and CI guide implement a 30-second upward floor. On any authorized replacement, preserve the existing record and append a Q-029 correction that separates upload reserve from minimum runnable test budget, defines fail-fast behavior when the live safe budget cannot cover both, aligns the options and recommendation with the actual contract, and adds the required Resolution placeholder. Keep F-131 open until policy and implementation agree.
 </section>
+<section id="pr-244-uncommitted-third-replacement-2026-07-16">
+The resumed local pass over remote head 72f20097 lowers the upward floor to 1 second, accepts overrides down to 1 ms, adds a post-failure text marker, enables failure screenshots, and caps the TypeScript parser. It still launches Playwright after safe budget exhaustion, outer cancellation can prevent the marker and upload, the text marker does not replace bounded machine-readable results, and parser tests do not exercise shell boundaries or artifacts. Require fail-before-launch budget handling, precreated structured fallback evidence, fail-closed artifact checks, and workflow-shell boundary tests.
+</section>
+<section id="pr-244-unfounded-q029-resolution-2026-07-16">
+The uncommitted pass marks Q-029 resolved and calls the 150-second reserve shipped based on forced run 29532206397. That 30-second startup timeout did not test a real late-running shard or reserve behavior near the outer deadline. Q-029 still says 60-second minimum while local workflow says 1 second and remote says 30 seconds. Keep Q-029 and F-131 open until an authorized consistent policy passes boundary tests and representative late-timeout proof.
+</section>
 </article>
 </body>
 </html>

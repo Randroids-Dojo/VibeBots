@@ -75,16 +75,58 @@ describe("fp grid mapping", () => {
     }
   });
 
-  it("spawns at the miner's cell on the tunnel plane", () => {
-    expect(fpSpawnCell(footprint, MINER_COL, MINER_ROW)).toEqual({
+  it("spawns on the floor at the miner's cell when it is open", () => {
+    // The proposed footprint centers the miner (local x 3), inside the
+    // pre-mined spawn pocket, so the spawn is exactly there on the floor.
+    expect(fpSpawnCell(corridorBunker(), MINER_COL, MINER_ROW)).toEqual({
       x: 3,
       y: 0,
       z: 0,
     });
-    // Defensive clamp: a miner outside the claim still spawns inside.
-    expect(
-      fpSpawnCell(footprint, footprint.col - 10, footprint.row - 10),
-    ).toEqual({ x: 0, y: 4, z: 0 });
+  });
+
+  it("never spawns inside undug rock when the miner entered off-center", () => {
+    const bunker = corridorBunker();
+    // A fresh claim opens only the 3-wide spawn pocket (local x 2..4) on
+    // the floor. Entering at either edge column would land in solid rock;
+    // the spawn snaps to the nearest open pocket cell instead.
+    expect(fpSpawnCell(bunker, footprint.col, MINER_ROW)).toEqual({
+      x: 2,
+      y: 0,
+      z: 0,
+    });
+    expect(fpSpawnCell(bunker, footprint.col + 6, MINER_ROW)).toEqual({
+      x: 4,
+      y: 0,
+      z: 0,
+    });
+    // Defensive clamp: a miner outside the claim still spawns in the pocket.
+    expect(fpSpawnCell(bunker, footprint.col - 10, footprint.row - 10)).toEqual(
+      { x: 2, y: 0, z: 0 },
+    );
+  });
+
+  it("spawns at the exact entry column once that floor cell is dug open", () => {
+    let bunker = corridorBunker();
+    const bottomRow = footprint.row + footprint.height - 1;
+    // The pocket already opens local x 2..4 on the floor; dig the two
+    // remaining floor-front cells out to the right edge (each adjacent to
+    // the last opened one).
+    for (let x = 5; x <= 6; x++) {
+      const result = excavateBunkerCell(
+        bunker,
+        footprint.col + x,
+        bottomRow,
+        0,
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) bunker = result.bunker;
+    }
+    expect(fpSpawnCell(bunker, footprint.col + 6, MINER_ROW)).toEqual({
+      x: 6,
+      y: 0,
+      z: 0,
+    });
   });
 });
 

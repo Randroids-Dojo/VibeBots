@@ -4,6 +4,7 @@ import {
   BUNKER_CLAIM_WIDTH,
   type BunkerFootprint,
   type BunkerState,
+  isOpenBunkerCell,
 } from "@/sim/bunker";
 
 /**
@@ -130,26 +131,48 @@ export function fpLocalFromGrid(
   return out;
 }
 
-/** The local cell the player spawns in: the miner's mine-grid cell on
- * the tunnel plane (z 0), clamped into the footprint defensively. */
+/**
+ * The local cell the player spawns in. The rig always plants the feet on
+ * the room floor (local y 0) at the front depth (z 0), so the spawn cell
+ * MUST be an open floor-front cell or the player materializes inside undug
+ * claim rock (every cell starts solid; only the dug set, which includes
+ * the pre-mined spawn pocket, is open). We therefore return the OPEN
+ * floor-front cell nearest the miner's entry column, scanning outward, and
+ * fall back to the footprint centre (the spawn pocket's column, seeded open
+ * at every load boundary) only if the whole floor row somehow reads solid.
+ * The miner's row is ignored: the rig grounds the player on the floor
+ * regardless of where along the tunnel they entered.
+ */
 export function fpSpawnCell(
-  footprint: BunkerFootprint,
+  bunker: BunkerState,
   minerCol: number,
   minerRow: number,
 ): FpLocalCell {
-  const col = Math.min(
-    Math.max(minerCol, footprint.col),
-    footprint.col + footprint.width - 1,
+  void minerRow;
+  const { footprint } = bunker;
+  const bottomRow = footprint.row + footprint.height - 1;
+  const clampedLocal = Math.min(
+    Math.max(minerCol - footprint.col, 0),
+    footprint.width - 1,
   );
-  const row = Math.min(
-    Math.max(minerRow, footprint.row),
-    footprint.row + footprint.height - 1,
-  );
-  return {
-    x: col - footprint.col,
-    y: footprint.row + footprint.height - 1 - row,
-    z: 0,
-  };
+  for (let d = 0; d < footprint.width; d++) {
+    const left = clampedLocal - d;
+    if (
+      left >= 0 &&
+      isOpenBunkerCell(bunker, footprint.col + left, bottomRow, 0)
+    ) {
+      return { x: left, y: 0, z: 0 };
+    }
+    const right = clampedLocal + d;
+    if (
+      d > 0 &&
+      right < footprint.width &&
+      isOpenBunkerCell(bunker, footprint.col + right, bottomRow, 0)
+    ) {
+      return { x: right, y: 0, z: 0 };
+    }
+  }
+  return { x: Math.floor(footprint.width / 2), y: 0, z: 0 };
 }
 
 /**

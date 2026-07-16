@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-16-0.1.272-bunker-ore-backfill";
+export const RELEASE_NOTICE_ID = "2026-07-16-0.1.273-bunker-spawn-and-ore";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.273",
+      date: "2026-07-16",
+      title: "Spawn in the room, not inside the wall",
+      intro:
+        "Entering a bunker in first person now always drops you standing in the open starter room, and old bunkers reliably show their ore.",
+      changes: [
+        {
+          build,
+          text: "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
+        },
+        {
+          build,
+          text: "A bunker that was still missing its ore data could show up as blank dirt on your screen even after the fix that fills the ore back in. First person now fills that ore in on your device too, so you see the real dirt, rock, and ore for your bunker's depth. Each of the five rows uses its own depth, so deeper rows carry the richer ore. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.272",
       date: "2026-07-16",

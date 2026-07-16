@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-ore-backfill note complete", () => {
+  it("keeps the latest spawn-and-ore note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-16-0.1.272-bunker-ore-backfill");
+    expect(release.noticeId).toBe("2026-07-16-0.1.273-bunker-spawn-and-ore");
     expect(latestNote).toMatchObject({
+      version: "0.1.273",
+      title: "Spawn in the room, not inside the wall",
+      intro:
+        "Entering a bunker in first person now always drops you standing in the open starter room, and old bunkers reliably show their ore.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
+      "A bunker that was still missing its ore data could show up as blank dirt on your screen even after the fix that fills the ore back in. First person now fills that ore in on your device too, so you see the real dirt, rock, and ore for your bunker's depth. Each of the five rows uses its own depth, so deeper rows carry the richer ore. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-ore-backfill note complete", () => {
+    const release = getAppRelease();
+    const oreNote = release.notes.find((note) => note.version === "0.1.272");
+
+    expect(oreNote).toMatchObject({
       version: "0.1.272",
       title: "Old bunkers show their ore again",
       intro:
         "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(oreNote?.changes.map((change) => change.text)).toEqual([
       "If you claimed a bunker before its walls started generating ore, it was stuck as solid dirt that paid nothing when you dug it, and even a reset did not fix it. Opening the bunker now fills in the ore it should have had, so its walls show the mine's dirt, rock, and ore for that depth and digging pays again.",
       "This only fills in ore that was missing. It never regrows ore you already mined, and it leaves any bunker that already had ore unchanged. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

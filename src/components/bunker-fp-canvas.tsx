@@ -980,7 +980,7 @@ function BunkerFpRig({
   // tipped slightly down (FP_SPAWN_PITCH) so the floor grounds it.
   const moveRef = useRef<FpMoveState | null>(null);
   if (!moveRef.current) {
-    const cell = fpSpawnCell(bunker.footprint, entry.col, entry.row);
+    const cell = fpSpawnCell(bunker, entry.col, entry.row);
     moveRef.current = {
       px: cell.x,
       py: -0.5,

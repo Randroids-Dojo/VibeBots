@@ -1386,6 +1386,86 @@ describe("mine store upgrade flow", () => {
     ).toBeNull();
   });
 
+  it("coalesces concurrent Retry calls onto a single refresh chain", async () => {
+    // Single-flight: two direct Retry calls must share one destructive
+    // reconcile chain, not each fetch the world and gear again.
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    const gear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    useMineStore.setState({
+      activeSlot: 1,
+      railResyncFailed: true,
+      accountSync: { ...store().accountSync, mode: "guest", state: "ready" },
+    });
+    let worldFetches = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        worldFetches += 1;
+        return jsonResponse({
+          activeSlot: 1,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({ gear, consumables: NO_CONSUMABLES, balance: 40 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const [a, b] = await Promise.all([
+      store().retryRailResync(),
+      store().retryRailResync(),
+    ]);
+
+    expect(a).toBe(true);
+    expect(b).toBe(true);
+    expect(worldFetches).toBe(1);
+    expect(store().railResyncFailed).toBe(false);
+  });
+
+  it("does not clear the block when a resync lands a different server slot", async () => {
+    // Pinned-slot success check: if loadWorld adopts a different active slot
+    // than the one being reconciled, the resync did not reconcile the captured
+    // slot, so its block must stay and the gear read must not even run.
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    useMineStore.setState({
+      activeSlot: 1,
+      railResyncFailed: true,
+      accountSync: { ...store().accountSync, mode: "guest", state: "ready" },
+    });
+    let gearFetched = false;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          activeSlot: 2,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
+      }
+      if (url === "/api/gear") {
+        gearFetched = true;
+        return jsonResponse({
+          gear: DEFAULT_GEAR,
+          consumables: NO_CONSUMABLES,
+          balance: 40,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+    expect(gearFetched).toBe(false);
+  });
+
   it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {
     // The regression the fix targets: another device won the rail (depth 3 -> 5)
     // WITHOUT advancing the trip count, so the account-trip endpoint still holds

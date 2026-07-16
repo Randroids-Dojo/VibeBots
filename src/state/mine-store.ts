@@ -640,7 +640,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   // succeeded, so the caller does not claim "refreshed" over a failed fetch.
   // Safe here because the buy runs at the surface with any non-surface log
   // already banked, so the dropped trip carries no unbanked progress.
-  const resyncCloudWorld = async (slot: SaveSlotId): Promise<boolean> => {
+  // Single-flight guard: while a refresh is running, concurrent callers (a
+  // second Retry tap, or a Retry racing the conflict path) share the SAME
+  // promise instead of each launching its own destructive reconcile chain
+  // (drop trip, reload world, reload gear, clear checkpoint) (F-121).
+  let pendingResync: Promise<boolean> | null = null;
+  const runResyncCloudWorld = async (slot: SaveSlotId): Promise<boolean> => {
     // Gate every concurrent rail buy for the whole refresh: the buy guard reads
     // this in-memory flag, and it stays true across the awaits below regardless
     // of what the mid-refresh loadWorld reflects into railResyncFailed, so a
@@ -653,6 +658,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // them on success, so clearing first would only tear coherent in-memory
       // state (mine paired with its moves) if the read then failed.
       if (!(await get().loadWorld())) return false;
+      // Pinned-slot check: loadWorld adopts the server's active slot, which can
+      // differ from the slot this resync was asked to reconcile (a client/server
+      // slot desync). If so, we did NOT reconcile the requested slot, so the
+      // caller must not clear ITS block off this result. Fail the resync; a
+      // later retry runs against the now-adopted slot (F-121).
+      if (get().activeSlot !== slot) return false;
       // loadGear persists the rebuilt trip before its own fetch; if that fetch
       // then fails, the persisted checkpoint pairs the new world and tripIndex
       // with the old gear. It has no moves, so loadWorld's resume would ignore
@@ -684,6 +695,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     } finally {
       set({ railResyncInFlight: false });
     }
+  };
+  const resyncCloudWorld = (slot: SaveSlotId): Promise<boolean> => {
+    // Coalesce concurrent refreshes onto one in-flight chain.
+    if (pendingResync) return pendingResync;
+    pendingResync = runResyncCloudWorld(slot).finally(() => {
+      pendingResync = null;
+    });
+    return pendingResync;
   };
   return {
     mine: createMine(seed),

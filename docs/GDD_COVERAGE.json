@@ -1193,10 +1193,19 @@
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
       "status": "partial",
       "implementationRefs": [
-        "src/sim/bunker.ts"
+        "src/sim/bunker.ts",
+        "src/server/bunker.ts",
+        "src/server/db.ts",
+        "src/app/api/bunker/start-fresh/route.ts",
+        "src/components/mine-bunker-control-panel.tsx",
+        "src/components/mine-panel.tsx"
       ],
       "testRefs": [
-        "src/sim/bunker.test.ts"
+        "src/sim/bunker.test.ts",
+        "src/server/bunker.test.ts",
+        "src/app/api/bunker/route.test.ts",
+        "src/state/bunker-store.test.ts",
+        "src/state/bunker-api-client.test.ts"
       ],
       "followupRefs": [
         "F-117"

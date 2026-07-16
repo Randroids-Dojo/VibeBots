@@ -13,6 +13,7 @@ import {
   removeRemoteBunkerPart,
   resetRemoteBunker,
   resolveRemoteLiveRaid,
+  startFreshRemoteBunker,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 
@@ -133,6 +134,12 @@ describe("bunker API client", () => {
 
     await resetRemoteBunker();
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
+    expect(lastBody()).toEqual({});
+
+    await startFreshRemoteBunker();
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
+      "/api/bunker/start-fresh",
+    );
     expect(lastBody()).toEqual({});
   });
 

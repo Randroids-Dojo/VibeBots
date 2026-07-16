@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BUNKER_LAYOUT_VERSION } from "@/sim/bunker";
 import {
   BUNKER_RAID_LIVE_VERSION,
   type LiveRaidOutcomeReport,
@@ -24,6 +25,7 @@ function bunkerRow(durability: number) {
     skin: null,
     skins_owned: [],
     revision: 2,
+    layout_version: BUNKER_LAYOUT_VERSION,
   };
 }
 

@@ -38,6 +38,16 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-026" data-status="open">
+    <h3>Q-026: May a Start fresh bunker take legacy whole-cell parts before slot placement ships?</h3>
+    <dl>
+      <dt>Context</dt><dd>F-117 slice 3 (package 0.1.271) lands the layout-version boundary and a confirmed Start fresh, which detects an old bunker by its persisted <code>layout_version</code> and, on Start fresh, clears the built parts and stamps the current version. But the first-person builder still emits no slot (slot placement is a later slice), so a bunker that was just Started fresh is stamped current yet the only parts a player can place into it are still legacy whole-cell parts. Because incompatibility is detected by version and the bunker is now current, it never fails fast again, so a current bunker can accumulate legacy parts in the interim between this slice and the slot-placement slice.</dd>
+      <dt>Options</dt><dd>A. Allow it (what shipped). Keep the slice minimal: fp part-building continues with legacy parts on current bunkers, and the slot-placement slice retires legacy placement and re-resets any bunker still carrying legacy parts before it writes the first slot. B. Block legacy placement on current bunkers now, pausing fp part-building (digging still works) until slot placement ships, so no legacy parts can re-enter after a Start fresh.</dd>
+      <dt>Recommended default</dt><dd>A. It keeps building usable between slices for the two alpha players and is safe because no persisted slot write happens before the slot-placement slice, which is the exact boundary the whole F-117 arc is sequenced around; that slice retires legacy placement and re-resets any bunker still carrying legacy parts, so a bunker never persists a mix of legacy and slotted parts. B would leave the bunker dig-only for an unknown number of releases, a worse experience whose only avoided cost is a possible second Start fresh for a player who rebuilds legacy parts before slot placement lands. Revisit if the slot-placement slice slips far enough that the transient legacy state becomes a real content risk.</dd>
+      <dt>PR / Dot reference</dt><dd>Shipped under default A in the F-117 slice-3 PR (package 0.1.271).</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-024" data-status="resolved">
     <h3>Q-024: How authoritative is in-raid player movement?</h3>
     <dl>

@@ -131,6 +131,13 @@ export function resetRemoteBunker() {
   return bunkerApi("/api/bunker/reset", jsonPost({}));
 }
 
+/** Hard-reset a layout-incompatible bunker to a bare current-version claim
+ * (F-117, Q-022): no refund, keeps the excavation, stamps the new layout
+ * version so building is allowed again. */
+export function startFreshRemoteBunker() {
+  return bunkerApi("/api/bunker/start-fresh", jsonPost({}));
+}
+
 export function setRemoteBunkerSkin(skinId: BunkerSkinId) {
   return bunkerApi("/api/bunker/skin", jsonPost({ skinId }));
 }

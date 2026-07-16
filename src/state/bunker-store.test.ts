@@ -20,6 +20,7 @@ import {
   placeRemoteBunkerPart,
   resetRemoteBunker,
   resolveRemoteLiveRaid,
+  startFreshRemoteBunker,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 import { useBunkerStore } from "./bunker-store";
@@ -36,6 +37,7 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
     placeRemoteBunkerPart: vi.fn(),
     resetRemoteBunker: vi.fn(),
     resolveRemoteLiveRaid: vi.fn(),
+    startFreshRemoteBunker: vi.fn(),
     startRemoteLiveBunkerRaid: vi.fn(),
   };
 });
@@ -46,6 +48,7 @@ const mockedExcavate = vi.mocked(excavateRemoteBunkerCell);
 const mockedLoad = vi.mocked(loadRemoteBunker);
 const mockedPlace = vi.mocked(placeRemoteBunkerPart);
 const mockedReset = vi.mocked(resetRemoteBunker);
+const mockedStartFresh = vi.mocked(startFreshRemoteBunker);
 const mockedResolveLive = vi.mocked(resolveRemoteLiveRaid);
 const mockedForfeitLive = vi.mocked(forfeitRemoteLiveRaid);
 const mockedStartLive = vi.mocked(startRemoteLiveBunkerRaid);
@@ -310,6 +313,26 @@ describe("bunker store", () => {
     expect(useBunkerStore.getState()).toMatchObject({
       status: "error",
       note: "finish the raid first",
+    });
+  });
+
+  it("applies a Start fresh view through the shared mutation path (F-117)", async () => {
+    // Server returns the wiped, current-version bunker (no refund).
+    const bunker = createBunker(proposedBunkerFootprint(10, 8));
+    mockedStartFresh.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, bunker },
+    });
+
+    const body = await useBunkerStore.getState().startFreshBunker();
+
+    expect(body).not.toBeNull();
+    expect(mockedStartFresh).toHaveBeenCalledTimes(1);
+    expect(useBunkerStore.getState()).toMatchObject({
+      status: "ready",
+      bunker,
+      note: null,
     });
   });
 });

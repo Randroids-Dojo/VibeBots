@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  BUNKER_LAYOUT_VERSION,
   type BunkerFootprint,
   bunkerCells,
   proposedBunkerFootprint,
@@ -17,10 +18,13 @@ import {
   collectBunkerLoot,
   excavateBunker,
   loadBunkerView,
+  moveBunkerPart,
   placeBunkerPart,
+  removeBunkerPart,
   repairBunker,
   resetBunker,
   setBunkerSkin,
+  startFreshBunker,
 } from "./bunker";
 
 /** An ore cell plus a face-adjacent in-footprint cell to pre-open, so an
@@ -575,6 +579,7 @@ describe("bunker excavation wrapper", () => {
               // One open floor cell so the depth-1 dig below chains from
               // it; depth-3 stays unreachable (no open neighbor).
               dug: [{ col: 2, row: 5, depth: 0 }],
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -635,6 +640,7 @@ describe("bunker excavation wrapper", () => {
               parts: [],
               dug: [target.open],
               block_seed: blockSeed,
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -692,7 +698,14 @@ describe("bunker excavation wrapper", () => {
           return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
         }
         if (query.includes("SELECT footprint, parts")) {
-          return [{ footprint, parts: storedParts, dug: storedDug }];
+          return [
+            {
+              footprint,
+              parts: storedParts,
+              dug: storedDug,
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
         }
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];
@@ -824,6 +837,7 @@ describe("bunker part wrappers with depth", () => {
                 { col: 2, row: 5, depth: 2 },
                 { col: 2, row: 5, depth: 3 },
               ],
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -879,6 +893,7 @@ describe("banked edit revision guard (F-122)", () => {
               skin: null,
               skins_owned: [],
               revision: opts.revision,
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -978,5 +993,150 @@ describe("banked edit revision guard (F-122)", () => {
       expect(result.code).toBe("bunker-revision-conflict");
     }
     expect(guardedValues).toHaveLength(0);
+  });
+});
+
+describe("layout-incompatible bunker fail-fast (F-117)", () => {
+  // A legacy bunker row: it carries built parts but no layout_version, so it
+  // parses as version 0 and reads as incompatible with the current model.
+  function legacySql() {
+    const updates: string[] = [];
+    const upserts: Array<[string, number]> = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 4, width: 7, height: 5 },
+              parts: [
+                {
+                  partId: "wall-panel",
+                  col: 1,
+                  row: 4,
+                  depth: 0,
+                  durability: 90,
+                },
+              ],
+              dug: [{ col: 2, row: 5, depth: 1 }],
+              block_seed: 4242,
+              revision: 3,
+              // No layout_version: legacy, reads as incompatible.
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [{ part_id: "wall-panel", count: 5 }];
+        }
+        if (query.includes("UPDATE bunkers")) {
+          updates.push(query);
+          return [{ player_id: "player-1" }];
+        }
+        if (query.includes("ON CONFLICT (player_id, part_id)")) {
+          upserts.push([String(values[1]), Number(values[2])]);
+          return [];
+        }
+        return [];
+      },
+    );
+    return { sql, updates, upserts };
+  }
+
+  it("rejects every edit on a legacy bunker with the layout-incompatible code", async () => {
+    for (const call of [
+      (sql: unknown) =>
+        placeBunkerPart(sql as never, "player-1", "wall-panel", 2, 5, 1),
+      (sql: unknown) => removeBunkerPart(sql as never, "player-1", 1, 4, 0),
+      (sql: unknown) =>
+        moveBunkerPart(sql as never, "player-1", 1, 4, 2, 4, 0, 0),
+      (sql: unknown) => excavateBunker(sql as never, "player-1", 2, 5, 2),
+    ]) {
+      const { sql, updates } = legacySql();
+      const result = await call(sql);
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.status).toBe(409);
+        expect(result.code).toBe("bunker-layout-incompatible");
+      }
+      // It fails before any write: no bunker UPDATE ran.
+      expect(updates).toHaveLength(0);
+    }
+  });
+
+  it("Start fresh wipes a legacy bunker with no refund and stamps the version", async () => {
+    const { sql, updates, upserts } = legacySql();
+    const result = await startFreshBunker(sql as never, "player-1");
+    expect(result.ok).toBe(true);
+
+    // One UPDATE clears parts, stamps the version, and keeps the excavation.
+    const update = sql.mock.calls.find((call) =>
+      (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+    );
+    expect(update).toBeDefined();
+    const updateQuery = (
+      (update?.[0] ?? []) as unknown as TemplateStringsArray
+    ).join(" ");
+    expect(updateQuery).toContain("SET parts");
+    expect(updateQuery).toContain("layout_version =");
+    expect(updateQuery).toContain("dug");
+    expect(updateQuery).toContain("revision = revision + 1");
+    const bound = ((update ?? []) as unknown[]).slice(1);
+    // parts cleared to [], excavation preserved.
+    expect(bound[0]).toBe("[]");
+    const persistedDug = JSON.parse(String(bound[1]));
+    expect(persistedDug).toContainEqual({ col: 2, row: 5, depth: 1 });
+    // Exactly one bunker UPDATE ran (no second guarded rewrite).
+    expect(updates).toHaveLength(1);
+    // No refund: Start fresh never upserts the base-part inventory.
+    expect(upserts).toHaveLength(0);
+  });
+
+  it("Start fresh is a safe no-op on an already-current bunker", async () => {
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            parts: [
+              {
+                partId: "wall-panel",
+                col: 1,
+                row: 4,
+                depth: 0,
+                durability: 90,
+              },
+            ],
+            dug: [{ col: 2, row: 5, depth: 1 }],
+            revision: 3,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) {
+        return [{ part_id: "wall-panel", count: 5 }];
+      }
+      return [];
+    });
+    const result = await startFreshBunker(sql as never, "player-1");
+    expect(result.ok).toBe(true);
+    // A current bunker is returned unchanged: no UPDATE ever runs, so a
+    // retry can never wipe a valid layout with no refund.
+    expect(
+      sql.mock.calls.some((call) =>
+        (call[0] as TemplateStringsArray).join(" ").includes("UPDATE bunkers"),
+      ),
+    ).toBe(false);
+    if (result.ok) {
+      expect(result.view.bunker?.parts).toHaveLength(1);
+    }
   });
 });

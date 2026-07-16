@@ -30,6 +30,7 @@ import {
   resetRemoteBunker,
   resolveRemoteLiveRaid,
   setRemoteBunkerSkin,
+  startFreshRemoteBunker,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 import { enqueueStampAlertsFromResponse } from "./stamp-alert-store";
@@ -97,6 +98,7 @@ export interface BunkerStoreState {
   forfeitLiveRaid: () => Promise<BunkerMutationResult>;
   repairBunker: () => Promise<BunkerMutationResult>;
   resetBunker: () => Promise<BunkerMutationResult>;
+  startFreshBunker: () => Promise<BunkerMutationResult>;
   setSkin: (skinId: BunkerSkinId) => Promise<BunkerMutationResult>;
 }
 
@@ -301,6 +303,13 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
       set,
       get,
       await resetRemoteBunker(),
+      "bunker action failed",
+    ),
+  startFreshBunker: async () =>
+    applyMutationResult(
+      set,
+      get,
+      await startFreshRemoteBunker(),
       "bunker action failed",
     ),
   setSkin: (skinId) =>

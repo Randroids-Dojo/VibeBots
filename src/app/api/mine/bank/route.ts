@@ -31,6 +31,7 @@ import {
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_LAYOUT_VERSION,
   type BunkerFootprint,
   type BunkerState,
   createBunker,
@@ -834,14 +835,15 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot)
+      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot, layout_version)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb,
         ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb,
         ${claimedBunker?.blockSeed ?? null},
-        ${JSON.stringify(claimedBunker?.loot ?? [])}::jsonb
+        ${JSON.stringify(claimedBunker?.loot ?? [])}::jsonb,
+        ${BUNKER_LAYOUT_VERSION}
       WHERE ${hasPendingBunker} AND EXISTS (SELECT 1 FROM world)
       ON CONFLICT (player_id) DO NOTHING
       RETURNING player_id

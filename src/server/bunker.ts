@@ -1,13 +1,18 @@
-import { BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
+import {
+  BUNKER_LAYOUT_INCOMPATIBLE_CODE,
+  BUNKER_REVISION_CONFLICT_CODE,
+} from "@/lib/api-codes";
 import type { BunkerView, LiveRaidActiveView } from "@/lib/bunker-api-types";
 import {
   applyBunkerRepairs,
   applyBunkerReset,
+  applyBunkerStartFresh,
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
+  BUNKER_LAYOUT_VERSION,
   BUNKER_RAID_COOLDOWN_HOURS,
   BUNKER_RAID_DURATION_SECONDS,
   BUNKER_SKIN_CATALOG,
@@ -25,6 +30,7 @@ import {
   type DugBunkerCell,
   EMPTY_BASE_PART_INVENTORY,
   excavateBunkerCell,
+  isBunkerLayoutIncompatible,
   isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
@@ -81,6 +87,25 @@ function revisionConflict(view: BunkerView): OperationFailure {
     error: "bunker changed elsewhere, refreshed",
     code: BUNKER_REVISION_CONFLICT_CODE,
     body: { ...view },
+  };
+}
+
+/**
+ * A bunker whose persisted layout predates the current placement model
+ * cannot be edited (F-117). Every mutation entry point returns this so a
+ * legacy bunker fails fast and the client shows Start fresh (Q-022); the
+ * distinct code lets a racing client force the prompt. Returns null when
+ * the bunker is compatible, so callers guard with a single `?? next` check.
+ */
+function layoutIncompatibleFailure(
+  bunker: BunkerState,
+): OperationFailure | null {
+  if (!isBunkerLayoutIncompatible(bunker)) return null;
+  return {
+    ok: false,
+    status: 409,
+    error: "start fresh to rebuild under the new bunker layout",
+    code: BUNKER_LAYOUT_INCOMPATIBLE_CODE,
   };
 }
 
@@ -205,6 +230,7 @@ function parseBunkerState(
     loot?: unknown;
     skin?: unknown;
     skins_owned?: unknown;
+    layout_version?: unknown;
   } | null,
 ): BunkerState | null {
   if (!row) return null;
@@ -215,6 +241,10 @@ function parseBunkerState(
     : [];
   return {
     footprint,
+    // Layout-model version (F-117). Absent or non-numeric means a row that
+    // predates the column: legacy 0, which reads as incompatible.
+    layoutVersion:
+      typeof row.layout_version === "number" ? row.layout_version : 0,
     // Guarantee an open spawn pocket even for legacy claims stored under
     // the old depth-0-open model (F-115), so nobody spawns in solid rock.
     dug: withSpawnPocket(footprint, normalizedDugCells(row.dug)),
@@ -417,7 +447,7 @@ export async function loadBunkerView(
     defense_xp: number;
   }>;
   const bunkerRows = (await sql`
-    SELECT footprint, parts, dug, block_seed, loot, skin, skins_owned, revision
+    SELECT footprint, parts, dug, block_seed, loot, skin, skins_owned, revision, layout_version
     FROM bunkers
     WHERE player_id = ${playerId}`) as Array<{
     footprint: unknown;
@@ -428,6 +458,7 @@ export async function loadBunkerView(
     skin: unknown;
     skins_owned: unknown;
     revision: unknown;
+    layout_version: unknown;
   }>;
   const raidRows = (await sql`
     SELECT snapshot, raid_version, started_at
@@ -533,14 +564,15 @@ export async function claimBunker(
   const bunker = createBunker(footprint, blockSeed);
   await ensureStarterBaseParts(sql, playerId);
   await sql`
-    INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot)
+    INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot, layout_version)
     VALUES (
       ${playerId},
       ${JSON.stringify(bunker.footprint)}::jsonb,
       ${JSON.stringify(bunker.parts)}::jsonb,
       ${JSON.stringify(bunker.dug)}::jsonb,
       ${blockSeed},
-      ${JSON.stringify(bunker.loot ?? [])}::jsonb
+      ${JSON.stringify(bunker.loot ?? [])}::jsonb,
+      ${bunker.layoutVersion ?? BUNKER_LAYOUT_VERSION}
     )`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
@@ -653,6 +685,8 @@ export async function placeBunkerPart(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (view.activeLiveRaid)
     return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
@@ -690,6 +724,8 @@ export async function removeBunkerPart(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (view.activeLiveRaid)
     return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
@@ -727,6 +763,8 @@ export async function moveBunkerPart(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (view.activeLiveRaid)
     return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
@@ -765,6 +803,8 @@ export async function excavateBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (view.activeLiveRaid)
     return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
@@ -947,6 +987,43 @@ export async function resetBunker(
         updated_at = now()
     WHERE player_id = ${playerId}`;
   await saveBasePartInventory(sql, playerId, reset.inventory);
+  return { ok: true, view: await loadBunkerView(sql, playerId) };
+}
+
+/**
+ * Hard-reset a layout-incompatible bunker to a bare, current-version
+ * claim (F-117, Q-022). Unlike resetBunker this refunds nothing (the old
+ * layout is structurally gone) and stamps layout_version forward; the
+ * excavation, skin, seed, and loot stay. Safe and idempotent on an
+ * already-current bunker: it returns the view unchanged so a retry can
+ * never wipe a valid layout with no refund. Blocked during an active raid.
+ */
+export async function startFreshBunker(
+  sql: Sql,
+  playerId: string,
+): Promise<BunkerOperationResult> {
+  const view = await loadBunkerView(sql, playerId);
+  if (!view.bunker)
+    return { ok: false, status: 409, error: "claim a bunker first" };
+  // Only an incompatible bunker is wiped. A current one is returned as-is
+  // so a double-submit or a mistaken call never destroys a valid layout
+  // (Start fresh gives no refund; resetBunker is the refunding path).
+  if (!isBunkerLayoutIncompatible(view.bunker)) {
+    return { ok: true, view };
+  }
+  if (bunkerRaidActive(view))
+    return { ok: false, status: 409, error: "finish the raid first" };
+  const fresh = applyBunkerStartFresh(view.bunker);
+  // Bump the revision so an in-flight banked edit loses its guard, and
+  // stamp the layout version so the bunker reads as compatible next load.
+  await sql`
+    UPDATE bunkers
+    SET parts = ${JSON.stringify(fresh.parts)}::jsonb,
+        dug = ${JSON.stringify(fresh.dug)}::jsonb,
+        layout_version = ${BUNKER_LAYOUT_VERSION},
+        revision = revision + 1,
+        updated_at = now()
+    WHERE player_id = ${playerId}`;
   return { ok: true, view: await loadBunkerView(sql, playerId) };
 }
 

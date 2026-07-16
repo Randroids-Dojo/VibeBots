@@ -1196,68 +1196,116 @@ describe("POST /api/elevator/upgrade", () => {
       expect(mockedPlayer).not.toHaveBeenCalled();
     });
 
-    it("logs a lost-success first-placement retry as place plus rejected", async () => {
-      // The first buy committed (stored depth is now 1) but its success response
-      // was lost, so the client retries with expectedDepth 0. Intent is derived
-      // from the request, so it reads as an attempted place, and the stale-depth
-      // guard rejects it before any charge.
+    // Count UPDATE-players executions on one mocked sql (a committed write).
+    function writeCount(sql: ReturnType<typeof mockSql>): number {
+      return sql.mock.calls.filter(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ).length;
+    }
+
+    it("first-placement lost-success pair: accept then identical retry rejects with no second write", async () => {
+      // POST 1: the first rail is placed and charged.
+      mockedProfile.mockResolvedValue(profile(0, null));
+      const accept = mockSql({
+        updated: {
+          emeralds: 75,
+          elevator_depth: 1,
+          elevator_col: 37,
+          ladder_count: 9,
+          plank_count: 4,
+        },
+      });
+      const first = await POST(request(37, 0));
+
+      expect(first.status).toBe(200);
+      expect(writeCount(accept)).toBe(1);
+      expect(mockedRecord).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
+        playerId: "player-1",
+        operation: "place",
+        result: "accepted",
+        reason: null,
+      });
+
+      // The commit advanced the stored depth to 1 and confirmed placement; the
+      // client never saw the response and retries the identical request(37, 0).
       mockedProfile.mockResolvedValue(profile(1, 37));
-      const sql = mockSql();
+      const retry = mockSql();
+      const second = await POST(request(37, 0));
 
-      const response = await POST(request(37, 0));
-
-      expect(response.status).toBe(409);
-      await expect(response.json()).resolves.toMatchObject({
+      expect(second.status).toBe(409);
+      await expect(second.json()).resolves.toMatchObject({
         code: "elevator-stale-rail-state",
         elevator: 1,
+        elevatorColumn: 37,
+        gear: expect.objectContaining({ elevator: 1 }),
       });
-      expect(mockedOutcome).toHaveBeenCalledTimes(1);
-      expect(mockedOutcome).toHaveBeenCalledWith({
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
         playerId: "player-1",
         operation: "place",
         result: "rejected",
         reason: "elevator-stale-rail-state",
       });
-      expect(
-        sql.mock.calls.some(([strings]) =>
-          strings.join(" ").includes("UPDATE players"),
-        ),
-      ).toBe(false);
-      expect(mockedRecord).not.toHaveBeenCalled();
+      // Exactly one write and one balance event across the pair; the retry adds
+      // neither, and the outcome intent is accepted then rejected.
+      expect(writeCount(retry)).toBe(0);
+      expect(mockedRecord).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledTimes(2);
     });
 
-    it("rejects a lost-success relocation retry without charging the next row", async () => {
-      // The free relocation committed (placement marker set, column 37, depth
-      // still 4) but its response was lost, so the client retries the identical
-      // request(37, 4). expectedDepth matches, placement is no longer required,
-      // and the column matches the stored one, so without the relocate guard it
-      // would fall through to the paid extension. It must reject instead.
+    it("relocation lost-success pair: free placement then identical retry cannot become a paid extension", async () => {
+      // POST 1: an existing owner places the full shaft for free (no charge).
+      mockedProfile.mockResolvedValue(
+        profile(4, -5, { elevator_placement_chosen_at: null }),
+      );
+      const accept = mockSql({
+        updated: {
+          emeralds: 100,
+          elevator_depth: 4,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+      const first = await POST(request(37, 4));
+
+      expect(first.status).toBe(200);
+      await expect(first.json()).resolves.toMatchObject({ relocated: true });
+      expect(writeCount(accept)).toBe(1);
+      expect(mockedRecord).not.toHaveBeenCalled(); // relocation is free
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
+        playerId: "player-1",
+        operation: "relocate",
+        result: "accepted",
+        reason: null,
+      });
+
+      // The relocation committed the placement marker and column but left the
+      // depth at 4. The client retries the identical request(37, 4).
       mockedProfile.mockResolvedValue(profile(4, 37));
-      const sql = mockSql();
+      const retry = mockSql();
+      const second = await POST(request(37, 4));
 
-      const response = await POST(request(37, 4));
-
-      expect(response.status).toBe(409);
-      await expect(response.json()).resolves.toMatchObject({
+      expect(second.status).toBe(409);
+      await expect(second.json()).resolves.toMatchObject({
         code: "elevator-stale-rail-state",
         error: "elevator placement was already confirmed",
         elevator: 4,
         elevatorColumn: 37,
+        gear: expect.objectContaining({ elevator: 4 }),
       });
-      expect(mockedOutcome).toHaveBeenCalledTimes(1);
-      expect(mockedOutcome).toHaveBeenCalledWith({
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
         playerId: "player-1",
         operation: "relocate",
         result: "rejected",
         reason: "elevator-stale-rail-state",
       });
-      // No charge and no balance event: the retry must not advance a second row.
-      expect(
-        sql.mock.calls.some(([strings]) =>
-          strings.join(" ").includes("UPDATE players"),
-        ),
-      ).toBe(false);
+      // The retry did NOT become a paid extension: no second write, and no
+      // balance event ever fired across the free-relocation pair.
+      expect(writeCount(retry)).toBe(0);
       expect(mockedRecord).not.toHaveBeenCalled();
+      expect(mockedOutcome).toHaveBeenCalledTimes(2);
     });
 
     it("still completes the buy when outcome telemetry throws", async () => {

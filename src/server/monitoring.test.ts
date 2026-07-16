@@ -221,8 +221,12 @@ describe("elevator mutation-outcome monitoring", () => {
     spy.mockRestore();
   });
 
-  it("writes warn JSON with the reason for a rejected mutation", () => {
-    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("writes non-alarming info JSON with the reason for a rejected mutation", () => {
+    // A routine reject (insufficient balance, stale-rail guard, and the like) is
+    // a normal product outcome, so it must not page: info severity, alert false.
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     logElevatorOutcomeEvent({
       operation: "place",
@@ -231,31 +235,43 @@ describe("elevator mutation-outcome monitoring", () => {
       playerId: "player-1",
     });
 
-    expect(spy).toHaveBeenCalledTimes(1);
-    const parsed = JSON.parse(String(spy.mock.calls[0][0]));
+    expect(warnSpy).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    const parsed = JSON.parse(String(infoSpy.mock.calls[0][0]));
     expect(parsed).toMatchObject({
       component: "elevator.upgrade",
       event: "elevator.upgrade.rejected",
-      alert: true,
-      severity: "warn",
+      alert: false,
+      severity: "info",
       operation: "place",
       result: "rejected",
       reason: "elevator-stale-rail-state",
     });
 
-    spy.mockRestore();
+    infoSpy.mockRestore();
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
   });
 
-  it("omits the player field when no id is supplied", () => {
-    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  it("logs a pre-auth reject with a reason but no operation or player", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
 
     logElevatorOutcomeEvent({
-      operation: "relocate",
       result: "rejected",
-      reason: "elevator-concurrent-loss",
+      reason: "elevator-expected-depth-required",
     });
 
     const parsed = JSON.parse(String(spy.mock.calls[0][0]));
+    expect(parsed).toMatchObject({
+      component: "elevator.upgrade",
+      event: "elevator.upgrade.rejected",
+      alert: false,
+      severity: "info",
+      result: "rejected",
+      reason: "elevator-expected-depth-required",
+    });
+    expect(parsed).not.toHaveProperty("operation");
     expect(parsed).not.toHaveProperty("player");
 
     spy.mockRestore();

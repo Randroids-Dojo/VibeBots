@@ -4,6 +4,7 @@ import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import {
   type ElevatorMutation,
+  type ElevatorMutationOutcomeEvent,
   logElevatorOutcomeEvent,
 } from "@/server/monitoring";
 import {
@@ -151,6 +152,21 @@ function elevatorReject(
 }
 
 /**
+ * Emit an outcome log, best-effort (F-121). Observability must never fail or
+ * roll back a committed rail buy, so any monitoring error is swallowed. This is
+ * a single best-effort attempt: it does not retry, and a thrown sink drops the
+ * event (the durable, deduplicated outbox variant is a separate open F-121
+ * item).
+ */
+function safeLogElevatorOutcome(event: ElevatorMutationOutcomeEvent): void {
+  try {
+    logElevatorOutcomeEvent(event);
+  } catch {
+    // Swallow: an outcome log can never break gameplay.
+  }
+}
+
+/**
  * Classify why a guarded rail write matched zero rows, given the freshly
  * re-read state and the pre-write expectations. Order is most-specific first:
  * a moved rail depth or column beats balance, which beats a moved checkpoint,
@@ -256,6 +272,13 @@ export async function POST(request: Request): Promise<Response> {
   // before any read or charge. See F-121; kept optional until every client
   // shipped it, now enforced.
   if (expectedDepth === undefined) {
+    // Bounded reason-only signal so the volume of stale no-expectedDepth
+    // traffic is observable (Q-027's revisit criterion). This is a pre-auth
+    // reject: no player, operation, coordinate, or raw payload is logged.
+    safeLogElevatorOutcome({
+      result: "rejected",
+      reason: "elevator-expected-depth-required",
+    });
     return elevatorReject(
       "elevator-expected-depth-required",
       "expectedDepth is required",
@@ -289,18 +312,15 @@ export async function POST(request: Request): Promise<Response> {
     : depth === 0
       ? "place"
       : "extend";
-  // Best-effort mutation-outcome telemetry (F-121). It records every
-  // mutation-level accept and reject and must never fail a rail buy, so every
-  // emission is swallowed. Rejects also emit no balance event, only this log.
+  // Mutation-level outcome telemetry (F-121): records every mutation-level
+  // accept and reject with the resolved operation. Best-effort (see
+  // safeLogElevatorOutcome); a rejected write emits this log and no balance
+  // event.
   const emitOutcome = (
     result: "accepted" | "rejected",
     reason: ElevatorReasonCode | null,
   ): void => {
-    try {
-      logElevatorOutcomeEvent({ playerId, operation, result, reason });
-    } catch {
-      // Outcome telemetry is observability only; never let it break gameplay.
-    }
+    safeLogElevatorOutcome({ playerId, operation, result, reason });
   };
   const rejectOutcome = (
     code: ElevatorReasonCode,

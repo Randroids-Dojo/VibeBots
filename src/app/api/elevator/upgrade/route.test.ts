@@ -191,6 +191,9 @@ function mockSql({
 describe("POST /api/elevator/upgrade", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks clears calls but not implementations: reset the outcome mock
+    // so the throwing-sink test below cannot poison a later or reordered test.
+    mockedOutcome.mockReset();
     mockedStorage.mockReturnValue(true);
     mockedPlayer.mockResolvedValue("player-1");
     mockedProfile.mockResolvedValue(profile(0, null));
@@ -1159,13 +1162,30 @@ describe("POST /api/elevator/upgrade", () => {
       expect(mockedRecord).not.toHaveBeenCalled();
     });
 
-    it("logs no outcome for a pre-auth validation reject", async () => {
-      // Missing expectedDepth is rejected before the player and profile load, so
-      // there is no mutation operation to attribute an outcome to.
-      const response = await POST(request(37, null));
+    it("logs no outcome for a generic pre-auth validation reject", async () => {
+      // An out-of-range column is rejected before the player and profile load,
+      // so there is no mutation operation to attribute an outcome to, and this
+      // generic validation failure is not a stale-client signal Q-027 tracks.
+      const response = await POST(request(100_001, 0));
 
       expect(response.status).toBe(400);
       expect(mockedOutcome).not.toHaveBeenCalled();
+    });
+
+    it("logs a bounded reason-only outcome for a missing expectedDepth", async () => {
+      // Q-027 revisits requiring expectedDepth on stale-client traffic volume,
+      // so the pre-auth reject emits one bounded signal: reason only, with no
+      // operation guess, player, coordinate, or raw payload.
+      const response = await POST(request(37, null));
+
+      expect(response.status).toBe(400);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        result: "rejected",
+        reason: "elevator-expected-depth-required",
+      });
+      // No player lookup or DB read happened, so no id could leak into it.
+      expect(mockedPlayer).not.toHaveBeenCalled();
     });
 
     it("still completes the buy when outcome telemetry throws", async () => {

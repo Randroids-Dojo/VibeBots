@@ -117,7 +117,12 @@ export interface AccountLinkMonitoringEvent {
 export type ElevatorMutation = "extend" | "place" | "relocate";
 
 export interface ElevatorMutationOutcomeEvent {
-  operation: ElevatorMutation;
+  /**
+   * The attempted rail mutation. Omitted for a pre-auth reject (bad or missing
+   * `expectedDepth`) that is rejected before the profile loads, so there is no
+   * loaded rail state to classify.
+   */
+  operation?: ElevatorMutation;
   result: "accepted" | "rejected";
   /** The rejection reason code, or null when the mutation was accepted. */
   reason: ElevatorReasonCode | null;
@@ -161,21 +166,25 @@ export function logMineCashOutEvent(event: MineCashOutMonitoringEvent): void {
 }
 
 /**
- * Records whether a mutation-level elevator rail write was accepted or rejected
- * and, on a reject, the stable reason code (F-121). This is the observability
- * counterpart to the success-only `elevator.upgrade` balance event: it fires on
- * every mutation-level outcome so an operator can tell an expected concurrency
- * loss apart from a persistence failure. A rejected write emits no balance
- * event, only this log.
+ * Records whether an elevator rail buy was accepted or rejected and, on a
+ * reject, the stable reason code (F-121). This is the observability counterpart
+ * to the success-only `elevator.upgrade` balance event: it fires on every
+ * instrumented outcome, so an operator can aggregate rejects by reason. A
+ * rejected write emits no balance event, only this log.
+ *
+ * Every current outcome (accepts and every expected reject: insufficient
+ * balance, rail maxed, missing column, stale or concurrent guards, a stale
+ * client omitting `expectedDepth`) is a routine product outcome, so it logs at
+ * `info` with `alert: false`. Severity is reserved for a genuinely unexpected
+ * persistence or invariant fault, which today surfaces as a thrown 500 rather
+ * than a reason-coded outcome; if a future reason represents such a fault it can
+ * map to `warn`/`error` here.
  */
 export function logElevatorOutcomeEvent(
   event: ElevatorMutationOutcomeEvent,
 ): void {
   const { playerId, operation, result, reason } = event;
-  // Accepted writes are routine info. A reject is an expected stale-client or
-  // concurrency guard, logged at warn so it is distinguishable from an error
-  // without being alarming.
-  const severity: MonitoringSeverity = result === "accepted" ? "info" : "warn";
+  const severity: MonitoringSeverity = "info";
   writeMonitoringLog(severity, "elevator.upgrade", {
     event: `elevator.upgrade.${result}`,
     operation,

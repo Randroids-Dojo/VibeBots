@@ -283,15 +283,20 @@ describe("POST /api/elevator/upgrade", () => {
         fromDepth: 0,
         toDepth: 1,
         row: 1,
-        column: 37,
+        // A bounded placement state replaces the exact shaft column (F-121).
+        placement: "placed",
         price: 25,
       }),
     );
+    // The exact player-chosen shaft column is never retained in telemetry.
+    const props = mockedRecord.mock.calls.at(-1)?.[3] ?? {};
+    expect(props).not.toHaveProperty("column");
+    expect(Object.values(props)).not.toContain(37);
   });
 
   it("adds exactly one row to an existing shaft without needing a body", async () => {
     mockedProfile.mockResolvedValue(profile(4, 37));
-    mockSql({
+    const sql = mockSql({
       updated: {
         emeralds: 70,
         elevator_depth: 5,
@@ -308,6 +313,20 @@ describe("POST /api/elevator/upgrade", () => {
       elevator: 5,
       elevatorColumn: 37,
     });
+    // An extend records the bounded "extended" placement, never the column.
+    expect(mockedRecord).toHaveBeenCalledWith(
+      sql,
+      "player-1",
+      "elevator.upgrade",
+      expect.objectContaining({
+        fromDepth: 4,
+        toDepth: 5,
+        placement: "extended",
+      }),
+    );
+    expect(mockedRecord.mock.calls.at(-1)?.[3] ?? {}).not.toHaveProperty(
+      "column",
+    );
   });
 
   it("lets an existing owner place the full shaft once for free", async () => {

@@ -1730,6 +1730,63 @@ describe("mine store upgrade flow", () => {
     );
   });
 
+  it("runs the full resync on a duplicate-request replay, not a partial merge", async () => {
+    // A duplicate-request reject means the original buy committed and advanced
+    // the world (depth 3 to 4, trip 2 to 8), so the response's authoritative
+    // gear must not be merged over the stale local world. It must take the full
+    // resync path so world, gear, and trip index move as one checkpoint (F-121).
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-duplicate-request", elevator: 4, tripIndex: 8 },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 8,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 17 },
+          consumables: NO_CONSUMABLES,
+          balance: 70,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // The authoritative world and gear were re-fetched (not an inventory-only
+    // merge), so the trip index and rail depth move together to the server's.
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/mine/world");
+    expect(urls).toContain("/api/gear");
+    expect(store().tripIndex).toBe(8);
+    expect(store().mine.gear.elevator).toBe(4);
+    expect(store().shopNote).toBe(
+      "that purchase already went through; refreshed to the latest",
+    );
+  });
+
   it("fails fast into a reopen prompt when the conflict refetch cannot load", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);

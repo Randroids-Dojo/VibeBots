@@ -41,15 +41,16 @@
   <section data-q="Q-025" data-status="resolved">
     <h3>Q-025: Where may a thin roof panel sit in a dug-out column?</h3>
     <dl>
-      <dt>Context</dt><dd>The F-117 thin-piece model lets a player cap a room with a roof panel in the <code>roof</code> slot. A bunker column is now dug out cell by cell (F-115/F-116), so a room can end partway up a column with rock or a sealed cell above it, not only at the footprint's top row. The GDD (<code>08-base-building.html</code>) says roofs are "thin slabs only at the top of the topmost cell", which reads two ways once digging can end a room mid-column, so the placement rule had to pin what counts as "the top" a roof may cap.</dd>
+      <dt>Context</dt><dd>The F-117 thin-piece model lets a player cap a room with a roof panel in the <code>roof</code> slot. A bunker column is now dug out cell by cell (F-115/F-116), so a room can end partway up a column with rock or a sealed cell above it, not only at the footprint's top row. The placement rule has to decide what counts as "the top" a roof is allowed to cap.</dd>
       <dt>Options</dt><dd>
         <ol type="A">
-          <li>Top of the room: a roof is allowed at any cell whose cell directly above is closed (rock, the footprint boundary, or another sealed cell) and rejected only when open air sits directly above it. A player can cap a dug-out pocket mid-column.</li>
-          <li>Top of the volume: a roof is allowed only in the topmost row of the claim (<code>footprint.row</code>), so every roof is the literal ceiling of the bunker. A mid-column room is capped with a second-story floor (the deck above doubles as that room's ceiling), never with a roof.</li>
+          <li>Top of the room (what shipped): a roof is allowed at any cell whose cell directly above is closed (rock, the footprint boundary, or another sealed cell) and rejected only when open air sits directly above it. A player can cap a dug-out pocket mid-column.</li>
+          <li>Top of the footprint: a roof is allowed only in the topmost row of the claim volume, so every roof reads as the literal ceiling of the bunker.</li>
         </ol>
       </dd>
-      <dt>Recommended default</dt><dd>B (dev direction 2026-07-16: "can use a second story floor as a type of roof, but only the very top gets actual roof"). It matches the literal GDD reading ("the topmost cell" is the volume's top row) and keeps the roof meaningfully distinct from a floor: a floor is a walkable deck at any level and is what a lower room's ceiling is made of, while a roof is uniquely the bunker's outer cap. A was the first implementation but was rejected because it blurred roof and floor into near-duplicates and contradicted the GDD wording.</dd>
-      <dt>Status</dt><dd>resolved 2026-07-16: option B (dev direction). <code>placeBasePart</code> rejects a roof outside the top row with the <code>roof-top</code> reason; mid-column ceilings use a floor slot.</dd>
+      <dt>Recommended default</dt><dd>A. It matches how the space is actually built (rooms end where the digging stopped, not at a fixed row) and lets a roof do its structural job of sealing a pocket wherever that pocket tops out; the "open air directly above" rejection still blocks a roof floating under empty space. B is simpler to state but forbids the common case of capping a shallow dug room, which would feel arbitrary to a player who just dug it. Shipped under A with the rule documented in <code>placeBasePart</code> (<code>roof-top</code> reason).</dd>
+      <dt>Resolution</dt><dd>Resolved 2026-07-16 to option B by dev direction: "can use a second story floor as a type of roof, but only the very top gets actual roof." A roof sits only in the volume's top row (<code>footprint.row</code>); a mid-column room is capped with a second-story floor whose underside is the lower room's ceiling. Correction to the Options and Recommended default above: the "(what shipped)" and "Shipped under A" wording described provisional unmerged branch state that never reached players; option A was superseded by B before this slice merged, so no build ever shipped the top-of-the-room reading. <code>placeBasePart</code> rejects a roof outside the top row with the <code>roof-top</code> reason.</dd>
+      <dt>Status</dt><dd>resolved 2026-07-16: option B (dev direction).</dd>
     </dl>
   </section>
 

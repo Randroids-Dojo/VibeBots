@@ -1253,6 +1253,37 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     expect(pried.bunker.parts).toHaveLength(0);
   });
 
+  it("does not pry a divider from an out-of-footprint depth origin", () => {
+    const bunker = allDugBunker(4, 5);
+    const col = 4;
+    const row = centerCell(bunker).row;
+    const lastDepth = BUNKER_CLAIM_DEPTH - 1;
+    // A wall on the +z face of the deepest row.
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      col,
+      row,
+      lastDepth,
+      "wall-pz",
+    );
+    // wall-nz one step past the back wall folds onto that +z slab (depth
+    // BUNKER_CLAIM_DEPTH is outside the volume), so the pry must miss.
+    expect(isOpenBunkerCell(placed.bunker, col, row, BUNKER_CLAIM_DEPTH)).toBe(
+      false,
+    );
+    expect(
+      removeBasePart(
+        placed.bunker,
+        placed.inventory,
+        col,
+        row,
+        BUNKER_CLAIM_DEPTH,
+        "wall-nz",
+      ),
+    ).toEqual({ ok: false, reason: "missing" });
+  });
+
   it("does not remove a slotted part through a bare-cell request", () => {
     const c = { col: 4, row: 3, depth: 0 };
     let state = {
@@ -1384,6 +1415,54 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     // Moving it onto the far +x cell (whose -x face the wall divides) fails.
     expect(
       moveBasePart(parked.bunker, c.col + 2, c.row, c.col + 1, c.row, 0, 0),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("blocks a legacy cell and a legacy move on a thin wall in depth", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    // Legacy-first in depth: a whole-cell part at the far +z cell, then a
+    // wall on the shared +z boundary from the near cell, is blocked.
+    const farLegacy = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      1,
+    );
+    expect(
+      placeBasePart(
+        farLegacy.bunker,
+        farLegacy.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-pz",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // Move-target in depth: a wall on the depth 0/1 boundary blocks moving a
+    // legacy part into the far +z cell.
+    const walled = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+      "wall-pz",
+    );
+    const parked = placeBasePart(
+      walled.bunker,
+      walled.inventory,
+      "floor-panel",
+      c.col,
+      c.row,
+      2,
+    );
+    expect(parked.ok).toBe(true);
+    if (!parked.ok) return;
+    expect(
+      moveBasePart(parked.bunker, c.col, c.row, c.col, c.row, 2, 1),
     ).toEqual({ ok: false, reason: "occupied" });
   });
 

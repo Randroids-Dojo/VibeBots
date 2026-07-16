@@ -662,6 +662,59 @@ describe("bunker excavation wrapper", () => {
     // The single CTE credited the balance with the ore's vibes.
     expect(playerCredit).not.toBeNull();
   });
+
+  it("persists cascaded parts atomically with the dug cell (F-117)", async () => {
+    // A grounded slotted floor whose cell below is still rock. Digging that
+    // cell out drops the floor (F-117 cascade); the guarded write must bind
+    // both the new dug cell and the emptied parts array so the drop survives
+    // a reload, proving dug and parts are written under one revision.
+    const footprint: BunkerFootprint = { col: 1, row: 4, width: 7, height: 5 };
+    let bunkerWrite: unknown[] | null = null;
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint,
+              parts: [
+                {
+                  partId: "floor-panel",
+                  col: 2,
+                  row: 7,
+                  depth: 0,
+                  slot: "floor",
+                  durability: 70,
+                },
+              ],
+              // The floor's cell is open; the cell below it (row 8) is still
+              // rock, so the floor is grounded until that cell is dug.
+              dug: [{ col: 2, row: 7, depth: 0 }],
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        if (query.includes("UPDATE bunkers")) {
+          bunkerWrite = values;
+          return [{ dug_rows: 1, ore_rows: 0 }];
+        }
+        return [];
+      },
+    );
+    const result = await excavateBunker(sql as never, "player-1", 2, 8, 0);
+    expect(result.ok).toBe(true);
+    if (!bunkerWrite) throw new Error("expected a guarded bunker write");
+    const [dugValue, partsValue] = bunkerWrite as string[];
+    // dug carries both the original cell and the newly excavated one.
+    const dugCells = JSON.parse(dugValue) as Array<{ row: number }>;
+    expect(dugCells.some((cell) => cell.row === 8)).toBe(true);
+    // The cascaded floor is gone from the persisted parts, in the same write.
+    expect(JSON.parse(partsValue)).toEqual([]);
+  });
 });
 
 describe("bunker loot collection", () => {

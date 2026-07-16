@@ -711,10 +711,14 @@ function isGroundedBunkerFloor(
  * below it, which rise to meet the floor's underside. Counts the canonical
  * wall slots that carry a load-bearing part (only walls and doors can sit
  * in a wall slot, and both are structural dividers). A part chewed down to
- * zero durability is rubble, not support, so the next settlement pass (a
- * pried wall or an excavation) drops any floor left unsupported by wear.
- * Wiring settlement into live-raid wear resolution itself is deferred to
- * the raid-activation slice. */
+ * zero durability is rubble, not support, so the support count is recomputed
+ * on each settlement pass. Today a settlement pass runs only on a pry or an
+ * excavation. Live raids are already active, so before any thin-part
+ * persistence or activation the live-raid wear resolution must run this
+ * settlement itself, with exact slot identity, at the moment a support is
+ * destroyed; leaning on a later unrelated mutation to settle is not
+ * acceptable. That integration is tracked as deferred in the F-117 slice
+ * log. */
 function bunkerFloorSupportWalls(
   bunker: BunkerState,
   col: number,

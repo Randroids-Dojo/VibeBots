@@ -565,6 +565,300 @@ describe("bunker depth normalization", () => {
   });
 });
 
+describe("bunker block-seed backfill", () => {
+  const footprint = { col: 1, row: 4, width: 7, height: 5 };
+
+  it("backfills a missing block seed from the player's mine world (F-116)", async () => {
+    // A bunker claimed before block seeds existed stores block_seed NULL, so
+    // every cell renders as flat dirt and pays no ore. Loading it derives and
+    // persists the same seed a fresh claim would, so its walls gain ore.
+    const worldSeed = 777;
+    const expected = deriveBunkerBlockSeed(worldSeed, footprint);
+    const queries: string[] = [];
+    const seedWrites: unknown[][] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        queries.push(query);
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint,
+              parts: [],
+              dug: [],
+              block_seed: null,
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
+        }
+        if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+          return [{ seed: worldSeed }];
+        }
+        if (
+          query.includes("UPDATE bunkers") &&
+          query.includes("SET block_seed")
+        ) {
+          seedWrites.push(values);
+          // The guarded write wins and RETURNING echoes the stored seed.
+          return [{ block_seed: expected }];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) return [];
+        return [];
+      },
+    );
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    // The returned seed is the one the write reported, not a local guess.
+    expect(view.bunker?.blockSeed).toBe(expected);
+    // The seeded bunker now generates real ore for at least one cell.
+    const hasOre = Array.from({ length: 7 }, (_, x) => x).some((x) =>
+      Array.from({ length: 5 }, (_, y) => y).some((y) =>
+        Array.from({ length: 5 }, (_, z) => z).some(
+          (z) => bunkerCellBlock(expected, footprint, x, y, z).kind === "ore",
+        ),
+      ),
+    );
+    expect(hasOre).toBe(true);
+    // Persisted exactly once, guarded on the column still being NULL so it is
+    // idempotent and never overwrites a real seed.
+    expect(seedWrites).toHaveLength(1);
+    expect(seedWrites[0]).toContain(expected);
+    const write = queries.find(
+      (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+    );
+    expect(write).toContain("block_seed IS NULL");
+    expect(write).toContain("RETURNING block_seed");
+  });
+
+  it("adopts the authoritative seed when it loses the backfill race", async () => {
+    // A concurrent load already backfilled: the guarded write matches zero
+    // rows, so the view must read the persisted seed rather than trust the
+    // locally derived value.
+    const worldSeed = 777;
+    const concurrentSeed = deriveBunkerBlockSeed(worldSeed, footprint);
+    let sawReread = false;
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: worldSeed }];
+      }
+      if (
+        query.includes("UPDATE bunkers") &&
+        query.includes("SET block_seed")
+      ) {
+        // Zero-row loser: the column was no longer NULL.
+        return [];
+      }
+      if (
+        query.includes("SELECT block_seed") &&
+        query.includes("FROM bunkers")
+      ) {
+        sawReread = true;
+        return [{ block_seed: concurrentSeed }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(sawReread).toBe(true);
+    expect(view.bunker?.blockSeed).toBe(concurrentSeed);
+  });
+
+  it("leaves an old bunker unseeded when the mine seed is malformed", async () => {
+    // A non-numeric seed cannot derive real blocks; the bunker is returned
+    // as-is (renders as dirt) rather than seeded from a garbage value.
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: "not-a-seed" }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBeUndefined();
+    expect(
+      queries.some(
+        (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves a bunker that already has a seed untouched", async () => {
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: 4242,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBe(4242);
+    // No world lookup and no backfill write for an already-seeded bunker.
+    expect(queries.some((q) => q.includes("mine_worlds"))).toBe(false);
+    expect(
+      queries.some(
+        (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves an old bunker unseeded when the player has no mine world", async () => {
+    const queries: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      queries.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBeUndefined();
+    expect(
+      queries.some(
+        (q) => q.includes("UPDATE bunkers") && q.includes("SET block_seed"),
+      ),
+    ).toBe(false);
+  });
+
+  it("preserves parts, dug cells, and loot while filling the seed", async () => {
+    // The backfill fills only block_seed; the player's build and digging must
+    // survive untouched. Use a cell outside the spawn pocket (x 6, depth 3) so
+    // its presence proves preservation, not the pocket seeding.
+    const worldSeed = 555;
+    const expected = deriveBunkerBlockSeed(worldSeed, footprint);
+    const bottomRow = footprint.row + footprint.height - 1;
+    const part = {
+      partId: "wall-panel",
+      col: footprint.col + 2,
+      row: bottomRow,
+      depth: 0,
+      durability: 90,
+    };
+    const dugCell = { col: footprint.col + 6, row: bottomRow, depth: 3 };
+    const lootPile = {
+      col: footprint.col + 6,
+      row: bottomRow,
+      depth: 3,
+      ores: { coal: 3 },
+    };
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 0, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [part],
+            dug: [dugCell],
+            loot: [lootPile],
+            block_seed: null,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT seed") && query.includes("mine_worlds")) {
+        return [{ seed: worldSeed }];
+      }
+      if (
+        query.includes("UPDATE bunkers") &&
+        query.includes("SET block_seed")
+      ) {
+        return [{ block_seed: expected }];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.bunker?.blockSeed).toBe(expected);
+    expect(view.bunker?.parts).toContainEqual(part);
+    expect(view.bunker?.dug).toContainEqual(dugCell);
+    expect(view.bunker?.loot).toContainEqual(lootPile);
+  });
+});
+
 describe("bunker excavation wrapper", () => {
   it("persists reachable digs and rejects unreachable ones", async () => {
     const writes: string[] = [];

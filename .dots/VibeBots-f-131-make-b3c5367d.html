@@ -24,6 +24,9 @@ Unapproved dispatch 29531137295 at exact head d2242b03 concluded failure, all fo
 <section id="pr-244-triage-precision-2026-07-16">
 The uncommitted PR #244 correction uses gh run list with event schedule and limit 1, but that can select a queued or in-progress run and hide the newest completed red conclusion. Query the newest completed scheduled run explicitly and surface an active run separately. Supersession requires a completed coverage-equivalent Full E2E run on a commit that contains the timed-out head by ancestry. Equal-or-newer SHA is not a valid ordering rule, and a manual PR-branch proof does not supersede a current-main scheduled cancellation unless its tested commit contains that main head.
 </section>
+<section id="pr-244-correction-state-2026-07-16">
+The triage change above was uncommitted when first observed, then was committed and pushed as replacement head 72f20097. Its completed-run selection and ancestry defects remain; only its repository state advanced.
+</section>
 <section id="pr-244-unsafe-replacement-2026-07-16">
 Replacement head 72f20097 floors a negative safe allowance upward to 30 seconds, so late setup can cross the outer deadline. Override 0 reaches config-load failure before reporters, huge digit strings are not safely bounded, and if-no-files-found warn still permits zero artifacts. New docs falsely claim screenshots are configured, timeouts always fail rather than cancel, artifacts always survive, and all holds are corrected. Actual config has no screenshot policy and only trace on first retry; forced artifacts had neither. Require precreated bounded fallback evidence, live-budget-safe math, finite positive bounded inputs, fail-closed required files, and inspected-artifact claims.
 </section>

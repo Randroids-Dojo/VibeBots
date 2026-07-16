@@ -279,9 +279,12 @@ export async function POST(request: Request): Promise<Response> {
       result: "rejected",
       reason: "elevator-expected-depth-required",
     });
+    // A stale cached client (old JS from before the field existed) copies this
+    // error text straight into a visible shop note, so return reload guidance
+    // rather than the internal field name.
     return elevatorReject(
       "elevator-expected-depth-required",
-      "expectedDepth is required",
+      "reload the game to update, then try again",
       400,
       null,
     );
@@ -300,18 +303,26 @@ export async function POST(request: Request): Promise<Response> {
   const storedColumn = profile ? mineElevatorColumnFromProfile(profile) : null;
   const oldDiff = (rows[0]?.diff ?? []) as WorldDiff;
   const worldTripCount = rows[0]?.trip_count;
-  // Which rail mutation this request performs, resolved once from the loaded
-  // profile: a pending placement is a relocate, the first rail places the
-  // shaft, later rails extend it. Reused for both the placement branch and the
-  // outcome telemetry so accepts and rejects report the same operation.
+  // Whether the loaded shaft still needs its one-time free placement (an
+  // existing owner who has not yet confirmed a surface column). Drives the
+  // placement branch below.
   const placementRequired = Boolean(
     profile && depth > 0 && !profile.elevator_placement_chosen_at,
   );
-  const operation: ElevatorMutation = placementRequired
-    ? "relocate"
-    : depth === 0
+  // The mutation the REQUEST intends, derived from its own shape rather than the
+  // post-write profile: the first rail sends expectedDepth 0 (place); an owner
+  // confirming a column sends a positive depth with a column (relocate); a plain
+  // extend sends a positive depth and no column (extend). Deriving intent from
+  // the request keeps a lost-success retry legible: a retried first placement
+  // still reads as "place" even though the committed buy already advanced the
+  // stored depth, and a retried relocation reads as "relocate" (F-121). It is
+  // also the guard the relocate-retry check below relies on.
+  const operation: ElevatorMutation =
+    expectedDepth === 0
       ? "place"
-      : "extend";
+      : requestedColumn !== undefined
+        ? "relocate"
+        : "extend";
   // Mutation-level outcome telemetry (F-121): records every mutation-level
   // accept and reject with the resolved operation. Best-effort (see
   // safeLogElevatorOutcome); a rejected write emits this log and no balance
@@ -480,6 +491,23 @@ export async function POST(request: Request): Promise<Response> {
     return rejectOutcome(
       "elevator-stale-rail-state",
       "elevator shaft is already placed",
+      409,
+      currentState,
+    );
+  }
+  // A relocate intent (a column supplied on an existing shaft, expectedDepth > 0)
+  // that reaches here has placementRequired already false, so the placement was
+  // already confirmed. This is a lost-success retry of an already committed free
+  // relocation: relocation sets the placement marker and column but leaves depth
+  // unchanged, so the identical retry passes the stale-depth guard, and without
+  // this check it would fall through to the paid extension and CHARGE for the
+  // next row. Reject with authoritative state so it cannot double-charge; a
+  // genuine extend omits the column and is unaffected. The different-column case
+  // is already handled above; this catches the same-column retry.
+  if (operation === "relocate") {
+    return rejectOutcome(
+      "elevator-stale-rail-state",
+      "elevator placement was already confirmed",
       409,
       currentState,
     );

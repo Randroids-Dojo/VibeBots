@@ -239,13 +239,15 @@ describe("POST /api/elevator/upgrade", () => {
 
   it("rejects a request that omits expectedDepth fail-fast", async () => {
     // A stale cached client without expectedDepth would bypass the stale-rail
-    // guard; the route rejects it before any read or charge.
+    // guard; the route rejects it before any read or charge. The error text is
+    // player-facing (the stale client copies it into a shop note), so it is
+    // reload guidance, not the internal field name.
     const response = await POST(request(37, null));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       code: "elevator-expected-depth-required",
-      error: "expectedDepth is required",
+      error: "reload the game to update, then try again",
     });
     expect(mockedPlayer).not.toHaveBeenCalled();
     expect(mockedDb).not.toHaveBeenCalled();
@@ -1179,6 +1181,12 @@ describe("POST /api/elevator/upgrade", () => {
       const response = await POST(request(37, null));
 
       expect(response.status).toBe(400);
+      // The exact player-facing response is reload guidance (the stale client
+      // shows body.error), never the internal field name.
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-expected-depth-required",
+        error: "reload the game to update, then try again",
+      });
       expect(mockedOutcome).toHaveBeenCalledTimes(1);
       expect(mockedOutcome).toHaveBeenCalledWith({
         result: "rejected",
@@ -1186,6 +1194,70 @@ describe("POST /api/elevator/upgrade", () => {
       });
       // No player lookup or DB read happened, so no id could leak into it.
       expect(mockedPlayer).not.toHaveBeenCalled();
+    });
+
+    it("logs a lost-success first-placement retry as place plus rejected", async () => {
+      // The first buy committed (stored depth is now 1) but its success response
+      // was lost, so the client retries with expectedDepth 0. Intent is derived
+      // from the request, so it reads as an attempted place, and the stale-depth
+      // guard rejects it before any charge.
+      mockedProfile.mockResolvedValue(profile(1, 37));
+      const sql = mockSql();
+
+      const response = await POST(request(37, 0));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-stale-rail-state",
+        elevator: 1,
+      });
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "place",
+        result: "rejected",
+        reason: "elevator-stale-rail-state",
+      });
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE players"),
+        ),
+      ).toBe(false);
+      expect(mockedRecord).not.toHaveBeenCalled();
+    });
+
+    it("rejects a lost-success relocation retry without charging the next row", async () => {
+      // The free relocation committed (placement marker set, column 37, depth
+      // still 4) but its response was lost, so the client retries the identical
+      // request(37, 4). expectedDepth matches, placement is no longer required,
+      // and the column matches the stored one, so without the relocate guard it
+      // would fall through to the paid extension. It must reject instead.
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = mockSql();
+
+      const response = await POST(request(37, 4));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-stale-rail-state",
+        error: "elevator placement was already confirmed",
+        elevator: 4,
+        elevatorColumn: 37,
+      });
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "relocate",
+        result: "rejected",
+        reason: "elevator-stale-rail-state",
+      });
+      // No charge and no balance event: the retry must not advance a second row.
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE players"),
+        ),
+      ).toBe(false);
+      expect(mockedRecord).not.toHaveBeenCalled();
     });
 
     it("still completes the buy when outcome telemetry throws", async () => {

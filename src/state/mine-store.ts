@@ -643,8 +643,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   // Single-flight guard: while a refresh is running, concurrent callers (a
   // second Retry tap, or a Retry racing the conflict path) share the SAME
   // promise instead of each launching its own destructive reconcile chain
-  // (drop trip, reload world, reload gear, clear checkpoint) (F-121).
-  let pendingResync: Promise<boolean> | null = null;
+  // (drop trip, reload world, reload gear, clear checkpoint). It is pinned to
+  // the reconciled SLOT: a caller for a DIFFERENT slot must not join, because it
+  // would then clear its own slot's marker off a result for another slot that
+  // was never reconciled (F-121).
+  let pendingResync: { slot: SaveSlotId; promise: Promise<boolean> } | null =
+    null;
   const runResyncCloudWorld = async (slot: SaveSlotId): Promise<boolean> => {
     // Gate every concurrent rail buy for the whole refresh: the buy guard reads
     // this in-memory flag, and it stays true across the awaits below regardless
@@ -697,12 +701,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     }
   };
   const resyncCloudWorld = (slot: SaveSlotId): Promise<boolean> => {
-    // Coalesce concurrent refreshes onto one in-flight chain.
-    if (pendingResync) return pendingResync;
-    pendingResync = runResyncCloudWorld(slot).finally(() => {
-      pendingResync = null;
+    // Coalesce concurrent refreshes for the SAME slot onto one in-flight chain;
+    // a different-slot caller runs its own chain so it reconciles (and clears)
+    // only its own slot.
+    if (pendingResync && pendingResync.slot === slot)
+      return pendingResync.promise;
+    const promise = runResyncCloudWorld(slot).finally(() => {
+      if (pendingResync?.promise === promise) pendingResync = null;
     });
-    return pendingResync;
+    pendingResync = { slot, promise };
+    return promise;
   };
   return {
     mine: createMine(seed),
@@ -2138,7 +2146,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     retryRailResync: async () => {
-      if (!get().railResyncFailed) return true;
+      // Nothing to reconcile only when neither a block is set NOR a refresh is
+      // already running: during the automatic conflict resync the flag is still
+      // false until the chain settles, so a direct Retry racing that chain must
+      // still proceed and JOIN the in-flight refresh (via the slot-matched
+      // single-flight) rather than claim success without reconciling (F-121).
+      if (!get().railResyncFailed && !get().railResyncInFlight) return true;
       // Capture the slot ONCE: resyncCloudWorld's loadWorld can replace
       // activeSlot from the server mid-await, so re-reading it for the marker
       // write could target a different slot than the one being reconciled

@@ -1466,6 +1466,86 @@ describe("mine store upgrade flow", () => {
     expect(gearFetched).toBe(false);
   });
 
+  it("makes a direct Retry join an in-flight conflict resync instead of claiming premature success", async () => {
+    // During the automatic conflict resync, railResyncFailed is still false, so
+    // a direct Retry must join the in-flight (failing) chain via railResyncInFlight
+    // rather than return true without reconciling.
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+      accountSync: { ...store().accountSync, mode: "guest", state: "ready" },
+    });
+    let releaseWorld!: () => void;
+    const worldHeld = new Promise<void>((resolve) => {
+      releaseWorld = resolve;
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", error: "moved" },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        await worldHeld;
+        return jsonResponse({}, 500);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const conflict = store().buyElevator();
+    await vi.waitFor(() => expect(store().railResyncInFlight).toBe(true));
+    const retry = store().retryRailResync();
+    releaseWorld();
+    const [, retryResult] = await Promise.all([conflict, retry]);
+
+    // Joined the failing chain: reported failure, did not claim premature success.
+    expect(retryResult).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+  });
+
+  it("starts a fresh refresh chain for a later Retry after the first settles", async () => {
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    const gear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    useMineStore.setState({
+      activeSlot: 1,
+      railResyncFailed: true,
+      accountSync: { ...store().accountSync, mode: "guest", state: "ready" },
+    });
+    let worldFetches = 0;
+    let firstDone = false;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        worldFetches += 1;
+        return firstDone
+          ? jsonResponse({ activeSlot: 1, seed: 123, tripIndex: 4, diff: [] })
+          : jsonResponse({}, 500);
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({ gear, consumables: NO_CONSUMABLES, balance: 40 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+
+    firstDone = true;
+    await expect(store().retryRailResync()).resolves.toBe(true);
+
+    expect(store().railResyncFailed).toBe(false);
+    // The later Retry ran its own fresh chain, not a stale coalesced one.
+    expect(worldFetches).toBe(2);
+  });
+
   it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {
     // The regression the fix targets: another device won the rail (depth 3 -> 5)
     // WITHOUT advancing the trip count, so the account-trip endpoint still holds

@@ -1906,9 +1906,30 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const banked = await get().submitCashOut();
         if (!banked) return false;
       }
+      // An uncertain outcome (a lost transport response, or a 200 whose body is
+      // not the expected shape) may or may not have committed the charge on the
+      // server. Enter the reload-durable stale-rail block so the next action is a
+      // resync to authoritative state rather than a blind second buy: the server
+      // expectedDepth guard plus the durable request outbox (F-121) make that
+      // reconciliation idempotent, so a lost-after-commit response cannot advance
+      // a second row. (F-190)
+      const blockOnUncertainRailOutcome = () => {
+        saveRailResyncBlock(get().activeSlot, true);
+        set({
+          railResyncFailed: true,
+          shopNote: "couldn't confirm the rail buy; tap Retry to reconcile",
+          tick: get().tick + 1,
+        });
+      };
       const res = await buyRemoteElevator(column, get().gear.elevator);
       if (res.status === 503) {
         set({ shopNote: "the tower ledger is offline; nothing was charged" });
+        return false;
+      }
+      if (res.status === null) {
+        // Transport failure: the server may have committed before the response
+        // was lost. Reconcile through the block, do not report a plain failure.
+        blockOnUncertainRailOutcome();
         return false;
       }
       if (!res.ok) {
@@ -2006,6 +2027,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         return false;
       }
       const body = res.body as Record<string, unknown>;
+      if (
+        typeof body.elevator !== "number" ||
+        !Number.isFinite(body.elevator)
+      ) {
+        // A 200 whose body is not the expected shape is uncertain-committed: do
+        // not persist a NaN rail depth, reconcile through the block instead.
+        blockOnUncertainRailOutcome();
+        return false;
+      }
       enqueueStampAlertsFromResponse(body);
       const { gear, consumables, bought, moves, seed: s0, tick } = get();
       const elevator = body.elevator as number;

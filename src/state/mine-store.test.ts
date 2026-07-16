@@ -1236,6 +1236,73 @@ describe("mine store upgrade flow", () => {
     expect(store().railResyncInFlight).toBe(false);
   });
 
+  it("enters the reload-durable block on a lost transport response to a rail buy", async () => {
+    // A network failure after the POST is uncertain-committed: the server may
+    // have charged and extended the rail before the response was lost. The buy
+    // must enter the persisted block so the next action is a resync, not a blind
+    // second buy against an unknown rail. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") throw new Error("network down");
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().shopNote).toBe(
+      "couldn't confirm the rail buy; tap Retry to reconcile",
+    );
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+    // The rail depth is untouched (no blind adoption of an unknown outcome).
+    expect(store().gear.elevator).toBe(3);
+  });
+
+  it("enters the block on a malformed 200 rail-buy response instead of persisting a NaN depth", async () => {
+    // A 200 whose body lacks a numeric elevator is uncertain-committed: adopting
+    // it would persist a NaN rail depth. Reconcile through the block. (F-190)
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        // 200 with no numeric elevator field.
+        return jsonResponse({ balance: 40, elevatorColumn: 17 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const ok = await store().buyElevator();
+
+    expect(ok).toBe(false);
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().gear.elevator).toBe(3);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
   it("fails closed from another slot's marker on an unresolved cold offline load", async () => {
     // Slot 2 has a persisted block whose failed resync deleted its trip. A cold
     // store defaults to slot 1 and cannot resolve the real slot offline, so it

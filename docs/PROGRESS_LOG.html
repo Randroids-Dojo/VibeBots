@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-client-uncertain-outcome" data-date="2026-07-16">
+    <h3>Reconcile a lost or malformed rail-buy response instead of guessing</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/elevator-client-request-id</code>.</dd>
+      <dt>PR</dt><dd>No package bump: client store correctness on the placeable-elevator buy, no player-facing rule change (a lost or malformed response now reconciles instead of showing a dead-end note or a NaN depth). (Rule 13) mine tips reviewed, no change; (Rule 14) no stamp (correctness hardening, not a new feature milestone).</dd>
+      <dt>Changed</dt><dd>Delivers the client half of <a href="FOLLOWUPS.html#F-121">F-121</a>'s "transport/malformed uncertain-outcome reconciliation", now split out as <a href="FOLLOWUPS.html#F-190">F-190</a>. A rail buy whose response was LOST in transport (<code>MineApiResult</code> <code>{ok:false, status:null}</code>) previously showed a dismissible "purchase failed" note; a malformed 200 (a body with no numeric <code>elevator</code>) silently read <code>body.elevator as number</code> and could persist a NaN rail depth. Both are uncertain-committed: the server may have charged and extended the rail before the response was lost. <code>buyElevator</code> now routes both into the SAME reload-durable stale-rail block used by decoded conflicts (persist <code>saveRailResyncBlock</code>, set <code>railResyncFailed</code>), so the next action is a resync to authoritative state via the existing Retry, not a blind second buy or a corrupt adopt. With the server <code>expectedDepth</code> guard (rejects a stale retry that would advance a second row) and the durable request outbox from PR #243 (dedups any same-id resend), the resync reconciles exactly-once, since for the elevator the fetched rail depth IS the committed-or-not outcome. Client-side request-id retention/reuse was deliberately NOT added: under the block it would be dead code (the block forces a resync before any further buy and the outbox already makes a resend idempotent), so block + resync is the correct, non-redundant client behavior.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>tsc --noEmit</code> exit 0; biome clean; <code>mine-store.test.ts</code> 103 passed including two new tests (a thrown-fetch transport failure and a malformed-200 each enter the persisted block, keep the rail depth unchanged with no NaN, and set the reconcile note).</dd>
+      <dt>Assumptions</dt><dd>For the elevator, authoritative rail depth read by the resync is the buy's committed-or-not outcome, so resync-to-authoritative is a complete reconciliation and a client id cache would be redundant. A server 4xx/5xx WITH a decoded reason code stays a definitive reject (unchanged); only the transport-null and malformed-200 shapes are treated as uncertain-committed. Formalized F-190/F-191/F-192 as their own followup sections (they were only referenced in prose).</dd>
+      <dt>GDD coverage</dt><dd>No row change: client reconciliation correctness on the already-<code>done</code> elevator transport requirement (REQ-028).</dd>
+      <dt>Followups</dt><dd>Closes <a href="FOLLOWUPS.html#F-190">F-190</a> (client uncertain-outcome reconciliation). Leaves open <a href="FOLLOWUPS.html#F-191">F-191</a> (crash-safe transactional balance event) and <a href="FOLLOWUPS.html#F-192">F-192</a> (accepted-and-rejected durable persistence with claimed delivery), plus the distinct "Start fresh" action and the real-concurrency integration test on <a href="FOLLOWUPS.html#F-121">F-121</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-outbox-review-corrections-2" data-date="2026-07-16">
     <h3>Report a concurrent same-id loser as a duplicate with no extra outcome</h3>
     <dl>

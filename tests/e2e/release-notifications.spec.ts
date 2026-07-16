@@ -21,7 +21,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Entering a bunker in first person now always drops you standing in the open starter room, and old bunkers reliably show their ore.",
+    "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(

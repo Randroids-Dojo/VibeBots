@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-16-0.1.273-bunker-spawn-and-ore",
+      releaseNoticeId: "2026-07-16-0.1.273-bunker-fp-spawn",
       releaseSummary:
-        "Spawn in the room, not inside the wall: Entering a bunker in first person now always drops you standing in the open starter room, and old bunkers reliably show their ore.",
+        "Spawn in the room, not inside the wall: Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-16-0.1.273-bunker-spawn-and-ore",
+      releaseNoticeId: "2026-07-16-0.1.273-bunker-fp-spawn",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -24,20 +24,20 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest spawn-and-ore note complete", () => {
+  it("keeps the latest fp-spawn note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-16-0.1.273-bunker-spawn-and-ore");
+    expect(release.noticeId).toBe("2026-07-16-0.1.273-bunker-fp-spawn");
     expect(latestNote).toMatchObject({
       version: "0.1.273",
       title: "Spawn in the room, not inside the wall",
       intro:
-        "Entering a bunker in first person now always drops you standing in the open starter room, and old bunkers reliably show their ore.",
+        "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
-      "A bunker that was still missing its ore data could show up as blank dirt on your screen even after the fix that fills the ore back in. First person now fills that ore in on your device too, so you see the real dirt, rock, and ore for your bunker's depth. Each of the five rows uses its own depth, so deeper rows carry the richer ore. MINE_VERSION and SIM_VERSION are unchanged.",
+      "This only changes where you appear when you step inside; your bunker layout, your digging, and your saves are untouched. MINE_VERSION and SIM_VERSION are unchanged.",
     ]);
   });
 

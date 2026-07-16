@@ -36,7 +36,6 @@ import {
   maxBunkerRaidTier,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
-import { deriveBunkerBlockSeed } from "@/sim/bunker-blocks";
 import {
   activatePortalAction,
   activePortalAt,
@@ -1362,22 +1361,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const inputDiagnosticKeysRef = useRef<Set<string>>(new Set());
   void tick;
   const activeBunker = pendingBunker?.bunker ?? bunker;
-  // A claimed bunker loaded before the block-seed backfill (F-116) can still
-  // reach the client with no seed, which renders the whole first-person
-  // interior as barren dirt (no ore, no rock). Derive the same deterministic
-  // seed the server backfills and a fresh claim assigns, so first person
-  // always shows the depth-appropriate ore even from stale client state,
-  // before a fresh reload persists the server backfill.
-  const fpBunker = useMemo(
-    () =>
-      activeBunker && activeBunker.blockSeed === undefined
-        ? {
-            ...activeBunker,
-            blockSeed: deriveBunkerBlockSeed(seed, activeBunker.footprint),
-          }
-        : activeBunker,
-    [activeBunker, seed],
-  );
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
   const pendingBunkerActive = pendingBunker !== null;
   const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
@@ -3592,7 +3575,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         >
           {fpBunkerActive && activeBunker ? (
             <BunkerFpCanvas
-              bunker={fpBunker ?? activeBunker}
+              bunker={activeBunker}
               entry={{ col: miner.col, row: miner.row }}
               tool={bunkerToolAction}
               selectedPartId={selectedBasePart}

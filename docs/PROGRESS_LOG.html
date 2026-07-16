@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="html-dot-review-ownership-clarifications" data-date="2026-07-15">
+    <h3>Make the memory proof and Dot drift check single-owner and complete</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Addressed substantive CodeRabbit review 4709167783 without rewriting the pushed F-170 or F-164 records. Extended F-170 and its Dot to define its preflight as fresh-session verification and reporting over the existing F-148, F-152, F-154, and F-155 enforcement checks. Extended F-164 and its Dot so drift validation scans the complete F-143-and-newer ledger and HTML Dot tree bidirectionally, with exactly one pair and matching priority, status, and parentage.</dd>
+      <dt>Verification</dt><dd>Compared the review findings with the current ledger and Dot descriptions. Confirmed the original F-170 wording could still be read as a second executable gate despite its later scope note, and the original F-164 acceptance caught only a newly added ledger entry without a Dot. Preserved every pushed record and added explicit correction terms plus matching Dot acceptance. Ran <code>dot-html show</code> for F-170 and F-164, touched-record structure checks, the dash check, and whitespace validation.</dd>
+      <dt>Assumptions</dt><dd>Existing followups retain all enforcement implementation. F-170 records whether their checks actually fail closed in a clean session. F-164 owns repository-wide ledger-to-Dot integrity from F-143 onward, including existing entries, not only future additions.</dd>
+      <dt>GDD coverage</dt><dd>None. This is workflow and backlog-integrity acceptance with no game-design, runtime, schema, release, tip, stamp, or telemetry change.</dd>
+      <dt>Followups</dt><dd>No new followups. Extended F-170, F-164, and their existing HTML Dots.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="thin-slot-adversarial-integration-acceptance" data-date="2026-07-15">
+    <h3>Keep thin-part settlement durable across every mutation path</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Continuous exact-head review of PR #230 exposed structural gaps beyond the existing slot-identity acceptance. Extended F-117 and its HTML Dot instead of creating duplicate work. The added acceptance now requires symmetric physical conflicts for legacy placement and move targets beside canonical boundary slots, an open requested origin before wall canonicalization, an unobstructed shared face for authoritative excavation, deterministic roof and dependent-attachment settlement after topology changes, and atomic persistence of every mutation-produced parts change with its dug, ore, inventory, raid, and revision state.</dd>
+      <dt>Verification</dt><dd>Reviewed exact head <code>72f3709c</code> and its adversarial tests. Confirmed the current legacy placement and move paths still compare exact target cells rather than the shared physical boundary, removal can canonicalize an open-side wall to an anchor in solid rock without requiring the requested origin to be open, and excavation above an existing roof has no roof-settlement policy. Confirmed <code>excavateBunkerCell</code> accepts any open adjacent cell without checking whether a wall or door blocks that exact shared face. Traced <code>excavateBunker</code> in <code>src/server/bunker.ts</code>: it accepts the settled <code>dug.bunker.parts</code> returned by <code>excavateBunkerCell</code>, but its guarded SQL writes only <code>dug</code>, revision, and timestamp, so a fallen floor can reappear on the following database load. Confirmed the current tests prove only transient pure-sim reachability and settlement. Published exact-head review 4709237023 and ran the HTML Dot, touched-record structure, dash, and whitespace checks for this tracking extension.</dd>
+      <dt>Assumptions</dt><dd>F-117 remains the single owner because these are activation invariants for the same thin-part model. The implementation may choose to reject excavation until a roof is removed or destroy and report the roof, but it may not leave an interior roof. This tracking change does not alter runtime code, approve PR #230, or authorize an administrator bypass, merge, rollback, or branch deletion.</dd>
+      <dt>GDD coverage</dt><dd>None. REQ-046 remains partial. This sharpens the acceptance and durable verification required before activation without changing the approved thin-part design.</dd>
+      <dt>Followups</dt><dd>No new followup. Extended F-117 and Dot <code>VibeBots-f-117-rework-8a28b100</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="review-memory-authority-scope-clarification" data-date="2026-07-15">
     <h3>Keep the unsafe-memory repair distinct from merge-gate enforcement</h3>
     <dl>

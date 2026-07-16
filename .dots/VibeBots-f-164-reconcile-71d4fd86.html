@@ -13,7 +13,7 @@
 <article>
 <h1>F-164 Reconcile HTML Dots with the followup ledger</h1>
 <section id="description">
-Inventory every followup present from F-143 onward. Reconcile the known missing Dots for F-143, F-144, and F-158 through F-163, preserve parent relationships, mirror open or resolved status, append tracking references without rewriting history, and add a validation check that reports future ledger entries without matching Dots.
+Inventory every followup present from F-143 onward. Reconcile the known missing Dots for F-143, F-144, and F-158 through F-163, preserve parent relationships, mirror priority and open or resolved status, and append tracking references without rewriting history. Add a bidirectional tree-wide validation check that requires exactly one ledger entry and one HTML Dot per in-scope F-NNN, compares priority, status, and parentage, and fails for missing, deleted, orphaned, duplicated, or metadata-drifted pairs. Prove each failure mode and the accepted reconciled tree.
 </section>
 </article>
 </body>

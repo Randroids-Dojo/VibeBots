@@ -31,6 +31,7 @@ import {
   excavateBunkerCell,
   isBunkerSkinId,
   isBunkerWallSlot,
+  isOpenBunkerCell,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -1160,5 +1161,215 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     expect(
       moveBasePart(placed.bunker, c.col, c.row, c.col + 1, c.row, 0, 0),
     ).toEqual({ ok: false, reason: "missing" });
+  });
+
+  it("does not pry a divider through an out-of-footprint origin", () => {
+    const bunker = allDugBunker(4, 5);
+    const fp = bunker.footprint;
+    const rightCol = fp.col + fp.width - 1;
+    const row = centerCell(bunker).row;
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      rightCol,
+      row,
+      0,
+      "wall-px",
+    );
+    // wall-nx one column past the edge would canonicalize onto the placed
+    // +x slab, but its origin cell is outside the bunker, so it must miss.
+    expect(
+      removeBasePart(
+        placed.bunker,
+        placed.inventory,
+        rightCol + 1,
+        row,
+        0,
+        "wall-nx",
+      ),
+    ).toEqual({ ok: false, reason: "missing" });
+    // The in-bounds canonical alias (its own -x face) still pries it.
+    const pried = removeBasePart(
+      placed.bunker,
+      placed.inventory,
+      rightCol,
+      row,
+      0,
+      "wall-px",
+    );
+    expect(pried.ok).toBe(true);
+    if (!pried.ok) return;
+    expect(pried.bunker.parts).toHaveLength(0);
+  });
+
+  it("does not remove a slotted part through a bare-cell request", () => {
+    const c = { col: 4, row: 3, depth: 0 };
+    let state = {
+      bunker: oneCellBunker(c.col, c.row, c.depth),
+      inventory: inventory(),
+    };
+    state = place(state, "wall-panel", c.col, c.row, c.depth, "wall-px");
+    state = place(state, "floor-panel", c.col, c.row, c.depth, "floor");
+    // A slotless removal in a cell that holds only slotted parts matches
+    // nothing, so both dividers stay put.
+    expect(
+      removeBasePart(state.bunker, state.inventory, c.col, c.row, c.depth),
+    ).toEqual({ ok: false, reason: "missing" });
+    expect(state.bunker.parts).toHaveLength(2);
+  });
+
+  it("blocks a divider that a legacy cell fills from either side", () => {
+    const bunker = allDugBunker(4, 5);
+    const c = centerCell(bunker);
+    // A whole-cell part on the far side of the boundary blocks the shared
+    // divider addressed from the near cell (canonical +x face).
+    const farLegacy = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col + 1,
+      c.row,
+      0,
+    );
+    expect(
+      placeBasePart(
+        farLegacy.bunker,
+        farLegacy.inventory,
+        "wall-panel",
+        c.col,
+        c.row,
+        0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+    // And a whole-cell part on the near side blocks the same divider named
+    // from the far cell (wall-nx folds onto the near +x face).
+    const nearLegacy = place(
+      { bunker, inventory: inventory() },
+      "wall-panel",
+      c.col,
+      c.row,
+      0,
+    );
+    expect(
+      placeBasePart(
+        nearLegacy.bunker,
+        nearLegacy.inventory,
+        "wall-panel",
+        c.col + 1,
+        c.row,
+        0,
+        "wall-nx",
+      ),
+    ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("does not count a chewed-out wall as floor support", () => {
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    // Two walls under the cell, but both worn to rubble by raid damage.
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    const worn: BunkerState = {
+      ...state.bunker,
+      parts: state.bunker.parts.map((part) => ({ ...part, durability: 0 })),
+    };
+    // Rubble holds nothing up, so the overhead floor cannot be placed.
+    expect(
+      placeBasePart(
+        worn,
+        state.inventory,
+        "floor-panel",
+        4,
+        overheadRow,
+        0,
+        "floor",
+      ),
+    ).toEqual({ ok: false, reason: "unsupported" });
+  });
+
+  it("drops a floor when raid wear leaves too few live supports", () => {
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    // Three supporting walls, one already chewed to zero: two live supports
+    // still hold the overhead floor.
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-nz");
+    state = place(state, "floor-panel", 4, overheadRow, 0, "floor");
+    const worn: BunkerState = {
+      ...state.bunker,
+      parts: state.bunker.parts.map((part) =>
+        part.slot === "wall-nz" ? { ...part, durability: 0 } : part,
+      ),
+    };
+    // Prying one live wall leaves a single live support plus the rubble
+    // wall, which no longer counts, so the floor falls.
+    const pried = removeBasePart(
+      worn,
+      state.inventory,
+      4,
+      bottomRow,
+      0,
+      "wall-px",
+    );
+    expect(pried.ok).toBe(true);
+    if (!pried.ok) return;
+    expect(pried.fallen?.map((part) => part.slot)).toEqual(["floor"]);
+    expect(pried.bunker.parts.map((part) => part.slot).sort()).toEqual([
+      "wall-nz",
+      "wall-pz",
+    ]);
+  });
+
+  it("caps an interior room that tops out against rock", () => {
+    const c = { col: 4, row: 3, depth: 0 };
+    const bunker = oneCellBunker(c.col, c.row, c.depth);
+    // The cell above is undug rock inside the footprint, not the boundary,
+    // so a roof caps this mid-column pocket (Q-025 option A).
+    expect(
+      containsBunkerCell3D(bunker.footprint, c.col, c.row - 1, c.depth),
+    ).toBe(true);
+    expect(isOpenBunkerCell(bunker, c.col, c.row - 1, c.depth)).toBe(false);
+    expect(
+      placeBasePart(
+        bunker,
+        inventory(),
+        "roof-panel",
+        c.col,
+        c.row,
+        c.depth,
+        "roof",
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("drops a grounded floor when the ground under it is dug out", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const fp = base.footprint;
+    const col = fp.col + Math.floor(fp.width / 2);
+    const bottomRow = fp.row + fp.height - 1;
+    const row = bottomRow - 1;
+    // Only the floor's cell is dug; the cell below is still rock, so the
+    // floor is grounded when placed.
+    const bunker: BunkerState = { ...base, dug: [{ col, row, depth: 0 }] };
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "floor-panel",
+      col,
+      row,
+      0,
+      "floor",
+    );
+    // Digging out the cell directly below pulls the ground away; the now
+    // overhead, wall-less floor cascades.
+    const dug = excavateBunkerCell(placed.bunker, col, bottomRow, 0);
+    expect(dug.ok).toBe(true);
+    if (!dug.ok) return;
+    expect(dug.fallen?.map((part) => part.slot)).toEqual(["floor"]);
+    expect(dug.bunker.parts).toHaveLength(0);
   });
 });

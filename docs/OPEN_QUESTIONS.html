@@ -38,6 +38,21 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-025" data-status="open">
+    <h3>Q-025: Where may a thin roof panel sit in a dug-out column?</h3>
+    <dl>
+      <dt>Context</dt><dd>The F-117 thin-piece model lets a player cap a room with a roof panel in the <code>roof</code> slot. A bunker column is now dug out cell by cell (F-115/F-116), so a room can end partway up a column with rock or a sealed cell above it, not only at the footprint's top row. The placement rule has to decide what counts as "the top" a roof is allowed to cap.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Top of the room (what shipped): a roof is allowed at any cell whose cell directly above is closed (rock, the footprint boundary, or another sealed cell) and rejected only when open air sits directly above it. A player can cap a dug-out pocket mid-column.</li>
+          <li>Top of the footprint: a roof is allowed only in the topmost row of the claim volume, so every roof reads as the literal ceiling of the bunker.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It matches how the space is actually built (rooms end where the digging stopped, not at a fixed row) and lets a roof do its structural job of sealing a pocket wherever that pocket tops out; the "open air directly above" rejection still blocks a roof floating under empty space. B is simpler to state but forbids the common case of capping a shallow dug room, which would feel arbitrary to a player who just dug it. Shipped under A with the rule documented in <code>placeBasePart</code> (<code>roof-top</code> reason).</dd>
+      <dt>Status</dt><dd>open (shipped under the recommended default; needs dev ratification)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-024" data-status="resolved">
     <h3>Q-024: How authoritative is in-raid player movement?</h3>
     <dl>

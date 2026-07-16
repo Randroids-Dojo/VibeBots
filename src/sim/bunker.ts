@@ -641,10 +641,14 @@ function bunkerPartAtSlot(
 /** True when a part already occupies `ref`'s slot (F-117). A legacy
  * full-cell part (no slot) fills its whole cell, so it conflicts with any
  * slot in that cell; a slotted part conflicts only on the same canonical
- * slot. Legacy and slotted parts never coexist in a live bunker (Q-022
- * hard-resets an old layout first), so this only matters defensively. */
+ * slot. A wall divides two cells, so a legacy whole-cell part on the far
+ * side of the boundary also blocks the divider (a canonical wall ref always
+ * faces +col or +depth). Legacy and slotted parts never coexist in a live
+ * bunker (Q-022 hard-resets an old layout before the thin model loads), so
+ * the cross-cell legacy case only matters defensively until that boundary
+ * lands. */
 function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
-  return bunker.parts.some((part) => {
+  const here = bunker.parts.some((part) => {
     if (
       part.col !== ref.col ||
       part.row !== ref.row ||
@@ -654,6 +658,17 @@ function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
     }
     return part.slot === undefined || part.slot === ref.slot;
   });
+  if (here) return true;
+  if (!isBunkerWallSlot(ref.slot)) return false;
+  const farCol = ref.slot === "wall-px" ? ref.col + 1 : ref.col;
+  const farDepth = ref.slot === "wall-pz" ? ref.depth + 1 : ref.depth;
+  return bunker.parts.some(
+    (part) =>
+      part.slot === undefined &&
+      part.col === farCol &&
+      part.row === ref.row &&
+      part.depth === farDepth,
+  );
 }
 
 /** Minimum walls an overhead floor needs beneath it to stand (F-117). */
@@ -674,8 +689,10 @@ function isGroundedBunkerFloor(
 
 /** Walls holding up a floor slab: the wall faces of the cell directly
  * below it, which rise to meet the floor's underside. Counts the canonical
- * wall slots that carry a part (only walls and doors can sit in a wall
- * slot, and both are structural dividers). */
+ * wall slots that carry a load-bearing part (only walls and doors can sit
+ * in a wall slot, and both are structural dividers). A part chewed down to
+ * zero durability is rubble, not support, so raid wear that destroys the
+ * last standing wall drops the floor above it. */
 function bunkerFloorSupportWalls(
   bunker: BunkerState,
   col: number,
@@ -685,7 +702,8 @@ function bunkerFloorSupportWalls(
   let count = 0;
   for (const face of WALL_SLOTS) {
     const ref = canonicalWallSlot(bunker.footprint, col, row + 1, depth, face);
-    if (bunkerPartAtSlot(bunker, ref)) count++;
+    const part = bunkerPartAtSlot(bunker, ref);
+    if (part && part.durability > 0) count++;
   }
   return count;
 }
@@ -758,7 +776,7 @@ export function excavateBunkerCell(
   row: number,
   depth: number,
 ):
-  | { ok: true; bunker: BunkerState }
+  | { ok: true; bunker: BunkerState; fallen?: PlacedBasePart[] }
   | { ok: false; reason: "outside" | "open" | "unreachable" } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
@@ -774,10 +792,18 @@ export function excavateBunkerCell(
     isOpenBunkerCell(bunker, col, row, depth - 1) ||
     isOpenBunkerCell(bunker, col, row, depth + 1);
   if (!reachable) return { ok: false, reason: "unreachable" };
-  return {
-    ok: true,
-    bunker: { ...bunker, dug: [...bunker.dug, { col, row, depth }] },
+  // Opening this cell can pull the ground out from under a floor one row up
+  // (its below-cell just became open), so settle unsupported floors here on
+  // the same path a pried wall uses (F-117). Fallen floors are destroyed, so
+  // callers do not refund them.
+  const dug: BunkerState = {
+    ...bunker,
+    dug: [...bunker.dug, { col, row, depth }],
   };
+  const settled = cascadeUnsupportedFloors(dug);
+  return settled.fallen.length > 0
+    ? { ok: true, bunker: settled.bunker, fallen: settled.fallen }
+    : { ok: true, bunker: settled.bunker };
 }
 
 function bunkerLootKey(col: number, row: number, depth: number): string {
@@ -977,8 +1003,14 @@ export function placeBasePart(
   if (bunkerSlotOccupied(bunker, ref)) {
     return { ok: false, reason: "occupied" };
   }
-  // A roof caps the top of a room, so the cell above it must not be open
-  // (row - 1 is up, since y counts up as row decreases).
+  // A roof caps the top of a room. We gate on the room, not the footprint:
+  // a roof is allowed at any cell whose cell above is closed (rock, the
+  // footprint boundary, or another sealed cell), and rejected only when open
+  // air sits directly above it. row - 1 is up, since y counts up as row
+  // decreases. Q-025 records this "top of the room" reading versus the
+  // stricter "only the footprint's top row" reading, with this as the
+  // recommended default: it lets a player cap a dug-out pocket mid-column
+  // instead of forcing every roof to the ceiling of the claim.
   if (slot === "roof" && isOpenBunkerCell(bunker, col, row - 1, depth)) {
     return { ok: false, reason: "roof-top" };
   }
@@ -1034,10 +1066,17 @@ export function removeBasePart(
   // With a slot, target that exact divider; without one, the legacy
   // whole-cell match (first part in the cell) is preserved for one-part
   // layouts.
-  const ref =
-    slot === undefined
-      ? null
-      : canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  let ref: BunkerSlotRef | null = null;
+  if (slot !== undefined) {
+    // Canonicalize only from an in-bounds origin. An out-of-footprint cell
+    // could otherwise alias onto a real divider (wall-nx at col 7 folds to
+    // wall-px at col 6) and pry a part through a coordinate that is not
+    // actually in the bunker.
+    if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
+      return { ok: false, reason: "missing" };
+    }
+    ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  }
   const part = bunker.parts.find((candidate) => {
     if (ref) {
       return (
@@ -1047,7 +1086,10 @@ export function removeBasePart(
         candidate.slot === ref.slot
       );
     }
+    // Legacy removal targets only a whole-cell part; a slotted divider in
+    // the same cell is pried by naming its slot, never by a bare cell match.
     return (
+      candidate.slot === undefined &&
       candidate.col === col &&
       candidate.row === row &&
       candidate.depth === depth

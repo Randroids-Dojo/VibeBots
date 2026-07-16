@@ -776,6 +776,112 @@ describe("mine store upgrade flow", () => {
     expect(store().shopNote).toBe(
       "your rail moved on another device; refreshed to the latest",
     );
+    // A refresh that landed does not raise the recovery block.
+    expect(store().railResyncFailed).toBe(false);
+  });
+
+  it("blocks the rail buy when the post-conflict refresh fails offline", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", error: "your rail moved" },
+          409,
+        );
+      }
+      // The authoritative world refetch fails (offline mid-conflict), so the
+      // resync cannot reconcile the known-stale local rail.
+      if (url === "/api/mine/world") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().shopNote).toBe(
+      "couldn't refresh the rail; tap Retry to refresh",
+    );
+  });
+
+  it("retryRailResync reconciles the world and clears the block on success", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: true,
+    });
+    const freshGear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 12,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: freshGear,
+          consumables: NO_CONSUMABLES,
+          balance: 88,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(true);
+
+    expect(store().railResyncFailed).toBe(false);
+    expect(store().gear).toMatchObject({ elevator: 5 });
+    expect(store().tripIndex).toBe(12);
+    expect(store().shopNote).toBe("rail refreshed; you can buy again");
+  });
+
+  it("retryRailResync keeps the block when the refresh fails again", async () => {
+    useMineStore.setState({
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: true,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+    expect(store().shopNote).toBe(
+      "still couldn't refresh the rail; check your connection",
+    );
+  });
+
+  it("retryRailResync is a no-op when nothing is blocked", async () => {
+    useMineStore.setState({ railResyncFailed: false });
+    const fetchMock = vi.fn(async () => jsonResponse({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(true);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(store().railResyncFailed).toBe(false);
   });
 
   it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {
@@ -932,7 +1038,10 @@ describe("mine store upgrade flow", () => {
 
     await expect(store().buyElevator()).resolves.toBe(false);
 
-    expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
+    expect(store().shopNote).toBe(
+      "couldn't refresh the rail; tap Retry to refresh",
+    );
+    expect(store().railResyncFailed).toBe(true);
   });
 
   it("drops the local trip and reopens when only the gear refetch fails", async () => {
@@ -973,7 +1082,10 @@ describe("mine store upgrade flow", () => {
 
     await expect(store().buyElevator()).resolves.toBe(false);
 
-    expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
+    expect(store().shopNote).toBe(
+      "couldn't refresh the rail; tap Retry to refresh",
+    );
+    expect(store().railResyncFailed).toBe(true);
     expect(localStorage.removeItem).toHaveBeenCalled();
   });
 
@@ -1099,7 +1211,10 @@ describe("mine store upgrade flow", () => {
 
     await expect(store().buyElevator()).resolves.toBe(false);
 
-    expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
+    expect(store().shopNote).toBe(
+      "couldn't refresh the rail; tap Retry to refresh",
+    );
+    expect(store().railResyncFailed).toBe(true);
   });
 
   it("replaces support stock from the accepted rail response", async () => {

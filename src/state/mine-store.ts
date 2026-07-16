@@ -354,6 +354,12 @@ export interface MineSessionState {
   elevatorPlacementRequired: boolean;
   /** One-line feedback for the stall menus. */
   shopNote: string | null;
+  /** True while an elevator buy detected a moved world but the authoritative
+   * refresh then failed (offline mid-conflict). The local rail state is known
+   * stale and could not be reconciled, so the rail-buy control is blocked until
+   * an explicit `retryRailResync` succeeds. Distinct state, not a note string:
+   * the shopNote is transient feedback, this gates an action. */
+  railResyncFailed: boolean;
   /** Server replay-protection counter; null until the world loads. */
   tripIndex: number;
   /** The world checkpoint this trip started from (the replay base). */
@@ -437,6 +443,10 @@ export interface MineSessionState {
   ) => Promise<void>;
   buyGearUpgrade: (track: MineGearTrack) => Promise<void>;
   buyElevator: (column?: number) => Promise<boolean>;
+  /** Re-run the authoritative refresh after a failed rail resync. Clears
+   * `railResyncFailed` and unblocks the rail-buy control on success; leaves the
+   * block in place (and re-notes the failure) when the refresh fails again. */
+  retryRailResync: () => Promise<boolean>;
   teleportToBase: (cost: number) => Promise<boolean>;
   restart: (seed?: number) => void;
 }
@@ -663,6 +673,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     deepestDepth: 0,
     elevatorPlacementRequired: false,
     shopNote: null,
+    railResyncFailed: false,
     tripIndex: 0,
     tripBaseDiff: [],
     moves: [],
@@ -1813,7 +1824,11 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           set({
             shopNote: synced
               ? elevatorConflictNote(code)
-              : "couldn't refresh the rail; reopen the shop",
+              : "couldn't refresh the rail; tap Retry to refresh",
+            // A failed refresh leaves the local rail state known-stale: block the
+            // buy control until an explicit retry reconciles it. A success clears
+            // any prior block (a refresh recovered the world).
+            railResyncFailed: !synced,
             tick: get().tick + 1,
           });
           return false;
@@ -1976,6 +1991,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tripIndex: nextTripIndex,
           balance: typeof body.balance === "number" ? body.balance : null,
           elevatorPlacementRequired: false,
+          railResyncFailed: false,
           shopNote: relocationConfirmed
             ? `shaft moved to column ${nextElevatorColumn}${refundNote}`
             : `rail extended to ${elevator} deep${refundNote}`,
@@ -1989,6 +2005,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tripIndex: nextTripIndex,
           balance: typeof body.balance === "number" ? body.balance : null,
           elevatorPlacementRequired: false,
+          railResyncFailed: false,
           shopNote: relocationConfirmed
             ? `shaft moved to column ${nextElevatorColumn}${refundNote}; rides start next trip`
             : `rail extended to ${elevator} deep${refundNote}; rides start next trip`,
@@ -1998,6 +2015,19 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       }
       notifySaveSyncPeers();
       return true;
+    },
+
+    retryRailResync: async () => {
+      if (!get().railResyncFailed) return true;
+      const synced = await resyncCloudWorld(get().activeSlot);
+      set({
+        railResyncFailed: !synced,
+        shopNote: synced
+          ? "rail refreshed; you can buy again"
+          : "still couldn't refresh the rail; check your connection",
+        tick: get().tick + 1,
+      });
+      return synced;
     },
 
     teleportToBase: async (cost) => {

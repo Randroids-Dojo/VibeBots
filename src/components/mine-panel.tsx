@@ -1146,6 +1146,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (s) => s.elevatorPlacementRequired,
   );
   const shopNote = useMineStore((s) => s.shopNote);
+  const railResyncFailed = useMineStore((s) => s.railResyncFailed);
+  const retryRailResync = useMineStore((s) => s.retryRailResync);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const buyElevator = useMineStore((s) => s.buyElevator);
@@ -1181,6 +1183,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     useState<ElevatorPresentation>(() => initialElevatorPresentation(0));
   const [elevatorPlacementMode, setElevatorPlacementMode] = useState(false);
   const [elevatorPurchasePending, setElevatorPurchasePending] = useState(false);
+  const [railRetryPending, setRailRetryPending] = useState(false);
   const [elevatorPlacementError, setElevatorPlacementError] = useState<
     string | null
   >(null);
@@ -2230,6 +2233,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       setElevatorPurchasePending(false);
     }
   }, [buyElevator, elevatorPurchasePending]);
+
+  // Recover from a rail resync that failed offline mid-conflict. The buy and
+  // retry controls never show at once (the buy is blocked while the recovery
+  // box is up), so a dedicated pending flag keeps each label honest.
+  const retryRailResyncNow = useCallback(async () => {
+    if (railRetryPending) return;
+    setRailRetryPending(true);
+    try {
+      await retryRailResync();
+    } finally {
+      setRailRetryPending(false);
+    }
+  }, [retryRailResync, railRetryPending]);
 
   const isInsideOpenFloatingMenu = useCallback(
     (target: EventTarget | null, path: readonly EventTarget[]) => {
@@ -4365,6 +4381,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           cashOutPending={cashOut.state === "pending"}
           elevatorPurchasePending={elevatorPurchasePending}
           elevatorPlacementRequired={elevatorPlacementRequired}
+          railResyncFailed={railResyncFailed}
+          railRetryPending={railRetryPending}
+          onRetryRailResync={() => void retryRailResyncNow()}
           onBuyConsumable={(item, quantity) =>
             void buyConsumable(item, quantity)
           }

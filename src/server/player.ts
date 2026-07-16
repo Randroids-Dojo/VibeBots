@@ -454,8 +454,38 @@ export async function getMinePlayerProfile(
     : null;
 }
 
+/**
+ * The consumable columns needed to build a {@link MineConsumables}. Kept as a
+ * narrow Pick so a route that reads only the inventory columns (a post-commit
+ * CTE RETURNING) can map them without loading the full profile.
+ */
+export type MineConsumablesRow = Pick<
+  MinePlayerProfile,
+  | "dynamite_count"
+  | "rope_count"
+  | "ladder_count"
+  | "plank_count"
+  | "beacon_count"
+>;
+
+/** The gear columns needed to build a {@link MineGear} (see above). */
+export type MineGearRow = Pick<
+  MinePlayerProfile,
+  | "pickaxe_level"
+  | "lamp_level"
+  | "cargo_level"
+  | "lantern_level"
+  | "warpcoil_level"
+  | "elevator_depth"
+  | "elevator_col"
+  | "blast_level"
+  | "elevator_speed_level"
+  | "fall_level"
+  | "recall_level"
+>;
+
 export function mineConsumablesFromProfile(
-  row: MinePlayerProfile,
+  row: MineConsumablesRow,
 ): MineConsumables {
   return {
     dynamite: row.dynamite_count,
@@ -466,7 +496,7 @@ export function mineConsumablesFromProfile(
   };
 }
 
-export function mineGearFromProfile(row: MinePlayerProfile): MineGear {
+export function mineGearFromProfile(row: MineGearRow): MineGear {
   return {
     pickaxe: row.pickaxe_level,
     battery: row.lamp_level,

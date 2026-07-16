@@ -91,7 +91,27 @@ function request(column?: number, expectedDepth?: number): Request {
   });
 }
 
-type ReloadRow = {
+// The non-rail gear and consumable columns the CTE RETURNING and the reject
+// re-read now surface for authoritative inventory adoption (F-121). Callers
+// override any of these to model a concurrent player-only purchase.
+const INVENTORY_COLUMNS = {
+  pickaxe_level: 1,
+  lamp_level: 1,
+  cargo_level: 1,
+  lantern_level: 1,
+  warpcoil_level: 1,
+  blast_level: 1,
+  elevator_speed_level: 1,
+  fall_level: 1,
+  recall_level: 1,
+  dynamite_count: 0,
+  rope_count: 0,
+  beacon_count: 0,
+};
+
+type InventoryOverrides = Partial<typeof INVENTORY_COLUMNS>;
+
+type ReloadRow = InventoryOverrides & {
   emeralds: number;
   elevator_depth: number;
   elevator_col: number | null;
@@ -107,22 +127,26 @@ function mockSql({
   reloaded,
 }: {
   diff?: WorldDiff;
-  updated?: {
-    emeralds: number;
-    elevator_depth: number;
-    elevator_col: number;
-    ladder_count: number;
-    plank_count: number;
-    refund_legacy_supports?: boolean;
-    trip_index?: number;
-  } | null;
+  updated?:
+    | (InventoryOverrides & {
+        emeralds: number;
+        elevator_depth: number;
+        elevator_col: number;
+        ladder_count: number;
+        plank_count: number;
+        refund_legacy_supports?: boolean;
+        trip_index?: number;
+      })
+    | null;
   reloaded?: ReloadRow | null;
 } = {}) {
   const sql = vi.fn(async (strings: TemplateStringsArray) => {
     const query = strings.join(" ");
     // The post-conflict re-read for the authoritative reject bundle (F-121).
     if (query.includes("LEFT JOIN mine_worlds")) {
-      return reloaded === undefined || reloaded === null ? [] : [reloaded];
+      return reloaded === undefined || reloaded === null
+        ? []
+        : [{ ...INVENTORY_COLUMNS, ...reloaded }];
     }
     if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
       return [{ diff, trip_count: 2 }];
@@ -132,6 +156,7 @@ function mockSql({
         ? []
         : [
             {
+              ...INVENTORY_COLUMNS,
               refund_legacy_supports: true,
               trip_index: 3,
               ...(updated ?? {
@@ -822,5 +847,81 @@ describe("POST /api/elevator/upgrade", () => {
         strings.join(" ").includes("UPDATE players"),
       ),
     ).toBe(false);
+  });
+
+  it("returns the full authoritative inventory on an accepted extend (F-121)", async () => {
+    // The committed row carries a pickaxe and consumable count a concurrent
+    // player-only purchase raised. The client adopts these wholesale so a stale
+    // non-rail count cannot persist under the newly advanced trip.
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: {
+        emeralds: 70,
+        elevator_depth: 5,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        pickaxe_level: 3,
+        cargo_level: 2,
+        dynamite_count: 5,
+        beacon_count: 1,
+      },
+    });
+
+    const response = await POST(request(undefined, 4));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      elevator: 5,
+      elevatorColumn: 37,
+      ladders: 8,
+      planks: 4,
+      gear: expect.objectContaining({
+        pickaxe: 3,
+        cargo: 2,
+        elevator: 5,
+        elevatorColumn: 37,
+      }),
+      consumables: {
+        dynamite: 5,
+        rope: 0,
+        ladder: 8,
+        plank: 4,
+        beacon: 1,
+      },
+    });
+  });
+
+  it("returns the full authoritative inventory on an insufficient-balance reject (F-121)", async () => {
+    // A concurrent player-only purchase drained the balance and raised a
+    // non-rail count while the rail depth and checkpoint stayed put. The reject
+    // carries the fresh inventory so the client can adopt it alongside balance.
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 10,
+        elevator_depth: 4,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: "now",
+        trip_count: 2,
+        cargo_level: 4,
+        rope_count: 7,
+      },
+    });
+
+    const response = await POST(request(undefined, 4));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-insufficient-balance",
+      balance: 10,
+      elevator: 4,
+      gear: expect.objectContaining({ cargo: 4, elevator: 4 }),
+      consumables: expect.objectContaining({ rope: 7, ladder: 8 }),
+    });
+    expect(mockedRecord).not.toHaveBeenCalled();
   });
 });

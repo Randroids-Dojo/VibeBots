@@ -455,6 +455,119 @@ describe("mine store upgrade flow", () => {
     expect(savedTrip.gear.elevator).toBe(3);
   });
 
+  it("adopts the full authoritative inventory on an accepted extend (F-121)", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      tripBaseDiff: [],
+    });
+    // The accepted response carries the full committed inventory: a concurrent
+    // player-only purchase raised the pickaxe and dynamite counts. The client
+    // adopts them wholesale rather than persist its stale local snapshot under
+    // the newly advanced trip.
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        elevator: 4,
+        elevatorColumn: 17,
+        tripIndex: 3,
+        balance: 30,
+        ladders: 6,
+        planks: 2,
+        gear: { ...DEFAULT_GEAR, pickaxe: 5, elevator: 4, elevatorColumn: 17 },
+        consumables: { dynamite: 9, rope: 0, ladder: 6, plank: 2, beacon: 3 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(true);
+
+    expect(store().gear).toMatchObject({
+      pickaxe: 5,
+      elevator: 4,
+      elevatorColumn: 17,
+    });
+    // The sim is rebuilt over the adopted gear, so top-level and mine.gear agree.
+    expect(store().mine.gear).toMatchObject({ pickaxe: 5, elevator: 4 });
+    expect(store().consumables).toMatchObject({
+      dynamite: 9,
+      ladder: 6,
+      plank: 2,
+      beacon: 3,
+    });
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.gear.pickaxe).toBe(5);
+    expect(savedTrip.consumables.dynamite).toBe(9);
+  });
+
+  it("adopts the full authoritative inventory on an insufficient-balance reject (F-121)", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1, plank: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      tripBaseDiff: [],
+    });
+    // The reject carries the fresh authoritative inventory: a concurrent
+    // player-only purchase drained the balance and raised the cargo and rope
+    // counts while the rail depth and checkpoint stayed put. The client adopts
+    // the inventory and rebuilds the surface trip, with no world refetch.
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse(
+        {
+          code: "elevator-insufficient-balance",
+          error: "not enough vibes",
+          balance: 12,
+          elevator: 3,
+          elevatorColumn: 17,
+          ladders: 1,
+          planks: 1,
+          tripIndex: 2,
+          elevatorPlacementRequired: false,
+          gear: { ...DEFAULT_GEAR, cargo: 4, elevator: 3, elevatorColumn: 17 },
+          consumables: { dynamite: 0, rope: 7, ladder: 1, plank: 1, beacon: 0 },
+        },
+        409,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // Insufficient balance moved nothing server-side, so no world refetch fires.
+    expect(fetchMock.mock.calls.map((c) => c[0])).not.toContain(
+      "/api/mine/world",
+    );
+    expect(store().balance).toBe(12);
+    // Gear and consumables adopt the authoritative values; the adopted rail
+    // depth equals the local one, so there is no rail desync.
+    expect(store().gear).toMatchObject({
+      cargo: 4,
+      elevator: 3,
+      elevatorColumn: 17,
+    });
+    expect(store().consumables).toMatchObject({ rope: 7, ladder: 1, plank: 1 });
+    // The live mine is rebuilt so top-level gear and mine.gear stay in step.
+    expect(store().mine.gear).toMatchObject({ cargo: 4, elevator: 3 });
+    expect(store().tripIndex).toBe(2);
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.gear.cargo).toBe(4);
+    expect(savedTrip.consumables.rope).toBe(7);
+  });
+
   it("does one bounded world and gear refetch on a stale rail reject", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);

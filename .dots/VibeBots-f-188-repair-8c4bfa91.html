@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-188 Repair and continuously verify AGENTS rule symlinks</title>
+<meta name="dot-title" content="F-188 Repair and continuously verify AGENTS rule symlinks">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T13:42:32-05:00">
+</head>
+<body>
+<article>
+<h1>F-188 Repair and continuously verify AGENTS rule symlinks</h1>
+<section id="description">
+Repair the broken src/app/(auth)/sign-in/AGENTS.md link so it resolves to the repository-root slice-discipline rule, then audit every tracked AGENTS.md symlink from its own directory. Add a dependency-free check that fails on missing, outside-repository, wrong-depth, and wrong-rule targets, including nested paths with spaces or parentheses. Integrate it into an existing local quality command without changing CI workflow configuration. Acceptance requires every tracked AGENTS link to resolve to its intended checked-in rule, pnpm lint to emit no broken-symlink warning, negative fixtures to fail, and root-walk coverage for src, tests, docs, and docs/gdd to remain intact.
+</section>
+</article>
+</body>
+</html>

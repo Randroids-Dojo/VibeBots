@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-188" data-f="F-188" data-priority="blocks-release">
+    <h3>F-188: Repair and continuously verify AGENTS rule symlinks</h3>
+    <dl>
+      <dt>Context</dt><dd>Exact CI run <code>29524254526</code> for PR #242 head <code>ac098de9</code> exposed a repository-wide lint warning that is also present on <code>main</code>. <code>src/app/(auth)/sign-in/AGENTS.md</code> contains <code>../../../.claude/rules/slice-discipline.md</code>. From that nested directory the target resolves under <code>src/</code>, so the symlink is broken. Biome reports <code>internalError/fs: Dereferenced symlink</code> on every full lint, and Codex cannot load the mandatory slice-discipline rule while working in that path. The other four tracked AGENTS symlinks currently resolve.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before treating path-scoped agent rules or a warning-free quality run as trustworthy. A successful check must not depend on reviewers recognizing and mentally excluding a permanent filesystem warning.</dd>
+      <dt>Unblock condition</dt><dd>Repair the sign-in link to the repository-root <code>.claude/rules/slice-discipline.md</code>, then audit every tracked <code>AGENTS.md</code> symlink from its own directory. Add a dependency-free repository check that fails on a missing target, a target outside the repository, or a link to the wrong path-scoped rule, including nested paths with spaces or parentheses. Wire the check into an existing local quality command without changing CI workflow configuration. Acceptance: all tracked AGENTS links resolve to their intended checked-in rule, <code>pnpm lint</code> emits no broken-symlink warning, the new check passes on the repository and fails against fixtures for a wrong relative depth, missing target, outside-repo target, and wrong rule, and AGENTS root-walk behavior remains unchanged for <code>src</code>, <code>tests</code>, <code>docs</code>, and <code>docs/gdd</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during continuous exact-head review of PR #242. Tracking PR #190; Dot <code>VibeBots-f-188-repair-8c4bfa91</code>.</dd>
+    </dl>
+  </section>
+
   <section id="F-187" data-f="F-187" data-priority="blocks-release">
     <h3>F-187: Require referenced followups to exist before merge</h3>
     <dl>

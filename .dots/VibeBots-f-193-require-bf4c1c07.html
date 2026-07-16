@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-193 Require explicit approval before CI configuration edits</title>
+<meta name="dot-title" content="F-193 Require explicit approval before CI configuration edits">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T15:10:03.903951-05:00">
+</head>
+<body>
+<article>
+<h1>F-193 Require explicit approval before CI configuration edits</h1>
+<section id="description">
+The F-131 scheduled Full E2E timeout slice created a Playwright CI timeout parser, its test, and edited playwright.config.ts on fresh base ef33074b before the user explicitly approved CI or CD configuration changes. Read-only investigation and a concrete proposal were allowed, but the first write crossed AGENTS Rule 6. Add a fail-closed operator preflight that detects planned or staged changes to workflow files, Playwright settings used only by CI, deployment configuration, required gates, scheduled runs, reporters, artifacts, and CI deadlines. Require current user approval that names the exact base and head, branch, paths and actions, intended effect, risk, and expiry. Approval expires on base or head movement, scope expansion, or newly added files. Preserve unapproved work without deleting or overwriting it, but stop before further writes, commit, push, PR creation, or merge. Cover proposal-only work, an approved exact edit, an unapproved write, stale approval, changed base, an added path, generated or mechanical edits, and rollback or cleanup. Tracking PR #190.
+</section>
+</article>
+</body>
+</html>

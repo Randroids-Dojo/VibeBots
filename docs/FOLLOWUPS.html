@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-193" data-f="F-193" data-priority="blocks-release">
+    <h3>F-193: Require explicit approval before CI configuration edits</h3>
+    <dl>
+      <dt>Context</dt><dd>The F-131 scheduled Full E2E timeout slice created <code>src/lib/playwright-global-timeout.ts</code>, its test, and edited <code>playwright.config.ts</code> on fresh base <code>ef33074b</code> before the user explicitly approved CI or CD configuration changes. The Playwright edit sets a CI-only global deadline and CI reporters, so it is CI configuration under AGENTS Rule 6. Read-only investigation and a concrete proposal were allowed; the first implementation write was not. The writes also preceded the mandatory CI workflow reading and Dependency Upgrade Gate for the slice.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before an autonomous slice may modify CI or CD behavior without explicit, current, and scope-bound user approval. Preserve the unapproved work for review, but do not advance it through more writes, commit, push, PR creation, or merge while approval is absent.</dd>
+      <dt>Unblock condition</dt><dd>Add a fail-closed operator preflight that detects planned or staged changes to <code>.github/workflows/**</code>, Playwright settings used only by CI, deployment configuration, required gates, scheduled runs, reporters, artifacts, and CI deadlines. Require current user approval naming the exact base and head, branch, exact paths and actions, intended effect, risk, and expiry. Approval expires on base or head movement, scope expansion, or newly added files. Permit read-only inspection and proposal work without approval, then stop before the first write. Do not silently delete unapproved changes or overwrite another agent's work. Cover proposal-only work, an approved exact edit, an unapproved write, stale approval, changed base, an added path, generated or mechanical edits, and rollback or cleanup.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during live review of the F-131 implementation session. Tracking PR #190; Dot <code>VibeBots-f-193-require-bf4c1c07</code>.</dd>
+    </dl>
+  </section>
+
   <section id="F-192" data-f="F-192" data-priority="blocks-release">
     <h3>F-192: Guarantee acknowledged elevator outcome delivery</h3>
     <dl>

@@ -834,10 +834,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           typeof body.tripIndex === "number" ? body.tripIndex : 0,
           Array.isArray(body.diff) ? (body.diff as WorldDiff) : [],
         );
-        // Fresh authoritative state adopted, so any persisted stale-rail block
-        // is resolved: clear it in memory and in storage (F-121 reload-durable).
-        saveRailResyncBlock(slot, false);
-        set({ railResyncFailed: false });
+        // A world load adopts fresh WORLD state but NOT the rail: rail authority
+        // lives in gear (loaded separately by loadGear) and, for signed-in
+        // players, in the remote account-trip checkpoint clear. So loadWorld
+        // must NOT clear the stale-rail block here (a crash after this success
+        // but before gear or the checkpoint clear would fail open again). It
+        // only reflects the persisted marker; the block is cleared solely when
+        // the full resync chain succeeds (retryRailResync / the buy conflict
+        // path with synced === true) or an accepted buy adopts server truth
+        // (F-121 reload-durable).
+        set({ railResyncFailed: loadRailResyncBlock(slot) });
         return true;
       }
       const slot = get().activeSlot;
@@ -853,17 +859,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           shopNote:
             "Your saved trip couldn't be restored, so a fresh one started.",
         });
-        // A dropped corrupt trip is a clean fresh start, so the stale-rail block
-        // no longer applies: clear it and skip the restore below.
-        saveRailResyncBlock(slot, false);
-        set({ railResyncFailed: false });
-        return false;
+        // Dropping a corrupt TRIP is not proof of fresh RAIL authority (the
+        // world load failed), so it must NOT clear the stale-rail block: fall
+        // through to restore the persisted marker like any other offline load.
       }
       // Could not adopt fresh authority (offline or storage-less). Restore any
       // persisted rail-buy block regardless of whether a local trip survived: a
       // failed conflict resync deletes the local trip BEFORE its world fetch, so
       // on the real offline-reload path there is no saved trip, and the marker is
-      // the only thing that keeps the buy gated until an online load reconciles
+      // the only thing that keeps the buy gated until a full resync reconciles
       // the rail (F-121 reload-durable).
       set({ railResyncFailed: loadRailResyncBlock(slot) });
       // The authoritative server world did not load (storage-less or a failed

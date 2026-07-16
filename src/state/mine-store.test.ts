@@ -1045,11 +1045,13 @@ describe("mine store upgrade flow", () => {
     expect(store().railResyncFailed).toBe(true);
   });
 
-  it("clears the persisted rail block when an online reload adopts fresh authority", async () => {
+  it("keeps the rail block on a successful world load alone (gear authority not yet confirmed)", async () => {
+    // Rail authority lives in gear (loaded separately) and, for signed-in
+    // players, in the remote checkpoint clear. A world load adopts only world
+    // state, so a persisted block must SURVIVE it: clearing on world success
+    // alone would fail open on a crash before gear or the checkpoint clear.
     localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
-    useMineStore.setState({ activeSlot: 1, railResyncFailed: true });
-    // The world refetch succeeds, so the fresh authoritative state resolves the
-    // stale-rail block: it must clear in memory and in storage.
+    useMineStore.setState({ activeSlot: 1, railResyncFailed: false });
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/mine/world") {
         return jsonResponse({
@@ -1064,6 +1066,114 @@ describe("mine store upgrade flow", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(store().loadWorld()).resolves.toBe(true);
+
+    // The block is restored, not cleared: the buy stays gated until a full
+    // resync (Retry) reconciles gear and the checkpoint.
+    expect(store().railResyncFailed).toBe(true);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("holds the rail block when a resync loads the world but gear then fails", async () => {
+    // The full-authority guard: world success followed by a failed gear load
+    // must NOT drop the block, because rail depth lives in gear.
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    useMineStore.setState({ activeSlot: 1, railResyncFailed: true });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          activeSlot: 1,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
+      }
+      if (url === "/api/gear") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("holds the rail block when a signed-in checkpoint clear fails after gear loads", async () => {
+    // World and gear both succeed, but the signed-in remote-checkpoint clear
+    // fails, so a later refresh could resurrect stale gear: the block must hold
+    // until the complete world + gear + checkpoint-clear chain succeeds.
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    const gear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    useMineStore.setState({
+      activeSlot: 1,
+      railResyncFailed: true,
+      accountSync: {
+        ...store().accountSync,
+        mode: "signed_in",
+        state: "ready",
+      },
+    });
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          activeSlot: 1,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({ gear, consumables: NO_CONSUMABLES, balance: 40 });
+      }
+      if (url === "/api/account/trip" && init?.method === "DELETE") {
+        return jsonResponse({}, 500);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+    expect(localStorage.getItem("vibebots-rail-resync-blocked-slot-1")).toBe(
+      "1",
+    );
+  });
+
+  it("clears the rail block only when the full resync chain succeeds", async () => {
+    // The block is dropped exactly when world + gear + checkpoint all reconcile.
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    const gear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    useMineStore.setState({
+      activeSlot: 1,
+      railResyncFailed: true,
+      accountSync: {
+        ...store().accountSync,
+        mode: "guest",
+        state: "ready",
+      },
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          activeSlot: 1,
+          seed: 123,
+          tripIndex: 4,
+          diff: [],
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({ gear, consumables: NO_CONSUMABLES, balance: 40 });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().retryRailResync()).resolves.toBe(true);
 
     expect(store().railResyncFailed).toBe(false);
     expect(

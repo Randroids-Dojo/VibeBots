@@ -14,6 +14,7 @@
 <h1>F-185 Enforce append-only records across PR commit history</h1>
 <section id="description">
 Reject a PR when a committed progress article, followup history pair, open-question record, or GDD build-log item is later edited, deleted, or reordered. Compare merge-base-to-head commit history, allow only documented state and reference updates plus appended correction records in their required positions, retain exact failure evidence, and cover new records, later rewrites, deletion, reorder, correction, approved history replacement, and base movement.
+PR #242 adds a second shipped example. After initial commit 05d11323 created the rail-resync-reload-durable progress article, later commits changed its committed Changed field and inserted six review-round records inside that same article. Exact head 4e74de6b merged as 0c51982f without restoring the original article byte-for-byte and adding a new newest-first correction article. Final-tree checks stayed green because they did not validate branch commit history.
 </section>
 </article>
 </body>

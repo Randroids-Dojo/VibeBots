@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-189 Preserve failure status in local verification output</title>
+<meta name="dot-title" content="F-189 Preserve failure status in local verification output">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T13:53:24.697036-05:00">
+</head>
+<body>
+<article>
+<h1>F-189 Preserve failure status in local verification output</h1>
+<section id="description">
+Provide one dependency-free canonical local verifier that runs the required dash check, git diff check, full lint, typecheck, relevant tests, and any configured broader gates while preserving every subprocess exit status. Concise output must be captured only after the command status is saved, never through a terminal pipeline whose final formatter can mask an upstream failure. Add regression fixtures where a failing upstream command followed by successful output filtering still makes the verifier exit nonzero, cover multiple failures and signals, identify the failed gate with bounded diagnostics, and document the canonical command in the implementation plan or working agreement. Do not change CI workflow configuration in this slice.
+</section>
+</article>
+</body>
+</html>

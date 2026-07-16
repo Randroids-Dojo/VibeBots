@@ -40,6 +40,12 @@ export const BUNKER_LAYOUT_INCOMPATIBLE_CODE = "bunker-layout-incompatible";
 export const ELEVATOR_REASON_CODES = [
   /** The mine world row is missing, so there is nothing to carve (409). */
   "elevator-mine-world-missing",
+  /**
+   * The request omitted `expectedDepth`, so the stale-rail guard could not run.
+   * Every current client sends it; a request without it is a stale cached
+   * client, rejected fail-fast before any read or charge (400).
+   */
+  "elevator-expected-depth-required",
   /** The first rail needs a chosen surface column before it can anchor (400). */
   "elevator-column-required",
   /**

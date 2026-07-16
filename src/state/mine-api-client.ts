@@ -641,12 +641,13 @@ export function buyRemoteGearUpgrade(track: MineGearTrack) {
 }
 
 export async function buyRemoteElevator(
-  column?: number,
-  expectedDepth?: number,
+  column: number | undefined,
+  expectedDepth: number,
 ) {
-  const payload: { column?: number; expectedDepth?: number } = {};
+  // expectedDepth is required by the route (the stale-rail guard). Always send
+  // it, including 0 for the first rail, so it is never dropped as falsy.
+  const payload: { column?: number; expectedDepth: number } = { expectedDepth };
   if (column !== undefined) payload.column = column;
-  if (expectedDepth !== undefined) payload.expectedDepth = expectedDepth;
   return mineApi<unknown>(
     "/api/elevator/upgrade",
     await withPushEndpointHash(jsonPost(payload)),

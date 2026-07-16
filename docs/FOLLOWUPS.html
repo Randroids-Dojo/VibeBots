@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-164" data-f="F-164" data-priority="blocks-release">
+    <h3>F-164: Fail read-only on a newer-than-supported bunker layout</h3>
+    <dl>
+      <dt>Context</dt><dd>F-117 slice 3 (PR #231) added the per-bunker <code>layout_version</code> marker and detects an old bunker with <code>(layoutVersion ?? 0) &lt; BUNKER_LAYOUT_VERSION</code>, offering a confirmed destructive Start fresh. The less-than test classifies a bunker whose version is <em>above</em> the deployed build's current version as compatible, so an old build could place, remove, move, excavate, reset, repair, skin, or raid a representation it does not understand. This cannot happen today (nothing writes a version higher than the single current one, and the marker is server-stamped), but a Vercel rollback or a stale deployment reading a row written by a future build would expose it once a version 2 exists. The destructive path is already safe against it: Start fresh only proceeds <em>below</em> the current version and no-ops at or above it, so a newer bunker can never be downgraded or wiped. What is missing is a read-only guard on the ordinary edit paths.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve as part of, and no later than, the slice that introduces a second <code>BUNKER_LAYOUT_VERSION</code>. Building it before a newer generation exists is speculative (no format to test against, and the newer-version recovery UX is undefined), so it is tracked here rather than shipped now.</dd>
+      <dt>Unblock condition</dt><dd>Split the single incompatibility test into older-resettable (<code>below current</code>, offer Start fresh) and newer-unsupported (<code>above current</code>). A newer-unsupported bunker must fail every mutation read-only with a distinct structured code and an "update your app" message, and must never be offered the destructive Start fresh (which would downgrade newer data). Cover the rollback and stale-deploy read paths in tests. Mirrors the raid-side unsupported-version handling tracked in <a href="#F-107">F-107</a>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised by an exact-head review of PR #231 (F-117 slice 3); child of the first-person 3D bunker arc. Recorded against Q-026's forward-compatibility note.</dd>
+    </dl>
+  </section>
+
   <section id="F-144" data-f="F-144" data-priority="nice-to-have">
     <h3>F-144: Add a raid-burst heap-churn scenario</h3>
     <dl>

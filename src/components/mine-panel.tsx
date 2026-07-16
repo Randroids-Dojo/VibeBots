@@ -4335,11 +4335,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       )}
       {/* THE build entry point: the hammer toolbelt retired, so a
           single floating button enters the first-person builder while
-          the miner stands inside an editable claim. */}
+          the miner stands inside an editable claim. Shares the same
+          fpBunkerAllowed gate as the forced-exit effect so the two never
+          drift; activeBunker stays for the footprint narrowing below. */}
       {!fpBunkerActive &&
+        fpBunkerAllowed &&
         activeBunker &&
-        !terminalMineState &&
-        !bunkerLayoutIncompatible &&
         containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
           <button
             type="button"

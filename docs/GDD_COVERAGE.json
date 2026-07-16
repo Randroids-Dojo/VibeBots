@@ -1205,10 +1205,12 @@
         "src/server/bunker.test.ts",
         "src/app/api/bunker/route.test.ts",
         "src/state/bunker-store.test.ts",
-        "src/state/bunker-api-client.test.ts"
+        "src/state/bunker-api-client.test.ts",
+        "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
-        "F-117"
+        "F-117",
+        "F-164"
       ]
     },
     {

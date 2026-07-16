@@ -3,12 +3,14 @@ import {
   allowedBunkerSlots,
   applyBunkerRepairs,
   applyBunkerReset,
+  applyBunkerStartFresh,
   BASE_PART_CATALOG,
   type BasePartId,
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_LAYOUT_VERSION,
   BUNKER_RAID_TIER_CAP,
   BUNKER_SKIN_CATALOG,
   BUNKER_SLOTS,
@@ -29,6 +31,7 @@ import {
   creditBunkerDig,
   DEFAULT_BUNKER_SKIN,
   excavateBunkerCell,
+  isBunkerLayoutIncompatible,
   isBunkerSkinId,
   isBunkerWallSlot,
   isOpenBunkerCell,
@@ -393,6 +396,91 @@ describe("bunker repairs and stacked rooms (F-086)", () => {
     expect(reset.bunker.dug).toEqual(bunker.dug);
     expect(reset.bunker.dug.length).toBeGreaterThan(0);
     expect(reset.inventory).toEqual(STARTER_BASE_PART_INVENTORY);
+  });
+});
+
+describe("bunker layout version and Start fresh (F-117)", () => {
+  it("stamps fresh claims with the current layout version", () => {
+    const bunker = createBunker(proposedBunkerFootprint(10, 10));
+    expect(bunker.layoutVersion).toBe(BUNKER_LAYOUT_VERSION);
+    expect(isBunkerLayoutIncompatible(bunker)).toBe(false);
+  });
+
+  it("reads a versionless (legacy) bunker as incompatible", () => {
+    const legacy: BunkerState = {
+      footprint: proposedBunkerFootprint(10, 10),
+      parts: [],
+      dug: [],
+      // No layoutVersion: a row written before the marker existed.
+    };
+    expect(legacy.layoutVersion).toBeUndefined();
+    expect(isBunkerLayoutIncompatible(legacy)).toBe(true);
+  });
+
+  it("treats any version below the current one as incompatible", () => {
+    const older: BunkerState = {
+      footprint: proposedBunkerFootprint(10, 10),
+      parts: [],
+      dug: [],
+      layoutVersion: BUNKER_LAYOUT_VERSION - 1,
+    };
+    expect(isBunkerLayoutIncompatible(older)).toBe(true);
+  });
+
+  it("Start fresh clears parts with no refund, stamps the version, and keeps the excavation", () => {
+    const footprint = proposedBunkerFootprint(10, 10);
+    const legacy: BunkerState = {
+      footprint,
+      // A built legacy layout with a mix of full-durability and damaged parts.
+      parts: [
+        {
+          partId: "wall-panel",
+          col: footprint.col,
+          row: footprint.row,
+          depth: 0,
+          durability: 90,
+        },
+        {
+          partId: "floor-panel",
+          col: footprint.col + 1,
+          row: footprint.row,
+          depth: 0,
+          durability: 40,
+        },
+      ],
+      dug: [{ col: footprint.col, row: footprint.row + 1, depth: 1 }],
+      blockSeed: 4242,
+      skin: "gilded",
+      skinsOwned: ["gilded"],
+      loot: [
+        {
+          col: footprint.col,
+          row: footprint.row + 1,
+          depth: 1,
+          ores: { coal: 3 },
+        },
+      ],
+    };
+
+    const fresh = applyBunkerStartFresh(legacy);
+
+    // Parts clear and no inventory is returned: unlike reset, Start fresh
+    // has no BasePartInventory in its signature at all (no refund, Q-022).
+    expect(fresh.parts).toEqual([]);
+    expect(applyBunkerStartFresh.length).toBe(1);
+    // The version stamps forward so the bunker reads compatible after.
+    expect(fresh.layoutVersion).toBe(BUNKER_LAYOUT_VERSION);
+    expect(isBunkerLayoutIncompatible(fresh)).toBe(false);
+    // Everything that carries no layout-model assumption survives.
+    expect(fresh.dug).toEqual(legacy.dug);
+    expect(fresh.footprint).toEqual(legacy.footprint);
+    expect(fresh.blockSeed).toBe(4242);
+    expect(fresh.skin).toBe("gilded");
+    expect(fresh.skinsOwned).toEqual(["gilded"]);
+    expect(fresh.loot).toEqual(legacy.loot);
+    // Pure: the input is untouched.
+    expect(legacy.parts).toHaveLength(2);
+    expect(legacy.layoutVersion).toBeUndefined();
   });
 });
 

@@ -8,6 +8,16 @@ export const BUNKER_CLAIM_HEIGHT = 5;
 /** Cells of buildable depth behind the tunnel plane. Depth 0 is the plane
  * the 2D mine view shows; deeper cells extend into the claim rock. */
 export const BUNKER_CLAIM_DEPTH = 5;
+/**
+ * Build-era generation stamped on every bunker (F-117). It marks which
+ * bunker-design era a layout was created or last reset under, not a
+ * specific part model: version 1 is the current 7x5x5 dig-out redesign.
+ * A bunker from an older era fails fast and offers a confirmed Start
+ * fresh (Q-022, a product decision to clear pre-redesign layouts rather
+ * than migrate them) instead of being edited under the new design. Rows
+ * that predate the marker persist as 0 and read as an older era. Bump
+ * this only when a redesign should force existing layouts to reset. */
+export const BUNKER_LAYOUT_VERSION = 1;
 export const BUNKER_RAID_DURATION_SECONDS = 180;
 export const BUNKER_RAID_COOLDOWN_HOURS = 4;
 export const DEFENSE_XP_PER_LEVEL = 100;
@@ -291,6 +301,10 @@ export interface BunkerState {
   skin?: BunkerSkinId;
   /** Skins this player owns beyond the free default. */
   skinsOwned?: BunkerSkinId[];
+  /** Layout-model version this bunker was built under (F-117). Absent or
+   * below BUNKER_LAYOUT_VERSION means the persisted layout predates the
+   * current placement model and must Start fresh before editing. */
+  layoutVersion?: number;
 }
 
 export interface PendingBunkerBuild {
@@ -436,6 +450,36 @@ export function applyBunkerReset(
       // and the spawn pocket stays open and grounded.
     },
     inventory: refunded,
+  };
+}
+
+/**
+ * True when this bunker's persisted layout predates the current layout
+ * model and cannot be edited under the present placement rules (F-117).
+ * Legacy rows carry no version (read as 0); anything below the current
+ * version is incompatible. The caller (server + client) blocks editing
+ * and offers Start fresh instead of migrating (Q-022).
+ */
+export function isBunkerLayoutIncompatible(bunker: BunkerState): boolean {
+  return (bunker.layoutVersion ?? 0) < BUNKER_LAYOUT_VERSION;
+}
+
+/**
+ * Hard reset an incompatible bunker to a bare, current-version claim
+ * (F-117, Q-022). Unlike applyBunkerReset this refunds nothing: the old
+ * layout is structurally gone, so its parts do not return to inventory.
+ * The excavation, footprint, skin, seed, and loot survive (all still
+ * valid under the new model); only the built parts clear and the layout
+ * version stamps forward. Pure: persistence is the caller's concern.
+ */
+export function applyBunkerStartFresh(bunker: BunkerState): BunkerState {
+  return {
+    ...bunker,
+    parts: [],
+    layoutVersion: BUNKER_LAYOUT_VERSION,
+    // Dug cells, footprint, skin, seed, and loot stay: they carry no
+    // layout-model assumptions, so mined ore never regrows and the
+    // spawn pocket stays open (matches applyBunkerReset's F-120 rule).
   };
 }
 
@@ -966,6 +1010,8 @@ export function createBunker(
     // room a fresh claim ships with (F-115).
     dug: bunkerSpawnPocketCells(footprint),
     blockSeed,
+    // Fresh claims are born under the current layout model (F-117).
+    layoutVersion: BUNKER_LAYOUT_VERSION,
   };
 }
 

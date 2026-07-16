@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-core-removed note complete", () => {
+  it("keeps the latest bunker-layout-reset note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.270-bunker-core-removed");
+    expect(release.noticeId).toBe("2026-07-16-0.1.271-bunker-layout-reset");
     expect(latestNote).toMatchObject({
+      version: "0.1.271",
+      title: "Old bunkers need a fresh start",
+      intro:
+        "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "If your bunker was built under the old whole-block layout, it can no longer be edited as it is. Open the bunker sheet and it now shows a Start fresh button instead of the Enter button. Start fresh clears the old build and lets you build again under the new system, and it keeps every room you dug out, so you never lose your digging.",
+      "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-core-removed note complete", () => {
+    const release = getAppRelease();
+    const coreNote = release.notes.find((note) => note.version === "0.1.270");
+
+    expect(coreNote).toMatchObject({
       version: "0.1.270",
       title: "The bunker core is gone",
       intro:
         "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(coreNote?.changes.map((change) => change.text)).toEqual([
       "The spinning core that sat in the center of every bunker is removed. It never did anything you could use, and it took up a buildable cell, so it is gone. The cell it stood in is now ordinary open space you can walk through, build on, or dig behind.",
       "Repairs now cover only your placed parts, since there is no core left to patch. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

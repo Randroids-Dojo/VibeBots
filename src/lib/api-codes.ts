@@ -21,6 +21,15 @@ export const STALE_TRIP_CHECKPOINT_CODE = "stale_trip_checkpoint";
 export const BUNKER_REVISION_CONFLICT_CODE = "bunker-revision-conflict";
 
 /**
+ * A bunker edit was rejected because the persisted layout predates the
+ * current placement model (F-117): the client must Start fresh before it
+ * can build again. The client also detects this proactively from the
+ * bunker's layout version, but the code lets a racing edit force the
+ * Start fresh prompt (Q-022).
+ */
+export const BUNKER_LAYOUT_INCOMPATIBLE_CODE = "bunker-layout-incompatible";
+
+/**
  * Optional request header carrying a hex sha-256 of the sender's own push
  * endpoint, so save-sync pushes skip the device that caused the update.
  */

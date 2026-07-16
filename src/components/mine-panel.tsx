@@ -32,6 +32,7 @@ import {
   bunkerCells,
   containsBunkerCell,
   isBasePartDamaged,
+  isBunkerLayoutIncompatible,
   maxBunkerRaidTier,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -336,7 +337,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
-  "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
+  "Tip: Sealed yourself in? Reset bunker in the sheet clears the build and refunds undamaged parts.",
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -1164,6 +1165,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const forfeitBunkerLiveRaid = useBunkerStore((s) => s.forfeitLiveRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
   const resetBankedBunker = useBunkerStore((s) => s.resetBunker);
+  const startFreshBankedBunker = useBunkerStore((s) => s.startFreshBunker);
   const setBunkerSkin = useBunkerStore((s) => s.setSkin);
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
@@ -1362,11 +1364,20 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
   const pendingBunkerActive = pendingBunker !== null;
   const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
+  // A banked bunker built under an older layout model cannot be entered or
+  // edited (F-117): it fails fast in the 2D status sheet and offers Start
+  // fresh instead. A pending (unbanked) claim is born current, so it is
+  // never gated here (and its version is stamped server-side at bank).
+  const bunkerLayoutIncompatible =
+    !pendingBunkerActive &&
+    activeBunker !== null &&
+    isBunkerLayoutIncompatible(activeBunker);
   // The one first-person gate (used by the Enter affordance path and the
   // forced-exit effect only). The interim 2D raid used to freeze bunker
   // editing/entry; it is retired, and a live raid is fought in first person
   // with its own forfeit/exit lifecycle, so nothing raid-related gates this now.
-  const fpBunkerAllowed = Boolean(activeBunker) && !terminalMineState;
+  const fpBunkerAllowed =
+    Boolean(activeBunker) && !terminalMineState && !bunkerLayoutIncompatible;
   const selectedBasePart: BasePartId =
     bunkerToolSelection &&
     bunkerToolSelection !== "pry" &&
@@ -4315,15 +4326,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               void resetBankedBunker();
             }
           }}
+          // Only a banked bunker is ever layout-incompatible (F-117): a
+          // pending claim is born current, so Start fresh always runs the
+          // server hard-reset route.
+          onStartFresh={() => void startFreshBankedBunker()}
           onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
         />
       )}
       {/* THE build entry point: the hammer toolbelt retired, so a
           single floating button enters the first-person builder while
-          the miner stands inside an editable claim. */}
+          the miner stands inside an editable claim. Shares the same
+          fpBunkerAllowed gate as the forced-exit effect so the two never
+          drift; activeBunker stays for the footprint narrowing below. */}
       {!fpBunkerActive &&
+        fpBunkerAllowed &&
         activeBunker &&
-        !terminalMineState &&
         containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
           <button
             type="button"

@@ -11,6 +11,7 @@ import {
   repairBunker,
   resetBunker,
   setBunkerSkin,
+  startFreshBunker,
   startLiveRaid,
 } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
@@ -27,6 +28,7 @@ import { POST as repairPost } from "./repair/route";
 import { POST as resetPost } from "./reset/route";
 import { GET } from "./route";
 import { POST as skinPost } from "./skin/route";
+import { POST as startFreshPost } from "./start-fresh/route";
 
 vi.mock("@/server/db", () => ({
   db: vi.fn(),
@@ -48,6 +50,7 @@ vi.mock("@/server/bunker", () => ({
   repairBunker: vi.fn(),
   resetBunker: vi.fn(),
   setBunkerSkin: vi.fn(),
+  startFreshBunker: vi.fn(),
   startLiveRaid: vi.fn(),
 }));
 
@@ -65,6 +68,7 @@ const mockedExcavate = vi.mocked(excavateBunker);
 const mockedStart = vi.mocked(startLiveRaid);
 const mockedRepair = vi.mocked(repairBunker);
 const mockedReset = vi.mocked(resetBunker);
+const mockedStartFresh = vi.mocked(startFreshBunker);
 
 const view = {
   bunker: null,
@@ -235,6 +239,22 @@ describe("bunker API routes", () => {
     await expect(res.json()).resolves.toEqual({
       error: "finish the raid first",
     });
+  });
+
+  it("hard-resets a legacy bunker through the start-fresh route (F-117)", async () => {
+    const view = { bunker: { footprint: null }, inventory: {} };
+    mockedStartFresh.mockResolvedValue({ ok: true, view } as never);
+
+    const res = await startFreshPost(
+      jsonRequest("http://localhost/api/bunker/start-fresh", {}),
+    );
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual(view);
+    expect(mockedStartFresh).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+    );
   });
 
   it("applies a bunker skin through the skin route", async () => {

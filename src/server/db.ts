@@ -189,6 +189,13 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0`;
+  // Layout-model version stamped per bunker (F-117). New DEFAULT 0 means
+  // every pre-existing row reads as legacy: incompatible with the current
+  // placement model, so it fails fast and offers Start fresh (Q-022).
+  // Fresh claims and Start fresh write BUNKER_LAYOUT_VERSION instead.
+  await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS layout_version integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS bunker_raids (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,

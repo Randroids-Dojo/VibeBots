@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-171" data-f="F-171" data-priority="blocks-release">
+    <h3>F-171: Make bunker part and inventory writes atomic</h3>
+    <dl>
+      <dt>Context</dt><dd>Continuous review of the bunker write path found that <code>saveBunkerAndInventory</code> first commits the revision-guarded <code>bunkers.parts</code> update, then performs six separate absolute-count upserts into <code>player_base_parts</code>. If an inventory statement fails after the bunker write wins, placement can land without its debit or removal can land without its refund. A concurrent purchase can also be overwritten by the stale full inventory snapshot. Resolved F-122 proves that a stale revision loser leaves inventory untouched and receives authoritative state, but it does not cover a winning write that fails partway through persistence.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before thin bunker slots become player-facing or any part-write path is called transaction-safe. The current whole-cell place and remove routes already use this helper, so the winner-side partial-write risk is live.</dd>
+      <dt>Unblock condition</dt><dd>Persist the guarded bunker revision and parts change together with the exact inventory delta in one atomic database operation, such as one statement with a guarded CTE. If the revision loses or any inventory condition fails, neither side may change. Apply deltas against current counts instead of blindly writing a previously loaded absolute snapshot, reject a debit that would go below zero, and return the authoritative bunker and inventory after conflicts. Cover an injected failure after guard evaluation, concurrent purchase plus placement and removal, a stale revision loser, and successful place, remove, and move paths. Each test must reload authoritative state and prove the revision, parts, and inventory either all changed once or all stayed unchanged.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-f-171-make-04a3264b</code> under the first-person 3D bunker arc; raised while reviewing PR #230 and the existing F-122 persistence contract.</dd>
+    </dl>
+  </section>
+
   <section id="F-170" data-f="F-170" data-priority="blocks-release">
     <h3>F-170: Correct project memory that bypasses repository authority</h3>
     <dl>

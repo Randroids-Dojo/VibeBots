@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="atomic-bunker-inventory-followup" data-date="2026-07-15">
+    <h3>Keep bunker layouts and part inventory in one commit</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/reconcile-html-dots</code>.</dd>
+      <dt>PR</dt><dd>#228.</dd>
+      <dt>Changed</dt><dd>Continuous review of the bunker persistence path found a winner-side atomicity gap outside PR #230's pure-sim scope. Added F-171 and its priority-0 HTML Dot. The item requires the revision-guarded parts change and exact inventory delta to commit in one database operation, preserves F-122 conflict resync, prevents stale absolute inventory snapshots from overwriting concurrent purchases, and requires authoritative reload tests for success, conflict, and injected failure.</dd>
+      <dt>Verification</dt><dd>Traced <code>placeBunkerPart</code>, <code>removeBunkerPart</code>, <code>moveBunkerPart</code>, <code>saveBunkerAndInventory</code>, and <code>saveBasePartInventory</code> on current main <code>7bb1001d</code>. Confirmed the guarded bunker update is awaited before six independent inventory upserts, while existing F-122 tests cover stale losers but not failure after a winning update or concurrent inventory mutation. Searched the ledger and HTML Dot tree and confirmed resolved F-122 and F-120 do not own this winner-side contract.</dd>
+      <dt>Assumptions</dt><dd>The Neon driver limitation on explicit transactions does not weaken the invariant because one guarded SQL statement can make the related writes atomic. Inventory persistence should apply the operation's exact delta to current state rather than replay a loaded snapshot. This tracking slice changes no runtime behavior and does not expand PR #230's scope.</dd>
+      <dt>GDD coverage</dt><dd>None. This records server persistence correctness for the existing bunker part economy. No game-design, schema, release, tip, stamp, or telemetry contract changes.</dd>
+      <dt>Followups</dt><dd>Added F-171 with Dot <code>VibeBots-f-171-make-04a3264b</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="thin-slot-roof-layer-decision" data-date="2026-07-15">
     <h3>Reserve actual roofs for the bunker top layer</h3>
     <dl>

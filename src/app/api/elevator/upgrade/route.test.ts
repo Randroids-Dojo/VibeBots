@@ -705,6 +705,35 @@ describe("POST /api/elevator/upgrade", () => {
     });
   });
 
+  it("reports a moved checkpoint over a low balance so the client refreshes", async () => {
+    // A concurrent spend both advanced the trip and drained the balance below
+    // the price. The moved checkpoint must win: the client refreshes the whole
+    // world (and gets the true balance with it) instead of showing a dead-end
+    // price note over a stale rail.
+    mockedProfile.mockResolvedValue(profile(4, 37));
+    mockSql({
+      updated: null,
+      reloaded: {
+        emeralds: 1,
+        elevator_depth: 4,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+        elevator_placement_chosen_at: "now",
+        trip_count: 9,
+      },
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-stale-checkpoint",
+      elevator: 4,
+      tripIndex: 9,
+    });
+  });
+
   it("rejects a stale expected depth before charging and returns the truth", async () => {
     mockedProfile.mockResolvedValue(profile(4, 37));
     const sql = mockSql();

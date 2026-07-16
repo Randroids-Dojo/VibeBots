@@ -509,12 +509,176 @@ describe("mine store upgrade flow", () => {
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain("/api/mine/world");
     expect(urls).toContain("/api/gear");
+    // The elevator resync deliberately skips the seed+tripIndex account-trip
+    // checkpoint: restoring it could replay stale rail gear at the same index.
+    expect(urls).not.toContain("/api/account/trip");
     expect(store().tripIndex).toBe(12);
     expect(store().gear).toMatchObject({ elevator: 5 });
+    // The sim itself is rebuilt over the authoritative gear (no mixed state
+    // where top-level gear and mine.gear disagree), and the trip starts fresh.
+    expect(store().mine.gear.elevator).toBe(5);
+    expect(store().moves).toEqual([]);
     expect(store().balance).toBe(88);
     expect(store().shopNote).toBe(
       "your rail moved on another device; refreshed to the latest",
     );
+  });
+
+  it("ignores a stale account-trip checkpoint at the same index during an elevator resync", async () => {
+    // The regression the fix targets: another device won the rail (depth 3 -> 5)
+    // WITHOUT advancing the trip count, so the account-trip endpoint still holds
+    // a checkpoint at the same seed and tripIndex carrying the OLD rail gear and
+    // moves. A naive refresh that restores that checkpoint would replay it and
+    // leave mine.gear stale. The elevator resync must skip it entirely.
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 7,
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const staleGear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const freshGear = { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 };
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", elevator: 5, tripIndex: 7 },
+          409,
+        );
+      }
+      // The account-trip payload still describes the pre-buy rail at the same
+      // index. If the resync fetched and restored it, mine.gear would go stale.
+      if (url === "/api/account/trip") {
+        return jsonResponse({
+          trip: {
+            mineVersion: MINE_VERSION,
+            seed: 555,
+            tripIndex: 7,
+            gear: staleGear,
+            consumables: NO_CONSUMABLES,
+            baseDiff: [],
+            moves: ["right"],
+            pendingBunker: null,
+          },
+        });
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 555,
+          tripIndex: 7,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: freshGear,
+          consumables: NO_CONSUMABLES,
+          balance: 60,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).not.toContain("/api/account/trip");
+    // Top-level gear, the sim gear, and the trip all reflect the authoritative
+    // rail. Nothing is replayed from the same-index stale checkpoint.
+    expect(store().gear).toMatchObject({ elevator: 5 });
+    expect(store().mine.gear.elevator).toBe(5);
+    expect(store().moves).toEqual([]);
+    expect(store().balance).toBe(60);
+  });
+
+  it("refetches on a concurrent-loss reject too", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-concurrent-loss", elevator: 4, tripIndex: 8 },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 8,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 17 },
+          consumables: NO_CONSUMABLES,
+          balance: 70,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    // A bare lost guarded race is an unknown-winner case, so it refreshes too.
+    const urls = fetchMock.mock.calls.map((c) => c[0]);
+    expect(urls).toContain("/api/mine/world");
+    expect(urls).toContain("/api/gear");
+    expect(store().tripIndex).toBe(8);
+    expect(store().mine.gear.elevator).toBe(4);
+    expect(store().shopNote).toBe(
+      "another change landed first; refreshed to the latest",
+    );
+  });
+
+  it("fails fast into a reopen prompt when the conflict refetch cannot load", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-checkpoint", elevator: 3, tripIndex: 9 },
+          409,
+        );
+      }
+      // The authoritative world read fails: no "refreshed" claim may be shown.
+      if (url === "/api/mine/world") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
   });
 
   it("replaces support stock from the accepted rail response", async () => {

@@ -131,9 +131,13 @@ function classifyElevatorConflict(
   if (state.elevator !== expected.depth) return "elevator-stale-rail-state";
   if (state.elevatorColumn !== null && state.elevatorColumn !== expected.column)
     return "elevator-stale-rail-state";
-  if (state.balance < expected.price) return "elevator-insufficient-balance";
+  // A moved checkpoint means the whole world advanced under the client, so it
+  // must win over a low balance: report it as stale before insufficient funds
+  // so the client refreshes the world instead of showing a dead-end price note
+  // over a stale rail. The authoritative balance rides back with the refresh.
   if (state.tripIndex !== expected.tripIndex)
     return "elevator-stale-checkpoint";
+  if (state.balance < expected.price) return "elevator-insufficient-balance";
   return "elevator-concurrent-loss";
 }
 

@@ -368,6 +368,29 @@ export async function POST(request: Request): Promise<Response> {
     emitOutcome("rejected", code);
     return elevatorReject(code, error, status, state);
   };
+  // A guarded write that matched zero rows after a client-supplied id passed the
+  // pre-check can be a concurrent same-id loser: the winner committed and
+  // recorded this id in the outbox (its FOR UPDATE serializes the loser, so by
+  // now the winner's transaction, including the outbox row, is committed). Report
+  // that precisely as a duplicate and emit NO new outcome, so the id keeps
+  // exactly one outcome (the winner's durable accepted). Otherwise it is an
+  // ordinary conflict and emits its reject outcome. Only checked for a
+  // client-supplied id (a server-minted id cannot collide).
+  const resolveGuardedConflict = async (
+    code: ElevatorReasonCode,
+    error: string,
+    state: ElevatorState | null,
+  ): Promise<Response> => {
+    if (clientRequestId && (await elevatorOutcomeExists(sql, requestId))) {
+      return elevatorReject(
+        "elevator-duplicate-request",
+        "that purchase already went through; refresh and try again",
+        409,
+        state,
+      );
+    }
+    return rejectOutcome(code, error, 409, state);
+  };
   if (worldTripCount === undefined) {
     return rejectOutcome(
       "elevator-mine-world-missing",
@@ -496,7 +519,7 @@ export async function POST(request: Request): Promise<Response> {
           : code === "elevator-concurrent-loss"
             ? "another change landed first; refresh and retry"
             : "elevator placement was already confirmed";
-      return rejectOutcome(code, message, 409, state);
+      return resolveGuardedConflict(code, message, state);
     }
     const refundedSupports: Partial<Record<"ladder" | "plank", number>> = {
       ...(refundedLadders > 0 ? { ladder: refundedLadders } : {}),
@@ -695,7 +718,7 @@ export async function POST(request: Request): Promise<Response> {
           : code === "elevator-stale-rail-state"
             ? "your rail moved; refresh and retry"
             : "another change landed first; refresh and retry";
-    return rejectOutcome(code, message, 409, state);
+    return resolveGuardedConflict(code, message, state);
   }
   const refundedLadders =
     purchasedLadders + (updated[0].refund_legacy_supports ? legacyLadders : 0);

@@ -1451,12 +1451,17 @@ describe("POST /api/elevator/upgrade", () => {
     function outboxSql({
       drainRows = [],
       duplicate = false,
+      duplicateOnConflict = false,
       updated,
       tripCount = 2,
+      reloaded = null,
       throwOnDeliveryMark = false,
     }: {
       drainRows?: StrandedRow[];
       duplicate?: boolean;
+      // The outbox pre-check is empty, but the post-conflict re-check finds the
+      // id: a concurrent same-id winner committed between the two lookups.
+      duplicateOnConflict?: boolean;
       updated?: {
         emeralds: number;
         elevator_depth: number;
@@ -1465,19 +1470,39 @@ describe("POST /api/elevator/upgrade", () => {
         plank_count: number;
       } | null;
       tripCount?: number;
+      reloaded?: {
+        emeralds: number;
+        elevator_depth: number;
+        elevator_col: number | null;
+        ladder_count: number;
+        plank_count: number;
+        elevator_placement_chosen_at: string | null;
+        trip_count: number | null;
+      } | null;
       throwOnDeliveryMark?: boolean;
     } = {}) {
+      let outboxChecks = 0;
       const sql = vi.fn(async (strings: TemplateStringsArray) => {
         const query = strings.join(" ");
         if (query.includes("SELECT request_id, player_id, operation, result")) {
           return drainRows; // recovery drain
         }
         if (query.includes("SELECT 1 FROM elevator_upgrade_outcomes")) {
+          outboxChecks += 1;
+          // The pre-check is the first lookup; the conflict re-check is later.
+          if (duplicateOnConflict) {
+            return outboxChecks >= 2 ? [{ "?column?": 1 }] : [];
+          }
           return duplicate ? [{ "?column?": 1 }] : []; // duplicate pre-check
         }
         if (query.includes("UPDATE elevator_upgrade_outcomes")) {
           if (throwOnDeliveryMark) throw new Error("mark failed");
           return []; // delivery mark or drain batch mark
+        }
+        if (query.includes("LEFT JOIN mine_worlds")) {
+          return reloaded === null
+            ? []
+            : [{ ...INVENTORY_COLUMNS, ...reloaded }];
         }
         if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
           return [{ diff: [], trip_count: tripCount }];
@@ -1674,6 +1699,46 @@ describe("POST /api/elevator/upgrade", () => {
           requestId: expect.any(String),
         }),
       );
+    });
+
+    it("reports a concurrent same-id loser as a duplicate and emits no reject", async () => {
+      // The pre-check finds no row (the loser slipped past before the winner
+      // committed), the guarded write matches zero rows (the winner advanced the
+      // rail under FOR UPDATE), and the post-conflict re-check now finds the
+      // winner's outbox row. The loser must be reported as a duplicate with no
+      // new outcome, so the id keeps exactly one outcome (the winner's).
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        updated: null, // the guarded write lost the race
+        duplicateOnConflict: true,
+        reloaded: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+          elevator_placement_chosen_at: "now",
+          trip_count: 3,
+        },
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-duplicate-request",
+        elevator: 5,
+      });
+      // No new outcome for the loser (the winner's accepted outcome is the one
+      // durable outcome for the id), and no balance event.
+      expect(mockedOutcome).not.toHaveBeenCalled();
+      expect(mockedRecord).not.toHaveBeenCalled();
+      // The re-check ran (two outbox lookups: the pre-check and the conflict).
+      expect(
+        sql.mock.calls.filter(([strings]) =>
+          strings.join(" ").includes("SELECT 1 FROM elevator_upgrade_outcomes"),
+        ),
+      ).toHaveLength(2);
     });
   });
 });

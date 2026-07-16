@@ -1734,7 +1734,11 @@ describe("mine store upgrade flow", () => {
     // A duplicate-request reject means the original buy committed and advanced
     // the world (depth 3 to 4, trip 2 to 8), so the response's authoritative
     // gear must not be merged over the stale local world. It must take the full
-    // resync path so world, gear, and trip index move as one checkpoint (F-121).
+    // resync path so the world diff, gear, and trip index move as one persisted
+    // checkpoint (F-121), never new gear over a stale local world.
+    const serverDiff = [[17, 1, { kind: "empty" }]] as ReturnType<
+      typeof exportDiff
+    >;
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);
     useMineStore.setState({
@@ -1744,6 +1748,7 @@ describe("mine store upgrade flow", () => {
       moves: ["left"] as MineAction[],
       balance: 40,
       tripIndex: 2,
+      tripBaseDiff: [],
       worldLoaded: true,
       activeSlot: 1,
     });
@@ -1758,7 +1763,7 @@ describe("mine store upgrade flow", () => {
         return jsonResponse({
           seed: 999,
           tripIndex: 8,
-          diff: [],
+          diff: serverDiff,
           activeSlot: 1,
         });
       }
@@ -1776,12 +1781,23 @@ describe("mine store upgrade flow", () => {
     await expect(store().buyElevator()).resolves.toBe(false);
 
     // The authoritative world and gear were re-fetched (not an inventory-only
-    // merge), so the trip index and rail depth move together to the server's.
+    // merge), so the world diff, rail depth, and trip index all adopt the
+    // server's together, and the mine reflects the server world diff.
     const urls = fetchMock.mock.calls.map((c) => c[0]);
     expect(urls).toContain("/api/mine/world");
     expect(urls).toContain("/api/gear");
     expect(store().tripIndex).toBe(8);
     expect(store().mine.gear.elevator).toBe(4);
+    expect(store().tripBaseDiff).toEqual(serverDiff);
+    expect(cellAt(store().mine, 17, 1)).toEqual({ kind: "empty" });
+    // The persisted checkpoint is coherent: the same server world diff and trip
+    // index are saved together, not new gear over the stale local world.
+    const savedTrip = JSON.parse(
+      vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
+    );
+    expect(savedTrip.baseDiff).toEqual(serverDiff);
+    expect(savedTrip.tripIndex).toBe(8);
+    expect(savedTrip.gear.elevator).toBe(4);
     expect(store().shopNote).toBe(
       "that purchase already went through; refreshed to the latest",
     );

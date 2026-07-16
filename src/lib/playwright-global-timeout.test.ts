@@ -14,8 +14,16 @@ describe("parseE2EGlobalTimeout", () => {
 
   it("throws on a malformed value rather than running unbounded", () => {
     expect(() => parseE2EGlobalTimeout("0")).toThrow();
+    expect(() => parseE2EGlobalTimeout("00")).toThrow();
     expect(() => parseE2EGlobalTimeout("-1")).toThrow();
     expect(() => parseE2EGlobalTimeout("12.5")).toThrow();
     expect(() => parseE2EGlobalTimeout("16min")).toThrow();
+  });
+
+  it("accepts a value at the 24-hour maximum but rejects beyond it", () => {
+    expect(parseE2EGlobalTimeout("86400000")).toBe(86_400_000);
+    expect(() => parseE2EGlobalTimeout("86400001")).toThrow();
+    // A precision-losing / absurd digit string is rejected, not silently rounded.
+    expect(() => parseE2EGlobalTimeout("99999999999999999999")).toThrow();
   });
 });

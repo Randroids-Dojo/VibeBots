@@ -227,24 +227,28 @@ jobs:
           set -euo pipefail
           job_budget_s=$(( 20 * 60 ))     # matches this job's timeout-minutes: 20
           reserve_s=150                    # teardown + HTML/JSON report + artifact upload
-          # Smallest deadline we ever set. Its only job is to stay above 0:
+          # Minimum non-zero deadline. Its only job is to stay above 0, because
           # Playwright treats globalTimeout: 0 as "unlimited", which would put
-          # the cancel-at-job-deadline problem right back. If the safe budget
-          # ever falls below this, checkout/install/build already ate the job
-          # and evidence loss is unavoidable; the run fails red regardless.
-          floor_ms=30000
+          # the cancel-at-job-deadline problem right back. Deliberately tiny (not
+          # 30s): when the safe budget is exhausted the wall-clock left may be
+          # only seconds, and a large floor could exceed it and re-create a
+          # cancel. safe_ms = wall-clock-left - reserve, so it never exceeds the
+          # wall-clock left when positive; a 1s floor fails fast and still leaves
+          # the remaining budget for the report and upload.
+          floor_ms=1000
           elapsed_s=$(( $(date +%s) - JOB_START_EPOCH ))
           safe_ms=$(( (job_budget_s - reserve_s - elapsed_s) * 1000 ))
           if [ "$safe_ms" -lt "$floor_ms" ]; then safe_ms=$floor_ms; fi
           if [ -n "$OVERRIDE_MS" ]; then
-            # Manual proof knob. Reject non-numbers and clamp DOWN to the safe
-            # budget so a too-large override cannot re-introduce a cancel.
-            case "$OVERRIDE_MS" in
-              ''|*[!0-9]*)
-                echo "full_e2e_global_timeout_ms must be a positive integer of milliseconds" >&2
-                exit 1
-                ;;
-            esac
+            # Manual proof knob. Require a positive integer of 1 to 10 digits: the
+            # first-digit [1-9] rejects 0 and leading zeros (a 0 would mean
+            # unlimited), and the 10-digit cap keeps the value inside int64 for
+            # the shell comparison below. Then clamp DOWN to the safe budget so a
+            # too-large override cannot re-introduce a cancel.
+            if [[ ! "$OVERRIDE_MS" =~ ^[1-9][0-9]{0,9}$ ]]; then
+              echo "full_e2e_global_timeout_ms must be a positive integer of 1 to 10 digits (milliseconds)" >&2
+              exit 1
+            fi
             if [ "$OVERRIDE_MS" -lt "$safe_ms" ]; then
               deadline_ms=$OVERRIDE_MS
             else
@@ -262,6 +266,21 @@ jobs:
           E2E_GLOBAL_TIMEOUT_MS: ${{ steps.e2e_deadline.outputs.ms }}
         run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
 
+      # Guarantee the failure upload is never empty (F-131). The HTML reporter
+      # writes playwright-report/index.html on a normal or global-timeout
+      # failure, but a crash after the reporter cleared its output dir and
+      # before it wrote could leave nothing. Drop an explicit marker ONLY when
+      # the HTML report is genuinely absent, so evidence loss can never be
+      # silent: the artifact then still carries a named signal to triage.
+      - name: Ensure failure evidence exists
+        if: failure()
+        run: |
+          mkdir -p playwright-report
+          if [ ! -f playwright-report/index.html ]; then
+            echo "Full E2E shard ${{ matrix.shard }} failed with no HTML report. Playwright likely crashed before its reporter wrote; inspect the job log for the failing step." \
+              > playwright-report/NO-REPORT.txt
+          fi
+
       # Runs on any non-success shard, including a global-timeout failure. With
       # the internal deadline the shard fails (not cancelled) before the job
       # deadline, so this upload actually runs and the evidence survives (F-131).
@@ -274,10 +293,10 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
-          # The HTML/JSON reporter always writes playwright-report/ on a failure,
-          # including a global-timeout failure, so this only fires when the report
-          # is genuinely absent. Warn (not ignore) so that evidence-loss case stays
-          # visible in the log instead of silently succeeding with an empty upload.
+          # The prior step guarantees at least a NO-REPORT.txt marker exists, so
+          # this upload is never empty. Warn (not ignore) is the backstop: if the
+          # path ever did resolve to nothing, the log surfaces it instead of the
+          # step silently succeeding with an empty artifact.
           if-no-files-found: warn
 
   visual-baselines-update:

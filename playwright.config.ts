@@ -52,7 +52,15 @@ export default defineConfig({
     : "list",
   use: {
     baseURL: configuredBaseUrl ?? localBaseUrl,
+    // Trace is captured on the retry of a failed test; a screenshot is captured
+    // at the moment of failure on the FIRST attempt too, so a shard that fails
+    // (including one stopped by the F-131 global deadline) leaves per-test
+    // evidence without the whole-suite cost of tracing every test. A test still
+    // mid-run when the global deadline interrupts it may have neither, which is
+    // an inherent limit of a hard whole-suite stop, not something a trace mode
+    // can guarantee.
     trace: "on-first-retry",
+    screenshot: "only-on-failure",
   },
   webServer: configuredBaseUrl
     ? undefined

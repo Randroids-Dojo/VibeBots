@@ -640,12 +640,16 @@ export function buyRemoteGearUpgrade(track: MineGearTrack) {
   return mineApi<unknown>("/api/gear/upgrade", jsonPost({ track }));
 }
 
-export async function buyRemoteElevator(column?: number) {
+export async function buyRemoteElevator(
+  column?: number,
+  expectedDepth?: number,
+) {
+  const payload: { column?: number; expectedDepth?: number } = {};
+  if (column !== undefined) payload.column = column;
+  if (expectedDepth !== undefined) payload.expectedDepth = expectedDepth;
   return mineApi<unknown>(
     "/api/elevator/upgrade",
-    await withPushEndpointHash(
-      jsonPost(column === undefined ? {} : { column }),
-    ),
+    await withPushEndpointHash(jsonPost(payload)),
   );
 }
 

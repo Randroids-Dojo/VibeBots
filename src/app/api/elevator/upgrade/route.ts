@@ -1,9 +1,11 @@
+import type { ElevatorReasonCode } from "@/lib/api-codes";
 import { refreshPlayerAchievements } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
 import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
+  type MinePlayerProfile,
   mineElevatorColumnFromProfile,
 } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
@@ -20,6 +22,124 @@ import {
 } from "@/sim/mine";
 
 export const runtime = "nodejs";
+
+/**
+ * Authoritative rail state the client adopts wholesale after a rejected buy
+ * (F-121). Every conflict response carries this bundle so the controls
+ * re-enable against the truth instead of a stale screen.
+ */
+type ElevatorState = {
+  balance: number;
+  elevator: number;
+  elevatorColumn: number | null;
+  ladders: number;
+  planks: number;
+  tripIndex: number;
+  elevatorPlacementRequired: boolean;
+};
+
+function placementRequiredFrom(
+  depth: number,
+  placementChosenAt: string | null,
+): boolean {
+  return depth > 0 && !placementChosenAt;
+}
+
+/** The rail state already loaded for the request, before any write happened. */
+function elevatorStateFromProfile(
+  profile: MinePlayerProfile,
+  tripIndex: number,
+): ElevatorState {
+  return {
+    balance: profile.emeralds,
+    elevator: profile.elevator_depth,
+    elevatorColumn: mineElevatorColumnFromProfile(profile),
+    ladders: profile.ladder_count,
+    planks: profile.plank_count,
+    tripIndex,
+    elevatorPlacementRequired: placementRequiredFrom(
+      profile.elevator_depth,
+      profile.elevator_placement_chosen_at,
+    ),
+  };
+}
+
+/** A fresh read for rejects after a guarded write may have moved state. */
+async function reloadElevatorState(
+  sql: Awaited<ReturnType<typeof db>>,
+  playerId: string,
+): Promise<ElevatorState | null> {
+  const rows = (await sql`
+    SELECT p.emeralds, p.elevator_depth, p.elevator_col, p.ladder_count,
+           p.plank_count, p.elevator_placement_chosen_at, w.trip_count
+    FROM players p
+    LEFT JOIN mine_worlds w ON w.player_id = p.id
+    WHERE p.id = ${playerId}`) as Array<{
+    emeralds: number;
+    elevator_depth: number;
+    elevator_col: number | null;
+    ladder_count: number;
+    plank_count: number;
+    elevator_placement_chosen_at: string | null;
+    trip_count: number | null;
+  }>;
+  const row = rows[0];
+  if (row === undefined) return null;
+  return {
+    balance: row.emeralds,
+    elevator: row.elevator_depth,
+    elevatorColumn: mineElevatorColumnFromProfile({
+      elevator_depth: row.elevator_depth,
+      elevator_col: row.elevator_col,
+    }),
+    ladders: row.ladder_count,
+    planks: row.plank_count,
+    tripIndex: row.trip_count ?? 0,
+    elevatorPlacementRequired: placementRequiredFrom(
+      row.elevator_depth,
+      row.elevator_placement_chosen_at,
+    ),
+  };
+}
+
+/** A rejected buy: a stable code, human text, and the authoritative state. */
+function elevatorReject(
+  code: ElevatorReasonCode,
+  error: string,
+  status: number,
+  state: ElevatorState | null,
+): Response {
+  return Response.json({ code, error, ...(state ?? {}) }, { status });
+}
+
+/**
+ * Classify why a guarded rail write matched zero rows, given the freshly
+ * re-read state and the pre-write expectations. Order is most-specific first:
+ * a moved rail depth or column beats balance, which beats a moved checkpoint,
+ * and an otherwise-buyable state means we simply lost a race.
+ */
+function classifyElevatorConflict(
+  state: ElevatorState | null,
+  expected: {
+    depth: number;
+    column: number;
+    price: number;
+    tripIndex: number;
+  },
+): ElevatorReasonCode {
+  if (state === null) return "elevator-concurrent-loss";
+  if (state.elevator !== expected.depth) return "elevator-stale-rail-state";
+  if (state.elevatorColumn !== null && state.elevatorColumn !== expected.column)
+    return "elevator-stale-rail-state";
+  // A moved checkpoint means the whole world advanced under the client, so it
+  // must win over a low balance: report it as stale before insufficient funds
+  // so the client refreshes the world instead of showing a dead-end price note
+  // over a stale rail. The authoritative balance rides back with the refresh.
+  if (state.tripIndex !== expected.tripIndex)
+    return "elevator-stale-checkpoint";
+  if (state.balance < expected.price) return "elevator-insufficient-balance";
+  return "elevator-concurrent-loss";
+}
 
 /**
  * Buys one elevator rail row. The first buy anchors the shaft at the chosen
@@ -45,6 +165,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const rawBody = await request.text();
   let requestedColumn: number | undefined;
+  let expectedDepth: number | undefined;
   if (rawBody) {
     let body: unknown;
     try {
@@ -70,6 +191,24 @@ export async function POST(request: Request): Promise<Response> {
       }
       requestedColumn = column;
     }
+    const rawExpectedDepth = (body as { expectedDepth?: unknown })
+      .expectedDepth;
+    if (rawExpectedDepth !== undefined) {
+      if (
+        typeof rawExpectedDepth !== "number" ||
+        !Number.isInteger(rawExpectedDepth) ||
+        rawExpectedDepth < 0 ||
+        rawExpectedDepth > MINE_BOTTOM_ROW
+      ) {
+        return Response.json(
+          {
+            error: `expectedDepth must be an integer from 0 to ${MINE_BOTTOM_ROW}`,
+          },
+          { status: 400 },
+        );
+      }
+      expectedDepth = rawExpectedDepth;
+    }
   }
 
   const playerId = await getOrCreatePlayerId();
@@ -86,16 +225,37 @@ export async function POST(request: Request): Promise<Response> {
   const oldDiff = (rows[0]?.diff ?? []) as WorldDiff;
   const worldTripCount = rows[0]?.trip_count;
   if (worldTripCount === undefined) {
-    return Response.json({ error: "mine world not found" }, { status: 409 });
+    return elevatorReject(
+      "elevator-mine-world-missing",
+      "mine world not found",
+      409,
+      null,
+    );
+  }
+  const currentState = profile
+    ? elevatorStateFromProfile(profile, worldTripCount)
+    : null;
+  // A stale or replayed buy (including a retry after a lost success response)
+  // still shows the client's old rail depth. Reject before any charge so it
+  // cannot silently advance a second row; the client adopts currentState.
+  if (expectedDepth !== undefined && expectedDepth !== depth) {
+    return elevatorReject(
+      "elevator-stale-rail-state",
+      "your saved rail depth is out of date; refresh and try again",
+      409,
+      currentState,
+    );
   }
   const placementRequired = Boolean(
     profile && depth > 0 && !profile.elevator_placement_chosen_at,
   );
   if (placementRequired) {
     if (requestedColumn === undefined) {
-      return Response.json(
-        { error: "choose a surface column for the elevator shaft" },
-        { status: 400 },
+      return elevatorReject(
+        "elevator-column-required",
+        "choose a surface column for the elevator shaft",
+        400,
+        currentState,
       );
     }
     const installation = installElevatorRailInDiff(
@@ -161,10 +321,22 @@ export async function POST(request: Request): Promise<Response> {
       trip_index: number;
     }>;
     if (updated.length === 0) {
-      return Response.json(
-        { error: "elevator placement was already confirmed" },
-        { status: 409 },
-      );
+      const state = await reloadElevatorState(sql, playerId);
+      const code: ElevatorReasonCode =
+        state === null
+          ? "elevator-concurrent-loss"
+          : !state.elevatorPlacementRequired
+            ? "elevator-stale-rail-state"
+            : state.tripIndex !== worldTripCount
+              ? "elevator-stale-checkpoint"
+              : "elevator-concurrent-loss";
+      const message =
+        code === "elevator-stale-checkpoint"
+          ? "the mine changed under your placement; refresh and retry"
+          : code === "elevator-concurrent-loss"
+            ? "another change landed first; refresh and retry"
+            : "elevator placement was already confirmed";
+      return elevatorReject(code, message, 409, state);
     }
     const refundedSupports: Partial<Record<"ladder" | "plank", number>> = {
       ...(refundedLadders > 0 ? { ladder: refundedLadders } : {}),
@@ -191,9 +363,11 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
   if (depth === 0 && requestedColumn === undefined) {
-    return Response.json(
-      { error: "choose a surface column for the elevator shaft" },
-      { status: 400 },
+    return elevatorReject(
+      "elevator-column-required",
+      "choose a surface column for the elevator shaft",
+      400,
+      currentState,
     );
   }
   if (
@@ -201,22 +375,28 @@ export async function POST(request: Request): Promise<Response> {
     requestedColumn !== undefined &&
     requestedColumn !== storedColumn
   ) {
-    return Response.json(
-      { error: "elevator shaft is already placed", column: storedColumn },
-      { status: 409 },
+    return elevatorReject(
+      "elevator-stale-rail-state",
+      "elevator shaft is already placed",
+      409,
+      currentState,
     );
   }
   const column = storedColumn ?? requestedColumn;
   if (column === undefined) {
-    return Response.json(
-      { error: "choose a surface column for the elevator shaft" },
-      { status: 400 },
+    return elevatorReject(
+      "elevator-column-required",
+      "choose a surface column for the elevator shaft",
+      400,
+      currentState,
     );
   }
   if (depth >= MINE_BOTTOM_ROW - 1) {
-    return Response.json(
-      { error: "elevator rail has reached the mine bottom" },
-      { status: 409 },
+    return elevatorReject(
+      "elevator-rail-at-bottom",
+      "elevator rail has reached the mine bottom",
+      409,
+      currentState,
     );
   }
 
@@ -310,10 +490,22 @@ export async function POST(request: Request): Promise<Response> {
     trip_index: number;
   }>;
   if (updated.length === 0) {
-    return Response.json(
-      { error: "not enough vibes (or already extended)" },
-      { status: 409 },
-    );
+    const state = await reloadElevatorState(sql, playerId);
+    const code = classifyElevatorConflict(state, {
+      depth,
+      column,
+      price,
+      tripIndex: worldTripCount,
+    });
+    const message =
+      code === "elevator-insufficient-balance"
+        ? "not enough vibes for the next rail"
+        : code === "elevator-stale-checkpoint"
+          ? "the mine changed under your buy; refresh and retry"
+          : code === "elevator-stale-rail-state"
+            ? "your rail moved; refresh and retry"
+            : "another change landed first; refresh and retry";
+    return elevatorReject(code, message, 409, state);
   }
   const refundedLadders =
     purchasedLadders + (updated[0].refund_legacy_supports ? legacyLadders : 0);

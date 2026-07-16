@@ -30,6 +30,37 @@ export const BUNKER_REVISION_CONFLICT_CODE = "bunker-revision-conflict";
 export const BUNKER_LAYOUT_INCOMPATIBLE_CODE = "bunker-layout-incompatible";
 
 /**
+ * Stable low-cardinality reasons an elevator rail buy can be rejected with
+ * (F-121). The old generic 409 folded insufficient balance, stale rail
+ * ownership, and concurrent checkpoint loss into one prose string. Each reason
+ * now carries a code plus the authoritative rail state so the client can adopt
+ * the truth instead of leaving a stale screen, and so live monitoring can tell
+ * an expected concurrency rejection from a persistence failure.
+ */
+export const ELEVATOR_REASON_CODES = [
+  /** The mine world row is missing, so there is nothing to carve (409). */
+  "elevator-mine-world-missing",
+  /** The first rail needs a chosen surface column before it can anchor (400). */
+  "elevator-column-required",
+  /**
+   * The client's rail depth or shaft column no longer matches the server:
+   * a stale or already-applied buy, or a concurrent winner advanced the rail
+   * (409). Covers the expected-depth guard and the placed-column mismatch.
+   */
+  "elevator-stale-rail-state",
+  /** The mine checkpoint moved under the buy (a trip banked first) (409). */
+  "elevator-stale-checkpoint",
+  /** The buyer cannot afford the next rail price (409). */
+  "elevator-insufficient-balance",
+  /** The rail already reaches the mine bottom (409). */
+  "elevator-rail-at-bottom",
+  /** A guarded write lost a race with no clearer cause; retryable (409). */
+  "elevator-concurrent-loss",
+] as const;
+
+export type ElevatorReasonCode = (typeof ELEVATOR_REASON_CODES)[number];
+
+/**
  * Optional request header carrying a hex sha-256 of the sender's own push
  * endpoint, so save-sync pushes skip the device that caused the update.
  */

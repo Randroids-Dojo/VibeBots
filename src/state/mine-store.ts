@@ -101,6 +101,33 @@ export type {
 } from "./mine-api-client";
 
 /**
+ * Player-facing note for a rejected rail buy, keyed off the server's stable
+ * reason code (F-121). The screen has already adopted the authoritative rail
+ * state by the time this shows, so every message reads as "we refreshed you"
+ * rather than a dead end.
+ */
+function elevatorConflictNote(code: string | null): string {
+  switch (code) {
+    case "elevator-insufficient-balance":
+      return "not enough vibes for the next rail";
+    case "elevator-stale-rail-state":
+      return "your rail moved on another device; refreshed to the latest";
+    case "elevator-stale-checkpoint":
+      return "the mine changed under you; refreshed to the latest";
+    case "elevator-rail-at-bottom":
+      return "the rail already reaches the mine bottom";
+    case "elevator-column-required":
+      return "choose a surface column for the elevator shaft";
+    case "elevator-mine-world-missing":
+      return "the mine is still loading; try again in a moment";
+    case "elevator-concurrent-loss":
+      return "another change landed first; refreshed to the latest";
+    default:
+      return "purchase failed";
+  }
+}
+
+/**
  * Multi-device conflict state (REQ-042). "prompt" means another device
  * advanced the cloud save while this one holds real trip progress; the
  * player must choose to sync (dropping the run) or keep playing. A
@@ -257,8 +284,8 @@ export interface MineSessionState {
   clearFallVisualImpact: () => void;
   move: (action: MineAction) => MoveResult | null;
   clearTerminalResult: () => void;
-  loadWorld: () => Promise<void>;
-  loadGear: () => Promise<void>;
+  loadWorld: () => Promise<boolean>;
+  loadGear: () => Promise<boolean>;
   loadSaveSlots: () => Promise<void>;
   loadAccountStatus: (options?: { silent?: boolean }) => Promise<void>;
   startAccountSignIn: (
@@ -480,6 +507,49 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       get().loadSaveSlots(),
     ]);
   };
+  // Bounded authoritative refetch for a rejected surface mutation (an elevator
+  // conflict). Unlike refreshCloudWorld it deliberately SKIPS the
+  // /api/account/trip checkpoint restore: that checkpoint is guarded by seed
+  // plus trip count, not rail depth, so a concurrent rail winner can leave the
+  // same tripIndex while the account-trip payload still carries stale rail gear
+  // and moves. Restoring it would let loadWorld replay a mixed checkpoint whose
+  // gear disagrees with the authoritative rail. Dropping the local trip makes
+  // loadWorld rebuild fresh over the authoritative world diff (its no-local-trip
+  // branch also zeroes moves), and loadGear then rebuilds mine.gear over the
+  // authoritative gear. Returns true only when BOTH authoritative reads
+  // succeeded, so the caller does not claim "refreshed" over a failed fetch.
+  // Safe here because the buy runs at the surface with any non-surface log
+  // already banked, so the dropped trip carries no unbanked progress.
+  const resyncCloudWorld = async (slot: SaveSlotId): Promise<boolean> => {
+    removeLocalTrip(slot);
+    // Do NOT pre-clear moves: loadWorld's no-local-trip branch already zeroes
+    // them on success, so clearing first would only tear coherent in-memory
+    // state (mine paired with its moves) if the read then failed.
+    if (!(await get().loadWorld())) return false;
+    // loadGear persists the rebuilt trip before its own fetch; if that fetch
+    // then fails, the persisted checkpoint pairs the new world and tripIndex
+    // with the old gear. It has no moves, so loadWorld's resume would ignore
+    // it, but drop it anyway so no mixed checkpoint can survive a failure.
+    if (!(await get().loadGear())) {
+      removeLocalTrip(slot);
+      return false;
+    }
+    // The remote /api/account/trip checkpoint can still hold the pre-conflict
+    // gear at this same tripIndex, and a later refreshCloudWorld downloads it
+    // BEFORE loadWorld, which would restore it. Await an explicit clear and
+    // treat a failed clear as a resync failure so success is never reported
+    // while a resurrectable checkpoint survives (signed-in only; guests never
+    // wrote such a checkpoint).
+    if (get().accountSync.mode !== "guest") {
+      const cleared = await clearRemoteAccountTrip();
+      if (!cleared.ok) {
+        removeLocalTrip(slot);
+        return false;
+      }
+    }
+    void get().loadSaveSlots();
+    return true;
+  };
   return {
     mine: createMine(seed),
     seed,
@@ -649,7 +719,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           typeof body.tripIndex === "number" ? body.tripIndex : 0,
           Array.isArray(body.diff) ? (body.diff as WorldDiff) : [],
         );
-        return;
+        return true;
       }
       const slot = get().activeSlot;
       // Check before loadLocalTrip drops the blob: a corrupt pending-bunker
@@ -665,6 +735,9 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             "Your saved trip couldn't be restored, so a fresh one started.",
         });
       }
+      // The authoritative server world did not load (storage-less or a failed
+      // fetch); callers that need a confirmed cloud refresh treat this as a miss.
+      return false;
     },
 
     loadGear: async () => {
@@ -683,7 +756,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           });
           persistCurrentTrip();
         }
-        return;
+        // No authoritative player row loaded (storage-less or a failed fetch).
+        return false;
       }
       const body = res.body as Record<string, unknown>;
       const gear: MineGear = normalizeGear(body.gear as MineGearSnapshot);
@@ -718,14 +792,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         consumables.plank === currentCons.plank &&
         consumables.beacon === currentCons.beacon
       ) {
-        return;
+        return true;
       }
       // Gear changes the sim. A fresh trip restarts on the owned
       // snapshot over the same world; a resumed in-flight trip keeps
       // the gear snapshot it was saved with.
       if (get().moves.length > 0) {
         set({ gear });
-        return;
+        return true;
       }
       const { seed: worldSeed, mine } = get();
       const baseDiff = exportDiff(mine);
@@ -742,6 +816,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         resumeElevatorDirection: null,
       });
       persistCurrentTrip();
+      return true;
     },
 
     loadSaveSlots: async () => {
@@ -1609,13 +1684,61 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         const banked = await get().submitCashOut();
         if (!banked) return false;
       }
-      const res = await buyRemoteElevator(column);
+      const res = await buyRemoteElevator(column, get().gear.elevator);
       if (res.status === 503) {
         set({ shopNote: "the tower ledger is offline; nothing was charged" });
         return false;
       }
       if (!res.ok) {
         const body = res.body as Record<string, unknown> | null;
+        const code = body && typeof body.code === "string" ? body.code : null;
+        // A conflict reject means another request already moved the world under
+        // this client, so the local trip is out of date. That covers a moved
+        // rail, a moved checkpoint, AND a bare lost guarded race (an unknown
+        // winner): all three run one bounded authoritative refetch that drops
+        // the local trip and rebuilds the world, gear, balance, trip index, and
+        // supports from the server as one checkpoint. buyElevator already banked
+        // any non-surface log before the request, so dropping the surface-only
+        // trip loses nothing. The note only claims "refreshed" when both
+        // authoritative reads land; a failed fetch fails fast into a reopen
+        // prompt rather than leaving stale controls under a false success.
+        if (
+          code === "elevator-stale-rail-state" ||
+          code === "elevator-stale-checkpoint" ||
+          code === "elevator-concurrent-loss"
+        ) {
+          const synced = await resyncCloudWorld(get().activeSlot);
+          set({
+            shopNote: synced
+              ? elevatorConflictNote(code)
+              : "couldn't refresh the rail; reopen the shop",
+            tick: get().tick + 1,
+          });
+          return false;
+        }
+        // The remaining codes do not move the world checkpoint: insufficient
+        // balance (the guarded write lost only on the price gate, and tripIndex
+        // is confirmed in sync, else it classified as stale-checkpoint above)
+        // and the rail already at the bottom. The world stays in step with the
+        // local trip, so surface only the authoritative balance (display state,
+        // not part of the saved trip) and the reason; do not rewrite the rail,
+        // trip index, or supports and persist, which would desync the saved
+        // trip from its world. A concurrent player-only purchase could still
+        // leave the wallet's consumables or gear briefly stale at this same
+        // tripIndex; that inventory lag syncs on the next gear load and is the
+        // open F-121 "authoritative inventory on every reject" item, not a world
+        // desync.
+        if (code !== null) {
+          set({
+            balance:
+              body && typeof body.balance === "number"
+                ? body.balance
+                : get().balance,
+            shopNote: elevatorConflictNote(code),
+            tick: get().tick + 1,
+          });
+          return false;
+        }
         set({
           shopNote:
             body && typeof body.error === "string"
@@ -1668,12 +1791,25 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         refundedLadders + refundedPlanks > 0
           ? `; recovered ${refundedLadders} ladders and ${refundedPlanks} planks`
           : "";
+      // Replace support stock from the accepted response (F-121). The server
+      // count already folds in the refund, so adopt it rather than adding the
+      // refund to possibly-stale local stock, which a lost-success retry or a
+      // concurrent inventory change would otherwise double-count. Older servers
+      // omit the counts, so fall back to the local merge.
+      const owned = addConsumables(consumables, bought);
+      if (typeof body.ladders === "number") {
+        owned.ladder = body.ladders;
+      } else {
+        owned.ladder += refundedLadders;
+      }
+      if (typeof body.planks === "number") {
+        owned.plank = body.planks;
+      } else {
+        owned.plank += refundedPlanks;
+      }
       if (surfaceOnlyLog(moves)) {
         // Same rule as gear: rail applies to the live trip only while
         // the log is pure surface walks (replay-identical).
-        const owned = addConsumables(consumables, bought);
-        owned.ladder += refundedLadders;
-        owned.plank += refundedPlanks;
         const rebuilt = createMine(s0, nextGear, owned, nextBaseDiff);
         for (const m of moves) applyAction(rebuilt, m);
         saveLocalTrip(get().activeSlot, {
@@ -1701,9 +1837,6 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           tick: tick + 1,
         });
       } else {
-        const owned = addConsumables(consumables, bought);
-        owned.ladder += refundedLadders;
-        owned.plank += refundedPlanks;
         set({
           gear: nextGear,
           consumables: owned,

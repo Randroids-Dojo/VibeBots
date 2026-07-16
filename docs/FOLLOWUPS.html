@@ -84,6 +84,27 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-173" data-f="F-173" data-priority="nice-to-have">
+    <h3>F-173: Replace the full-cell bunker hotbar with the thin rotatable kit</h3>
+    <dl>
+      <dt>Context</dt><dd>A player entering the first-person bunker builder reported still seeing "all the old body parts": the hotbar offers the retired whole-cell Wall, Floor, and Roof parts (each fills an entire cell), not the thin, rotatable sub-cell kit the redesign calls for. REQ-046 (rotatable sub-cell slots for thin floors, walls, roofs, and stairs) is only partially delivered: the confirmed hard reset for incompatible old layouts shipped (F-117, PR #231), but the thin parts themselves and the slot-based placement they need have not, so the builder still hands out full-cell blocks.</dd>
+      <dt>Blocker (if any)</dt><dd>Larger than a render-only slice. It needs the sim slot model (sub-cell placement, rotation, and support/destruction rules), thin part geometry over those colliders, the placement UI (slot targeting and rotation control) in the first-person canvas and hotbar, and the wire/store plumbing to carry a slot and rotation, plus migration for any bunker built under the full-cell kit (the layout-version reset already gates those).</dd>
+      <dt>Unblock condition</dt><dd>Implement the thin rotatable build kit through the slot system per REQ-046: sub-cell floors, walls, roofs, and stairs a player can rotate and place into a cell's slots, with deterministic support and destruction, replacing the full-cell Wall/Floor/Roof hotbar. Keep part art render-only over the slot colliders (Rule: part visuals), pin placement and support in sim tests, and add a first-person e2e that places and rotates a thin part and asserts the hotbar offers the new kit. Sequence after the ore-visibility slice (F-172).</dd>
+      <dt>PR / Dot reference</dt><dd>Raised alongside the ore-visibility slice (branch <code>feat/bunker-fp-visible-ore</code>); child of the first-person 3D bunker arc; maps to REQ-046.</dd>
+    </dl>
+  </section>
+
+  <section id="F-172" data-f="F-172" data-priority="nice-to-have">
+    <h3>F-172: Reveal buried bunker ore so a fresh claim is not blank dirt</h3>
+    <dl>
+      <dt>Context</dt><dd>A player in the first-person bunker builder reported seeing "no ores." The bunker interior does generate plenty of ore (F-116): each undug cell is a mine block for its depth, so a claim holds roughly twenty ore veins. But the crystal overlay only drew on ore cells with an already-open face, and a fresh claim opens only the &tilde;27-cell spawn pocket, so only the handful of ore blocks touching that pocket showed anything. Around eighty percent of the volume's ore sat one or more cells behind solid rock, rendering nothing, so a new claim read as plain dirt with no ore in sight.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Render-only legibility over the unchanged generated blocks and colliders.</dd>
+      <dt>Unblock condition</dt><dd>Show ore before it is dug into, the way the 2D mine does: keep the exposed-vein crystals, and add a faint recessed hint on any dirt or rock wall that faces the open pocket when the cell one step deeper is an ore block, so the vein reads through the wall and marks where to dig.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised from a player report on the first-person builder; child of the first-person 3D bunker arc.</dd>
+      <dt>Resolved</dt><dd>2026-07-16, branch <code>feat/bunker-fp-visible-ore</code> (package 0.1.272). A new pure helper <code>fpOreVeins(bunker, grid)</code> in <code>bunker-fp-grid.ts</code> returns every crystal cluster the first-person viewer should draw: fully exposed veins (an ore block with an open face, as before) and buried hints (a dirt or rock wall facing the open pocket whose cell one step deeper, away from the open face, is an ore block). A hint borrows the buried ore's generator coords and ore id, so the cluster it shows is exactly the vein that gets exposed once the wall breaks. <code>OreCrystals</code> gained a backward-compatible <code>hint</code> mode that renders fewer crystals, smaller and recessed under the surface (z 0.30 vs 0.42), so it reads as ore embedded in the wall rather than a dug-out pocket. <code>FpRockInstances</code> renders both kinds and exposes a <code>data-fp-ore-hints</code> probe alongside the existing <code>data-fp-ore-cells</code>. Render-only over the unchanged sim blocks and colliders; <code>MINE_VERSION</code> and <code>SIM_VERSION</code> unchanged. Covered by four <code>bunker-fp-grid.test.ts</code> cases (legacy claim renders nothing, every vein sits on an exposed undug cell with a valid face, a fresh seed-1 claim shows both exposed veins and buried hints, and digging a hinted wall turns the hint into a real exposed vein with the same identity) and the first-person e2e, which now asserts both the exposed-vein and buried-hint probes rise above zero on a fresh claim. Follow-up F-173 tracks the separate "old body parts" half of the same report (the thin build kit).</dd>
+    </dl>
+  </section>
+
   <section id="F-158" data-f="F-158" data-priority="nice-to-have">
     <h3>F-158: Confirm the first-person Clanker orientation on a real phone</h3>
     <dl>

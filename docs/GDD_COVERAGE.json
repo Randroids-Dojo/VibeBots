@@ -1171,7 +1171,9 @@
         "src/state/mine-store.ts",
         "src/state/bunker-store.ts",
         "src/state/bunker-api-client.ts",
-        "src/components/bunker-fp-canvas.tsx"
+        "src/components/bunker-fp-canvas.tsx",
+        "src/components/bunker-fp-grid.ts",
+        "src/components/mine-block-render.tsx"
       ],
       "testRefs": [
         "src/sim/bunker-blocks.test.ts",
@@ -1179,12 +1181,14 @@
         "src/server/bunker.test.ts",
         "src/app/api/bunker/route.test.ts",
         "src/state/bunker-store.test.ts",
+        "src/components/bunker-fp-grid.test.ts",
         "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-116",
         "F-120",
-        "F-122"
+        "F-122",
+        "F-172"
       ]
     },
     {
@@ -1209,7 +1213,8 @@
         "tests/e2e/mine-bunker.spec.ts"
       ],
       "followupRefs": [
-        "F-117"
+        "F-117",
+        "F-173"
       ]
     },
     {

@@ -21,11 +21,11 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+    "Your claimed bunker now shows its ore through the rock, so a fresh claim reads like the mine instead of blank dirt.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "it can no longer be edited as it is",
+    "Ore veins glint on the dug-out walls of your bunker",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
     "MINE_VERSION and SIM_VERSION are unchanged",
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.272", "See the ore in your bunker walls"],
     ["0.1.271", "Old bunkers need a fresh start"],
     ["0.1.270", "The bunker core is gone"],
     ["0.1.269", "Raids are first-person only now"],

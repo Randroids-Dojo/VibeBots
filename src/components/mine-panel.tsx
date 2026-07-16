@@ -333,7 +333,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: In first person, hold the pick and drag your aim to mine claim rock cell after cell. Parts place at the crosshair; pry returns them to your pack.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
-  "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
+  "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Ore glints on an open face, and a faint vein in a wall means ore waits one dig behind it.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",

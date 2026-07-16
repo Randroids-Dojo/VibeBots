@@ -377,24 +377,36 @@ export function OreCrystals({
   row,
   color,
   glow,
+  hint = false,
 }: {
   col: number;
   row: number;
   color: string;
   glow: boolean;
+  /** A vein still embedded in a wall (ore one cell behind the surface the
+   * player faces), not an exposed cluster. Renders fewer crystals, smaller
+   * and recessed into the face, so it reads as "ore in this block" rather
+   * than a dug-out pocket wall. Off by default so 2D mine callers are
+   * unchanged. */
+  hint?: boolean;
 }) {
   const detail = useBlockDetail();
   const material = crystalMaterial(color, glow, detail);
-  const count = 3 + Math.floor(cellHash(col, row, 7) * 3);
+  const base = 3 + Math.floor(cellHash(col, row, 7) * 3);
+  const count = hint ? Math.max(2, base - 1) : base;
+  // A hint sits just under the surface (z 0.30 vs 0.42) at a reduced scale so
+  // it looks embedded in the wall the player has yet to dig.
+  const faceZ = hint ? 0.3 : 0.42;
+  const scaleMul = hint ? 0.62 : 1;
   const crystals = [];
   for (let i = 0; i < count; i++) {
     const a = cellHash(col, row, 11 + i);
     const b = cellHash(col, row, 23 + i);
-    const s = 0.08 + cellHash(col, row, 31 + i) * 0.11;
+    const s = (0.08 + cellHash(col, row, 31 + i) * 0.11) * scaleMul;
     crystals.push(
       <mesh
         key={i}
-        position={[(a - 0.5) * 0.56, (b - 0.5) * 0.56, 0.42]}
+        position={[(a - 0.5) * 0.56, (b - 0.5) * 0.56, faceZ]}
         rotation={[a * 2.2, b * 2.2, (a + b) * 1.8]}
         scale={[s, s * (1.5 + b * 0.7), s]}
         material={material}

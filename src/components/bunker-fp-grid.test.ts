@@ -8,6 +8,7 @@ import {
   removeBasePart,
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import { bunkerCellBlock, deriveBunkerBlockSeed } from "@/sim/bunker-blocks";
 import {
   buildFpSolidGrid,
   createFpSolidGrid,
@@ -16,6 +17,7 @@ import {
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_OPEN,
+  FP_ORE_FACES,
   FP_ROCK_UNDUG,
   FP_ROWS,
   FP_SOLID_PART,
@@ -25,6 +27,7 @@ import {
   fpCellIndex,
   fpGridCellFromLocal,
   fpLocalFromGrid,
+  fpOreVeins,
   fpSpawnCell,
 } from "./bunker-fp-grid";
 
@@ -300,6 +303,120 @@ describe("fpCellBoxedIn", () => {
     if (!pried.ok) throw new Error(`pry: ${pried.reason}`);
     buildFpSolidGrid(pried.bunker, grid);
     expect(fpCellBoxedIn(grid, 4, 0, 3)).toBe(false);
+  });
+});
+
+describe("fpOreVeins", () => {
+  const rotMatchesAFace = (rot: readonly [number, number, number]) =>
+    FP_ORE_FACES.some(
+      (f) => f.rot[0] === rot[0] && f.rot[1] === rot[1] && f.rot[2] === rot[2],
+    );
+
+  it("renders nothing for a legacy claim with no block seed (Q-022)", () => {
+    // createBunker without a seed is the legacy/hard-reset shape.
+    const bunker = createBunker(footprint);
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(bunker, grid);
+    expect(fpOreVeins(bunker, grid)).toEqual([]);
+  });
+
+  it("only ever sits crystals on an exposed undug cell", () => {
+    // Sweep seeds so the invariants hold for whatever block layout each
+    // fresh claim happens to generate, not one lucky seed.
+    for (let seed = 0; seed < 24; seed++) {
+      const bunker = createBunker(
+        footprint,
+        deriveBunkerBlockSeed(seed, footprint),
+      );
+      const grid = createFpSolidGrid();
+      buildFpSolidGrid(bunker, grid);
+      const seen = new Set<number>();
+      for (const vein of fpOreVeins(bunker, grid)) {
+        // No duplicate cells, valid rotation, and the cell is undug rock.
+        expect(seen.has(vein.key)).toBe(false);
+        seen.add(vein.key);
+        expect(rotMatchesAFace(vein.rot)).toBe(true);
+        expect(grid[fpCellIndex(vein.x, vein.y, vein.z)]).toBe(FP_ROCK_UNDUG);
+        const block = bunkerCellBlock(
+          deriveBunkerBlockSeed(seed, footprint),
+          footprint,
+          vein.x,
+          vein.y,
+          vein.z,
+        );
+        if (vein.hint) {
+          // A hint sits on a NON-ore wall; the ore it shows is one cell
+          // deeper, in the direction opposite the open face.
+          expect(block.kind).not.toBe("ore");
+          const face = FP_ORE_FACES.find(
+            (f) =>
+              f.rot[0] === vein.rot[0] &&
+              f.rot[1] === vein.rot[1] &&
+              f.rot[2] === vein.rot[2],
+          );
+          expect(face).toBeDefined();
+          if (!face) continue;
+          const deep = bunkerCellBlock(
+            deriveBunkerBlockSeed(seed, footprint),
+            footprint,
+            vein.x - face.d[0],
+            vein.y - face.d[1],
+            vein.z - face.d[2],
+          );
+          expect(deep.kind).toBe("ore");
+          expect(deep.ore).toBe(vein.ore);
+        } else {
+          // An exposed vein is the cell's own ore.
+          expect(block.kind).toBe("ore");
+          expect(block.ore).toBe(vein.ore);
+        }
+      }
+    }
+  });
+
+  it("surfaces buried ore as a hint on the fresh-claim spawn pocket", () => {
+    // The e2e claims seed 1 at the miner's spawn (proposedBunkerFootprint of
+    // col 0, depth 5): both fully exposed veins AND buried wall hints show,
+    // so the interior reads like the 2D mine instead of blank dirt.
+    const fp = proposedBunkerFootprint(0, 5);
+    const bunker = createBunker(fp, deriveBunkerBlockSeed(1, fp));
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(bunker, grid);
+    const veins = fpOreVeins(bunker, grid);
+    const exposed = veins.filter((v) => !v.hint);
+    const hints = veins.filter((v) => v.hint);
+    expect(exposed.length).toBeGreaterThan(0);
+    expect(hints.length).toBeGreaterThan(0);
+  });
+
+  it("turns a wall hint into a real vein once the wall is dug through", () => {
+    const fp = proposedBunkerFootprint(0, 5);
+    const bunker = createBunker(fp, deriveBunkerBlockSeed(1, fp));
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(bunker, grid);
+    const hint = fpOreVeins(bunker, grid).find((v) => v.hint);
+    expect(hint).toBeDefined();
+    if (!hint) return;
+    // Dig the wall the hint sits on. It faces the open pocket, so it is
+    // reachable by construction.
+    const wall = fpGridCellFromLocal(fp, hint.x, hint.y, hint.z);
+    const dug = excavateBunkerCell(bunker, wall.col, wall.row, wall.depth);
+    expect(dug.ok).toBe(true);
+    if (!dug.ok) return;
+    buildFpSolidGrid(dug.bunker, grid);
+    const after = fpOreVeins(dug.bunker, grid);
+    // The wall cell is open now, so it hosts no crystals.
+    expect(after.some((v) => v.key === hint.key)).toBe(false);
+    // The buried ore it hinted at is now a fully exposed vein with the same
+    // identity (the crystal cluster the player was promised).
+    const revealed = after.find(
+      (v) =>
+        !v.hint &&
+        v.hashCol === hint.hashCol &&
+        v.hashRow === hint.hashRow &&
+        v.ore === hint.ore,
+    );
+    expect(revealed).toBeDefined();
   });
 });
 

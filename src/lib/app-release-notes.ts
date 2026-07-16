@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-16-0.1.271-bunker-layout-reset";
+export const RELEASE_NOTICE_ID = "2026-07-16-0.1.272-bunker-visible-ore";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.272",
+      date: "2026-07-16",
+      title: "See the ore in your bunker walls",
+      intro:
+        "Your claimed bunker now shows its ore through the rock, so a fresh claim reads like the mine instead of blank dirt.",
+      changes: [
+        {
+          build,
+          text: "Ore veins glint on the dug-out walls of your bunker the moment you claim it, and a wall with ore one layer behind it shows a faint hint of the crystals inside, so you can see where to dig. Before, almost every vein stayed hidden until you happened to break into it, and a new claim looked like plain dirt with no ore in sight.",
+        },
+        {
+          build,
+          text: "This is a visual change only: the same ore was always in those blocks and pays the same when you dig it out. Your saved bunkers are untouched, and MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.271",
       date: "2026-07-16",

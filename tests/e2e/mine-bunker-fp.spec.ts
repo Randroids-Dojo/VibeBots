@@ -1952,6 +1952,15 @@ test("first-person bunker interior renders dirt, rock, and ore, not one flat gra
     })
     .toBeGreaterThan(0);
 
+  // Most of the claim's ore is still buried behind the pocket walls. Those
+  // walls show faint recessed hints so the ore reads before it is dug, like
+  // the 2D mine (the fix for "no ores" on a fresh claim).
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-ore-hints")), {
+      timeout: 20_000,
+    })
+    .toBeGreaterThan(0);
+
   // The undug walls surrounding the spawn pocket carry the depth's dirt and
   // rock. Before per-kind meshes the whole interior was one flat rock gray
   // (the node materials ignore instanceColor), so warm dirt pixels were

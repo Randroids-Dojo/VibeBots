@@ -5,6 +5,8 @@ import {
   type BunkerFootprint,
   type BunkerState,
 } from "@/sim/bunker";
+import { bunkerCellBlock, bunkerCellGenCoords } from "@/sim/bunker-blocks";
+import type { OreId } from "@/sim/mine/ores";
 
 /**
  * Solidity grid for the first-person bunker viewer. Pure module (no
@@ -78,6 +80,135 @@ export function createFpSolidGrid(): FpSolidGrid {
 
 export function fpCellIndex(x: number, y: number, z: number): number {
   return x + y * FP_COLS + z * FP_COLS * FP_ROWS;
+}
+
+/** Face neighbors paired with the rotation that turns an OreCrystals
+ * cluster's local +Z toward that face. Grid z maps to world -z (worldZ =
+ * -depth), so a shallower open neighbor (dz -1) faces world +Z (identity).
+ * Ordered by how visible the face usually is from the dug-in side: the
+ * pocket-facing shallow face first, then the side walls, then floor and
+ * ceiling, then the deep back face last. */
+export const FP_ORE_FACES: readonly {
+  d: readonly [number, number, number];
+  rot: readonly [number, number, number];
+}[] = [
+  { d: [0, 0, -1], rot: [0, 0, 0] },
+  { d: [1, 0, 0], rot: [0, Math.PI / 2, 0] },
+  { d: [-1, 0, 0], rot: [0, -Math.PI / 2, 0] },
+  { d: [0, 1, 0], rot: [-Math.PI / 2, 0, 0] },
+  { d: [0, -1, 0], rot: [Math.PI / 2, 0, 0] },
+  { d: [0, 0, 1], rot: [0, Math.PI, 0] },
+];
+
+/** A crystal cluster the fp viewer overlays on an undug cell. Either a
+ * fully exposed vein (`hint` false, crystals on the block's own open face)
+ * or a buried vein glimpsed through the dirt/rock wall in front of it
+ * (`hint` true), so digging reads like the 2D mine: the ore shows before
+ * you break through. `key` is the cell's fp index (stable identity). */
+export interface FpOreVein {
+  key: number;
+  x: number;
+  y: number;
+  z: number;
+  hashCol: number;
+  hashRow: number;
+  ore: OreId;
+  rot: readonly [number, number, number];
+  hint: boolean;
+}
+
+/** The first face of an undug cell that opens onto dug/open space, or null
+ * when the cell is fully buried. Prefers the pocket-facing shallow face so
+ * a vein exposed from a side, floor, ceiling, or back still points into
+ * the gap instead of poking into solid rock. */
+function fpFirstExposedFace(
+  grid: FpSolidGrid,
+  x: number,
+  y: number,
+  z: number,
+): (typeof FP_ORE_FACES)[number] | null {
+  for (const face of FP_ORE_FACES) {
+    const nx = x + face.d[0];
+    const ny = y + face.d[1];
+    const nz = z + face.d[2];
+    if (nx < 0 || nx >= FP_COLS || ny < 0 || ny >= FP_ROWS) continue;
+    if (nz < 0 || nz >= FP_DEPTH) continue;
+    if (grid[fpCellIndex(nx, ny, nz)] === FP_OPEN) return face;
+  }
+  return null;
+}
+
+/**
+ * Every ore crystal cluster the fp viewer should draw over the claim rock,
+ * given the current solidity grid. Two kinds:
+ *
+ * - Fully exposed veins: an ore block with an open face renders its
+ *   crystals on that face (the vein you can mine right now).
+ * - Buried hints: a dirt or rock wall facing the open pocket whose cell one
+ *   step deeper is an ore block renders a faint recessed cluster, so the
+ *   ore reads through the wall before it is dug, like the 2D mine.
+ *
+ * The hint borrows the buried ore's generator coords and ore id so the
+ * cluster it shows matches the vein that gets exposed once the wall breaks.
+ * Pure (no three), so it unit-tests in node. Returns [] when the bunker
+ * has no block seed (legacy claims render no ore until reset, Q-022).
+ */
+export function fpOreVeins(
+  bunker: BunkerState,
+  grid: FpSolidGrid,
+): FpOreVein[] {
+  const veins: FpOreVein[] = [];
+  const blockSeed = bunker.blockSeed;
+  if (blockSeed === undefined) return veins;
+  const footprint = bunker.footprint;
+  for (let z = 0; z < FP_DEPTH; z++) {
+    for (let y = 0; y < FP_ROWS; y++) {
+      for (let x = 0; x < FP_COLS; x++) {
+        if (grid[fpCellIndex(x, y, z)] !== FP_ROCK_UNDUG) continue;
+        const face = fpFirstExposedFace(grid, x, y, z);
+        if (!face) continue;
+        const block = bunkerCellBlock(blockSeed, footprint, x, y, z);
+        if (block.kind === "ore" && block.ore) {
+          const art = bunkerCellGenCoords(footprint, x, y, z);
+          veins.push({
+            key: fpCellIndex(x, y, z),
+            x,
+            y,
+            z,
+            hashCol: art.col,
+            hashRow: art.row,
+            ore: block.ore,
+            rot: face.rot,
+            hint: false,
+          });
+          continue;
+        }
+        // A dirt or rock wall: peek one cell deeper (away from the open
+        // face) for a buried ore vein to hint at.
+        const dx = x - face.d[0];
+        const dy = y - face.d[1];
+        const dz = z - face.d[2];
+        if (dx < 0 || dx >= FP_COLS || dy < 0 || dy >= FP_ROWS) continue;
+        if (dz < 0 || dz >= FP_DEPTH) continue;
+        if (grid[fpCellIndex(dx, dy, dz)] !== FP_ROCK_UNDUG) continue;
+        const deep = bunkerCellBlock(blockSeed, footprint, dx, dy, dz);
+        if (deep.kind !== "ore" || !deep.ore) continue;
+        const art = bunkerCellGenCoords(footprint, dx, dy, dz);
+        veins.push({
+          key: fpCellIndex(x, y, z),
+          x,
+          y,
+          z,
+          hashCol: art.col,
+          hashRow: art.row,
+          ore: deep.ore,
+          rot: face.rot,
+          hint: true,
+        });
+      }
+    }
+  }
+  return veins;
 }
 
 export function fpCellInGrid(x: number, y: number, z: number): boolean {

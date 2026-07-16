@@ -786,6 +786,68 @@ describe("mine store upgrade flow", () => {
     expect(cleared).toBe(true);
   });
 
+  it("fails fast when the remote checkpoint clear fails during a resync", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    const mine = createMine(123, gear, NO_CONSUMABLES);
+    useMineStore.setState({
+      mine,
+      gear,
+      consumables: stock({ ladder: 1 }),
+      moves: ["left"] as MineAction[],
+      balance: 40,
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      accountSync: {
+        state: "ready",
+        providerStatus: {
+          provider: "clerk",
+          ready: true,
+          reason: null,
+          issues: [],
+        },
+        mode: "signed_in",
+        accountEmail: "player@example.com",
+        currentSave: null,
+        accountSave: null,
+      },
+    });
+    const fetchMock = vi.fn(async (url: string, opts?: RequestInit) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", elevator: 5, tripIndex: 9 },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        return jsonResponse({
+          seed: 999,
+          tripIndex: 9,
+          diff: [],
+          activeSlot: 1,
+        });
+      }
+      if (url === "/api/gear") {
+        return jsonResponse({
+          gear: { ...DEFAULT_GEAR, elevator: 5, elevatorColumn: 17 },
+          consumables: NO_CONSUMABLES,
+          balance: 88,
+        });
+      }
+      // The remote checkpoint clear (DELETE) fails: a resurrectable checkpoint
+      // survives, so the resync must not report success.
+      if (url === "/api/account/trip" && opts?.method === "DELETE") {
+        return jsonResponse({}, 500);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().buyElevator()).resolves.toBe(false);
+
+    expect(store().shopNote).toBe("couldn't refresh the rail; reopen the shop");
+  });
+
   it("replaces support stock from the accepted rail response", async () => {
     const gear = { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 17 };
     const mine = createMine(123, gear, NO_CONSUMABLES);

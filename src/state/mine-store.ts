@@ -535,10 +535,18 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return false;
     }
     // The remote /api/account/trip checkpoint can still hold the pre-conflict
-    // gear at this same tripIndex; a later refreshCloudWorld would download and
-    // restore it. Drop it best-effort so it cannot resurrect the stale rail (a
-    // failed clear reconciles on the next authoritative load).
-    clearAccountTripCheckpoint();
+    // gear at this same tripIndex, and a later refreshCloudWorld downloads it
+    // BEFORE loadWorld, which would restore it. Await an explicit clear and
+    // treat a failed clear as a resync failure so success is never reported
+    // while a resurrectable checkpoint survives (signed-in only; guests never
+    // wrote such a checkpoint).
+    if (get().accountSync.mode !== "guest") {
+      const cleared = await clearRemoteAccountTrip();
+      if (!cleared.ok) {
+        removeLocalTrip(slot);
+        return false;
+      }
+    }
     void get().loadSaveSlots();
     return true;
   };

@@ -848,19 +848,24 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       const saved = loadLocalTrip(slot);
       if (saved) {
         resume(slot, saved.seed, saved.tripIndex, saved.baseDiff);
-        // Offline resume of the possibly-stale local trip: restore any persisted
-        // rail-buy block so a reload while offline keeps the buy gated until an
-        // online load reconciles the rail (F-121 reload-durable).
-        set({ railResyncFailed: loadRailResyncBlock(slot) });
       } else if (corruptCheckpoint) {
         set({
           shopNote:
             "Your saved trip couldn't be restored, so a fresh one started.",
         });
-        // No stale local trip remains, so a stale-rail block cannot apply: clear.
+        // A dropped corrupt trip is a clean fresh start, so the stale-rail block
+        // no longer applies: clear it and skip the restore below.
         saveRailResyncBlock(slot, false);
         set({ railResyncFailed: false });
+        return false;
       }
+      // Could not adopt fresh authority (offline or storage-less). Restore any
+      // persisted rail-buy block regardless of whether a local trip survived: a
+      // failed conflict resync deletes the local trip BEFORE its world fetch, so
+      // on the real offline-reload path there is no saved trip, and the marker is
+      // the only thing that keeps the buy gated until an online load reconciles
+      // the rail (F-121 reload-durable).
+      set({ railResyncFailed: loadRailResyncBlock(slot) });
       // The authoritative server world did not load (storage-less or a failed
       // fetch); callers that need a confirmed cloud refresh treat this as a miss.
       return false;
@@ -1842,10 +1847,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           code === "elevator-stale-checkpoint" ||
           code === "elevator-concurrent-loss"
         ) {
+          // Persist the block BEFORE the refresh (F-121 reload-durable): the
+          // refresh drops the local trip before its own world fetch, so a reload
+          // or crash during that async window leaves no local trip to key the
+          // block off. Writing the marker up front is the only thing that keeps
+          // the buy gated across such a mid-refresh interruption. A confirmed
+          // success clears it again below.
+          saveRailResyncBlock(get().activeSlot, true);
           const synced = await resyncCloudWorld(get().activeSlot);
-          // Persist the block so it survives a page reload (F-121 reload-durable):
-          // a failed refresh keeps the buy gated even after the tab is reloaded
-          // offline, and a success clears the persisted flag.
+          // A failed refresh keeps the buy gated even after the tab is reloaded
+          // offline; a success clears the persisted flag.
           saveRailResyncBlock(get().activeSlot, !synced);
           set({
             shopNote: synced

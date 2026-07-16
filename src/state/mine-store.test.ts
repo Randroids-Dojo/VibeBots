@@ -948,7 +948,76 @@ describe("mine store upgrade flow", () => {
     );
   });
 
-  it("restores the persisted rail block when an offline reload resumes the local trip", async () => {
+  it("persists the rail block before the refresh so a crash mid-resync still restores it", async () => {
+    const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
+    useMineStore.setState({
+      mine: createMine(123, gear, NO_CONSUMABLES),
+      gear,
+      moves: [] as MineAction[],
+      tripIndex: 2,
+      worldLoaded: true,
+      activeSlot: 1,
+      railResyncFailed: false,
+    });
+    // Record the interleaving of the block-marker write and the refresh fetch:
+    // resyncCloudWorld drops the local trip before its world fetch, so the marker
+    // must be written up front, before that fetch, to survive a mid-refresh crash.
+    const events: string[] = [];
+    const realSetItem = localStorage.setItem.bind(localStorage);
+    vi.spyOn(localStorage, "setItem").mockImplementation((key, value) => {
+      if (key === "vibebots-rail-resync-blocked-slot-1") {
+        events.push(`mark:${value}`);
+      }
+      realSetItem(key, value);
+    });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/elevator/upgrade") {
+        return jsonResponse(
+          { code: "elevator-stale-rail-state", error: "your rail moved" },
+          409,
+        );
+      }
+      if (url === "/api/mine/world") {
+        events.push("refresh");
+        return jsonResponse({}, 500);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await store().buyElevator();
+
+    // The marker was set to "1" before the refresh ran, so an interruption
+    // between the trip deletion and the refresh cannot lose it.
+    expect(events[0]).toBe("mark:1");
+    expect(events).toContain("refresh");
+    expect(events.indexOf("mark:1")).toBeLessThan(events.indexOf("refresh"));
+    vi.mocked(localStorage.setItem).mockRestore();
+  });
+
+  it("restores the persisted rail block on an offline reload with no local trip", async () => {
+    // The real failed-resync path: resyncCloudWorld removes the local trip
+    // BEFORE its world fetch, so after a failed refresh there is no saved trip
+    // left. A later offline reload therefore hits loadWorld with saved === null,
+    // and only the persisted marker survives to re-gate the buy (F-121).
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
+    // No mine-trip blob exists (it was removed by the resync). A fresh store
+    // session (reload) starts with the block cleared in memory.
+    useMineStore.setState({ activeSlot: 1, railResyncFailed: false });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/mine/world") return jsonResponse({}, 500);
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(store().loadWorld()).resolves.toBe(false);
+
+    expect(store().railResyncFailed).toBe(true);
+  });
+
+  it("restores the persisted rail block when an offline reload does resume a local trip", async () => {
+    // Defense in depth: when a local trip happens to survive alongside the
+    // marker, the resumed (possibly-stale) trip must also stay gated.
     const seed = 123;
     const gear = { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 17 };
     localStorage.setItem("vibebots-rail-resync-blocked-slot-1", "1");
@@ -964,10 +1033,7 @@ describe("mine store upgrade flow", () => {
         moves: ["down"],
       }),
     );
-    // A fresh store session (reload) starts with the block cleared in memory.
     useMineStore.setState({ activeSlot: 1, railResyncFailed: false });
-    // The authoritative world fetch fails (still offline), so loadWorld resumes
-    // the possibly-stale local trip and must restore the persisted block.
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/mine/world") return jsonResponse({}, 500);
       return jsonResponse({});

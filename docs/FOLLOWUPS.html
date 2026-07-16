@@ -44,6 +44,36 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-192" data-f="F-192" data-priority="blocks-release">
+    <h3>F-192: Guarantee acknowledged elevator outcome delivery</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #243 persists accepted elevator outcomes, then emits a monitoring line and marks the row delivered. The drain selects unclaimed rows, runs only when a later elevator request arrives, and assumes an unspecified downstream consumer deduplicates raw lines by request id. Rejects remain best-effort. Concurrent drains, a crash between emit and mark, a poison row, or the end of elevator traffic can therefore duplicate, delay indefinitely, starve, or lose the logical outcome even though the accepted row itself exists.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before treating F-121 durable outcome telemetry as complete or using raw elevator outcome counts for live product decisions.</dd>
+      <dt>Unblock condition</dt><dd>Persist one bounded accepted or rejected logical outcome per request, claim pending rows atomically with a lease or equivalent concurrency-safe handoff, and retry from an independent scheduled or durable trigger so recovery does not depend on another buy. Implement and verify the real downstream idempotency or acknowledgment boundary instead of assuming deduplication. A crash, slow sink, concurrent drain, partial batch failure, poison row, process restart, or traffic stop must not lose an outcome, duplicate the logical metric, block committed gameplay, or starve later rows. Cover accepted and rejected requests, concurrent drainers, emit-before-mark crash, expired lease, backoff and dead-letter visibility, independent wakeup, bounded identifiers only, and end-to-end sink recovery evidence.</dd>
+      <dt>PR / Dot reference</dt><dd>Child of <a href="#F-121">F-121</a>, raised during exact-head review of PR #243. Tracking PR #190; Dot <code>VibeBots-f-192-guarantee-b5f8f6b8</code>.</dd>
+    </dl>
+  </section>
+
+  <section id="F-191" data-f="F-191" data-priority="blocks-release">
+    <h3>F-191: Make elevator balance telemetry crash safe</h3>
+    <dl>
+      <dt>Context</dt><dd>The success-only <code>elevator.upgrade</code> economy event still runs as a separate best-effort insert after the rail mutation commits. A crash in that gap permanently loses the event, and a same-id replay exits through duplicate handling before it can repair the missing record. PR #243 explicitly leaves this behavior open while its initial progress article describes the balance event as preserved.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before claiming exactly one success balance event per committed elevator purchase or trusting that event for economy totals.</dd>
+      <dt>Unblock condition</dt><dd>Make the event part of the same durable request contract as the committed purchase. Exactly one paid placement or extension event must survive a post-commit crash, response loss, duplicate delivery, sink outage, and same-id replay; rejected requests and free legacy relocation emit zero. Tie the event to player plus request identity with a database uniqueness guard or transaction-bound outbox, retain only bounded economy fields with no shaft coordinate or payload, and acknowledge delivery through the proven retry path. Real-database and route tests must cover crash before emit, crash after emit before mark, replay, concurrent same-id calls, sink recovery, one committed charge, and no duplicate or missing balance record.</dd>
+      <dt>PR / Dot reference</dt><dd>Child of <a href="#F-121">F-121</a>, raised during exact-head review of PR #243. Tracking PR #190; Dot <code>VibeBots-f-191-make-aca4e1a2</code>.</dd>
+    </dl>
+  </section>
+
+  <section id="F-190" data-f="F-190" data-priority="blocks-release">
+    <h3>F-190: Retain elevator request identity through uncertain outcomes</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #243 adds a request-id parameter and accepted-outcome uniqueness, but <code>buyElevator</code> does not retain an id and the client helper generates a new UUID for every invocation. A retry after a committed response is lost therefore sends a different id and cannot reach duplicate handling. A same-id replay returns reduced conflict semantics, and two overlapping same-id requests can both pass the precheck before one later logs a contradictory stale rejection.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before describing lost responses or request replay as idempotent and before blind retry is re-enabled after an unknown commit outcome.</dd>
+      <dt>Unblock condition</dt><dd>Retain one valid UUID for each logical purchase before the network call and persist it across an unknown transport result, malformed success body, retry, and reload. Reuse it only for the same player and an immutable bounded intent fingerprint covering operation, expected depth, and requested placement state. Scope server uniqueness to player plus request id, fail fast when the current client omits or malforms the id, and store enough committed response data to replay the original authoritative success semantics instead of returning a reduced 409. Two concurrent same-id requests produce one mutation and one logical outcome with no contradictory loser rejection. Client and real-database tests cover commit plus lost response, reload then retry, changed-intent reuse, cross-player reuse, simultaneous replay, original diff and refunds, and atomic adoption and persistence of world, seed, trip index, gear, consumables, balance, and rail state.</dd>
+      <dt>PR / Dot reference</dt><dd>Child of <a href="#F-121">F-121</a>, raised during exact-head review of PR #243. Tracking PR #190; Dot <code>VibeBots-f-190-retain-deaa9095</code>.</dd>
+    </dl>
+  </section>
+
   <section id="F-189" data-f="F-189" data-priority="blocks-release">
     <h3>F-189: Preserve failure status in local verification output</h3>
     <dl>

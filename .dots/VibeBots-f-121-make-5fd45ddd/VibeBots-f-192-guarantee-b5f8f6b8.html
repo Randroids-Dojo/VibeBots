@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-192 Guarantee acknowledged elevator outcome delivery</title>
+<meta name="dot-title" content="F-192 Guarantee acknowledged elevator outcome delivery">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T14:36:10.850071-05:00">
+</head>
+<body>
+<article>
+<h1>F-192 Guarantee acknowledged elevator outcome delivery</h1>
+<section id="description">
+Complete the elevator outcome pipeline beyond accepted-row persistence. Persist one bounded accepted or rejected logical outcome per request, claim pending rows atomically with a lease or equivalent concurrency-safe handoff, and retry from an independent scheduled or durable trigger so recovery does not depend on another elevator buy. Implement and verify the actual downstream idempotency or acknowledgment boundary instead of assuming request-id dedup in raw logs. A crash, slow sink, concurrent drain, partial batch failure, poison row, process restart, or traffic stop must not lose an outcome, duplicate the logical metric, block committed gameplay, or starve later rows. Cover accepted and rejected requests, concurrent drainers, emit-before-mark crash, expired lease, backoff and dead-letter visibility, independent wakeup, bounded identifiers only, and end-to-end sink recovery evidence.
+</section>
+</article>
+</body>
+</html>

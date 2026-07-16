@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-172" data-f="F-172" data-priority="blocks-release">
+    <h3>F-172: Make post-merge deployment monitoring bounded and SHA-correct</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #231's post-merge watcher queried <code>repos/&lt;repo&gt;/commits/&lt;sha&gt;/deployments</code>, swallowed the resulting HTTP 422, and reported <code>DEPLOY=none</code> on every poll even though production deployment 5467789272 for main <code>9983bffa</code> had already succeeded. Its script described a grace exit in a comment but implemented no such branch, so a completed green CI run still waited until the full 25-minute deadline.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before relying on an ad hoc watcher for merge closeout. A bad endpoint currently looks identical to a deployment that has not appeared yet, which can waste the monitoring window or hide a real verification failure.</dd>
+      <dt>Unblock condition</dt><dd>Provide one canonical SHA-pinned monitoring command or repository script that queries <code>repos/&lt;repo&gt;/deployments?sha=&lt;sha&gt;</code> and then the deployment-status endpoint, or equivalent Vercel metadata tied to the same commit. Fail visibly on API or authentication errors, distinguish no deployment yet from a malformed query, implement a tested bounded grace exit after CI completes, and handle a newer main tip by switching to its deployment only after confirming the shipped commit remains contained. Cover successful and failed deployments, no deployment yet, a superseded main tip, unavailable authentication, and the deadline path without scraping protected production HTML.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-f-172-make-102bfeb9</code>; raised from the PR #231 post-merge monitoring incident.</dd>
+    </dl>
+  </section>
+
   <section id="F-171" data-f="F-171" data-priority="blocks-release">
     <h3>F-171: Make bunker part and inventory writes atomic</h3>
     <dl>

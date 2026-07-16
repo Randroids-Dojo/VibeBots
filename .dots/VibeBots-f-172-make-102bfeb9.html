@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-172 Make post-merge deployment monitoring bounded and SHA-correct</title>
+<meta name="dot-title" content="F-172 Make post-merge deployment monitoring bounded and SHA-correct">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T23:15:37.623405-05:00">
+</head>
+<body>
+<article>
+<h1>F-172 Make post-merge deployment monitoring bounded and SHA-correct</h1>
+<section id="description">
+PR #231&#39;s post-merge watcher queried repos/&lt;repo&gt;/commits/&lt;sha&gt;/deployments, swallowed the resulting 422, and reported DEPLOY=none until a 25-minute deadline even though the production deployment had already succeeded. Provide a canonical SHA-pinned check using repos/&lt;repo&gt;/deployments?sha=&lt;sha&gt; plus the deployment-status endpoint or equivalent Vercel metadata. Fail visibly on API errors, implement the documented bounded grace exit, distinguish no deployment yet from a bad query, and test success, failure, superseded-main, and unavailable-auth paths without scraping protected production HTML.
+</section>
+</article>
+</body>
+</html>

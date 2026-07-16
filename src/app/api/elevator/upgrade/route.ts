@@ -5,8 +5,12 @@ import { db, storageConfigured } from "@/server/db";
 import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
+  type MineConsumablesRow,
+  type MineGearRow,
   type MinePlayerProfile,
+  mineConsumablesFromProfile,
   mineElevatorColumnFromProfile,
+  mineGearFromProfile,
 } from "@/server/player";
 import { sameOriginMutationRequired } from "@/server/request-guards";
 import {
@@ -18,6 +22,8 @@ import {
   elevatorRailPrice,
   installElevatorRailInDiff,
   MINE_BOTTOM_ROW,
+  type MineConsumables,
+  type MineGear,
   type WorldDiff,
 } from "@/sim/mine";
 
@@ -36,7 +42,30 @@ type ElevatorState = {
   planks: number;
   tripIndex: number;
   elevatorPlacementRequired: boolean;
+  /**
+   * The full authoritative gear and consumable inventory (F-121). The client
+   * adopts these wholesale so a concurrent player-only purchase (which leaves
+   * the rail depth and checkpoint untouched) cannot persist a stale non-rail
+   * gear or consumable count. Accepted buys carry the exact committed row;
+   * rejects carry a fresh read.
+   */
+  gear: MineGear;
+  consumables: MineConsumables;
 };
+
+/** The inventory columns a committed CTE row or a fresh read maps to gear. */
+type InventoryRow = MineGearRow & MineConsumablesRow;
+
+/** Map an inventory row to the response's authoritative gear and consumables. */
+function inventoryFromRow(row: InventoryRow): {
+  gear: MineGear;
+  consumables: MineConsumables;
+} {
+  return {
+    gear: mineGearFromProfile(row),
+    consumables: mineConsumablesFromProfile(row),
+  };
+}
 
 function placementRequiredFrom(
   depth: number,
@@ -61,6 +90,7 @@ function elevatorStateFromProfile(
       profile.elevator_depth,
       profile.elevator_placement_chosen_at,
     ),
+    ...inventoryFromRow(profile),
   };
 }
 
@@ -71,18 +101,21 @@ async function reloadElevatorState(
 ): Promise<ElevatorState | null> {
   const rows = (await sql`
     SELECT p.emeralds, p.elevator_depth, p.elevator_col, p.ladder_count,
-           p.plank_count, p.elevator_placement_chosen_at, w.trip_count
+           p.plank_count, p.elevator_placement_chosen_at,
+           p.pickaxe_level, p.lamp_level, p.cargo_level, p.lantern_level,
+           p.warpcoil_level, p.blast_level, p.elevator_speed_level,
+           p.fall_level, p.recall_level,
+           p.dynamite_count, p.rope_count, p.beacon_count,
+           w.trip_count
     FROM players p
     LEFT JOIN mine_worlds w ON w.player_id = p.id
-    WHERE p.id = ${playerId}`) as Array<{
-    emeralds: number;
-    elevator_depth: number;
-    elevator_col: number | null;
-    ladder_count: number;
-    plank_count: number;
-    elevator_placement_chosen_at: string | null;
-    trip_count: number | null;
-  }>;
+    WHERE p.id = ${playerId}`) as Array<
+    InventoryRow & {
+      emeralds: number;
+      elevator_placement_chosen_at: string | null;
+      trip_count: number | null;
+    }
+  >;
   const row = rows[0];
   if (row === undefined) return null;
   return {
@@ -99,6 +132,7 @@ async function reloadElevatorState(
       row.elevator_depth,
       row.elevator_placement_chosen_at,
     ),
+    ...inventoryFromRow(row),
   };
 }
 
@@ -303,23 +337,18 @@ export async function POST(request: Request): Promise<Response> {
           AND elevator_depth = ${depth}
           AND elevator_placement_chosen_at IS NULL
           AND EXISTS (SELECT 1 FROM world_update)
-        RETURNING id, emeralds, elevator_depth, elevator_col, ladder_count, plank_count
+        RETURNING id, emeralds, elevator_depth, elevator_col,
+                  ladder_count, plank_count,
+                  pickaxe_level, lamp_level, cargo_level, lantern_level,
+                  warpcoil_level, blast_level, elevator_speed_level,
+                  fall_level, recall_level,
+                  dynamite_count, rope_count, beacon_count
       )
-      SELECT player_update.emeralds,
-             player_update.elevator_depth,
-             player_update.elevator_col,
-             player_update.ladder_count,
-             player_update.plank_count,
-             world_update.trip_count AS trip_index
+      SELECT player_update.*, world_update.trip_count AS trip_index
       FROM player_update
-      JOIN world_update ON world_update.player_id = player_update.id`) as Array<{
-      emeralds: number;
-      elevator_depth: number;
-      elevator_col: number;
-      ladder_count: number;
-      plank_count: number;
-      trip_index: number;
-    }>;
+      JOIN world_update ON world_update.player_id = player_update.id`) as Array<
+      InventoryRow & { id: string; emeralds: number; trip_index: number }
+    >;
     if (updated.length === 0) {
       const state = await reloadElevatorState(sql, playerId);
       const code: ElevatorReasonCode =
@@ -360,6 +389,7 @@ export async function POST(request: Request): Promise<Response> {
       ladders: updated[0].ladder_count,
       planks: updated[0].plank_count,
       newStamps: [],
+      ...inventoryFromRow(updated[0]),
     });
   }
   if (depth === 0 && requestedColumn === undefined) {
@@ -469,26 +499,26 @@ export async function POST(request: Request): Promise<Response> {
         AND elevator_depth = ${depth}
         AND (elevator_col IS NULL OR elevator_col = ${column})
         AND EXISTS (SELECT 1 FROM world_update)
-      RETURNING id, emeralds, elevator_depth, elevator_col, ladder_count, plank_count
+      RETURNING id, emeralds, elevator_depth, elevator_col,
+                ladder_count, plank_count,
+                pickaxe_level, lamp_level, cargo_level, lantern_level,
+                warpcoil_level, blast_level, elevator_speed_level,
+                fall_level, recall_level,
+                dynamite_count, rope_count, beacon_count
     )
-    SELECT player_update.emeralds,
-           player_update.elevator_depth,
-           player_update.elevator_col,
-           player_update.ladder_count,
-           player_update.plank_count,
+    SELECT player_update.*,
            player_lock.refund_legacy_supports,
            world_update.trip_count AS trip_index
     FROM player_update
     JOIN player_lock ON player_lock.id = player_update.id
-    JOIN world_update ON world_update.player_id = player_update.id`) as Array<{
-    emeralds: number;
-    elevator_depth: number;
-    elevator_col: number;
-    ladder_count: number;
-    plank_count: number;
-    refund_legacy_supports: boolean;
-    trip_index: number;
-  }>;
+    JOIN world_update ON world_update.player_id = player_update.id`) as Array<
+    InventoryRow & {
+      id: string;
+      emeralds: number;
+      refund_legacy_supports: boolean;
+      trip_index: number;
+    }
+  >;
   if (updated.length === 0) {
     const state = await reloadElevatorState(sql, playerId);
     const code = classifyElevatorConflict(state, {
@@ -553,5 +583,6 @@ export async function POST(request: Request): Promise<Response> {
     ladders: updated[0].ladder_count,
     planks: updated[0].plank_count,
     newStamps,
+    ...inventoryFromRow(updated[0]),
   });
 }

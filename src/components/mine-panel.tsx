@@ -337,7 +337,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
-  "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
+  "Tip: Sealed yourself in? Reset bunker in the sheet clears the build and refunds undamaged parts.",
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",

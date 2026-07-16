@@ -974,6 +974,12 @@ export async function resetBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  // A layout-incompatible bunker must Start fresh, which refunds nothing
+  // (Q-022): route it away from the refunding reset so a retired layout
+  // cannot be reset for a refund. The client already hides the reset button
+  // for an incompatible bunker; this closes the direct-request path too.
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const reset = applyBunkerReset(view.bunker, view.inventory);
@@ -1034,6 +1040,11 @@ export async function repairBunker(
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
+  // A layout-incompatible bunker cannot be repaired: its parts are about to
+  // be cleared by Start fresh, so spending vibes to patch them would waste
+  // them (F-117). Start fresh is the only edit an old layout accepts.
+  const incompatible = layoutIncompatibleFailure(view.bunker);
+  if (incompatible) return incompatible;
   if (bunkerRaidActive(view))
     return { ok: false, status: 409, error: "finish the raid first" };
   const plan = bunkerRepairPlan(view.bunker);

@@ -1,12 +1,12 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.271-bunker-layout-reset";
+export const RELEASE_NOTICE_ID = "2026-07-16-0.1.271-bunker-layout-reset";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
       version: "0.1.271",
-      date: "2026-07-15",
+      date: "2026-07-16",
       title: "Old bunkers need a fresh start",
       intro:
         "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",

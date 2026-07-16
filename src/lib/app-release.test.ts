@@ -28,7 +28,7 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.271-bunker-layout-reset");
+    expect(release.noticeId).toBe("2026-07-16-0.1.271-bunker-layout-reset");
     expect(latestNote).toMatchObject({
       version: "0.1.271",
       title: "Old bunkers need a fresh start",

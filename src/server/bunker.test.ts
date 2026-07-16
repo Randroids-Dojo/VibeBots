@@ -193,6 +193,7 @@ describe("bunker server helpers", () => {
             {
               footprint,
               parts: damagedParts,
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -253,6 +254,7 @@ describe("bunker server helpers", () => {
               dug: [{ col: 4, row: 3, depth: 1 }],
               skin: "gilded",
               skins_owned: ["gilded"],
+              layout_version: BUNKER_LAYOUT_VERSION,
             },
           ];
         }
@@ -1054,6 +1056,11 @@ describe("layout-incompatible bunker fail-fast (F-117)", () => {
       (sql: unknown) =>
         moveBunkerPart(sql as never, "player-1", 1, 4, 2, 4, 0, 0),
       (sql: unknown) => excavateBunker(sql as never, "player-1", 2, 5, 2),
+      // The refunding reset and repair are blocked too: an old layout can
+      // only Start fresh (no refund, Q-022), so it must not be reset for a
+      // refund or have vibes spent patching parts about to be cleared.
+      (sql: unknown) => resetBunker(sql as never, "player-1"),
+      (sql: unknown) => repairBunker(sql as never, "player-1"),
     ]) {
       const { sql, updates } = legacySql();
       const result = await call(sql);

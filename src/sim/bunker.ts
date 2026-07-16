@@ -623,6 +623,116 @@ export function canonicalWallSlot(
   return { col, row, depth, slot };
 }
 
+/** The slotted part occupying an exact canonical slot, or undefined. A
+ * legacy whole-cell part (no slot) never matches a defined slot ref. */
+function bunkerPartAtSlot(
+  bunker: BunkerState,
+  ref: BunkerSlotRef,
+): PlacedBasePart | undefined {
+  return bunker.parts.find(
+    (part) =>
+      part.col === ref.col &&
+      part.row === ref.row &&
+      part.depth === ref.depth &&
+      part.slot === ref.slot,
+  );
+}
+
+/** True when a part already occupies `ref`'s slot (F-117). A legacy
+ * full-cell part (no slot) fills its whole cell, so it conflicts with any
+ * slot in that cell; a slotted part conflicts only on the same canonical
+ * slot. Legacy and slotted parts never coexist in a live bunker (Q-022
+ * hard-resets an old layout first), so this only matters defensively. */
+function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
+  return bunker.parts.some((part) => {
+    if (
+      part.col !== ref.col ||
+      part.row !== ref.row ||
+      part.depth !== ref.depth
+    ) {
+      return false;
+    }
+    return part.slot === undefined || part.slot === ref.slot;
+  });
+}
+
+/** Minimum walls an overhead floor needs beneath it to stand (F-117). */
+export const BUNKER_OVERHEAD_FLOOR_MIN_WALLS = 2;
+
+/** A floor slab rests on solid ground when the cell directly below it is
+ * not open. Room-local y counts up as `row` decreases (see the fp grid),
+ * so the cell below is `row + 1`. A grounded floor needs no walls; an
+ * overhead floor (open space below) must be held up. */
+function isGroundedBunkerFloor(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  return !isOpenBunkerCell(bunker, col, row + 1, depth);
+}
+
+/** Walls holding up a floor slab: the wall faces of the cell directly
+ * below it, which rise to meet the floor's underside. Counts the canonical
+ * wall slots that carry a part (only walls and doors can sit in a wall
+ * slot, and both are structural dividers). */
+function bunkerFloorSupportWalls(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): number {
+  let count = 0;
+  for (const face of WALL_SLOTS) {
+    const ref = canonicalWallSlot(bunker.footprint, col, row + 1, depth, face);
+    if (bunkerPartAtSlot(bunker, ref)) count++;
+  }
+  return count;
+}
+
+/** True when a floor slab at the cell may stand: grounded, or overhead
+ * with at least the minimum supporting walls beneath it (F-117). */
+function isBunkerFloorSupported(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  if (isGroundedBunkerFloor(bunker, col, row, depth)) return true;
+  return (
+    bunkerFloorSupportWalls(bunker, col, row, depth) >=
+    BUNKER_OVERHEAD_FLOOR_MIN_WALLS
+  );
+}
+
+/**
+ * Drop every overhead floor that has lost its support (F-117): a floor with
+ * open space below it and fewer than the minimum supporting walls falls.
+ * A caller runs this after a wall is pried or destroyed. Floors do not
+ * support other floors, so a single pass settles it. Pure; returns the
+ * culled bunker and the fallen floors (destroyed, so callers do not refund
+ * them).
+ */
+export function cascadeUnsupportedFloors(bunker: BunkerState): {
+  bunker: BunkerState;
+  fallen: PlacedBasePart[];
+} {
+  const fallen = bunker.parts.filter(
+    (part) =>
+      part.slot === "floor" &&
+      !isBunkerFloorSupported(bunker, part.col, part.row, part.depth),
+  );
+  if (fallen.length === 0) return { bunker, fallen };
+  const dropped = new Set(fallen);
+  return {
+    bunker: {
+      ...bunker,
+      parts: bunker.parts.filter((part) => !dropped.has(part)),
+    },
+    fallen,
+  };
+}
+
 /** Open = walkable/buildable air. Every cell (including the depth-0
  * plane) starts as solid claim rock (F-115/F-116); a cell is open only
  * if it has been excavated, and the pre-mined spawn pocket is seeded
@@ -814,11 +924,19 @@ export function placeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
-      reason: "outside" | "rock" | "occupied" | "stock";
+      reason:
+        | "outside"
+        | "rock"
+        | "occupied"
+        | "stock"
+        | "slot"
+        | "roof-top"
+        | "unsupported";
     } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
@@ -826,22 +944,67 @@ export function placeBasePart(
   if (!isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "rock" };
   }
-  if (
-    bunker.parts.some(
-      (part) => part.col === col && part.row === row && part.depth === depth,
-    )
-  ) {
+  const def = BASE_PART_CATALOG[partId];
+  // Legacy whole-cell placement (no slot): one part per cell, as before.
+  if (slot === undefined) {
+    if (
+      bunker.parts.some(
+        (part) => part.col === col && part.row === row && part.depth === depth,
+      )
+    ) {
+      return { ok: false, reason: "occupied" };
+    }
+    if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
+    return {
+      ok: true,
+      bunker: {
+        ...bunker,
+        parts: [
+          ...bunker.parts,
+          { partId, col, row, depth, durability: def.durability },
+        ],
+      },
+      inventory: addBasePartInventory(inventory, partId, -1),
+    };
+  }
+  // Thin sub-cell placement: validate the slot, resolve the canonical
+  // divider, and enforce the structural rules so the layout can never hold
+  // an unsupported floor or a roof off the top of its room.
+  if (!allowedBunkerSlots(partId).includes(slot)) {
+    return { ok: false, reason: "slot" };
+  }
+  const ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  if (bunkerSlotOccupied(bunker, ref)) {
     return { ok: false, reason: "occupied" };
   }
+  // A roof caps the top of a room, so the cell above it must not be open
+  // (row - 1 is up, since y counts up as row decreases).
+  if (slot === "roof" && isOpenBunkerCell(bunker, col, row - 1, depth)) {
+    return { ok: false, reason: "roof-top" };
+  }
+  // An overhead floor must already have the walls that hold it up beneath
+  // it; a grounded floor stands on its own.
+  if (
+    slot === "floor" &&
+    !isBunkerFloorSupported(bunker, ref.col, ref.row, ref.depth)
+  ) {
+    return { ok: false, reason: "unsupported" };
+  }
   if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
-  const def = BASE_PART_CATALOG[partId];
   return {
     ok: true,
     bunker: {
       ...bunker,
       parts: [
         ...bunker.parts,
-        { partId, col, row, depth, durability: def.durability },
+        {
+          partId,
+          col: ref.col,
+          row: ref.row,
+          depth: ref.depth,
+          durability: def.durability,
+          slot: ref.slot,
+        },
       ],
     },
     inventory: addBasePartInventory(inventory, partId, -1),
@@ -854,13 +1017,36 @@ export function removeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
 ):
-  | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
+  | {
+      ok: true;
+      bunker: BunkerState;
+      inventory: BasePartInventory;
+      /** Overhead floors dropped because this part held them up (F-117).
+       * Destroyed, not refunded; absent when nothing fell. */
+      fallen?: PlacedBasePart[];
+    }
   | {
       ok: false;
       reason: "missing" | "damaged";
     } {
+  // With a slot, target that exact divider; without one, the legacy
+  // whole-cell match (first part in the cell) is preserved for one-part
+  // layouts.
+  const ref =
+    slot === undefined
+      ? null
+      : canonicalWallSlot(bunker.footprint, col, row, depth, slot);
   const part = bunker.parts.find((candidate) => {
+    if (ref) {
+      return (
+        candidate.col === ref.col &&
+        candidate.row === ref.row &&
+        candidate.depth === ref.depth &&
+        candidate.slot === ref.slot
+      );
+    }
     return (
       candidate.col === col &&
       candidate.row === row &&
@@ -869,13 +1055,22 @@ export function removeBasePart(
   });
   if (!part) return { ok: false, reason: "missing" };
   if (isBasePartDamaged(part)) return { ok: false, reason: "damaged" };
+  let next: BunkerState = {
+    ...bunker,
+    parts: bunker.parts.filter((candidate) => candidate !== part),
+  };
+  // Prying a wall can drop the overhead floors it was holding up.
+  let fallen: PlacedBasePart[] = [];
+  if (part.slot !== undefined && isBunkerWallSlot(part.slot)) {
+    const cascade = cascadeUnsupportedFloors(next);
+    next = cascade.bunker;
+    fallen = cascade.fallen;
+  }
   return {
     ok: true,
-    bunker: {
-      ...bunker,
-      parts: bunker.parts.filter((candidate) => candidate !== part),
-    },
+    bunker: next,
     inventory: addBasePartInventory(inventory, part.partId, 1),
+    ...(fallen.length > 0 ? { fallen } : {}),
   };
 }
 
@@ -893,8 +1088,12 @@ export function moveBasePart(
       ok: false;
       reason: "missing" | "outside" | "rock" | "occupied";
     } {
+  // Whole-cell move only: a thin (slotted) part is never relocated by the
+  // cell mover, so a multi-part cell cannot be moved ambiguously. Slot-aware
+  // move lands with the slice that lets the UI relocate a thin part.
   const part = bunker.parts.find((candidate) => {
     return (
+      candidate.slot === undefined &&
       candidate.col === fromCol &&
       candidate.row === fromRow &&
       candidate.depth === fromDepth

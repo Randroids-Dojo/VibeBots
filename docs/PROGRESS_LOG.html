@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="telemetry-boundary-allocation-followups" data-date="2026-07-17">
+    <h3>Keep first-person telemetry private, truthful, and allocation-safe</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f204-f205-telemetry-followups</code></dd>
+      <dt>PR</dt><dd>(pending). Documentation and backlog only, no runtime or package change.</dd>
+      <dt>Changed</dt><dd>A read-only review of the first-person telemetry work found two gaps that need their own implementation slices. <a href="FOLLOWUPS.html#F-204">F-204</a> records that the source-aware browser allowlist is bypassable at the trace API: the server accepts and stores arbitrary diagnostic keys, and the public insights route can return them. Its acceptance requires one shared typed contract at collection, ingestion, and egress, with approved bounded fields surviving and coordinates, cell or mine identity, arbitrary keys, nonfinite values, and overbound values failing closed before storage or public output. <a href="FOLLOWUPS.html#F-205">F-205</a> records that the deep and compact samplers allocate arrays in animation-frame collection and that the GPU timestamp bridge creates Promise callbacks inside <code>useFrame</code>; its acceptance requires reusable bounded buffers, stable settlement handlers, and analyzer-enabled heap and allocation evidence. F-205 is intentionally lower priority than the privacy boundary. The existing <a href="FOLLOWUPS.html#F-102">F-102</a> acceptance and Dot were extended together so source selection must match the actual rendered-canvas predicate when a bunker disappears.</dd>
+      <dt>Verification</dt><dd>Confirmed F-204 and F-205 were unused across every local VibeBots worktree and fetched remote ref before creation. The dependency gate matched the ledger at VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.10</code>, three <code>0.185.1</code>, and React Three Fiber <code>9.6.1</code>. The newest scheduled Full E2E run <code>29571779315</code> failed outside the known-flake list in the repeated elevator-ascent bank test; the active F-131/F-132 correction work in PR #254 already owns that exact evidence, so this slice creates no duplicate. <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, additive HTML tag-balance checks, and <code>dot-html show</code>/<code>ready</code> for F-102, F-204, and F-205 all pass.</dd>
+      <dt>Assumptions</dt><dd>Q-016's public insights default remains acceptable only when both ingestion and egress enforce the same low-cardinality anonymized contract. Invalid diagnostic detail should fail closed rather than be migrated or guessed. No telemetry schema, release, tip, stamp, or player-facing behavior changes in this docs-only slice.</dd>
+      <dt>GDD coverage</dt><dd>No row changes. REQ-041 remains done; F-204 and F-205 protect the privacy and measurement-integrity conditions around its shipped analyzer.</dd>
+      <dt>Followups</dt><dd>Added <a href="FOLLOWUPS.html#F-204">F-204</a> at priority 1 with Dot <code>VibeBots-f-204-enforce-6a76a861</code>, and <a href="FOLLOWUPS.html#F-205">F-205</a> at priority 2 with Dot <code>VibeBots-f-205-make-c98f3c43</code>. Appended the rendered-predicate assertion to open F-102 and synchronized its existing Dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="perf-fp-diagnostics" data-date="2026-07-17">
     <h3>Preserve first-person diagnostics in performance traces</h3>
     <dl>

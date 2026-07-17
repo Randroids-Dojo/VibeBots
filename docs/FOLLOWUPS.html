@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-204" data-f="F-204" data-priority="blocks-release">
+    <h3>F-204: Enforce diagnostic privacy at the trace boundary</h3>
+    <dl>
+      <dt>Context</dt><dd>F-101 made the browser probe allowlist source-aware, but that client filter is not a trust boundary. <code>POST /api/performance/trace</code> still accepts up to 20 arbitrary diagnostic keys and stores the record verbatim in the trace <code>detail</code> jsonb. <code>GET /api/performance/insights</code> then copies every string diagnostic from that detail into its public session response. A crafted request can therefore bypass the approved first-person vocabulary, persist coordinates or identifiers, inflate key cardinality, and make the public endpoint violate Q-016's anonymized-only contract.</dd>
+      <dt>Blocker (if any)</dt><dd>Resolve before treating first-person telemetry and the public insights endpoint as privacy-safe. Client filtering alone cannot protect a server boundary.</dd>
+      <dt>Unblock condition</dt><dd>Create one shared, typed, source-aware diagnostic contract used by browser collection, trace-route ingestion, and insights egress. Preserve the currently approved mine and shared diagnostics. For <code>bunker-fp</code>, preserve only bounded <code>fpEyeY</code>, aggregate integer <code>fpOpenCells</code>, and canonical <code>fpGrounded</code>/<code>fpSwinging</code> flags. Reject the request or strip values before jsonb storage, using one consistent rule, when a diagnostic contains <code>fpEyeX</code>, <code>fpEyeZ</code>, <code>fpTarget</code>, a cell coordinate or key, a mine or seed identifier, an arbitrary key, a nonfinite number, or a value outside its semantic bound. Apply the same parser on read so historical or directly inserted detail cannot be re-exposed by insights. Route tests must capture the stored detail and prove approved fields and bounds survive while every denied class does not; insights tests must seed denied detail and prove it stays absent. A real client trace test must exercise the actual bunker-fp payload through the route, not only call the parser in isolation.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-f-204-enforce-6a76a861</code>. Raised by the 2026-07-17 telemetry boundary review.</dd>
+    </dl>
+  </section>
+
   <section id="F-144" data-f="F-144" data-priority="nice-to-have">
     <h3>F-144: Add a raid-burst heap-churn scenario</h3>
     <dl>
@@ -83,6 +93,16 @@
 
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
+
+  <section id="F-205" data-f="F-205" data-priority="nice-to-have">
+    <h3>F-205: Make the performance analyzer allocation-safe</h3>
+    <dl>
+      <dt>Context</dt><dd>The analyzer measures the same GC pauses that froze real phones, but its own collection path creates steady garbage. The deep collector pushes a frame value into a growing array on every animation frame and replaces its frame, main-thread, network, and snapshot buffers each window. The compact sampler does the same with frame and draw-call arrays. <code>PerfProbeBridge</code> also creates <code>then</code>, <code>catch</code>, and <code>finally</code> callbacks inside <code>useFrame</code> each time it resolves GPU timestamps. These paths violate the frame-loop allocation rule and can distort the telemetry they collect.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Lower priority than F-204 because the privacy boundary must fail closed first.</dd>
+      <dt>Unblock condition</dt><dd>Replace the deep and compact per-frame arrays with bounded, preallocated reusable numeric buffers and write cursors. Summarize only the populated prefix, reset cursors and window state in place, and keep upload queues strictly bounded without per-window replacement. Move GPU timestamp settlement to stable handlers or a non-frame scheduler so <code>useFrame</code> creates no Promise callbacks. Preserve all current percentile, draw-call, retry, partial-window, and source-transition semantics, including F-102's delivery contract. Add focused tests for buffer caps, in-place reset, populated-prefix statistics, and unchanged payload values. Extend <code>scripts/measure-heap-churn.mjs</code> and the allocation profiler with an analyzer-enabled first-person scenario, then compare the same build with telemetry off and on. Acceptance: no analyzer-owned steady-state frame-loop allocation site remains, buffer memory stays bounded for a long run, and the analyzer-enabled result does not materially worsen allocation rate or GC-drop count beyond a documented measurement overhead.</dd>
+      <dt>PR / Dot reference</dt><dd>Dot <code>VibeBots-f-205-make-c98f3c43</code>. Raised by the 2026-07-17 telemetry allocation review.</dd>
+    </dl>
+  </section>
 
   <section id="F-158" data-f="F-158" data-priority="nice-to-have">
     <h3>F-158: Confirm the first-person Clanker orientation on a real phone</h3>
@@ -556,6 +576,7 @@
       <dt>Blocker (if any)</dt><dd>Sequence after F-100 because both tasks touch collector lifecycle and source selection.</dd>
       <dt>Unblock condition</dt><dd>Mark compact delivery only after an OK response. Requeue failed deep batches with unchanged sequence numbers and a strict memory bound so the existing database conflict key prevents duplicates. Finalize a partial window on surface change or page hide when it contains at least two frames and 250 ms. Tests must simulate failure then success, mode switches, short visits, page hide, retry exhaustion, and duplicate-free persistence.</dd>
       <dt>PR / Dot reference</dt><dd>Dot VibeBots-f-102-retry-ef037632 (child of VibeBots-first-person-3d-30115c4e).</dd>
+      <dt>Monitoring update 2026-07-17</dt><dd>Keep source selection tied to the canvas that actually rendered, not only the requested first-person flag. The implementation must derive the telemetry source from the same <code>fpBunkerActive &amp;&amp; activeBunker</code> predicate that chooses <code>BunkerFpCanvas</code>. Add a source assertion for forced bunker disappearance so a render that has fallen back to <code>MineCanvas</code> cannot label its compact or deep partial window <code>bunker-fp</code>. This is additive to the existing failure, retry, partial-window, mode-switch, page-hide, exhaustion, and duplicate-free acceptance.</dd>
     </dl>
   </section>
 

@@ -13,7 +13,7 @@
 <article>
 <h1>F-102 Retry telemetry and retain short bunker visits</h1>
 <section id="description">
-F-102: Retry failed compact and deep uploads without duplicate rows, and finalize valid partial windows on surface change or page hide.
+F-102: Retry failed compact and deep uploads without duplicate rows, finalize valid partial windows on surface change or page hide, and derive the telemetry source from the same fpBunkerActive and activeBunker predicate that selects the rendered canvas. Cover forced bunker disappearance so a MineCanvas fallback cannot be labeled bunker-fp.
 </section>
 </article>
 </body>

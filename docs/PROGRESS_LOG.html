@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="retain-autoplay-soak-cleanup" data-date="2026-07-16">
+    <h3>Keep the remaining autoplay soak evidence work visible after merge</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/retain-f130-cleanup</code>.</dd>
+      <dt>PR</dt><dd>Pending. Documentation-only followup after PR #246.</dd>
+      <dt>Changed</dt><dd>Kept F-130 and Dot <code>VibeBots-f-130-make-e0de0428</code> open after PR #246 merged. Appended a correction that separates the helper extraction and passing soak evidence that shipped from the remaining recurrence, policy-action budget, recovery-state, report-count, screenshot, and teardown fixtures. No code or Dot status changed, and PR #246 does not need another review cycle.</dd>
+      <dt>Verification</dt><dd>PR #246 merged as <code>7c661469</code> from source head <code>a31a096b</code>. Exact-head CI run <code>29551314756</code>, post-merge main CI run <code>29551455946</code>, CodeQL run <code>29551455560</code>, and production deployment <code>5483455077</code> all succeeded. Local typecheck, dash, whitespace, and additive tag-balance checks pass; full Biome lint retains only the two documented warnings for the broken auth-rule symlink and the optional-chain suggestion in <code>mine-input-cadence.ts</code>. The dependency gate remains current at VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and React Three Fiber 9.6.1. The newest scheduled Full E2E run <code>29489140260</code> remains cancelled under the already-tracked F-131 and PR #244 timeout-evidence work.</dd>
+      <dt>Assumptions</dt><dd>The remaining evidence hardening is nonblocking cleanup. It stays under F-130 instead of reopening PR #246 or creating a duplicate Dot.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>Continues <a href="FOLLOWUPS.html#F-130">F-130</a> with its existing HTML Dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="autoplay-soak-testable-helpers" data-date="2026-07-16">
     <h3>Extract the soak's browser and policy helpers so they can be tested directly</h3>
     <dl>

@@ -103,10 +103,12 @@ export function collectSceneStats(scene: SceneLike): SceneStats {
   return stats;
 }
 
-/** Mine-canvas diagnostics worth keeping with each snapshot. */
-const CANVAS_DIAGNOSTIC_KEYS = [
-  "frameMs",
-  "particleCount",
+/** Diagnostics both canvases publish. */
+const SHARED_DIAGNOSTIC_KEYS = ["frameMs", "particleCount"] as const;
+
+/** Mine (and the mine-like arena, workshop, holodeck) canvas diagnostics. */
+const MINE_DIAGNOSTIC_KEYS = [
+  ...SHARED_DIAGNOSTIC_KEYS,
   "renderedCellCount",
   "crackSegmentCount",
   "teeterCount",
@@ -119,11 +121,34 @@ const CANVAS_DIAGNOSTIC_KEYS = [
   "camZoom",
 ] as const;
 
+/**
+ * First-person bunker canvas diagnostics (F-101): eye height, open-cell
+ * count, grounded, and held-mining, so a bunker-fp freeze trace can be
+ * related to movement, enclosure, grounding, and swing state. No target
+ * coordinates, cell keys, or other high-cardinality aim data.
+ */
+const FP_DIAGNOSTIC_KEYS = [
+  ...SHARED_DIAGNOSTIC_KEYS,
+  "fpEyeY",
+  "fpOpenCells",
+  "fpGrounded",
+  "fpSwinging",
+] as const;
+
+/**
+ * The allowlist for a source. Built once at module load, so choosing it per
+ * snapshot allocates nothing (the arrays are frozen `as const` literals).
+ */
+function diagnosticKeysForSource(source: PerfSource): readonly string[] {
+  return source === "bunker-fp" ? FP_DIAGNOSTIC_KEYS : MINE_DIAGNOSTIC_KEYS;
+}
+
 export function collectCanvasDiagnostics(
   dataset: Partial<Record<string, string>>,
+  source: PerfSource,
 ): Record<string, string> {
   const diagnostics: Record<string, string> = {};
-  for (const key of CANVAS_DIAGNOSTIC_KEYS) {
+  for (const key of diagnosticKeysForSource(source)) {
     const value = dataset[key];
     if (typeof value === "string" && value !== "") diagnostics[key] = value;
   }

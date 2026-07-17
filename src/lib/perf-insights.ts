@@ -92,6 +92,13 @@ interface SegmentSummary {
   avgParticleCount: number | null;
   avgJsHeapMb: number | null;
   avgLongFrameCount: number | null;
+  // F-103: total stalls, the worst single-frame cost, and the heap span
+  // (min..max observed) are central to diagnosing the reported phone
+  // freezes, so segment and build rollups carry them, not just averages.
+  stallCount: number;
+  worstMaxFrameMs: number | null;
+  heapMinMb: number | null;
+  heapMaxMb: number | null;
 }
 
 interface FactorBucket {
@@ -279,6 +286,10 @@ function summarizeGroup(
     avgParticleCount: avg(rows.map((row) => row.particleCount)),
     avgJsHeapMb: avg(rows.map((row) => row.jsHeapMb)),
     avgLongFrameCount: avg(rows.map((row) => row.longFrameCount)),
+    stallCount: sum(rows.map((row) => row.stallCount)) ?? 0,
+    worstMaxFrameMs: max(rows.map((row) => row.maxFrameMs)),
+    heapMinMb: min(rows.map((row) => row.heapMinMb)),
+    heapMaxMb: max(rows.map((row) => row.heapMaxMb)),
   };
 }
 
@@ -486,7 +497,15 @@ export function summarizePerfInsights(rows: PerfInsightRow[]): PerfInsights {
       (row) =>
         `${row.source}/${row.renderer ?? "unknown"}/${row.qualityTier ?? "unknown"}`,
     ),
-    byBuild: groupBy(rows, (row) => `build ${row.appBuild ?? "unknown"}`),
+    // F-103: a per-build comparison only means something when every row is
+    // the same surface; otherwise it silently averages mine and bunker-fp
+    // frames together. Require a homogeneous surface (the caller filters with
+    // ?source=), and return no build rollup for a mixed set rather than a
+    // misleading one.
+    byBuild:
+      Object.keys(sources).length === 1
+        ? groupBy(rows, (row) => `build ${row.appBuild ?? "unknown"}`)
+        : [],
     byVariant: groupBy(rows, (row) => `variant ${row.abVariant ?? "none"}`),
     sessions: summarizeSessions(rows),
     factors: FACTOR_DEFINITIONS.map((definition) =>

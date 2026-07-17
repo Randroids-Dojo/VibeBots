@@ -160,7 +160,11 @@ describe("performance insights API route", () => {
       TemplateStringsArray,
       ...unknown[],
     ];
-    expect(strings.join("")).toContain("gpu !~*");
+    // F-103: real hardware requires a non-null, non-software GPU. A row with
+    // no GPU identity is unknown, not a real-device baseline, so the old
+    // "gpu IS NULL OR" (which let null masquerade as real) is gone.
+    expect(strings.join("")).toContain("gpu IS NOT NULL AND gpu !~*");
+    expect(strings.join("")).not.toContain("gpu IS NULL OR");
     expect(values).toContain(true);
   });
 

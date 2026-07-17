@@ -36,7 +36,7 @@
     <dl>
       <dt>Branch</dt><dd><code>fix/mine-readiness-input-race</code></dd>
       <dt>PR</dt><dd>#248, final head <code>973ce490</code>, merge <code>397037b5</code>; closure PR #250, merge <code>6f1963bb</code>.</dd>
-      <dt>Changed</dt><dd>Append-only correction to the earlier closure: the acceptance-first store signal landed, but the required smoke still contains current proof defects in its timing observer, motion baseline, load budgets, screenshot bounds, numeric readiness, and evidence wording. F-201 now owns the repair.</dd>
+      <dt>Changed</dt><dd>Append-only correction to the earlier closure: the acceptance-first store signal landed, but the required smoke still contains current proof defects in its timing observer, motion baseline, load budgets, screenshot timeouts, numeric readiness, and evidence wording. F-201 now owns the repair.</dd>
       <dt>Verification</dt><dd>The recorded focused and critical runs exercised the published smoke. They do not prove a later corrected final head until F-201 applies the fixes and reruns the complete acceptance bar on that one head.</dd>
       <dt>Assumptions</dt><dd>None. Green execution and trustworthy assertion semantics are separate requirements.</dd>
       <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>

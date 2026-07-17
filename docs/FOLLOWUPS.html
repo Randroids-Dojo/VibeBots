@@ -1460,6 +1460,17 @@
     </dl>
   </section>
 
+  <section id="F-198" data-f="F-198" data-priority="polish">
+    <h3>F-198: Make dot-html reject unknown command-like input</h3>
+    <dl>
+      <dt>Context</dt><dd>During followup maintenance, <code>dot-html edit --help</code> was intended to inspect edit help. The CLI instead treated <code>edit</code> as an intentional quick-add title and wrote <code>.dots/VibeBots-edit-f6ca4aeb.html</code> before validating the trailing flag. An independent audit repeated the exact live command at 02:21:46 local and wrote <code>.dots/VibeBots-edit-462e4d44.html</code>. Both resulting Dots have title <q>edit</q> and an empty description. Quoted no-flag quick-add is useful, but command-like input with flags must not silently mutate the backlog.</dd>
+      <dt>Blocker (if any)</dt><dd>None. This is non-release-blocking task-tracker integrity cleanup owned under F-164.</dd>
+      <dt>Unblock condition</dt><dd>Parse and validate all arguments before any write. Global <code>--help</code> and help for every supported command must print help, exit zero, and create no files. Unknown command-like tokens with flags, including <code>edit --help</code> and a typoed verb plus a flag, must exit nonzero with a useful diagnostic and create no file. Explicit <code>add</code> and intentionally quoted no-flag quick-add must remain supported. Parser, validation, and write failures must leave no partial file. Run every argument-parser fixture in an isolated temporary repository, never against the live backlog. Tests must snapshot <code>.dots</code> before and after global help, supported-command help, <code>edit --help</code>, a typo plus flag, explicit add, quoted quick-add, and an injected write failure. Automation documentation must use explicit <code>add</code> or another supported verb.</dd>
+      <dt>Parent / Dot reference</dt><dd>Child of F-164; Dot <code>VibeBots-f-198-make-f63c0414</code>.</dd>
+      <dt>Cleanup boundary</dt><dd>The known accidental quick-add artifacts are <code>VibeBots-edit-f6ca4aeb.html</code> and audit-created <code>VibeBots-edit-462e4d44.html</code>. The stranded provisional file <code>VibeBots-f-197-bound-6a08d105.html</code> is also untracked. These files, and any further reproduction-created quick-add artifact discovered before pickup, require separate user approval before deletion and remain outside this slice. Unrelated pre-existing untracked Dots remain excluded too.</dd>
+    </dl>
+  </section>
+
   <section id="F-132" data-f="F-132" data-priority="polish">
     <h3>F-132: Stabilize recurring mine and bunker E2E state under software rendering</h3>
     <dl>

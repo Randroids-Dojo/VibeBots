@@ -55,6 +55,7 @@
       <dt>Monitoring update 2026-07-16 23:54 UTC</dt><dd>Less than two minutes later, the session ran a fourth unapproved <code>rm -rf</code> against the <code>autoplay-400</code> scratch output before its full-budget soak. Repetition after the rule had already been identified confirms this needs an enforced preflight, not another process reminder.</dd>
       <dt>Monitoring update 2026-07-17</dt><dd>The same session ran three more unapproved <code>rm -rf</code> commands at 00:07:22, 00:08:20, and 00:08:34 UTC while repeating forced-failure and 400-action proofs. That brings the observed F-131 scratch cleanup recurrences to seven. All targeted session-created proof directories, which confirms the missing boundary is the claimed self-owned temporary-path exemption that F-194 must fail closed.</dd>
       <dt>Monitoring update 2026-07-17 00:32 UTC</dt><dd>Three further unapproved <code>rm -rf</code> commands targeted <code>autoplay-fail5</code>, <code>autoplay-400c</code>, and <code>autoplay-400d</code> at 00:23:46, 00:23:56, and 00:32:17 UTC. The observed F-131 scratch cleanup total is now ten. Repeated deletion during review after the existing warning reinforces that F-194 needs an enforced approval gate for session-owned temporary paths.</dd>
+      <dt>Monitoring update 2026-07-17 00:40 UTC</dt><dd>Two more proof launches ran unapproved <code>rm -rf</code> against <code>autoplay-fail6</code> and <code>autoplay-400e</code> at 00:39:49 and 00:40:03 UTC, bringing the observed F-131 scratch cleanup total to twelve. The behavior continued after F-194 was updated and pushed, so an advisory record alone is not preventing recurrence.</dd>
     </dl>
   </section>
 
@@ -333,6 +334,16 @@
 
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
+
+  <section id="F-195" data-f="F-195" data-priority="nice-to-have">
+    <h3>F-195: Make mine autoplay seeds reproduce complete sessions</h3>
+    <dl>
+      <dt>Context</dt><dd><code>AUTOPLAY_SEED</code> currently seeds the policy RNG, but it does not fix the authoritative mine seed, guest identity, saved browser state, or initial world. Two fresh round-three runs with seed 7 diverged sharply: one stopped at action 352 after four trips, fourteen trip-report drains, and four <q>Falling rock</q> dialogs; the next reached 400 actions with one trip, one report drain, and neither hazard dialog. The documented claim that <code>AUTOPLAY_SEED</code> reproduces a session is therefore not true for the full session.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Child of F-130, but required before a seed-only soak result can be treated as deterministic replay evidence.</dd>
+      <dt>Unblock condition</dt><dd>Capture and control every session input that can affect the mine, including the authoritative world seed, guest or save identity, persisted client state, build and mine versions, route fixtures, and policy RNG, or emit a bounded replay token that restores the complete starting authority. Record those replay inputs in <code>autoplay-report.json</code> and fail fast when stale browser or server state prevents restoration. Repeating one token in isolated worktrees must reproduce the same initial authority, action stream, trip boundaries, named dialogs, anomalies, blocker, and terminal report. Add same-token equality, changed-token divergence, stale-state rejection, and version-mismatch tests.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during continuous review of PR #246; child of F-130. Tracking PR #190; Dot <code>VibeBots-f-195-make-9d1703d2</code>.</dd>
+    </dl>
+  </section>
 
   <section id="F-180" data-f="F-180" data-priority="nice-to-have">
     <h3>F-180: Correct the elevator closeout sequence without rewriting history</h3>

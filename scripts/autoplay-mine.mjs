@@ -74,6 +74,7 @@ const HIDDEN_TIMEOUT = 5_000;
 const report = {
   seed: SEED,
   phase: "startup",
+  status: "failed", // flips to passed only after a clean finish; see finalize()
   requested: MAX_ACTIONS,
   actions: 0,
   completed: 0,
@@ -81,10 +82,15 @@ const report = {
   collapses: 0,
   planksPlaced: 0,
   abandons: 0,
+  tripReportsDrained: 0,
   oneTimeDialogsDrained: 0,
+  // Per-name evidence so a run proves WHICH one-time dialogs actually
+  // appeared, not just an aggregate count.
+  dialogsByName: Object.fromEntries(KNOWN_DIALOGS.map((d) => [d.name, 0])),
   maxDepth: 0,
   blocker: null,
   exception: null,
+  reportWriteFailed: false,
   failureShot: null,
   anomalies: [],
 };
@@ -110,6 +116,25 @@ function boundedError(err) {
     "$1",
   );
   return text.slice(0, 600);
+}
+
+// Send SIGTERM and await the process exit (bounded), so a kill that fails
+// to stop the server surfaces as a teardown failure rather than a leak.
+function stopServer(proc) {
+  if (proc.exitCode !== null || proc.signalCode !== null) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      proc.kill("SIGKILL");
+      reject(new Error("server did not exit after kill"));
+    }, 5_000);
+    proc.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    proc.kill();
+  });
 }
 
 async function anomaly(kind, detail) {
@@ -181,6 +206,7 @@ async function drainKnownDialogs() {
           .click({ timeout: CLICK_TIMEOUT });
         await dialog.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
         drained++;
+        report.dialogsByName[d.name]++;
         dismissedThisRound = true;
       } catch {
         // Could not dismiss it; stop and let blockingOverlay() name it.
@@ -188,27 +214,35 @@ async function drainKnownDialogs() {
     }
     if (!dismissedThisRound) break;
   }
+  report.oneTimeDialogsDrained += drained;
   return drained;
 }
 
 // Drain pending trip reports without consuming a policy action or an
 // abandon. Only counts a report that is confirmed gone, and never spends
-// the default 30-second timeout on a stuck click. Returns how many
-// cleared so callers can react (a report over an underground miner is an
-// anomaly).
+// the default 30-second timeout on a stuck click. Returns { drained,
+// stuck }: `stuck` is true only when a dismiss attempt itself FAILED (the
+// click or the hidden-wait threw), i.e. a report that will not close, so
+// callers can tell "no report" apart from "report would not dismiss"
+// (the trip report is a full-screen button, so blockingOverlay() cannot
+// see it; an undismissable one must be surfaced here). A report that
+// dismisses fine but recurs is not stuck: the next turn drains it again.
 async function drainTripReports() {
   let drained = 0;
-  for (let i = 0; i < 4; i++) {
+  let stuck = false;
+  for (let i = 0; i < 8; i++) {
     if (!(await tripReport.isVisible().catch(() => false))) break;
     try {
       await tripReport.click({ timeout: CLICK_TIMEOUT });
       await tripReport.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
       drained++;
     } catch {
+      stuck = true;
       break;
     }
   }
-  return drained;
+  report.tripReportsDrained += drained;
+  return { drained, stuck };
 }
 
 async function hud() {
@@ -268,13 +302,21 @@ try {
         () => reject(new Error("server never became ready")),
         30_000,
       );
+      const fail = (err) => {
+        clearTimeout(deadline);
+        reject(err);
+      };
       serverProc.stdout.on("data", (chunk) => {
         if (String(chunk).includes("Ready")) {
           clearTimeout(deadline);
           resolve();
         }
       });
-      serverProc.on("exit", () => reject(new Error("server exited early")));
+      // A spawn failure (missing binary, EACCES) emits "error", not "exit".
+      serverProc.on("error", (err) =>
+        fail(new Error(`server failed to spawn: ${err.message}`)),
+      );
+      serverProc.on("exit", () => fail(new Error("server exited early")));
     });
   }
 
@@ -305,17 +347,18 @@ try {
     .getByRole("dialog", { name: "New in VibeBots" })
     .waitFor({ state: "visible", timeout: 8_000 })
     .catch(() => {});
-  report.oneTimeDialogsDrained += await drainKnownDialogs();
+  await drainKnownDialogs();
   await canvas.waitFor({ state: "visible", timeout: 45_000 });
+  // The input gate must exist before play: a missing scene-ready is a
+  // startup failure with evidence, not a silent begin-anyway.
   await statusEl
     .locator(":scope[data-scene-ready='true']")
-    .waitFor({ timeout: 45_000 })
-    .catch(() => {});
+    .waitFor({ timeout: 45_000 });
   await page.waitForTimeout(1_500);
 
   // Drain anything that appeared during warm-up, then confirm the mine is
   // actually playable: nothing modal may remain over it.
-  report.oneTimeDialogsDrained += await drainKnownDialogs();
+  await drainKnownDialogs();
   const startupBlocker = await blockingOverlay();
   if (startupBlocker) {
     report.blocker = startupBlocker;
@@ -336,8 +379,20 @@ try {
   for (let i = 0; i < MAX_ACTIONS; i++) {
     // Drain expected overlays before acting: known one-time dialogs, then
     // trip reports. Neither consumes an action or an abandon.
-    report.oneTimeDialogsDrained += await drainKnownDialogs();
-    if (await drainTripReports()) {
+    await drainKnownDialogs();
+    const trip = await drainTripReports();
+    if (trip.stuck) {
+      // A trip report that will not dismiss is a full-screen blocker the
+      // dialog net cannot see; name it and stop rather than act behind it.
+      report.blocker = "trip report (undismissable)";
+      await anomaly(
+        "trip-report-stuck",
+        "trip report stayed visible after repeated dismissal attempts",
+      );
+      stoppedByBlocker = true;
+      break;
+    }
+    if (trip.drained) {
       prev = await hud();
       if (prev.depth > 0) {
         await anomaly(
@@ -402,9 +457,11 @@ try {
       } else if (stuckStreak >= 20) {
         // A terminal report can appear after this action's HUD sample. Clear
         // that normal end state before reaching for the escape valve.
-        if ((await drainTripReports()) === 0) {
+        if ((await drainTripReports()).drained === 0) {
           // The game's own escape valve: abandon the trip (arm + confirm).
-          // Each control is time-bounded so a missing control fails fast.
+          // Drain expected reports before each recovery click, and bound
+          // every click so a missing control fails a single step fast.
+          await drainTripReports();
           await page
             .getByRole("button", { name: "Recovery options" })
             .click({ timeout: CLICK_TIMEOUT })
@@ -412,6 +469,7 @@ try {
           const abandonItem = page.getByRole("menuitem", {
             name: "Abandon trip",
           });
+          await drainTripReports();
           await abandonItem.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
           await abandonItem.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
           await page.waitForTimeout(600);
@@ -442,13 +500,14 @@ try {
   if (!stoppedByBlocker) report.phase = "teardown";
 
   // Close in the teardown phase so a close or kill failure is captured in
-  // the report rather than swallowed by the finally cleanup.
+  // the report rather than swallowed by the finally cleanup. Await the
+  // server's exit so a kill that fails to stop it surfaces here.
   if (browser) {
     await browser.close();
     browser = null;
   }
   if (serverProc) {
-    serverProc.kill();
+    await stopServer(serverProc);
     serverProc = null;
   }
 } catch (err) {
@@ -456,29 +515,41 @@ try {
   if (!report.blocker)
     report.blocker = await blockingOverlay().catch(() => null);
   report.failureShot = await failureShot(report.phase).catch(() => null);
-  process.exitCode = 1;
 } finally {
   report.completed = report.actions;
   report.consoleErrors = consoleErrors.slice(0, 20);
+  // One source of truth for pass/fail, stamped BEFORE the write so the
+  // persisted report, the log, and the exit code all agree.
+  const failed =
+    report.exception !== null ||
+    report.anomalies.length > 0 ||
+    consoleErrors.length > 0;
+  report.status = failed ? "failed" : "passed";
   try {
     writeFileSync(
       `${OUT}/autoplay-report.json`,
       JSON.stringify(report, null, 2),
     );
   } catch (writeErr) {
+    // A missing report is itself a failure: this run left no evidence.
+    report.reportWriteFailed = true;
     console.error(`failed to write autoplay-report.json: ${writeErr}`);
   }
+  // Include a report-write failure in the logged outcome so the label and
+  // the exit code never disagree.
+  const overallFailed = failed || report.reportWriteFailed;
+  if (overallFailed) process.exitCode = 1;
   console.log(
-    `autoplay ${report.exception ? "FAILED" : "done"} in ${report.phase}: ` +
+    `autoplay ${overallFailed ? "FAILED" : "PASSED"} in ${report.phase}: ` +
       `${report.completed}/${report.requested} actions, ${report.trips} trips, ` +
       `${report.collapses} collapses, max depth ${report.maxDepth}, ` +
-      `${report.planksPlaced} planks, ${report.oneTimeDialogsDrained} dialogs, ` +
+      `${report.planksPlaced} planks, ${report.oneTimeDialogsDrained} dialogs ` +
+      `(${JSON.stringify(report.dialogsByName)}), ` +
+      `${report.tripReportsDrained} trip reports, ` +
       `${report.anomalies.length} anomalies, ${consoleErrors.length} console errors` +
+      (report.reportWriteFailed ? ", report write FAILED" : "") +
       (report.blocker ? `, blocker: ${report.blocker}` : ""),
   );
-  if (report.anomalies.length > 0 || consoleErrors.length > 0) {
-    process.exitCode = 1;
-  }
   // Best-effort cleanup if the teardown phase did not reach it.
   await browser?.close().catch(() => {});
   serverProc?.kill();

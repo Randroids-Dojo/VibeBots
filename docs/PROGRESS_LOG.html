@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autoplay-soak-visible-failures-review-corrections-2" data-date="2026-07-16">
+    <h3>Tighten soak failure classification and dialog evidence after a second review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/autoplay-soak-visible-failures</code> (same PR #246; a third appended correction round, not an in-place edit of the articles below).</dd>
+      <dt>PR</dt><dd>#246. Still no package bump; test-harness only, no app or player-facing change.</dd>
+      <dt>Changed</dt><dd>A second review round raised seven points; all are addressed, and hardening the driver surfaced two bugs in the first correction round that are also fixed. (1) A trip report that will not dismiss is now surfaced: <code>drainTripReports()</code> returns <code>{drained, stuck}</code> where <code>stuck</code> is true only when a dismiss attempt itself throws (an undismissable report), recording a <code>trip-report-stuck</code> anomaly and stopping play, since the full-screen report is invisible to the dialog net. A report that dismisses fine but recurs (<q>one more trip</q>) is NOT stuck; the per-turn drain clears it, and the in-call bound is raised to eight. (2, 3) Recovery drains expected reports before each of its clicks; the scene-ready wait no longer swallows a timeout, so a missing input gate is a startup failure with evidence rather than a silent begin-anyway. (4) One source of truth for pass/fail: a <code>status</code> of <code>passed</code> or <code>failed</code> derived from exception, anomalies, and console errors, stamped BEFORE the report is written so the persisted file, the log, and the exit code all agree (the first cut wrote the file before stamping status, so a passing run persisted <code>failed</code>). (5) A failed mandatory report write sets <code>reportWriteFailed</code>, exits nonzero, and is called out in the log. (6) Server spawn failures are wired into the startup promise (the <code>error</code> event), and teardown awaits the server's exit (bounded, SIGKILL fallback) so a kill that fails to stop it surfaces. (7) The report carries a per-name <code>dialogsByName</code> breakdown and a <code>tripReportsDrained</code> count, so a run proves which named dialogs appeared.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>node --check</code> ok. Forced startup failure: log and persisted <code>status</code> both <code>failed</code>, phase <code>startup</code>, both artifacts retained with a sanitized exception, exit nonzero. A clean 400-action run: 400 of 400 actions, persisted <code>status</code> <code>passed</code>, drained the release notes and a falling-rock dialog plus 2 trip reports in play, 0 anomalies, 0 console errors. An earlier 400-action run drained 6 one-time dialogs (release notes plus four falling-rock) with 0 anomalies. Runtime is dominated by per-action browser round-trips (dialog and overlay probes, HUD reads), not a stall; every control step is bounded to 4s or 5s.</dd>
+      <dt>Assumptions</dt><dd>Only a dismiss attempt that throws is <q>stuck</q>; recurring-but-dismissable reports are normal and drained across turns. A pre-browser failure cannot produce a screenshot, so the retained JSON report is the evidence in that case.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>Completes the second review round on <a href="FOLLOWUPS.html#F-130">F-130</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="autoplay-soak-visible-failures-review-corrections" data-date="2026-07-16">
     <h3>Harden the soak driver's overlay handling after review</h3>
     <dl>

@@ -903,7 +903,7 @@
       "id": "REQ-038",
       "requirement": "Surviving bunker attacks drops deterministic defense XP pickups toward overall player level; overall player level gates the raid tier a player may trigger, the owned beacon cap, and base-part owned limits (Q-017 option C: other catalogs stay vibes-priced, new top-tier entries may opt into level floors).",
       "gddRef": "docs/gdd/08-base-building.html#rewards-and-level",
-      "status": "done",
+      "status": "partial",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -933,6 +933,7 @@
       ],
       "followupRefs": [
         "F-089",
+        "F-199",
         "F-104",
         "F-105",
         "F-107",

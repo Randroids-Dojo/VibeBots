@@ -701,6 +701,7 @@
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
       <dt>Review update</dt><dd>2026-07-13: gating audit complete. Level-gated today: raid tiers (maxBunkerRaidTier), beacon caps (playerLevelProgress), base-part owned limits (basePartOwnedLimit). Not gated: robot parts (/api/shop/buy), consumables, gear upgrades, bunker skins (all vibes-priced only). The choice between invented level floors, grandfathering, or amending the GDD clause is recorded as Q-017 with a recommended default; GDD amendments need explicit approval (Rule 2), so this followup waits on that call rather than shipping invented economy numbers.</dd>
       <dt>Resolved</dt><dd>2026-07-17, Q-017 option C (dev decision). The REQ-038 clause is the remaining piece keeping the requirement partial, and the audit showed the level already gates the systems that proved fun (raid tier, beacon cap, base-part owned limits) while robot parts, consumables, gear upgrades, and bunker skins are vibes-priced. Rather than invent pacing floors the GDD never specified or retroactively lock previously buyable items, the GDD clause (<code>docs/gdd/08-base-building.html#rewards-and-level</code>) and the REQ-038 coverage row are narrowed to those shipped gates, with new top-tier catalog entries free to opt into a level floor as they are added (the option B follow-on convention). No code change: the shipped behavior already matches the narrowed clause. <a href="OPEN_QUESTIONS.html">Q-017</a> is marked resolved and REQ-038 flips to done in <code>docs/GDD_COVERAGE.json</code>.</dd>
+      <dt>Correction 2026-07-17</dt><dd>PR #249 closed this item from an incomplete shipped-gate audit. The Q-017 option C decision remains resolved, but the claim that gear upgrades are vibes-priced only is false: later mining gear upgrades already enforce player-level floors, Basic Turret has a player-level minimum, and the GDD still contains a stale bot-part gate promise. <a href="#F-199">F-199</a> owns the bounded documentation and coverage reconciliation; this correction supersedes only the inaccurate shipped-set wording above.</dd>
     </dl>
   </section>
 
@@ -1355,6 +1356,16 @@
 
 <section id="polish">
   <h2>Polish</h2>
+
+  <section id="F-199" data-f="F-199" data-priority="polish">
+    <h3>F-199: Reconcile REQ-038 with the level gates that actually shipped</h3>
+    <dl>
+      <dt>Context</dt><dd>PR #249 closed F-089 from an incomplete gate audit. The option C direction remains valid, but the amended contract is factually inconsistent with shipped behavior: <code>src/sim/bunker.ts</code> gives Basic Turret a player-level minimum and level-dependent base-part owned limits, while <code>src/app/api/gear/upgrade/route.ts</code> enforces player-level floors for later mining gear upgrades. The amended GDD instead says gear upgrades stay vibes-priced, and its growth plan still promises bot-part gates. Q-017 also remains in the open region after being marked resolved, and the closing progress entry omitted required verification.</dd>
+      <dt>Blocker (if any)</dt><dd>REQ-038 is marked done while its GDD clause, growth plan, coverage row, Q-017 resolution, and shipped server guards do not describe one authoritative gate set.</dd>
+      <dt>Unblock condition</dt><dd>Keep Q-017 option C, then reconcile the normative GDD and coverage wording with the shipped set: raid-tier ceiling, beacon cap, base-part minimum levels and owned limits, and later mining gear upgrade level floors. Keep robot parts, bunker skins, and consumables vibes-priced, describe stamps as achievement rewards rather than purchases, and preserve the future top-tier opt-in convention. Remove the stale bot-part promise from the current growth-plan text. Append a GDD build-log correction, additive F-089 and Q-017 corrections, and a new top progress article that records every check actually run. Move Q-017 into the resolved region. Keep F-089 in REQ-038's historical <code>followupRefs</code> and append F-199. Acceptance: every current contract surface and the shipped tests name the same gate set; dash checks, <code>git diff --check</code>, JSON parse, typecheck, relevant tests, and secret review are recorded honestly.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised by the post-merge exact-head review of PR #249. Dot <code>VibeBots-f-199-reconcile-d1bb18b4</code>.</dd>
+    </dl>
+  </section>
 
   <section id="F-196" data-f="F-196" data-priority="polish">
     <h3>F-196: Harden the remaining tight animated-position polls in sibling mine tests</h3>

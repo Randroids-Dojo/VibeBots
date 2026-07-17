@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="telemetry-public-string-contract-correction" data-date="2026-07-17">
+    <h3>Widen the telemetry privacy followup to the complete public trace</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f204-f205-telemetry-followups</code></dd>
+      <dt>PR</dt><dd>#257 (draft). Additive review correction only, no runtime or package change.</dd>
+      <dt>Changed</dt><dd>A fresh review found that the first F-204 entry described only one part of the public privacy boundary. <code>POST /api/performance/trace</code> also accepts client-controlled LoAF URLs and invokers, network paths, session, app, renderer, variant, GPU, connection, visibility, light-type, and other nested strings by length or broad type. Stored LoAF/network/detail values and the renderer, app version, variant, GPU, and session factors are then returned through public insights. Appended a correction to <a href="FOLLOWUPS.html#F-204">F-204</a> and its existing Dot requiring one complete typed contract at ingestion and read-side shaping: approved vocabularies and grammars survive, URL-like values lose queries, fragments, credentials, and token text, unsafe factor strings cannot create public labels, and poisoned historical detail is sanitized before output.</dd>
+      <dt>Verification</dt><dd>Source review covered <code>src/app/api/performance/trace/route.ts</code>, <code>src/app/api/performance/insights/route.ts</code>, <code>src/lib/perf-trace.ts</code>, <code>src/lib/perf-insights.ts</code>, and <code>src/components/perf-telemetry.tsx</code>. The full docs-only gate was re-run after the correction: dependency versions still match the ledger; <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, additive HTML tag balance, and <code>dot-html show</code>/<code>ls</code>/<code>ready</code> pass.</dd>
+      <dt>Assumptions</dt><dd>Q-016 can remain public only if no client string is trusted merely because it was length-bounded. Read-side sanitization is required even after ingestion is fixed because existing or directly seeded rows may predate the contract. Invalid values fail closed; no migration attempts to reinterpret them.</dd>
+      <dt>GDD coverage</dt><dd>No row change. REQ-041 stays done; this correction makes F-204 accurately describe the privacy work still required around its public analyzer.</dd>
+      <dt>Followups</dt><dd>Expanded existing F-204 and Dot <code>VibeBots-f-204-enforce-6a76a861</code>. No new followup or Dot was created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="telemetry-boundary-allocation-followups" data-date="2026-07-17">
     <h3>Keep first-person telemetry private, truthful, and allocation-safe</h3>
     <dl>

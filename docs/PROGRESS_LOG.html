@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autoplay-soak-testable-helpers" data-date="2026-07-16">
+    <h3>Extract the soak's browser and policy helpers so they can be tested directly</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/autoplay-soak-visible-failures</code> (same work; a fifth appended round, not an in-place edit of the articles below).</dd>
+      <dt>PR</dt><dd>#246 (reopened for merge). Test-harness only, no package bump, no player-facing change.</dd>
+      <dt>Changed</dt><dd>The soak driver's pure and browser helpers moved out of the monolithic <code>scripts/autoplay-mine.mjs</code> into <code>scripts/autoplay-soak-lib.mjs</code> so the pieces that decide pass or fail can be proven by focused tests instead of only by a full soak run. Node unit tests (<code>scripts/autoplay-soak-lib.test.mjs</code>, run by Vitest via a new <code>scripts/**/*.test.mjs</code> include) cover <code>boundedError</code> (ANSI stripped, absolute paths collapsed to basenames, URLs left intact, 600-char bound, non-Error input), <code>classifyStatus</code> (exception, anomaly, console error, and clean cases), <code>mulberry32</code> determinism and range, and the seeded <code>pickKey</code> policy branches. Playwright fixture tests (<code>tests/e2e/autoplay-soak-helpers.spec.ts</code>) serve isolated HTML with no app server and drive the real <code>blockingOverlay</code> (first visible modal past a hidden earlier match), <code>drainKnownDialogs</code> (two same-labelled dialogs dismissed by accessible name; an unknown dialog left for the overlay net), and <code>drainTripReports</code> (nothing to drain, a dismissable report, and a report still visible after the bound flagged <code>stuck</code> and <code>persists</code>). One behavior change came out of dogfooding the extracted lib against a real run: a fresh trip report can appear in the same instant the last one clears, so a single <code>persists</code> reading is no longer treated as a failure. The play loop now skips a turn without acting whenever a report blocks it and only records a <code>trip-report-persists</code> or <code>trip-report-stuck</code> anomaly after the report blocks play for <code>REPORT_BLOCK_LIMIT</code> (20) consecutive turns, which separates ordinary <q>one more trip</q> recurrence from a genuine undismissable or infinite-report loop.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>node --check</code> ok. 16 node unit tests and 7 Playwright fixture tests pass. Two 400-action production-build soaks confirm the tolerance fix, including seed 3 which previously false-failed at action 381 with <code>trip-report-persists</code>: seed 3 completed 400 of 400 actions with 3 trips and 3 trip reports drained, seed 7 completed 400 of 400 with 2 trip reports drained, both <code>status</code> <code>passed</code> with 0 anomalies and 0 console errors.</dd>
+      <dt>Assumptions</dt><dd>A trip report that reappears within one turn is normal recurrence, not a stuck state; only sustained blocking (20 consecutive turns) or a throwing dismiss attempt is a defect worth failing the run.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>Continues <a href="FOLLOWUPS.html#F-130">F-130</a> per the direction to add fixture-level tests before merge. Session-level <code>AUTOPLAY_SEED</code> determinism stays tracked as F-195.</dd>
+    </dl>
+  </article>
+
   <article data-slice="autoplay-soak-visible-failures-review-corrections-3" data-date="2026-07-16">
     <h3>Fix reproduced recovery, phase, and report-behind-report gaps in the soak</h3>
     <dl>

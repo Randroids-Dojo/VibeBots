@@ -13,8 +13,10 @@
 // The formerly-blocking one-time dialogs (release notes, the falling-rock
 // alert, the ladder-gravity feedback) are drained through their real
 // controls each turn rather than suppressed, and any other visible modal
-// fails fast with a named blocking-overlay anomaly instead of silently
-// eating the action budget.
+// fails fast with a named blocking-overlay anomaly.
+//
+// The reusable helpers live in ./autoplay-soak-lib.mjs so the pure pieces
+// are unit-tested and the browser pieces are fixture-tested in isolation.
 //
 // Usage:
 //   node scripts/autoplay-mine.mjs <out-dir> [actions]
@@ -29,6 +31,17 @@
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
+import {
+  blockingOverlay,
+  boundedError,
+  CLICK_TIMEOUT,
+  classifyStatus,
+  drainKnownDialogs,
+  drainTripReports,
+  KNOWN_DIALOGS,
+  mulberry32,
+  pickKey,
+} from "./autoplay-soak-lib.mjs";
 
 const OUT = process.argv[2];
 const MAX_ACTIONS = Number(process.argv[3] ?? 400);
@@ -39,42 +52,12 @@ if (!OUT) {
 mkdirSync(OUT, { recursive: true });
 
 const SEED = Number(process.env.AUTOPLAY_SEED ?? 1);
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a += 0x6d2b79f5;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 const rng = mulberry32(SEED);
-
-// A modal overlay owns the whole screen; the app uses this exact selector
-// to know when a dialog is open. The trip report is a full-screen button,
-// not a dialog, so it is drained on its own and never trips this check.
-const BLOCKING_OVERLAY_SELECTOR =
-  '[role="dialog"], [aria-modal="true"], dialog[open]';
-
-// One-time dialogs that used to intercept policy clicks. Each is drained
-// through its real dismiss control (by dialog accessible name so the two
-// "Ok" buttons never collide), so the soak survives them at full budget.
-const KNOWN_DIALOGS = [
-  { name: "New in VibeBots", dismiss: "Got it" },
-  { name: "Falling rock", dismiss: "Ok" },
-  { name: "Ladders can fall now", dismiss: "Ok" },
-];
-
-// Short, explicit action timeouts everywhere so a stuck control fails a
-// single step fast instead of hanging on Playwright's 30-second default.
-const CLICK_TIMEOUT = 4_000;
-const HIDDEN_TIMEOUT = 5_000;
 
 const report = {
   seed: SEED,
   phase: "startup",
-  status: "failed", // flips to passed only after a clean finish; see finalize()
+  status: "failed", // flips to passed only after a clean finish
   requested: MAX_ACTIONS,
   actions: 0,
   completed: 0,
@@ -84,8 +67,7 @@ const report = {
   abandons: 0,
   tripReportsDrained: 0,
   oneTimeDialogsDrained: 0,
-  // Per-name evidence so a run proves WHICH one-time dialogs actually
-  // appeared, not just an aggregate count.
+  // Per-name evidence so a run proves WHICH one-time dialogs appeared.
   dialogsByName: Object.fromEntries(KNOWN_DIALOGS.map((d) => [d.name, 0])),
   maxDepth: 0,
   blocker: null,
@@ -101,22 +83,7 @@ let browser = null;
 let page = null;
 let statusEl = null;
 let canvas = null;
-let tripReport = null;
 let shots = 0;
-
-// Strip ANSI color codes and collapse absolute filesystem paths to their
-// basename so the exception summary is stable across machines and logs.
-function boundedError(err) {
-  let text = err?.stack ? String(err.stack) : String(err);
-  // Built at runtime so no ESC control character sits in the source.
-  const ansi = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
-  text = text.replace(ansi, "");
-  text = text.replace(
-    /(?:\/[^/\s:)]+)+\/([^/\s:)]+\.(?:mjs|c?js|m?ts))/g,
-    "$1",
-  );
-  return text.slice(0, 600);
-}
 
 // Send SIGTERM and await the process exit (bounded), so a kill that fails
 // to stop the server surfaces as a teardown failure rather than a leak.
@@ -158,101 +125,14 @@ async function failureShot(tag) {
   return ok ? shot : null;
 }
 
-// The accessible name of a blocking modal, so a stall points at the exact
-// overlay (aria-label, then aria-labelledby text, then a short text hint).
-async function overlayName(handle) {
-  return handle
-    .evaluate((el) => {
-      const label = el.getAttribute("aria-label");
-      if (label) return label.slice(0, 80);
-      const labelledBy = el.getAttribute("aria-labelledby");
-      if (labelledBy) {
-        const text = labelledBy
-          .split(/\s+/)
-          .map((id) => document.getElementById(id)?.textContent ?? "")
-          .join(" ")
-          .trim();
-        if (text) return text.slice(0, 80);
-      }
-      return (el.textContent ?? "").trim().slice(0, 80) || "unnamed overlay";
-    })
-    .catch(() => "unnamed overlay");
-}
-
-// The first VISIBLE blocking modal, if any. Checks every match, not just
-// the first: a hidden first match must not mask a later visible dialog.
-async function blockingOverlay() {
-  if (!page) return null;
-  const modals = page.locator(BLOCKING_OVERLAY_SELECTOR);
-  const count = await modals.count().catch(() => 0);
-  for (let i = 0; i < count; i++) {
-    const modal = modals.nth(i);
-    if (await modal.isVisible().catch(() => false)) {
-      return overlayName(modal);
-    }
-  }
-  return null;
-}
-
-// Dismiss any known one-time dialog through its real control in a bounded
-// loop, and confirm it is gone. Returns how many were cleared. A dialog
-// that will not close is left for the blocking-overlay net to name.
-async function drainKnownDialogs() {
-  let drained = 0;
-  for (let round = 0; round < 6; round++) {
-    let dismissedThisRound = false;
-    for (const d of KNOWN_DIALOGS) {
-      const dialog = page.getByRole("dialog", { name: d.name });
-      if (!(await dialog.isVisible().catch(() => false))) continue;
-      try {
-        await dialog
-          .getByRole("button", { name: d.dismiss })
-          .click({ timeout: CLICK_TIMEOUT });
-        await dialog.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
-        drained++;
-        report.dialogsByName[d.name]++;
-        dismissedThisRound = true;
-      } catch {
-        // Could not dismiss it; stop and let blockingOverlay() name it.
-      }
-    }
-    if (!dismissedThisRound) break;
-  }
+// Drain known one-time dialogs and fold the per-name counts into the report.
+async function drainDialogs() {
+  const { drained, byName } = await drainKnownDialogs(page);
   report.oneTimeDialogsDrained += drained;
-  return drained;
-}
-
-// Drain pending trip reports without consuming a policy action or an
-// abandon. Only counts a report that is confirmed gone, and never spends
-// the default 30-second timeout on a stuck click. Returns { drained,
-// stuck }: `stuck` is true only when a dismiss attempt itself FAILED (the
-// click or the hidden-wait threw), i.e. a report that will not close, so
-// callers can tell "no report" apart from "report would not dismiss"
-// (the trip report is a full-screen button, so blockingOverlay() cannot
-// see it; an undismissable one must be surfaced here). A report that
-// dismisses fine but recurs is not stuck: the next turn drains it again.
-async function drainTripReports() {
-  let drained = 0;
-  let stuck = false;
-  let stuckError = null;
-  for (let i = 0; i < 8; i++) {
-    if (!(await tripReport.isVisible().catch(() => false))) break;
-    try {
-      await tripReport.click({ timeout: CLICK_TIMEOUT });
-      await tripReport.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
-      drained++;
-    } catch (err) {
-      stuck = true; // a dismiss attempt failed: an undismissable report
-      stuckError = err;
-      break;
-    }
+  for (const name of Object.keys(byName)) {
+    report.dialogsByName[name] += byName[name];
   }
-  report.tripReportsDrained += drained;
-  // Fail closed: after the bound, a still-visible report (undismissable, or
-  // recurring faster than we can drain) must never be acted behind. This is
-  // distinct from a report that dismisses fine and does not reappear.
-  const persists = await tripReport.isVisible().catch(() => false);
-  return { drained, stuck, persists, stuckError };
+  return drained;
 }
 
 async function hud() {
@@ -272,28 +152,6 @@ async function hud() {
     cells: Number(cells),
     teeter: Number(teeter),
   };
-}
-
-function pickKey(state, run) {
-  // Roof shaking overhead: place a plank (the rescue counterplay).
-  if (state.teeter > 0 && rng() < 0.6) return "plank";
-  if (state.depth === 0 && state.energy < 55) return "ArrowDown"; // re-descend after bank
-  // Battery management: head home when the climb estimate approaches
-  // the remaining charge (rough ladder cost of one per row).
-  if (state.depth > 0 && state.energy < state.depth + 4) return "ArrowUp";
-  if (run.lateral > 0) {
-    run.lateral--;
-    return run.lateralKey;
-  }
-  const roll = rng();
-  if (roll < 0.12) {
-    // Start a lateral run of 2-6 cells (6 can condemn a roof: on purpose).
-    run.lateral = 2 + Math.floor(rng() * 5);
-    run.lateralKey = rng() < 0.5 ? "ArrowLeft" : "ArrowRight";
-    return run.lateralKey;
-  }
-  if (roll < 0.16 && state.depth > 1) return "ArrowUp";
-  return "ArrowDown";
 }
 
 try {
@@ -347,7 +205,6 @@ try {
 
   statusEl = page.getByLabel("Mine status");
   canvas = page.locator("canvas");
-  tripReport = page.getByRole("button", { name: "Dismiss trip report" });
 
   await page.goto(`${base}/mine`);
   // Release notes can appear a beat after navigation; wait briefly, then
@@ -357,7 +214,7 @@ try {
     .getByRole("dialog", { name: "New in VibeBots" })
     .waitFor({ state: "visible", timeout: 8_000 })
     .catch(() => {});
-  await drainKnownDialogs();
+  await drainDialogs();
   await canvas.waitFor({ state: "visible", timeout: 45_000 });
   // The input gate must exist before play: a missing scene-ready is a
   // startup failure with evidence, not a silent begin-anyway.
@@ -368,8 +225,8 @@ try {
 
   // Drain anything that appeared during warm-up, then confirm the mine is
   // actually playable: nothing modal may remain over it.
-  await drainKnownDialogs();
-  const startupBlocker = await blockingOverlay();
+  await drainDialogs();
+  const startupBlocker = await blockingOverlay(page);
   if (startupBlocker) {
     report.blocker = startupBlocker;
     await anomaly(
@@ -380,34 +237,48 @@ try {
   }
 
   // ---- play ------------------------------------------------------------
+  // Fail closed only after a trip report blocks play for this many turns in a
+  // row, so ordinary "one more trip" recurrence is tolerated while a genuine
+  // undismissable or infinite-report loop still surfaces.
+  const REPORT_BLOCK_LIMIT = 20;
   report.phase = "play";
   let stoppedByBlocker = false;
   let prev = await hud();
   let stuckStreak = 0;
+  let reportBlockStreak = 0;
   const run = { lateral: 0, lateralKey: "ArrowRight" };
 
   for (let i = 0; i < MAX_ACTIONS; i++) {
     // Drain expected overlays before acting: known one-time dialogs, then
     // trip reports. Neither consumes an action or an abandon.
-    await drainKnownDialogs();
-    const trip = await drainTripReports();
+    await drainDialogs();
+    const trip = await drainTripReports(page);
+    report.tripReportsDrained += trip.drained;
     if (trip.stuck || trip.persists) {
-      // A trip report still on screen after the bound is a full-screen
-      // blocker the dialog net cannot see; name it and stop rather than
-      // act a policy key behind it. Distinguish a failed interaction
-      // (undismissable) from a report recurring faster than we can drain.
-      report.blocker = trip.stuck
-        ? "trip report (undismissable)"
-        : "trip report (recurring)";
-      await anomaly(
-        trip.stuck ? "trip-report-stuck" : "trip-report-persists",
-        trip.stuck
-          ? `trip report dismissal failed: ${boundedError(trip.stuckError)}`
-          : "trip report stayed visible after the drain bound",
-      );
-      stoppedByBlocker = true;
-      break;
+      // A trip report is still on screen after the bound (undismissable, or a
+      // fresh one appeared as the last drained one cleared). Never act a
+      // policy key behind the full-screen report: skip this turn and drain
+      // again next turn. Only fail closed if it blocks play for many
+      // consecutive turns, which separates a genuine stuck or infinite-report
+      // loop from ordinary "one more trip" recurrence.
+      reportBlockStreak++;
+      if (reportBlockStreak >= REPORT_BLOCK_LIMIT) {
+        report.blocker = trip.stuck
+          ? "trip report (undismissable)"
+          : "trip report (recurring)";
+        await anomaly(
+          trip.stuck ? "trip-report-stuck" : "trip-report-persists",
+          trip.stuck
+            ? `trip report would not dismiss for ${reportBlockStreak} turns: ${boundedError(trip.stuckError)}`
+            : `trip report blocked play for ${reportBlockStreak} turns`,
+        );
+        stoppedByBlocker = true;
+        break;
+      }
+      await page.waitForTimeout(200);
+      continue;
     }
+    reportBlockStreak = 0;
     if (trip.drained) {
       prev = await hud();
       if (prev.depth > 0) {
@@ -420,7 +291,7 @@ try {
     }
     // Any modal that survived draining has no business here; name it and
     // stop instead of silently burning the action budget behind it.
-    const blocker = await blockingOverlay();
+    const blocker = await blockingOverlay(page);
     if (blocker) {
       report.blocker = blocker;
       await anomaly(
@@ -430,7 +301,7 @@ try {
       stoppedByBlocker = true;
       break;
     }
-    const key = pickKey(prev, run);
+    const key = pickKey(prev, run, rng);
     if (key === "plank") {
       const side = rng() < 0.5 ? "left" : "right";
       const button = page.getByRole("button", { name: `Place plank ${side}` });
@@ -473,7 +344,7 @@ try {
       } else if (stuckStreak >= 20) {
         // A terminal report can appear after this action's HUD sample. Clear
         // that normal end state before reaching for the escape valve.
-        if ((await drainTripReports()).drained === 0) {
+        if ((await drainTripReports(page)).drained === 0) {
           if (prev.depth === 0) {
             // Stuck at the surface: there is nothing to abandon, so the
             // escape valve does not apply. No movement for 20 actions at
@@ -494,7 +365,7 @@ try {
               name: "Abandon trip",
             });
             let recovered = true;
-            await drainTripReports();
+            await drainTripReports(page);
             if (!(await recovery.isVisible().catch(() => false))) {
               recovered = false;
             } else {
@@ -502,7 +373,7 @@ try {
                 recovered = false;
               });
               for (let tap = 0; tap < 2 && recovered; tap++) {
-                await drainTripReports();
+                await drainTripReports(page);
                 if (!(await abandonItem.isVisible().catch(() => false))) {
                   recovered = false;
                   break;
@@ -521,7 +392,7 @@ try {
               );
             } else {
               await page.waitForTimeout(600);
-              await drainTripReports();
+              await drainTripReports(page);
               await page.waitForTimeout(400);
               const after = await hud();
               // An abandon counts only on a confirmed underground-to-surface
@@ -558,8 +429,7 @@ try {
   }
 
   // Close in the teardown phase so a close or kill failure is captured in
-  // the report rather than swallowed by the finally cleanup. Await the
-  // server's exit so a kill that fails to stop it surfaces here.
+  // the report rather than swallowed by the finally cleanup.
   if (browser) {
     await browser.close();
     browser = null;
@@ -571,18 +441,20 @@ try {
 } catch (err) {
   report.exception = boundedError(err);
   if (!report.blocker)
-    report.blocker = await blockingOverlay().catch(() => null);
+    report.blocker = page
+      ? await blockingOverlay(page).catch(() => null)
+      : null;
   report.failureShot = await failureShot(report.phase).catch(() => null);
 } finally {
   report.completed = report.actions;
   report.consoleErrors = consoleErrors.slice(0, 20);
   // One source of truth for pass/fail, stamped BEFORE the write so the
   // persisted report, the log, and the exit code all agree.
-  const failed =
-    report.exception !== null ||
-    report.anomalies.length > 0 ||
-    consoleErrors.length > 0;
-  report.status = failed ? "failed" : "passed";
+  report.status = classifyStatus({
+    exception: report.exception,
+    anomalyCount: report.anomalies.length,
+    consoleErrorCount: consoleErrors.length,
+  });
   try {
     writeFileSync(
       `${OUT}/autoplay-report.json`,
@@ -595,7 +467,7 @@ try {
   }
   // Include a report-write failure in the logged outcome so the label and
   // the exit code never disagree.
-  const overallFailed = failed || report.reportWriteFailed;
+  const overallFailed = report.status === "failed" || report.reportWriteFailed;
   if (overallFailed) process.exitCode = 1;
   console.log(
     `autoplay ${overallFailed ? "FAILED" : "PASSED"} in ${report.phase}: ` +

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autoplay-soak-visible-failures" data-date="2026-07-16">
+    <h3>Make the autoplay mine soak leave evidence when it fails</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/autoplay-soak-visible-failures</code></dd>
+      <dt>PR</dt><dd>#246. No package bump: a test-harness reliability fix (<code>scripts/autoplay-mine.mjs</code>) with no app or player-facing change; (Rule 13) mine tips reviewed with nothing to change; (Rule 14) no stamp (diagnostics tooling).</dd>
+      <dt>Changed</dt><dd>The seeded autonomous soak driver could exit before its gameplay assertions and write nothing, so a blocking overlay or a startup crash looked like a product regression while discarding the evidence needed to classify it (three consecutive placeable-elevator runs hit exactly this and left no report). Startup, play, and teardown are now wrapped so any failure records the phase, the visible blocker, and a bounded exception summary, writes <code>autoplay-report.json</code> (now carrying <code>phase</code>, <code>requested</code>, and <code>completed</code> counts beside the existing counters), attempts a <code>failure-&lt;phase&gt;.png</code> screenshot, and exits nonzero. Release notes drain through the real <q>Got it</q> control in a bounded loop that verifies the dialog is hidden before play begins, replacing the blind <code>mouse.click(8, 8)</code> coordinate dismissal. A shared <code>drainTripReports</code> helper clears pending trip reports before every policy action and before the recovery-menu abandon, without consuming an action or an abandon. Any other visible modal (the app's own <code>[role="dialog"], [aria-modal="true"], dialog[open]</code> blocking selector) fails fast with a <code>blocking-overlay</code> anomaly carrying the overlay's accessible name instead of silently eating the action budget. An abandon counts only once the miner is confirmed back at depth zero.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>git diff --check</code> exit 0; <code>biome check</code> exit 0. A forced startup failure (<code>AUTOPLAY_BASE</code> pointed at an unreachable server) wrote both <code>autoplay-report.json</code> (phase <code>startup</code>, the captured <code>goto</code> exception, zero completed actions) and <code>failure-startup.png</code>, then exited nonzero, where the prior driver left no artifact. A clean seeded run against a production build completed its full 400-action budget: 400 of 400 actions, 3 trips (so the in-play trip-report drain fired), 0 anomalies, and 0 console errors, dismissing the release notes through <q>Got it</q> before play. This is verification tooling, so no CI shard exercises it directly.</dd>
+      <dt>Assumptions</dt><dd>The trip report is a full-screen button rather than a dialog, so the blocking-overlay selector never false-flags it; in hermetic guest play no legitimate modal appears, so any that does is a real stall worth naming and failing on rather than absorbing.</dd>
+      <dt>GDD coverage</dt><dd>No row change: this is autonomous-verification tooling (Rule 12 soak driver), not a GDD requirement.</dd>
+      <dt>Followups</dt><dd>Resolves <a href="FOLLOWUPS.html#F-130">F-130</a> (acceptance satisfied pending merge and exact-main CI). No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-outbox-review-corrections-2" data-date="2026-07-16">
     <h3>Report a concurrent same-id loser as a duplicate with no extra outcome</h3>
     <dl>

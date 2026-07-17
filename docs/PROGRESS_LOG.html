@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-readiness-input-harness-deadline" data-date="2026-07-16">
+    <h3>Stop the mine-actions smoke false-failing on harness deadlines under load</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-readiness-input-race</code></dd>
+      <dt>PR</dt><dd>(pending). Test-harness only, no package bump, no product change.</dd>
+      <dt>Changed</dt><dd>Root-caused the intermittent critical smoke <q>mine actions begin immediately and settle smoothly</q> (<a href="FOLLOWUPS.html#F-127">F-127</a>) as a harness deadline false failure: under CI load a single Playwright round-trip runs 1-6 seconds (the retry captures a DOM snapshot per action), so its 1-2s polls on the ANIMATED <code>data-miner-x</code> expired before the matcher evaluated the already-correct value (verified against CI trace artifact 8301188352, which shows the move landing on the next snapshot before the failing poll was delivered). Fixed harness-side only: the smoke now proves each action through the authoritative, discrete <code>data-horizontal-distance</code> store signal (<code>miner.col - START_COL</code>) on a budget that absorbs the per-op latency; it retains the robust <code>data-miner-motion-frames &gt; 0</code> smooth-motion proof (a snap sets it to 0, so it still catches a teleport) and the rested <code>data-miner-x</code> position, and adds a page-local keydown-to-store timing assertion so a host-side budget still proves the action BEGAN immediately (measured in the browser, excluding Playwright delivery). The load preamble waits on the authoritative <code>data-scene-painted</code> veil-release signal (first painted frame or the compile-gate fallback) and uses a load-tolerant locator assertion for the canvas position instead of a default-timeout async poll. Each phase is a <code>test.step</code>; the pixel-diff strike is kept unchanged (the 60s screenshot shape was probed and evidence supports cumulative-budget exhaustion, not a screenshot-mechanism bug: shots measured ~2s and the canvas box settled by 1.9s and never moved). Added a CPU-throttled load stress smoke <code>tests/e2e/mine-core-throttled.spec.ts</code> (8x); it is honestly a stress smoke, not a red-green regression, because the old tight-poll structure still passed locally at 8x, 12x, and 16x (with and without trace), so the CI trace analysis, not this test, is the definitive evidence.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. Fixed smoke passes locally unthrottled (~15s); 10 consecutive focused runs with retries disabled passed 10 of 10; the 8x stress smoke passes (~18.5s). PR head CI (run 29554167240) passed both Critical E2E shards. F-127 stays open pending the three exact critical-shard passes its acceptance bar asks for; post-merge exact-main CI provides them.</dd>
+      <dt>Assumptions</dt><dd>Generous assertion budgets are justified by the measured 1-6s per-op instrumentation latency, not to mask a slow product: the asserted store values are correct on the next React commit and never revert, so each assertion passes on its first successful read.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>Three sibling sites with the same round-trip hazard (the thumbstick test's 5s readiness and 3.5s move polls, and two default-5s polls in <code>mine-navigation.spec.ts</code>) are deferred to <a href="FOLLOWUPS.html#F-196">F-196</a> to keep this change to the exact failing smoke.</dd>
+    </dl>
+  </article>
+
   <article data-slice="retain-autoplay-soak-cleanup" data-date="2026-07-16">
     <h3>Keep the remaining autoplay soak evidence work visible after merge</h3>
     <dl>

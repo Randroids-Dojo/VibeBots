@@ -1225,57 +1225,168 @@ test("plank controls always show both sides with side-specific disabled state", 
 test("mine actions begin immediately and settle smoothly (REQ-018, REQ-023)", async ({
   page,
 }) => {
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
   const canvas = page.locator("canvas");
-  await expect(canvas).toBeVisible();
-  await expect(page.getByText("Opening the shaft")).not.toBeVisible({
-    timeout: 5_000,
+  const status = page.getByLabel("Mine status");
+  // Under CI load a single Playwright round-trip (getAttribute, keyboard
+  // press, screenshot) can run 1-6 seconds because the retry captures a DOM
+  // snapshot per action, so a 1-2s poll on the animated data-miner-x can
+  // expire before the matcher even evaluates the (correct) value (F-127; the
+  // historical trace shows the move landing on the next snapshot while the
+  // poll deadline passed during cross-process delivery). This smoke proves
+  // each action through the authoritative, discrete, immediately-correct
+  // store signal data-horizontal-distance (miner.col - START_COL) on budgets
+  // that survive that per-op latency, and it measures the product's response
+  // latency page-side (below) so a host-side timeout still proves the action
+  // BEGAN immediately, not merely that it eventually registered. Budgets are
+  // generous by intent, not to mask a slow product: the asserted store values
+  // are correct on the next React commit and never revert. Each phase is a
+  // test.step so a failure names the phase (load vs first move vs second move
+  // vs dig) instead of a bare deadline.
+  const ACT_TIMEOUT = 15_000;
+
+  await test.step("mine loads and paints", async () => {
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await awaitMineSceneReady(page);
+    // The "Opening the shaft" veil is released when data-scene-painted flips
+    // true (the first painted frame, or the compile-gate fallback). Wait on
+    // that authoritative signal rather than racing the veil text against a
+    // tight budget the paint plus instrumentation can exceed.
+    await expect(status).toHaveAttribute("data-scene-painted", "true", {
+      timeout: 20_000,
+    });
+    await expect(canvas).toBeVisible();
+    await expect(page.getByText("Opening the shaft")).not.toBeVisible();
+    // Load-tolerant locator assertion (auto-retrying, not a single-round-trip
+    // async poll): the canvas exposes a numeric miner position.
+    await expect(canvas).toHaveAttribute("data-miner-x", /^-?\d/, {
+      timeout: ACT_TIMEOUT,
+    });
   });
-  await expect
-    .poll(async () => canvas.getAttribute("data-miner-x"), { timeout: 5_000 })
-    .not.toBeNull();
-  await awaitMineSceneReady(page);
 
   const initialX = Number(await canvas.getAttribute("data-miner-x"));
-  await page.keyboard.press("ArrowRight");
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 2_000,
-    })
-    .toBeGreaterThan(initialX + 0.05);
-  await expect
-    .poll(
-      async () => Number(await canvas.getAttribute("data-miner-motion-frames")),
-      { timeout: 2_000 },
-    )
-    // CI can collapse most of the glide into one rendered frame under load.
-    // One in-flight frame still proves the action did not snap straight to rest.
-    .toBeGreaterThan(0);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 1_200,
-    })
-    .toBeGreaterThan(initialX + 0.85);
+  const initialDistance = Number(
+    await status.getAttribute("data-horizontal-distance"),
+  );
 
-  await page.waitForTimeout(620);
-  await page.keyboard.press("ArrowRight");
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 1_000,
-    })
-    .toBeGreaterThan(initialX + 1.05);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 1_200,
-    })
-    .toBeGreaterThan(initialX + 1.85);
+  await test.step("first ArrowRight begins immediately and glides one cell", async () => {
+    // Arm a page-side stopwatch: record, inside the page, performance.now() at
+    // the ArrowRight keydown and again when the store advances
+    // data-horizontal-distance. Both stamps are page-local, so the delta is
+    // the PRODUCT's keydown-to-state latency and excludes Playwright's
+    // cross-process delivery (the slow boundary in F-127).
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __f127: { down?: number; changed?: number };
+      };
+      w.__f127 = {};
+      const el = document.querySelector('[aria-label="Mine status"]');
+      if (!el) return;
+      const start = el.getAttribute("data-horizontal-distance");
+      window.addEventListener(
+        "keydown",
+        (e) => {
+          if (
+            (e as KeyboardEvent).key === "ArrowRight" &&
+            w.__f127.down === undefined
+          ) {
+            w.__f127.down = performance.now();
+          }
+        },
+        { capture: true, once: true },
+      );
+      const obs = new MutationObserver(() => {
+        if (
+          el.getAttribute("data-horizontal-distance") !== start &&
+          w.__f127.changed === undefined
+        ) {
+          w.__f127.changed = performance.now();
+          obs.disconnect();
+        }
+      });
+      obs.observe(el, {
+        attributes: true,
+        attributeFilter: ["data-horizontal-distance"],
+      });
+    });
 
-  const beforeStrike = await canvas.screenshot();
-  await page.keyboard.press("ArrowDown");
-  await page.waitForTimeout(90);
-  const afterStrike = await canvas.screenshot();
-  expect(Buffer.compare(beforeStrike, afterStrike)).not.toBe(0);
+    await page.keyboard.press("ArrowRight");
+
+    // Acceptance: the store advances exactly one column.
+    await expect(status).toHaveAttribute(
+      "data-horizontal-distance",
+      String(initialDistance + 1),
+      { timeout: ACT_TIMEOUT },
+    );
+
+    // Begins immediately (page-local): the store reflected the keydown within
+    // a render cycle. This distinguishes an immediate product action from a
+    // genuinely delayed one; it is measured in the browser, so slow Playwright
+    // delivery cannot inflate it. The bound is loose enough to never flake on
+    // a healthy render yet far below the multi-second delay a broken action
+    // would show.
+    const latency = await page.evaluate(() => {
+      const w = window as unknown as {
+        __f127: { down?: number; changed?: number };
+      };
+      return w.__f127.down !== undefined && w.__f127.changed !== undefined
+        ? w.__f127.changed - w.__f127.down
+        : null;
+    });
+    expect(latency, "keydown-to-store latency was recorded").not.toBeNull();
+    expect(latency as number).toBeLessThan(1_000);
+
+    // Smooth motion (not a snap): a lateral retarget records at least one
+    // in-flight frame, and the track-creation frame sets frames to 1 before
+    // the rendered position reaches the target, so this is robust under a
+    // starved frame loop. A direct teleport sets frames to 0 (snapMotion), so
+    // this catches a regression that snaps instead of gliding.
+    await expect
+      .poll(
+        async () =>
+          Number(await canvas.getAttribute("data-miner-motion-frames")),
+        { timeout: ACT_TIMEOUT },
+      )
+      .toBeGreaterThan(0);
+
+    // Motion result: the rendered miner glides to and rests at the new column.
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+        timeout: ACT_TIMEOUT,
+      })
+      .toBeGreaterThan(initialX + 0.85);
+  });
+
+  await test.step("second ArrowRight registers and glides another cell", async () => {
+    await page.waitForTimeout(620);
+    await page.keyboard.press("ArrowRight");
+    await expect(status).toHaveAttribute(
+      "data-horizontal-distance",
+      String(initialDistance + 2),
+      { timeout: ACT_TIMEOUT },
+    );
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+        timeout: ACT_TIMEOUT,
+      })
+      .toBeGreaterThan(initialX + 1.85);
+  });
+
+  await test.step("ArrowDown dig renders a visible change", async () => {
+    // The dig's visible feedback is proven by a canvas pixel diff (kept per
+    // the chosen approach). F-127 shape-2, the 60s deadline that ended during
+    // a screenshot, was probed at a 10x CPU throttle: each canvas.screenshot()
+    // measured ~1.7-2.3s and the canvas box settled by ~1.9s and never moved
+    // again, so it is cumulative-budget exhaustion across the whole test, not
+    // a screenshot hang. The screenshots carry no explicit action timeout;
+    // the step label makes an exhaustion here name this phase rather than a
+    // bare test-level timeout.
+    const beforeStrike = await canvas.screenshot();
+    await page.keyboard.press("ArrowDown");
+    await page.waitForTimeout(90);
+    const afterStrike = await canvas.screenshot();
+    expect(Buffer.compare(beforeStrike, afterStrike)).not.toBe(0);
+  });
 });
 
 test("rapid repeated keyboard taps do not bypass held cadence (REQ-023)", async ({

@@ -8,9 +8,13 @@
 // A soak that stalls behind an overlay or dies during startup must still
 // leave evidence: startup, play, and teardown are wrapped so any failure
 // writes autoplay-report.json (seed, phase, requested/completed actions,
-// the visible blocker, anomalies, and a bounded exception summary) plus a
-// screenshot before exiting nonzero. An unexpected modal fails fast with a
-// named blocking-overlay anomaly rather than silently eating the budget.
+// the visible blocker, anomalies, and a bounded sanitized exception
+// summary) plus a screenshot when a page exists, before exiting nonzero.
+// The formerly-blocking one-time dialogs (release notes, the falling-rock
+// alert, the ladder-gravity feedback) are drained through their real
+// controls each turn rather than suppressed, and any other visible modal
+// fails fast with a named blocking-overlay anomaly instead of silently
+// eating the action budget.
 //
 // Usage:
 //   node scripts/autoplay-mine.mjs <out-dir> [actions]
@@ -53,6 +57,20 @@ const rng = mulberry32(SEED);
 const BLOCKING_OVERLAY_SELECTOR =
   '[role="dialog"], [aria-modal="true"], dialog[open]';
 
+// One-time dialogs that used to intercept policy clicks. Each is drained
+// through its real dismiss control (by dialog accessible name so the two
+// "Ok" buttons never collide), so the soak survives them at full budget.
+const KNOWN_DIALOGS = [
+  { name: "New in VibeBots", dismiss: "Got it" },
+  { name: "Falling rock", dismiss: "Ok" },
+  { name: "Ladders can fall now", dismiss: "Ok" },
+];
+
+// Short, explicit action timeouts everywhere so a stuck control fails a
+// single step fast instead of hanging on Playwright's 30-second default.
+const CLICK_TIMEOUT = 4_000;
+const HIDDEN_TIMEOUT = 5_000;
+
 const report = {
   seed: SEED,
   phase: "startup",
@@ -63,9 +81,11 @@ const report = {
   collapses: 0,
   planksPlaced: 0,
   abandons: 0,
+  oneTimeDialogsDrained: 0,
   maxDepth: 0,
   blocker: null,
   exception: null,
+  failureShot: null,
   anomalies: [],
 };
 
@@ -78,8 +98,17 @@ let canvas = null;
 let tripReport = null;
 let shots = 0;
 
+// Strip ANSI color codes and collapse absolute filesystem paths to their
+// basename so the exception summary is stable across machines and logs.
 function boundedError(err) {
-  const text = err?.stack ? String(err.stack) : String(err);
+  let text = err?.stack ? String(err.stack) : String(err);
+  // Built at runtime so no ESC control character sits in the source.
+  const ansi = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+  text = text.replace(ansi, "");
+  text = text.replace(
+    /(?:\/[^/\s:)]+)+\/([^/\s:)]+\.(?:mjs|c?js|m?ts))/g,
+    "$1",
+  );
   return text.slice(0, 600);
 }
 
@@ -93,8 +122,11 @@ async function anomaly(kind, detail) {
 async function failureShot(tag) {
   if (!page) return null;
   const shot = `${OUT}/failure-${tag}.png`;
-  await page.screenshot({ path: shot }).catch(() => {});
-  return shot;
+  const ok = await page
+    .screenshot({ path: shot })
+    .then(() => true)
+    .catch(() => false);
+  return ok ? shot : null;
 }
 
 // The accessible name of a blocking modal, so a stall points at the exact
@@ -118,44 +150,63 @@ async function overlayName(handle) {
     .catch(() => "unnamed overlay");
 }
 
+// The first VISIBLE blocking modal, if any. Checks every match, not just
+// the first: a hidden first match must not mask a later visible dialog.
 async function blockingOverlay() {
   if (!page) return null;
-  const modal = page.locator(BLOCKING_OVERLAY_SELECTOR).first();
-  if (!(await modal.isVisible().catch(() => false))) return null;
-  return overlayName(modal);
+  const modals = page.locator(BLOCKING_OVERLAY_SELECTOR);
+  const count = await modals.count().catch(() => 0);
+  for (let i = 0; i < count; i++) {
+    const modal = modals.nth(i);
+    if (await modal.isVisible().catch(() => false)) {
+      return overlayName(modal);
+    }
+  }
+  return null;
 }
 
-// Dismiss the release notes through the real Got it control in a bounded
-// loop, then prove the dialog is gone. A coordinate click could miss and
-// leave the notes covering the mine while the soak reports a regression.
-async function drainReleaseNotes() {
-  const notes = page.getByRole("dialog", { name: "New in VibeBots" });
-  await notes.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
-  for (let i = 0; i < 5; i++) {
-    if (!(await notes.isVisible().catch(() => false))) return;
-    await page
-      .getByRole("button", { name: "Got it" })
-      .click()
-      .catch(() => {});
-    await notes.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+// Dismiss any known one-time dialog through its real control in a bounded
+// loop, and confirm it is gone. Returns how many were cleared. A dialog
+// that will not close is left for the blocking-overlay net to name.
+async function drainKnownDialogs() {
+  let drained = 0;
+  for (let round = 0; round < 6; round++) {
+    let dismissedThisRound = false;
+    for (const d of KNOWN_DIALOGS) {
+      const dialog = page.getByRole("dialog", { name: d.name });
+      if (!(await dialog.isVisible().catch(() => false))) continue;
+      try {
+        await dialog
+          .getByRole("button", { name: d.dismiss })
+          .click({ timeout: CLICK_TIMEOUT });
+        await dialog.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
+        drained++;
+        dismissedThisRound = true;
+      } catch {
+        // Could not dismiss it; stop and let blockingOverlay() name it.
+      }
+    }
+    if (!dismissedThisRound) break;
   }
-  if (await notes.isVisible().catch(() => false)) {
-    throw new Error("release notes dialog stayed open after repeated Got it");
-  }
+  return drained;
 }
 
-// Drain any pending trip reports without consuming a policy action or an
-// abandon. Returns how many were cleared so callers can react (a report
-// covering an underground miner is itself an anomaly).
+// Drain pending trip reports without consuming a policy action or an
+// abandon. Only counts a report that is confirmed gone, and never spends
+// the default 30-second timeout on a stuck click. Returns how many
+// cleared so callers can react (a report over an underground miner is an
+// anomaly).
 async function drainTripReports() {
   let drained = 0;
   for (let i = 0; i < 4; i++) {
     if (!(await tripReport.isVisible().catch(() => false))) break;
-    await tripReport.click().catch(() => {});
-    await tripReport
-      .waitFor({ state: "hidden", timeout: 5_000 })
-      .catch(() => {});
-    drained++;
+    try {
+      await tripReport.click({ timeout: CLICK_TIMEOUT });
+      await tripReport.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
+      drained++;
+    } catch {
+      break;
+    }
   }
   return drained;
 }
@@ -241,19 +292,20 @@ try {
   for (const route of ["**/api/mine/**", "**/api/gear", "**/api/bunker"]) {
     await page.route(route, (r) => r.fulfill({ status: 503, body: "{}" }));
   }
-  // The soak exercises hazards repeatedly, so suppress the one-time tutorial
-  // that would otherwise intercept later policy clicks after its first trigger.
-  await page.addInitScript(() => {
-    localStorage.setItem("vibebots-falling-rock-alert-dismissed", "true");
-    localStorage.setItem("vibebots-ladder-gravity-feedback-never", "true");
-  });
 
   statusEl = page.getByLabel("Mine status");
   canvas = page.locator("canvas");
   tripReport = page.getByRole("button", { name: "Dismiss trip report" });
 
   await page.goto(`${base}/mine`);
-  await drainReleaseNotes();
+  // Release notes can appear a beat after navigation; wait briefly, then
+  // drain them (and any other known one-time dialog) through their real
+  // controls before proving the scene is playable.
+  await page
+    .getByRole("dialog", { name: "New in VibeBots" })
+    .waitFor({ state: "visible", timeout: 8_000 })
+    .catch(() => {});
+  report.oneTimeDialogsDrained += await drainKnownDialogs();
   await canvas.waitFor({ state: "visible", timeout: 45_000 });
   await statusEl
     .locator(":scope[data-scene-ready='true']")
@@ -261,20 +313,30 @@ try {
     .catch(() => {});
   await page.waitForTimeout(1_500);
 
-  // Before declaring the mine playable, confirm nothing modal covers it.
+  // Drain anything that appeared during warm-up, then confirm the mine is
+  // actually playable: nothing modal may remain over it.
+  report.oneTimeDialogsDrained += await drainKnownDialogs();
   const startupBlocker = await blockingOverlay();
   if (startupBlocker) {
     report.blocker = startupBlocker;
+    await anomaly(
+      "blocking-overlay",
+      `modal covered the scene before play: ${startupBlocker}`,
+    );
     throw new Error(`mine not playable: ${startupBlocker} covers the scene`);
   }
 
   // ---- play ------------------------------------------------------------
   report.phase = "play";
+  let stoppedByBlocker = false;
   let prev = await hud();
   let stuckStreak = 0;
   const run = { lateral: 0, lateralKey: "ArrowRight" };
 
   for (let i = 0; i < MAX_ACTIONS; i++) {
+    // Drain expected overlays before acting: known one-time dialogs, then
+    // trip reports. Neither consumes an action or an abandon.
+    report.oneTimeDialogsDrained += await drainKnownDialogs();
     if (await drainTripReports()) {
       prev = await hud();
       if (prev.depth > 0) {
@@ -285,7 +347,7 @@ try {
       }
       stuckStreak = 0;
     }
-    // Any modal other than a trip report has no business here; name it and
+    // Any modal that survived draining has no business here; name it and
     // stop instead of silently burning the action budget behind it.
     const blocker = await blockingOverlay();
     if (blocker) {
@@ -294,6 +356,7 @@ try {
         "blocking-overlay",
         `unexpected modal blocked play: ${blocker}`,
       );
+      stoppedByBlocker = true;
       break;
     }
     const key = pickKey(prev, run);
@@ -301,7 +364,7 @@ try {
       const side = rng() < 0.5 ? "left" : "right";
       const button = page.getByRole("button", { name: `Place plank ${side}` });
       if (await button.isEnabled().catch(() => false)) {
-        await button.click();
+        await button.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
         report.planksPlaced++;
       }
     } else {
@@ -341,15 +404,16 @@ try {
         // that normal end state before reaching for the escape valve.
         if ((await drainTripReports()) === 0) {
           // The game's own escape valve: abandon the trip (arm + confirm).
+          // Each control is time-bounded so a missing control fails fast.
           await page
             .getByRole("button", { name: "Recovery options" })
-            .click()
+            .click({ timeout: CLICK_TIMEOUT })
             .catch(() => {});
           const abandonItem = page.getByRole("menuitem", {
             name: "Abandon trip",
           });
-          await abandonItem.click().catch(() => {});
-          await abandonItem.click().catch(() => {});
+          await abandonItem.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
+          await abandonItem.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
           await page.waitForTimeout(600);
           await drainTripReports();
           await page.waitForTimeout(400);
@@ -374,12 +438,24 @@ try {
     prev = next;
   }
 
-  report.phase = "teardown";
+  // A blocker break is a play failure, not a clean finish: keep the phase.
+  if (!stoppedByBlocker) report.phase = "teardown";
+
+  // Close in the teardown phase so a close or kill failure is captured in
+  // the report rather than swallowed by the finally cleanup.
+  if (browser) {
+    await browser.close();
+    browser = null;
+  }
+  if (serverProc) {
+    serverProc.kill();
+    serverProc = null;
+  }
 } catch (err) {
   report.exception = boundedError(err);
   if (!report.blocker)
     report.blocker = await blockingOverlay().catch(() => null);
-  await failureShot(report.phase).catch(() => {});
+  report.failureShot = await failureShot(report.phase).catch(() => null);
   process.exitCode = 1;
 } finally {
   report.completed = report.actions;
@@ -396,13 +472,14 @@ try {
     `autoplay ${report.exception ? "FAILED" : "done"} in ${report.phase}: ` +
       `${report.completed}/${report.requested} actions, ${report.trips} trips, ` +
       `${report.collapses} collapses, max depth ${report.maxDepth}, ` +
-      `${report.planksPlaced} planks, ${report.anomalies.length} anomalies, ` +
-      `${consoleErrors.length} console errors` +
+      `${report.planksPlaced} planks, ${report.oneTimeDialogsDrained} dialogs, ` +
+      `${report.anomalies.length} anomalies, ${consoleErrors.length} console errors` +
       (report.blocker ? `, blocker: ${report.blocker}` : ""),
   );
   if (report.anomalies.length > 0 || consoleErrors.length > 0) {
     process.exitCode = 1;
   }
+  // Best-effort cleanup if the teardown phase did not reach it.
   await browser?.close().catch(() => {});
   serverProc?.kill();
 }

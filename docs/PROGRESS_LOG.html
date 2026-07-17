@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autoplay-soak-visible-failures-review-corrections" data-date="2026-07-16">
+    <h3>Harden the soak driver's overlay handling after review</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/autoplay-soak-visible-failures</code> (same PR #246; an appended correction round, not an in-place edit of the article below).</dd>
+      <dt>PR</dt><dd>#246. Still no package bump: a follow-up hardening of the same test-harness change, no app or player-facing change.</dd>
+      <dt>Changed</dt><dd>A blocking review raised six points on the first cut of the soak driver; all are addressed. (1) <code>blockingOverlay()</code> now scans every match and returns the first VISIBLE modal, so a hidden first match cannot mask a later visible dialog; a startup blocker records the named <code>blocking-overlay</code> anomaly before throwing; and a play-loop blocker sets a <code>stoppedByBlocker</code> flag so the phase stays <code>play</code> rather than being overwritten to <code>teardown</code>. (2, 3) <code>drainTripReports()</code>, the recovery-menu clicks, and the known-dialog dismissals all use explicit 4s click and 5s hidden timeouts instead of Playwright's 30s default, and a drain counts only a report confirmed hidden. (4) The <code>localStorage</code> suppression of the falling-rock and ladder-gravity dialogs is removed; those two (<q>Falling rock</q> then <q>Ok</q>, <q>Ladders can fall now</q> then <q>Ok</q>) and the release notes now drain through their real controls each turn via a <code>drainKnownDialogs()</code> helper, counted as <code>oneTimeDialogsDrained</code>. (5) <code>browser.close()</code> and the server kill run inside the try teardown phase so a teardown failure is captured in the report; the finally block keeps a best-effort backstop. (6) The exception summary strips ANSI control codes and collapses absolute filesystem paths to basenames, and the report records <code>failureShot</code> (null when no page exists, since a screenshot is impossible before a browser starts).</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0 (the ANSI matcher is built at runtime to avoid a control-character regex literal). The forced startup failure still writes both artifacts with a sanitized exception (<code>at autoplay-mine.mjs:NNN</code>, no ANSI, no absolute path). A fresh 400-action run with the dialogs unsuppressed completed 400 of 400 actions and drained 6 one-time dialogs plus 5 trips in play, with 0 anomalies and 0 console errors, so the formerly-blocking dialogs run through the full budget and are handled.</dd>
+      <dt>Assumptions</dt><dd>Known one-time dialogs are drained before the blocking-overlay net runs, so only a genuinely unexpected modal reaches the fail-fast path; a pre-browser failure cannot produce a screenshot, so the retained JSON report is the evidence in that case.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>Completes the review corrections on <a href="FOLLOWUPS.html#F-130">F-130</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="autoplay-soak-visible-failures" data-date="2026-07-16">
     <h3>Make the autoplay mine soak leave evidence when it fails</h3>
     <dl>

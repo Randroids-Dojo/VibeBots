@@ -125,12 +125,16 @@ function stopServer(proc) {
     return Promise.resolve();
   }
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      proc.kill("SIGKILL");
-      reject(new Error("server did not exit after kill"));
-    }, 5_000);
+    // SIGTERM first; if it does not stop, escalate to SIGKILL and await the
+    // forced exit. Only reject if even SIGKILL leaves it running.
+    const termTimer = setTimeout(() => proc.kill("SIGKILL"), 5_000);
+    const killTimer = setTimeout(
+      () => reject(new Error("server did not exit after SIGKILL")),
+      8_000,
+    );
     proc.once("exit", () => {
-      clearTimeout(timer);
+      clearTimeout(termTimer);
+      clearTimeout(killTimer);
       resolve();
     });
     proc.kill();
@@ -230,19 +234,25 @@ async function drainKnownDialogs() {
 async function drainTripReports() {
   let drained = 0;
   let stuck = false;
+  let stuckError = null;
   for (let i = 0; i < 8; i++) {
     if (!(await tripReport.isVisible().catch(() => false))) break;
     try {
       await tripReport.click({ timeout: CLICK_TIMEOUT });
       await tripReport.waitFor({ state: "hidden", timeout: HIDDEN_TIMEOUT });
       drained++;
-    } catch {
-      stuck = true;
+    } catch (err) {
+      stuck = true; // a dismiss attempt failed: an undismissable report
+      stuckError = err;
       break;
     }
   }
   report.tripReportsDrained += drained;
-  return { drained, stuck };
+  // Fail closed: after the bound, a still-visible report (undismissable, or
+  // recurring faster than we can drain) must never be acted behind. This is
+  // distinct from a report that dismisses fine and does not reappear.
+  const persists = await tripReport.isVisible().catch(() => false);
+  return { drained, stuck, persists, stuckError };
 }
 
 async function hud() {
@@ -381,13 +391,19 @@ try {
     // trip reports. Neither consumes an action or an abandon.
     await drainKnownDialogs();
     const trip = await drainTripReports();
-    if (trip.stuck) {
-      // A trip report that will not dismiss is a full-screen blocker the
-      // dialog net cannot see; name it and stop rather than act behind it.
-      report.blocker = "trip report (undismissable)";
+    if (trip.stuck || trip.persists) {
+      // A trip report still on screen after the bound is a full-screen
+      // blocker the dialog net cannot see; name it and stop rather than
+      // act a policy key behind it. Distinguish a failed interaction
+      // (undismissable) from a report recurring faster than we can drain.
+      report.blocker = trip.stuck
+        ? "trip report (undismissable)"
+        : "trip report (recurring)";
       await anomaly(
-        "trip-report-stuck",
-        "trip report stayed visible after repeated dismissal attempts",
+        trip.stuck ? "trip-report-stuck" : "trip-report-persists",
+        trip.stuck
+          ? `trip report dismissal failed: ${boundedError(trip.stuckError)}`
+          : "trip report stayed visible after the drain bound",
       );
       stoppedByBlocker = true;
       break;
@@ -458,33 +474,67 @@ try {
         // A terminal report can appear after this action's HUD sample. Clear
         // that normal end state before reaching for the escape valve.
         if ((await drainTripReports()).drained === 0) {
-          // The game's own escape valve: abandon the trip (arm + confirm).
-          // Drain expected reports before each recovery click, and bound
-          // every click so a missing control fails a single step fast.
-          await drainTripReports();
-          await page
-            .getByRole("button", { name: "Recovery options" })
-            .click({ timeout: CLICK_TIMEOUT })
-            .catch(() => {});
-          const abandonItem = page.getByRole("menuitem", {
-            name: "Abandon trip",
-          });
-          await drainTripReports();
-          await abandonItem.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
-          await abandonItem.click({ timeout: CLICK_TIMEOUT }).catch(() => {});
-          await page.waitForTimeout(600);
-          await drainTripReports();
-          await page.waitForTimeout(400);
-          const after = await hud();
-          if (after.depth === 0) {
-            // An abandon counts only once the miner is confirmed surfaced.
-            report.abandons++;
-          } else {
-            // Even abandoning failed: that is a real defect, not policy.
+          if (prev.depth === 0) {
+            // Stuck at the surface: there is nothing to abandon, so the
+            // escape valve does not apply. No movement for 20 actions at
+            // depth 0 is itself a defect, not a rescuable trip.
             await anomaly(
-              "stuck",
-              `abandon did not surface the miner from depth ${after.depth}`,
+              "stuck-at-surface",
+              "no movement for 20 actions while already at depth 0",
             );
+          } else {
+            // Underground and boxed in: the game's own escape valve
+            // (abandon: arm + confirm). Drain expected reports before each
+            // click, bound every click, and require the controls to exist
+            // so a missing control is surfaced rather than swallowed.
+            const recovery = page.getByRole("button", {
+              name: "Recovery options",
+            });
+            const abandonItem = page.getByRole("menuitem", {
+              name: "Abandon trip",
+            });
+            let recovered = true;
+            await drainTripReports();
+            if (!(await recovery.isVisible().catch(() => false))) {
+              recovered = false;
+            } else {
+              await recovery.click({ timeout: CLICK_TIMEOUT }).catch(() => {
+                recovered = false;
+              });
+              for (let tap = 0; tap < 2 && recovered; tap++) {
+                await drainTripReports();
+                if (!(await abandonItem.isVisible().catch(() => false))) {
+                  recovered = false;
+                  break;
+                }
+                await abandonItem
+                  .click({ timeout: CLICK_TIMEOUT })
+                  .catch(() => {
+                    recovered = false;
+                  });
+              }
+            }
+            if (!recovered) {
+              await anomaly(
+                "recovery-controls-missing",
+                `stuck at depth ${prev.depth} but the abandon controls were absent`,
+              );
+            } else {
+              await page.waitForTimeout(600);
+              await drainTripReports();
+              await page.waitForTimeout(400);
+              const after = await hud();
+              // An abandon counts only on a confirmed underground-to-surface
+              // transition (prev.depth > 0 above, after.depth === 0 here).
+              if (after.depth === 0) {
+                report.abandons++;
+              } else {
+                await anomaly(
+                  "stuck",
+                  `abandon did not surface the miner from depth ${after.depth}`,
+                );
+              }
+            }
           }
         }
         stuckStreak = 0;
@@ -496,8 +546,16 @@ try {
     prev = next;
   }
 
-  // A blocker break is a play failure, not a clean finish: keep the phase.
-  if (!stoppedByBlocker) report.phase = "teardown";
+  // Only a clean pass through play advances to teardown. A blocker break,
+  // a recorded anomaly, or a console error means the failure was first seen
+  // in play, so the phase must stay "play" rather than be mislabeled.
+  if (
+    !stoppedByBlocker &&
+    report.anomalies.length === 0 &&
+    consoleErrors.length === 0
+  ) {
+    report.phase = "teardown";
+  }
 
   // Close in the teardown phase so a close or kill failure is captured in
   // the report rather than swallowed by the finally cleanup. Await the

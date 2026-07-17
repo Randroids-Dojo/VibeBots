@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="autoplay-soak-visible-failures-review-corrections-3" data-date="2026-07-16">
+    <h3>Fix reproduced recovery, phase, and report-behind-report gaps in the soak</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/autoplay-soak-visible-failures</code> (same work; a fourth appended correction round, not an in-place edit of the articles below).</dd>
+      <dt>PR</dt><dd>#246 (converted to a draft hold and closed by the review agent; the branch preserves this work). Test-harness only, no package bump.</dd>
+      <dt>Changed</dt><dd>A third review round reproduced three real bugs with fixtures; all are fixed. (1) A trip report still visible after the drain bound (undismissable, or recurring faster than it can drain) now fails closed with a <code>trip-report-stuck</code> or <code>trip-report-persists</code> anomaly instead of letting a policy key run behind the full-screen report; a dismiss-attempt failure is distinguished from recurrence and its interaction error is preserved. (2) The abandon escape valve runs only when underground (<code>prev.depth &gt; 0</code>), requires the Recovery and Abandon controls to exist (a missing control records <code>recovery-controls-missing</code> rather than being swallowed), drains before each click, and counts an abandon only on a confirmed underground-to-surface transition; no movement for 20 actions at depth 0 records <code>stuck-at-surface</code>. (3) The phase no longer advances to <code>teardown</code> when an anomaly or console error was seen in play, so a play failure keeps phase <code>play</code>. Teardown also awaits the server exit after escalating to SIGKILL.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>node --check</code> ok. Forced startup failure: persisted <code>status</code> <code>failed</code>, both artifacts, exit nonzero. A clean 400-action run drained all three formerly-blocked dialogs at full budget in one session (release notes 1, falling rock 4, ladder 1), persisted <code>status</code> <code>passed</code>, with 0 anomalies and 0 console errors.</dd>
+      <dt>Assumptions</dt><dd>A report surviving eight dismissals in one turn is a degenerate state worth surfacing for triage, not benign, so the soak reports it rather than acting behind it.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>Addresses the reproduced recovery, phase, and report gaps on <a href="FOLLOWUPS.html#F-130">F-130</a>. Session-level determinism of <code>AUTOPLAY_SEED</code> is a separate concern the review agent flagged as F-195.</dd>
+    </dl>
+  </article>
+
   <article data-slice="autoplay-soak-visible-failures-review-corrections-2" data-date="2026-07-16">
     <h3>Tighten soak failure classification and dialog evidence after a second review</h3>
     <dl>

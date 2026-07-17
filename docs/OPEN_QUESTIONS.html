@@ -160,7 +160,7 @@
     </dl>
   </section>
 
-  <section data-q="Q-017" data-status="open">
+  <section data-q="Q-017" data-status="resolved">
     <h3>Q-017: Which purchases should the overall player level actually gate?</h3>
     <dl>
       <dt>Context</dt><dd>REQ-038's last clause makes overall player level "a global progression gate for robot parts, base parts, skins, stamps, consumables, and upgrades." Audit (2026-07-13, F-089): today the level gates raid tiers, the beacon cap, and base-part owned limits; robot parts (/api/shop/buy), consumables, gear upgrades, and bunker skins are purely vibes-priced with no level check. Adding floors invents pacing numbers the GDD does not specify, and retroactively locking items players could buy yesterday is a player-hostile regression.</dd>
@@ -172,7 +172,8 @@
         </ol>
       </dd>
       <dt>Recommended default</dt><dd>C, with B as the follow-on convention: the shipped level gates are the ones that proved fun (harder raids, more beacons, bigger bunkers), vibes prices already pace the shops, and a blanket retrofit would take purchases away from existing players. If C is approved the GDD clause text changes and F-089 closes; new top-tier catalog entries can still opt into floors per B.</dd>
-      <dt>Status</dt><dd>open (needs dev decision: GDD amendments require explicit approval)</dd>
+      <dt>Resolution</dt><dd>Option C (dev decision 2026-07-17): the GDD clause is narrowed to the level gates that already shipped and proved fun (the raid tier a player may trigger, the owned beacon cap, and base-part owned limits); robot parts, consumables, gear upgrades, and bunker skins stay vibes-priced, and new top-tier catalog entries may opt into a level floor as they are added (the option B follow-on convention). No code change: the shipped behavior already matches. The <code>docs/gdd/08-base-building.html#rewards-and-level</code> clause and the REQ-038 coverage row are amended, REQ-038 flips to done, and <a href="FOLLOWUPS.html#F-089">F-089</a> closes.</dd>
+      <dt>Status</dt><dd>resolved</dd>
     </dl>
   </section>
 

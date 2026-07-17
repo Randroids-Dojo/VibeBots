@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="req038-level-gate-scope" data-date="2026-07-17">
+    <h3>Close REQ-038 by narrowing the global level-gate clause to what shipped</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/req038-level-gate-scope</code></dd>
+      <dt>PR</dt><dd>(pending). Docs/GDD only, no code change, no package bump.</dd>
+      <dt>Changed</dt><dd>Resolved <a href="OPEN_QUESTIONS.html">Q-017</a> under option C (dev decision) and closed <a href="FOLLOWUPS.html#F-089">F-089</a>, the last piece keeping REQ-038 partial. The 2026-07-13 audit found the overall player level already gates the systems that proved fun (the raid tier via <code>maxBunkerRaidTier</code>, the owned beacon cap, and base-part owned limits), while robot parts, consumables, gear upgrades, and bunker skins are vibes-priced with no level check. Rather than invent pacing floors the GDD never specified or retroactively lock previously buyable items (a player-hostile regression), the <code>docs/gdd/08-base-building.html#rewards-and-level</code> clause and the REQ-038 coverage requirement text are narrowed to those shipped gates, with new top-tier catalog entries free to opt into a level floor as they are added (the option B follow-on convention). No code change: the shipped behavior already matches the narrowed clause. A GDD build-log entry records the amendment; REQ-038 flips to <code>done</code>.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>GDD_COVERAGE.json</code> parses; ledgers append-only. No tests: docs/spec amendment with no code or behavior change (the audit confirmed the shipped gates already match the narrowed clause).</dd>
+      <dt>Assumptions</dt><dd>Option C is the audit's recommended default, approved by the dev; the vibes prices already pace the non-level-gated shops, so no pacing regression results from leaving them ungated.</dd>
+      <dt>GDD coverage</dt><dd>REQ-038 flips <code>partial</code> to <code>done</code> in <code>docs/GDD_COVERAGE.json</code>; <code>docs/gdd/08-base-building.html</code> gains a build-log entry and its rewards-and-level clause is amended.</dd>
+      <dt>Followups</dt><dd>None new. B (new top-tier entries may opt into level floors) is recorded as a convention in the amended clause, not a followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-readiness-input-harness-deadline" data-date="2026-07-16">
     <h3>Stop the mine-actions smoke false-failing on harness deadlines under load</h3>
     <dl>

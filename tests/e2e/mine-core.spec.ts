@@ -1458,18 +1458,36 @@ test("thumbstick spawns where pressed and drives digging (REQ-023)", async ({
   await expect(page.getByText(/drag anywhere to move/)).toContainText("WASD");
 
   const canvas = page.locator("canvas");
-  await expect
-    .poll(async () => canvas.getAttribute("data-miner-x"), { timeout: 5_000 })
-    .not.toBeNull();
+  // Readiness through the scene-ready gate plus a load-tolerant locator
+  // assertion, not a single-round-trip async poll that a 1-6s CI round-trip
+  // can outrun (F-196, the same round-trip hazard F-127 fixed).
+  await awaitMineSceneReady(page);
+  await expect(canvas).toHaveAttribute("data-miner-x", /^-?\d/, {
+    timeout: 15_000,
+  });
 
   const initialX = Number(await canvas.getAttribute("data-miner-x"));
+  const initialDistance = Number(
+    await status.getAttribute("data-horizontal-distance"),
+  );
   await page.mouse.move(760, 380);
   await page.mouse.down();
   await page.mouse.move(860, 380, { steps: 5 });
   await expect(page.locator("[data-joystick]")).toBeVisible();
+  // Acceptance: the held drag drives the miner right at least four columns.
+  // The discrete store distance is authoritative and grows monotonically while
+  // held, so a generous budget survives the throttled round-trip latency
+  // instead of racing the animated position on a 3.5s deadline (F-196).
+  await expect
+    .poll(
+      async () => Number(await status.getAttribute("data-horizontal-distance")),
+      { timeout: 15_000 },
+    )
+    .toBeGreaterThanOrEqual(initialDistance + 4);
+  // The rendered miner followed to the new column.
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
-      timeout: 3_500,
+      timeout: 15_000,
     })
     .toBeGreaterThan(initialX + 3.75);
   await page.mouse.up();

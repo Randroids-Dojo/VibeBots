@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="mine-roundtrip-polls" data-date="2026-07-17">
+    <h3>Harden the sibling mine tests against the same round-trip poll hazard</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-roundtrip-polls</code></dd>
+      <dt>PR</dt><dd>(pending). Test-harness only, no package bump, no product change.</dd>
+      <dt>Changed</dt><dd>Closed <a href="FOLLOWUPS.html#F-196">F-196</a>, the sibling audit deferred from the F-127 slice. Three tests held the same round-trip hazard F-127 fixed (tight budgets polling the animated <code>data-miner-x</code>, which a 1-6s CI round-trip can outrun). All now prove input through an authoritative discrete store signal on a generous budget, with no timeout-only widening: the thumbstick test (<code>tests/e2e/mine-core.spec.ts</code>) reaches readiness via <code>awaitMineSceneReady</code> plus a load-tolerant locator assertion and asserts <code>data-horizontal-distance</code> advanced at least four columns before the separately budgeted rendered check; the two base-return teleport tests (<code>tests/e2e/mine-navigation.spec.ts</code>) assert the miner's store column returned to the surface base (<code>data-horizontal-distance</code> 0) before the rendered glide-to-center check. Each test keeps its specific coverage.</dd>
+      <dt>Verification</dt><dd>The four affected tests pass locally (thumbstick, both base-return teleports, and the base-indicator test); Biome, dash, and <code>tsc --noEmit</code> clean.</dd>
+      <dt>Assumptions</dt><dd>The base return lands the miner at the surface base column (<code>data-horizontal-distance</code> 0), confirmed by the passing runs; the held thumbstick drag advances the store distance monotonically while held, so a four-column threshold is robust.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd>None new. The broader software-rendering E2E stabilization stays with <a href="FOLLOWUPS.html#F-132">F-132</a>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="req038-level-gate-scope" data-date="2026-07-17">
     <h3>Close REQ-038 by narrowing the global level-gate clause to what shipped</h3>
     <dl>

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="coderabbit-shared-cooldown-causation-correction" data-date="2026-07-17">
+    <h3>Separate the cooldown evidence from its working inference</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f135-f136-followups</code>.</dd>
+      <dt>PR</dt><dd>#190, additive correction to the F-179 evidence entry below.</dd>
+      <dt>Changed</dt><dd>The evidence proves this sequence: PR #254 completed its exact-range CodeRabbit review, then PR #255 invocation <code>3ea35fcd-8096-47e6-8783-4220ab146d37</code> returned <q>Review finished</q> while reused summary comment <code>5003828184</code> refreshed to a 54-minute retry and the reviews API contained zero submitted reviews. The evidence does not by itself prove that PR #254 caused or consumed PR #255's allowance; shared repository or organization allowance remains the working inference. F-179's acceptance remains sound: serialize review requests across pull requests and recompute the retry floor from the latest reused-summary update after any repository or organization review activity, because the observed earlier retry floor was no longer reliable regardless of the exact cooldown mechanism.</dd>
+      <dt>Verification</dt><dd>Dash, diff, exact one-file scope, additive HTML tag balance, and protected untracked-file checks pass.</dd>
+      <dt>Assumptions</dt><dd>Shared allowance is an inference to test, not a confirmed causal fact. The reused summary's latest update remains the authoritative retry observation.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is an append-only evidence correction with no product requirement change.</dd>
+      <dt>Followups</dt><dd>No new followup owner or ID. The serialization and retry-floor acceptance on <a href="FOLLOWUPS.html#F-179">F-179</a> remains unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="coderabbit-shared-cooldown-evidence" data-date="2026-07-17">
     <h3>Serialize bot reviews across the shared cooldown</h3>
     <dl>

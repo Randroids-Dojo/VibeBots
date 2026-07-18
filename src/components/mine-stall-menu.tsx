@@ -7,8 +7,8 @@ import {
   useState,
 } from "react";
 import {
+  AVAILABLE_BASE_PART_IDS,
   BASE_PART_CATALOG,
-  BASE_PART_IDS,
   type BasePartId,
   basePartMinimumLevel,
   basePartOwnedCount,
@@ -104,7 +104,7 @@ function HardwareStorePanel({
   return (
     <div>
       <QuantityPicker value={buyQuantity} onChange={setBuyQuantity} />
-      {BASE_PART_IDS.map((partId) => {
+      {AVAILABLE_BASE_PART_IDS.map((partId) => {
         const def = BASE_PART_CATALOG[partId];
         const totalPrice = def.price * buyQuantity;
         const affordable = balance !== null && balance >= totalPrice;

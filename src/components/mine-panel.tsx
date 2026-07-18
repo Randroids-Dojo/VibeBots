@@ -27,7 +27,7 @@ import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import { detectTvMode } from "@/lib/tv-device";
 import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
-  BASE_PART_IDS,
+  AVAILABLE_BASE_PART_IDS,
   type BasePartId,
   bunkerCells,
   containsBunkerCell,
@@ -2970,7 +2970,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return;
       }
       const slot = Number(event.key) - 1;
-      const partId = BASE_PART_IDS[slot];
+      const partId = AVAILABLE_BASE_PART_IDS[slot];
       if (!partId) return;
       event.preventDefault();
       if (activeBunkerInventory[partId] <= 0) return;

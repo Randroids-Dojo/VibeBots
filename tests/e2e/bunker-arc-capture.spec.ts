@@ -129,7 +129,21 @@ test("bunker arc capture run", async ({ page }) => {
   await page.waitForTimeout(600);
   await shot("02-claim-steelworks");
 
-  await page.getByRole("button", { name: "Open bunker status" }).click();
+  // Standing inside the claim, the sheet opens through first person
+  // (F-119 fold): the fp Bunker button drops back out with it open.
+  const openSheetFromClaim = async () => {
+    await page.getByTestId("bunker-fp-enter").click();
+    await expect(page.getByLabel("Mine status")).toHaveAttribute(
+      "data-fp-mode",
+      "1",
+    );
+    await page.getByTestId("bunker-fp-status").click();
+    await expect(page.getByLabel("Mine status")).toHaveAttribute(
+      "data-fp-mode",
+      "0",
+    );
+  };
+  await openSheetFromClaim();
   const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toBeVisible();
   await page.waitForTimeout(400);
@@ -150,7 +164,7 @@ test("bunker arc capture run", async ({ page }) => {
   await page.waitForTimeout(600);
   await shot("05-skin-verdant-world");
 
-  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await openSheetFromClaim();
   await expect(builder).toBeVisible();
   await picker.getByRole("button", { name: "Gilded (120v)" }).click();
   await expect(picker.getByRole("button", { name: "Gilded" })).toHaveAttribute(

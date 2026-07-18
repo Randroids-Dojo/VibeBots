@@ -1272,9 +1272,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   );
   // A fresh scene load starts unpainted again (canvas remounts via
   // retryMineSceneLoad also pass through status "loading", so one reset
-  // covers both). The compile gate guarantees frames within its deadline;
-  // the 2x-deadline fallback means a stalled first-frame signal can never
-  // trap the loading veil on screen.
+  // covers both). The probe's first-frame signal waits for a frame that
+  // drew real content (not just its sentinel), so on a slow device it can
+  // trail the compile-gate deadline; the 2x-deadline fallback stays as
+  // the ceiling so a stalled signal can never trap the veil on screen.
   useEffect(() => {
     if (mineSceneStatus !== "ready") {
       setMineCanvasPainted(false);
@@ -1393,6 +1394,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // with its own forfeit/exit lifecycle, so nothing raid-related gates this now.
   const fpBunkerAllowed =
     Boolean(activeBunker) && !terminalMineState && !bunkerLayoutIncompatible;
+  // THE build entry point: the floating Enter bunker pill shows while
+  // the miner stands inside an editable claim, and it REPLACES the
+  // collapsed Bunker status trigger in that state (one bunker button at
+  // a time, F-119 fold; the sheet is reached through the fp view's
+  // Bunker button instead). Shares the fpBunkerAllowed gate with the
+  // forced-exit effect so the two never drift.
+  const fpEnterTriggerVisible =
+    fpBunkerAllowed &&
+    activeBunker !== null &&
+    containsBunkerCell(activeBunker.footprint, miner.col, miner.row);
   const selectedBasePart: BasePartId =
     bunkerToolSelection &&
     bunkerToolSelection !== "pry" &&
@@ -2799,6 +2810,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineCanvasPainted(false);
   }, []);
 
+  // The fp HUD's Bunker button: one tap out of first person straight
+  // into the status sheet (repair, skins, reset). The flat view no
+  // longer shows the collapsed trigger while the miner stands in the
+  // claim, so this is the sheet's only doorway from inside.
+  const openStatusFromFp = useCallback(() => {
+    exitFpBunker();
+    setBunkerPanelOpen(true);
+  }, [exitFpBunker]);
+
   // Open the cargo bag from inside first person. Releasing the pointer
   // lock frees the cursor for the panel; the keyboard and tool-key
   // effects detach while the bag is open (they gate on bagPanelOpen), and
@@ -3651,6 +3671,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onSelectPick={selectFpPick}
           onTogglePry={toggleFpPry}
           onOpenBag={openBagFromFp}
+          onOpenStatus={openStatusFromFp}
           onExit={exitFpBunker}
           onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
           raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
@@ -4363,27 +4384,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           // server hard-reset route.
           onStartFresh={() => void startFreshBankedBunker()}
           onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
+          entryButtonVisible={fpEnterTriggerVisible}
         />
       )}
-      {/* THE build entry point: the hammer toolbelt retired, so a
-          single floating button enters the first-person builder while
-          the miner stands inside an editable claim. Shares the same
-          fpBunkerAllowed gate as the forced-exit effect so the two never
-          drift; activeBunker stays for the footprint narrowing below. */}
-      {!fpBunkerActive &&
-        fpBunkerAllowed &&
-        activeBunker &&
-        containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
-          <button
-            type="button"
-            className="bunker-fp-enter-trigger"
-            data-testid="bunker-fp-enter"
-            aria-label="Enter bunker"
-            onClick={enterFpBunker}
-          >
-            Enter bunker
-          </button>
-        )}
+      {/* THE build entry point: a single floating button enters the
+          first-person builder while the miner stands inside an editable
+          claim. It takes the collapsed status trigger's slot (the
+          trigger hides via entryButtonVisible), so exactly one bunker
+          pill is on screen at a time. */}
+      {!fpBunkerActive && fpEnterTriggerVisible && (
+        <button
+          type="button"
+          className="bunker-fp-enter-trigger"
+          data-testid="bunker-fp-enter"
+          aria-label="Enter bunker"
+          onClick={enterFpBunker}
+        >
+          Enter bunker
+        </button>
+      )}
       {!elevatorPlacementMode && stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}

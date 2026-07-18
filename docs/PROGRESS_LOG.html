@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="first-paint-gate-and-bunker-button-fold" data-date="2026-07-18">
+    <h3>Hold the loading animation until pixels land, and fold the bunker buttons to one</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/load-animation-hud-overlap-3sefcn</code></dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Two fixes from an iPhone playtest screenshot (depth 22, mid-session load). (1) The <q>Opening the shaft</q> notice and veil dismissed onto a still-black canvas: the first-frame signal fired on the first <code>onAfterRender</code>, but frames can start before the async pipeline warm-up finishes (the compile gate deadline is a fallback), and those early frames draw only the probe's invisible sentinel. <code>CanvasDrawCallProbe</code> now runs a pure per-frame gate (<code>advanceFirstFrameGate</code>): wait for a frame whose draw count beats the sentinel's own draw, wait one more frame so that content is submitted, then resolve the WebGPU <code>onSubmittedWorkDone</code> fence (when a queue exists) before firing; the panel's 2x-deadline fallback stays as the anti-trap ceiling. Covers the mine and fp bunker canvases. (2) The flat view stacked <q>Bunker</q> + <q>Enter bunker</q> pills and the lower pill overlapped the wrapped ladder chip: standing inside an editable claim now shows only the Enter pill in the trigger's slot (bottom 154px) via <code>entryButtonVisible</code>, and a new fp HUD <q>Bunker</q> button (under Exit) exits to the flat view with the status sheet already open, so Repair/Skins/Reset stay one tap away (F-119 step 2, the fold). Boxed-in hint and tutorial closer copy repointed.</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean (2 pre-existing warnings in untouched files), full type-check, full unit suite green (1713, including the new gate tests). Production build; reworked e2es run locally against it: the old-layout Start-fresh flow, the pending-claim reset two-step (both through the new fp doorway), the one-button invariant test, and the skin-repaint flow. The capture-only bunker-arc driver was repointed the same way (not CI-run).</dd>
+      <dt>Assumptions</dt><dd>Kept the collapsed <q>Bunker</q> trigger everywhere outside the claim (it is the only bunker button there). Chose exit-to-sheet for the fp Bunker button rather than overlaying the sheet inside first person, so the F-119 monitoring hazard (Reset invalidating geometry under a live fp canvas) cannot arise. No package bump or release note (control de-duplication plus loading polish, same call as PR #217); Rule 13 tips reviewed with no change needed, Rule 14 no new stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed. Build-log entries appended to <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/08-base-building.html</code>.</dd>
+      <dt>Followups</dt><dd>F-119 progress recorded (step 2, the fold). No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-restore-e2e-stability-2" data-date="2026-07-18">
     <h3>Slow the restored elevator ride further so it survives CI's renderer</h3>
     <dl>

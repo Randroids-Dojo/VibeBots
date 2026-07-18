@@ -1166,6 +1166,58 @@ describe("bunker part wrappers with depth", () => {
     expect(writes.length).toBeGreaterThan(0);
     expect(writes[0]).toContain('"depth":3');
   });
+
+  it("persists a thin part's slot through the wrapper (F-117)", async () => {
+    const writes: string[] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 4, width: 7, height: 5 },
+              parts: [],
+              // Two adjacent open cells so the +x wall face is unambiguous.
+              dug: [
+                { col: 2, row: 5, depth: 3 },
+                { col: 3, row: 5, depth: 3 },
+              ],
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return [{ part_id: "wall-panel", count: 2 }];
+        }
+        if (query.includes("UPDATE bunkers")) {
+          writes.push(values.map(String).join("|"));
+          return [{ player_id: "player-1" }];
+        }
+        if (query.includes("INSERT INTO player_base_parts")) return [];
+        return [];
+      },
+    );
+
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      2,
+      5,
+      3,
+      "wall-px",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(writes.length).toBeGreaterThan(0);
+    // The wall persists on a wall slot (canonical face), not as a whole-cell
+    // legacy part, proving the wrapper forwarded the slot to the sim.
+    expect(writes[0]).toContain('"slot":"wall');
+  });
 });
 
 describe("banked edit revision guard (F-122)", () => {
@@ -1218,6 +1270,7 @@ describe("banked edit revision guard (F-122)", () => {
       1,
       1,
       0,
+      undefined,
       3,
     );
     expect(result.ok).toBe(true);
@@ -1235,6 +1288,7 @@ describe("banked edit revision guard (F-122)", () => {
       1,
       1,
       0,
+      undefined,
       3,
     );
     expect(result.ok).toBe(false);
@@ -1256,6 +1310,7 @@ describe("banked edit revision guard (F-122)", () => {
       1,
       1,
       0,
+      undefined,
       3,
     );
     expect(result.ok).toBe(false);

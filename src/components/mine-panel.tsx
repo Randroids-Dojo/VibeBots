@@ -331,6 +331,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person, hold the pick and drag your aim to mine claim rock cell after cell. Parts place at the crosshair; pry returns them to your pack.",
+  "Tip: Aim a wall, floor, or roof at a surface to build it as a thin panel on that exact face. Corner a cell with two walls, or line a room without filling it.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
@@ -2888,10 +2889,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           return;
         }
         // F-099 auto-stow: the pry returns the part straight to
-        // inventory so the next pry can follow immediately.
+        // inventory so the next pry can follow immediately. Pry the exact
+        // slot of the part found at the cell so a thin wall comes out, not a
+        // whole-cell match (F-117); the sim canonicalizes the wall face.
         commit(
-          () => removePendingBunkerPart(col, row, depth),
-          () => removeBunkerPart(col, row, depth),
+          () => removePendingBunkerPart(col, row, depth, part.slot),
+          () => removeBunkerPart(col, row, depth, part.slot),
           "clang",
         );
         return;
@@ -2902,9 +2905,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         feedback(false, "plank");
         return;
       }
+      // The slot the canvas aimed at (F-117); absent for a mount or a legacy
+      // whole-cell placement.
       commit(
-        () => placePendingBunkerPart(partId, col, row, depth),
-        () => placeBunkerPart(partId, col, row, depth),
+        () => placePendingBunkerPart(partId, col, row, depth, intent.slot),
+        () => placeBunkerPart(partId, col, row, depth, intent.slot),
         "plank",
       );
     },

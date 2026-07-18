@@ -61,6 +61,11 @@ export interface BasePartDef {
   blocksClankers: boolean;
   ammo?: number;
   stepDamage?: number;
+  /** Fully modeled but not yet offered: hidden from the shop, the build
+   * hotbar, and the buy path until its mechanic ships. Keeps the part in
+   * BASE_PART_IDS (so schemas, geometry, and the type stay complete) while
+   * keeping it out of every player-facing enumeration. */
+  comingSoon?: boolean;
 }
 
 export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
@@ -121,8 +126,20 @@ export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
     price: 12,
     durability: 70,
     blocksClankers: false,
+    // Hidden until the climb ships (F-117 staircase arc). A placeable but
+    // unclimbable stair reads as broken, so it stays out of the shop and
+    // hotbar even though it is fully modeled.
+    comingSoon: true,
   },
 };
+
+/** The parts a player can currently obtain and use: BASE_PART_IDS minus the
+ * ones still flagged comingSoon. Every player-facing enumeration (the shop
+ * list, the build hotbar, the number-key selection) iterates this, so a
+ * modeled-but-unshipped part never appears as a buyable or selectable slot.
+ * Schemas, geometry, and persistence keep using the complete BASE_PART_IDS. */
+export const AVAILABLE_BASE_PART_IDS: readonly BasePartId[] =
+  BASE_PART_IDS.filter((id) => !BASE_PART_CATALOG[id].comingSoon);
 
 export type BasePartInventory = Record<BasePartId, number>;
 
@@ -579,10 +596,13 @@ export function canBuyBasePart(
   | { ok: true }
   | {
       ok: false;
-      reason: "level" | "limit";
+      reason: "level" | "limit" | "unreleased";
       minLevel?: number;
       limit?: number;
     } {
+  if (BASE_PART_CATALOG[partId].comingSoon) {
+    return { ok: false, reason: "unreleased" };
+  }
   const minLevel = basePartMinimumLevel(partId);
   if (playerLevel < minLevel) {
     return { ok: false, reason: "level", minLevel };

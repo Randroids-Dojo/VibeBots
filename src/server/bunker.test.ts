@@ -486,6 +486,28 @@ describe("bunker server helpers", () => {
       ),
     ).toBe(false);
   });
+
+  it("rejects a comingSoon part buy even at high level, spending nothing (F-117 stair)", async () => {
+    const sql = makeBuySql({ defenseXp: 100_000 });
+
+    const result = await buyBasePart(
+      sql as never,
+      "player-1",
+      "stair-panel",
+      1,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: "part not available yet",
+    });
+    expect(
+      sql.mock.calls.some(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("bunker depth normalization", () => {

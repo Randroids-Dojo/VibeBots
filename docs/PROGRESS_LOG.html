@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="hide-unreleased-staircase" data-date="2026-07-18">
+    <h3>Hide the unreleased staircase from the shop and hotbar</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/hide-unreleased-staircase</code></dd>
+      <dt>PR</dt><dd>(pending). Bug fix for PR #266, no package bump.</dd>
+      <dt>Changed</dt><dd>The previous slice claimed the new <code>stair-panel</code> was "invisible," but adding it to <code>BASE_PART_IDS</code> surfaced it in three player-facing places that enumerate that array: the shop's <code>HardwareStorePanel</code> rendered a buyable "Staircase for 12 vibes" row, the first-person build hotbar rendered a 7th slot (disabled at 0 stock but live once bought), and the number-key handler plus the buy/place route enums accepted it. So production briefly let a player buy and place a staircase that renders but cannot be climbed. This fix adds a real release gate: a <code>comingSoon</code> flag on the catalog entry, an exported <code>AVAILABLE_BASE_PART_IDS</code> (<code>BASE_PART_IDS</code> minus comingSoon), and every player-facing enumeration (shop list, fp hotbar, fp total-stock nudge, number-key selection) switched to it. <code>canBuyBasePart</code> returns a new <code>unreleased</code> reason before the level/stock checks, and the <code>buyBasePart</code> server wrapper maps it to a 409 "part not available yet", so a crafted request cannot buy it either. <code>BASE_PART_IDS</code> stays the complete set for schemas, geometry, and persistence; dropping the flag when the climb ships re-exposes the part everywhere at once.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. New sim test (flag set, <code>AVAILABLE_BASE_PART_IDS</code> excludes the stair and equals the filtered set, every available part unflagged, <code>canBuyBasePart</code> rejects it as <code>unreleased</code> at level 99) and a server test (<code>buyBasePart</code> 409s with no <code>UPDATE players</code>). Full unit suite green (1713).</dd>
+      <dt>Assumptions</dt><dd>The heavy player-facing UIs (<code>HardwareStorePanel</code>, fp hotbar) read the zustand bunker store, so the release gate is pinned by the sim/server unit tests rather than a store-seeding render test; the wiring is a one-line swap to <code>AVAILABLE_BASE_PART_IDS</code> at each of the four call sites. Lesson recorded: adding a part id is NOT invisible, because the shop, hotbar, and buy/place enums all enumerate <code>BASE_PART_IDS</code>.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. No REQ row change (REQ-046 stays <code>partial</code>). No version bump (the buggy part was never in a release note). Rule 13: no version bump, no tip change. Rule 14: no new stamp.</dd>
+      <dt>Followups</dt><dd>The staircase arc continues in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log: placement (fp full-depth geometry, orientation control, place-route + persistence wire, starter grant, then dropping the <code>comingSoon</code> flag), then the movement climb, then full-cell retirement (which closes Q-026).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-staircase-datamodel" data-date="2026-07-18">
     <h3>Add the staircase part to the bunker data model</h3>
     <dl>

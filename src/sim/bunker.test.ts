@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  AVAILABLE_BASE_PART_IDS,
   allowedBunkerSlots,
   applyBunkerRepairs,
   applyBunkerReset,
   applyBunkerStartFresh,
   BASE_PART_CATALOG,
+  BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
@@ -241,6 +243,23 @@ describe("bunker vertical slice sim", () => {
         1,
       ),
     ).toEqual({ ok: true });
+  });
+
+  it("hides a comingSoon part from every obtainable-part path (F-117 stair)", () => {
+    // The staircase is fully modeled but flagged comingSoon until the climb
+    // ships, so it must not appear anywhere a player picks a part.
+    expect(BASE_PART_CATALOG["stair-panel"].comingSoon).toBe(true);
+    expect(AVAILABLE_BASE_PART_IDS).not.toContain("stair-panel");
+    expect(AVAILABLE_BASE_PART_IDS).toEqual(
+      BASE_PART_IDS.filter((id) => !BASE_PART_CATALOG[id].comingSoon),
+    );
+    for (const id of AVAILABLE_BASE_PART_IDS) {
+      expect(BASE_PART_CATALOG[id].comingSoon).toBeFalsy();
+    }
+    // The buy gate rejects it regardless of level or stock.
+    expect(
+      canBuyBasePart("stair-panel", 99, null, STARTER_BASE_PART_INVENTORY, 1),
+    ).toEqual({ ok: false, reason: "unreleased" });
   });
 
   it("uses only collected defense XP for overall player level", () => {

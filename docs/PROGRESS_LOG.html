@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-restore-e2e-stability-2" data-date="2026-07-18">
+    <h3>Slow the restored elevator ride further so it survives CI's renderer</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/post-elevator</code></dd>
+      <dt>PR</dt><dd>(pending). Test-only follow-up to the previous entry, no package bump.</dd>
+      <dt>Changed</dt><dd>The first stabilization pass (700ms ride hook) passed locally but the two restore tests still failed on CI's slow software renderer: the DOM showed the ascent already at the surface (<code>data-elevator-phase="boarded"</code>, <code>data-depth="0"</code>) before the direction/checkpoint assertions ran, because a reload or dialog-dismiss cycle on CI outlasts a ~2s ascent. This pass makes the restored ascent last far longer than any CI async cycle: the ride hook is now 1800ms, the upward test's rail is deepened to 48 and its persisted descent rides all the way to the bottom (48/6 = 8 rides, so the car is <code>boarded</code>) before the reversing ride-up (fewer ride-downs left the car mid-descent, which blocked the ride-up and sent the restore back DOWN, a bug the shallow 20-row rail masked). The upward test also dismisses the release-note dialog up front instead of mid-ascent, and its ride timeouts widen to 15-40s to match the slower ride; the repeated-ascent test's final bank poll widens to 45s. No product change (the guarded hook shipped in the prior PR).</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0. Both restore tests pass three consecutive local runs (~25s and ~44s each); the whole <code>mine-warp-elevator</code> spec was already 15/15 apart from these two.</dd>
+      <dt>Assumptions</dt><dd>An 1800ms ride keeps each ascent well above CI's reload/dismiss latency while staying inside the widened per-assertion and per-test timeouts. The persisted descent must reach the rail bottom for a valid reversing ride-up (the sim blocks a direct <code>riding-down</code> to <code>riding-up</code> switch).</dd>
+      <dt>GDD coverage</dt><dd>No row change: CI/test hardening. Rule 13/14: no player-facing change.</dd>
+      <dt>Followups</dt><dd>None new. Completes the elevator restore full-E2E stabilization (RULE 5 step 3).</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-restore-e2e-stability" data-date="2026-07-18">
     <h3>Stabilize the elevator restore and shaft-buy full-E2E tests</h3>
     <dl>

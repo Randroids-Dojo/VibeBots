@@ -1254,7 +1254,9 @@ test("recall cancels an active elevator ride and its local timer", async ({
 test("a restored upward elevator ride continues to the surface", async ({
   page,
 }) => {
-  const railDepth = 20;
+  // The deep rail plus the deliberately slowed ride runs long.
+  test.setTimeout(120_000);
+  const railDepth = 48;
   const gear = {
     ...DEFAULT_GEAR,
     elevator: railDepth,
@@ -1293,42 +1295,47 @@ test("a restored upward elevator ride continues to the surface", async ({
       gear,
       consumables: STARTING_CONSUMABLES,
       baseDiff,
+      // Ride all the way to the bottom (48 / 6 = 8 rides reach it, so the ride
+      // completes and the car is boarded), then start back up: the persisted
+      // state is a deep mid-ascent, long enough to observe even on a slow
+      // runner. Fewer ride-downs would leave the car mid-descent, which blocks
+      // the reversing ride-up.
       moves: [
         "down",
-        "ride-down",
-        "ride-down",
-        "ride-down",
-        "ride-down",
+        ...Array.from({ length: 8 }, () => "ride-down"),
         "ride-up",
       ],
     },
   );
-  // Slow the automatic ride so the resumed ascent stays observable rather than
-  // reaching the surface inside a single poll interval on a fast runner.
+  // Slow the automatic ride a lot so the restored ascent lasts well beyond any
+  // reload or dialog-dismiss cycle (CI's software renderer is slow), instead of
+  // reaching the surface before the test can observe a mid-ride state.
   await page.addInitScript(() => {
     (
       window as Window & { __vibebotsElevatorAutoDelayMs?: number }
-    ).__vibebotsElevatorAutoDelayMs = 700;
+    ).__vibebotsElevatorAutoDelayMs = 1_800;
   });
   await installMineMotionProbe(page);
 
   await page.goto("/mine");
+  // Clear the release-note dialog up front so it cannot race the ride
+  // assertions (dismissing it mid-ascent once let a short ride finish first).
+  await dismissReleaseNotes(page);
   const status = page.getByLabel("Mine status");
   const canvas = page.locator("canvas");
   await expect(status).toHaveAttribute("data-elevator-stage", "riding", {
-    timeout: 10_000,
+    timeout: 15_000,
   });
-  await dismissReleaseNotes(page);
   await expect(status).toHaveAttribute("data-elevator-riding", "ride-up", {
-    timeout: 10_000,
+    timeout: 15_000,
   });
   const resumedFrameA = await canvas.screenshot();
   await expect(status).toHaveAttribute("data-depth", "0", {
-    timeout: 10_000,
+    timeout: 40_000,
   });
   await expect
     .poll(async () => Number(await canvas.getAttribute("data-miner-y")), {
-      timeout: 10_000,
+      timeout: 40_000,
     })
     .toBeGreaterThan(-0.2);
   const resumedFrameB = await canvas.screenshot();
@@ -1448,12 +1455,12 @@ test("a repeatedly restored elevator ascent banks its exact action log once", as
       moves: initialMoves,
     },
   );
-  // Slow the automatic ride so each mid-ascent reload lands on a distinct
-  // checkpoint instead of the ascent finishing inside one reload cycle.
+  // Slow the automatic ride a lot so each mid-ascent reload lands on a distinct
+  // checkpoint, well before the ascent finishes even on CI's slow renderer.
   await page.addInitScript(() => {
     (
       window as Window & { __vibebotsElevatorAutoDelayMs?: number }
-    ).__vibebotsElevatorAutoDelayMs = 700;
+    ).__vibebotsElevatorAutoDelayMs = 1_800;
   });
 
   await page.goto("/mine");
@@ -1533,7 +1540,8 @@ test("a repeatedly restored elevator ascent banks its exact action log once", as
   expect(new Set(checkpointDepths).size).toBe(2);
   expect(new Set(checkpointTrips).size).toBe(2);
 
-  await expect.poll(() => bankRequests, { timeout: 10_000 }).toBe(1);
+  // The slowed final ascent to the surface takes longer to reach the bank.
+  await expect.poll(() => bankRequests, { timeout: 45_000 }).toBe(1);
   expect(bankMoves).toEqual(expectedBankMoves);
   await expect(status).toHaveAttribute("data-depth", "0");
   await expect(status).toHaveAttribute("data-elevator-riding", "");

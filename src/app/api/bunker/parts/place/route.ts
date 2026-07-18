@@ -4,7 +4,7 @@ import {
   withPlayerJsonRoute,
 } from "@/server/api-boundary";
 import { placeBunkerPart } from "@/server/bunker";
-import { BASE_PART_IDS, BUNKER_CLAIM_DEPTH } from "@/sim/bunker";
+import { BASE_PART_IDS, BUNKER_CLAIM_DEPTH, BUNKER_SLOTS } from "@/sim/bunker";
 
 export const runtime = "nodejs";
 
@@ -18,6 +18,9 @@ const bodySchema = z.object({
     .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1)
     .default(0),
+  // Thin sub-cell slot (F-117). Absent for a legacy whole-cell placement; the
+  // sim enforces which slots each part may occupy and the structural rules.
+  slot: z.enum(BUNKER_SLOTS).optional(),
   expectedRevision: z.number().int().nonnegative().optional(),
 });
 
@@ -34,6 +37,7 @@ export async function POST(request: Request): Promise<Response> {
           body.col,
           body.row,
           body.depth,
+          body.slot,
           body.expectedRevision,
         ),
         (result) => result.view,

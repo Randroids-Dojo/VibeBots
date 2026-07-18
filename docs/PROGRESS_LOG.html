@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-slot-wire" data-date="2026-07-17">
+    <h3>Thread the thin-part slot through the bunker write path and persistence</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-slot-wire</code></dd>
+      <dt>PR</dt><dd>(pending). Server + client wiring, no package bump, no player-facing change (inert until the fp builder emits slots).</dd>
+      <dt>Changed</dt><dd>Made the whole bunker part write path and persistence slot-aware so a thin part can be placed, banked, saved, and read back on its exact sub-cell slot (F-117). The pure sim <code>placeBasePart</code>/<code>removeBasePart</code> already accepted <code>slot</code> and the jsonb writes already carried it via <code>JSON.stringify</code>, so the gaps were all input, validation, param threading, and equality. Threaded an optional <code>slot</code> (absent for legacy whole-cell parts) through: the place/remove route schemas and their <code>placeBunkerPart</code>/<code>removeBunkerPart</code> wrappers (forwarded to the sim); <code>parseBunkerState</code> via a new <code>normalizedBunkerSlot</code> guard mirroring <code>normalizedBunkerDepth</code> (a stored malformed slot reads as a legacy whole-cell part); the bank claim path (<code>placedBasePartSchema</code>, <code>samePlacedParts</code>, and the <code>validatePendingBunkerClaim</code> replay); the local-restore schema via <code>legacyPartSlot</code> mirroring <code>legacyPartDepth</code>; and the client actions (<code>placeRemoteBunkerPart</code>/<code>removeRemoteBunkerPart</code>, bunker-store <code>placePart</code>/<code>removePart</code>, mine-store <code>placePendingBunkerPart</code>/<code>removePendingBunkerPart</code>). Move stays whole-cell (deferred with the relocate-UI slice).</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. New tests: two route slot-forwarding assertions (place + remove) plus updated call-arg pins, an api-client body assertion, a bunker-store forward assertion, a server wrapper slot-persistence test, a bank corner-claim test banking two thin walls sharing one cell by their exact slots, and a local-restore test that keeps a valid slot and coerces a malformed one. Full unit suite green (1694).</dd>
+      <dt>Assumptions</dt><dd>The wire <code>slot</code> is validated against the known slot set (or coerced to undefined on the persistence read paths); the server's structural rules and the snapshot identity match remain the real bound. Move relocation of a thin part is out of scope until the UI can relocate one.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. REQ-046 stays <code>partial</code>. Q-026 stays <code>open</code>: persistence is slot-ready, but the fp builder still emits whole-cell parts, so legacy building continues until the fp slot-targeting slice.</dd>
+      <dt>Followups</dt><dd>None new. The remaining F-117 slices (fp slot targeting + thin geometry, which also closes Q-026; rotate control + stair part; full-cell retirement) stay tracked in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-raid-slot-wear" data-date="2026-07-17">
     <h3>Wear live-raid parts by slot so two thin walls in a cell settle apart</h3>
     <dl>

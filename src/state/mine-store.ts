@@ -4,6 +4,7 @@ import {
   applyBunkerReset,
   type BasePartId,
   type BunkerFootprint,
+  type BunkerSlot,
   bunkerCells,
   createBunker,
   excavateBunkerCell,
@@ -426,11 +427,13 @@ export interface MineSessionState {
     col: number,
     row: number,
     depth?: number,
+    slot?: BunkerSlot,
   ) => boolean;
   removePendingBunkerPart: (
     col: number,
     row: number,
     depth?: number,
+    slot?: BunkerSlot,
   ) => boolean;
   movePendingBunkerPart: (
     fromCol: number,
@@ -1539,7 +1542,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    placePendingBunkerPart: (partId, col, row, depth = 0) => {
+    placePendingBunkerPart: (partId, col, row, depth = 0, slot) => {
       const pending = get().pendingBunker;
       if (!pending || get().cashOut.state === "pending") return false;
       const placed = placeBasePart(
@@ -1549,6 +1552,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         col,
         row,
         depth,
+        slot,
       );
       if (!placed.ok) return false;
       set({
@@ -1562,7 +1566,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    removePendingBunkerPart: (col, row, depth = 0) => {
+    removePendingBunkerPart: (col, row, depth = 0, slot) => {
       const pending = get().pendingBunker;
       if (!pending || get().cashOut.state === "pending") return false;
       const removed = removeBasePart(
@@ -1571,6 +1575,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         col,
         row,
         depth,
+        slot,
       );
       if (!removed.ok) return false;
       set({

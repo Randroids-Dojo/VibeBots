@@ -456,7 +456,16 @@ describe("banked edit concurrency (F-122)", () => {
 
     await useBunkerStore.getState().placePart("wall-panel", 7, 4, 0);
 
-    expect(mockedPlace.mock.calls[0]).toEqual(["wall-panel", 7, 4, 0, 2]);
+    // A legacy whole-cell placement passes no slot (undefined) ahead of the
+    // guarding revision (F-117).
+    expect(mockedPlace.mock.calls[0]).toEqual([
+      "wall-panel",
+      7,
+      4,
+      0,
+      undefined,
+      2,
+    ]);
     expect(useBunkerStore.getState().revision).toBe(3);
   });
 

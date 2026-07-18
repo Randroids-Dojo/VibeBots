@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-fp-thin-geometry" data-date="2026-07-17">
+    <h3>Build thin wall, floor, and roof panels on the aimed face in first person</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fp-thin-geometry</code></dd>
+      <dt>PR</dt><dd>(pending). First player-visible thin-part slice; package bumped to 0.1.274.</dd>
+      <dt>Changed</dt><dd>The first VISIBLE slice of the F-117 thin/rotatable build kit: aiming a wall, floor, or roof at a surface in first person now builds a thin panel on that exact face instead of filling the cell. Added thin geometry variants (<code>bunker-fp-part-geometry.ts</code>, a slab centered in a canonical axis selected by a <code>thin</code> flag), a pure face-to-slot resolver <code>fpPlacementSlot</code> (<code>bunker-fp-raycast.ts</code>, out-param, gated by <code>allowedBunkerSlots</code>), a <code>fpSlotRenderTransform</code> and a <code>slot</code> on <code>FpEditIntent</code> (<code>bunker-fp-grid.ts</code>), and canvas wiring: placed parts render on their slot's face (nested offset+rotation group, slot in the key so a corner's two walls stay distinct), a two-mesh ghost that previews the thin panel on a matching face and the full block on a whole-cell fallback, the emitted place intent carries the slot, a new <code>data-fp-slot</code> probe, and the pry path removes the exact slot of the part at the cell. The placement decision is recomputed only on an aimed-face or selected-part change, so the frame loop still allocates nothing in steady state. Aiming a sealing part where the face offers no slot falls back to the old whole-cell placement, so nothing existing changes; movement/raycast stay cell-granular.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. 14 new unit tests (thin geometry bounds/axis/caps/cache, <code>fpPlacementSlot</code> face mapping, <code>fpSlotRenderTransform</code>) plus an archived-note release test; full unit suite green (1709). New fp e2e places a thin wall on the depth face and asserts <code>data-fp-slot</code>, the persisted <code>slot</code>, and a screenshot-diff render proof; the pre-existing building-loop fp e2e still passes via the whole-cell fallback. The remaining fp-matrix tests fail on this single-worker machine for pre-existing environment reasons (confirmed identical on clean <code>main</code>); CI shards the matrix. Frame-loop additions are allocation-gated (verified by inspection; the heap-churn fp scenario is blocked by the same local enter-flow env issue, so real-device telemetry confirms post-deploy).</dd>
+      <dt>Assumptions</dt><dd>Whole-cell fallback for a sealing part aimed at a non-matching face is the accepted interim (the full-cell-retirement slice makes placement strict and closes Q-026). Cell-granular movement/raycast (a thin wall closes its whole cell) is the interim; edge-precise solidity is a later slice. Move relocation of a thin part stays deferred.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. REQ-046 stays <code>partial</code>. Q-026 stays <code>open</code> (whole-cell fallback still allowed until retirement). Rule 13: added a thin-panel build tip. Rule 14: no new stamp (mechanic still evolving; a bunker-building-mastery stamp fits once the kit is complete).</dd>
+      <dt>Followups</dt><dd>None new. The remaining F-117 slices (rotate control + stair part, then full-cell retirement which closes Q-026) stay tracked in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log. A thin-panel art polish (Fable 5) and edge-precise cell solidity are candidate follow-ups noted there.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-slot-wire" data-date="2026-07-17">
     <h3>Thread the thin-part slot through the bunker write path and persistence</h3>
     <dl>

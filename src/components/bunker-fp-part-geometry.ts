@@ -202,6 +202,123 @@ const FP_BUILDERS: Partial<Record<BasePartId, (ctx: BuildContext) => void>> = {
   "door-panel": buildFpDoor,
 };
 
+/**
+ * Thin sub-cell variants (F-117). A thin part fills one face or plane of
+ * the cell, not the whole room, so a corner can hold two walls and a room
+ * can be capped without filling it. Each panel is built CENTERED in a
+ * canonical thin axis: wall and door thin in z (a slab facing the corridor),
+ * floor and roof thin in y (a deck). The canvas rotates and offsets the
+ * whole group onto the target face (fpSlotRenderTransform), so one geometry
+ * serves all of a part's slots. Extents stay within +-0.5 like the full-cell
+ * parts, and the slab is 0.08 thick so it reads as a panel, not cardboard.
+ */
+const FP_SLAB_T = 0.08;
+const FP_SLAB_SPAN = 0.94;
+
+/** Dark rim groove around a thin slab's four in-plane edges, so a panel
+ * reads as framed steel and two coplanar panels share a continuous seam. */
+function thinRimZ(ctx: BuildContext): void {
+  const e = FP_SLAB_SPAN / 2;
+  box(ctx, "composite", [FP_SLAB_SPAN, 0.06, FP_SLAB_T + 0.008], [0, e, 0]);
+  box(ctx, "composite", [FP_SLAB_SPAN, 0.06, FP_SLAB_T + 0.008], [0, -e, 0]);
+  box(ctx, "composite", [0.06, FP_SLAB_SPAN, FP_SLAB_T + 0.008], [e, 0, 0]);
+  box(ctx, "composite", [0.06, FP_SLAB_SPAN, FP_SLAB_T + 0.008], [-e, 0, 0]);
+}
+
+function thinRimY(ctx: BuildContext): void {
+  const e = FP_SLAB_SPAN / 2;
+  box(ctx, "composite", [FP_SLAB_SPAN, FP_SLAB_T + 0.008, 0.06], [0, 0, e]);
+  box(ctx, "composite", [FP_SLAB_SPAN, FP_SLAB_T + 0.008, 0.06], [0, 0, -e]);
+  box(ctx, "composite", [0.06, FP_SLAB_T + 0.008, FP_SLAB_SPAN], [e, 0, 0]);
+  box(ctx, "composite", [0.06, FP_SLAB_T + 0.008, FP_SLAB_SPAN], [-e, 0, 0]);
+}
+
+function buildThinWall(ctx: BuildContext): void {
+  box(ctx, "shell", [FP_SLAB_SPAN, FP_SLAB_SPAN, FP_SLAB_T], [0, 0, 0]);
+  thinRimZ(ctx);
+  // Plate band and a hazard chevron on both slab faces (corridor-readable).
+  for (const face of [-1, 1] as const) {
+    box(ctx, "composite", [0.72, 0.03, 0.012], [0, 0.11, face * 0.046]);
+    box(
+      ctx,
+      "accent",
+      [0.16, 0.16, 0.02],
+      [0, -0.18, face * 0.046],
+      [0, 0, Math.PI / 4],
+    );
+  }
+}
+
+function buildThinFloor(ctx: BuildContext): void {
+  box(ctx, "shell", [FP_SLAB_SPAN, FP_SLAB_T, FP_SLAB_SPAN], [0, 0, 0]);
+  thinRimY(ctx);
+  // Walkway grate proud of the top deck: rails, slats, warm edge strips.
+  box(ctx, "frame", [0.9, 0.02, 0.07], [0, 0.05, 0.3]);
+  box(ctx, "frame", [0.9, 0.02, 0.07], [0, 0.05, -0.3]);
+  const slats = ctx.tier === "high" ? FP_GRATE_XS_HIGH : FP_GRATE_XS_LOW;
+  for (const x of slats) {
+    box(ctx, "frame", [0.06, 0.02, 0.78], [x, 0.05, 0]);
+  }
+  box(ctx, "accent", [0.9, 0.016, 0.05], [0, 0.052, 0.155]);
+  box(ctx, "accent", [0.9, 0.016, 0.05], [0, 0.052, -0.155]);
+}
+
+function buildThinRoof(ctx: BuildContext): void {
+  box(ctx, "shell", [FP_SLAB_SPAN, FP_SLAB_T, FP_SLAB_SPAN], [0, 0, 0]);
+  thinRimY(ctx);
+  // Work lamp hanging proud of the underside so the warm glow reads below.
+  box(ctx, "frame", [0.36, 0.03, 0.22], [0, -0.05, 0]);
+  box(ctx, "emissive", [0.28, 0.03, 0.15], [0, -0.062, 0]);
+  const fins = ctx.tier === "high" ? FP_FIN_XS_HIGH : FP_FIN_XS_LOW;
+  for (const x of fins) {
+    box(ctx, "frame", [0.05, 0.02, 0.26], [x, 0.05, 0]);
+  }
+}
+
+function buildThinDoor(ctx: BuildContext): void {
+  // A thin frame around a hatch leaf, in the same slab footprint as a wall.
+  box(ctx, "shell", [FP_SLAB_SPAN, 0.18, FP_SLAB_T], [0, -0.38, 0]);
+  box(ctx, "shell", [FP_SLAB_SPAN, 0.22, FP_SLAB_T], [0, 0.36, 0]);
+  box(ctx, "shell", [0.16, FP_SLAB_SPAN, FP_SLAB_T], [-0.39, 0, 0]);
+  box(ctx, "shell", [0.16, FP_SLAB_SPAN, FP_SLAB_T], [0.39, 0, 0]);
+  thinRimZ(ctx);
+  for (const face of [-1, 1] as const) {
+    box(ctx, "emissive", [0.12, 0.04, 0.012], [0.26, 0.29, face * 0.046]);
+  }
+  // The leaf: one dedicated accent layer, future-swingable as a unit.
+  chamferedBox(
+    ctx,
+    "accent",
+    [0.66, 0.56, FP_SLAB_T + 0.02],
+    [0, -0.02, 0],
+    0.05,
+  );
+  const wheelSegments = ctx.tier === "high" ? 12 : 8;
+  for (const face of [-1, 1] as const) {
+    cylinder(
+      ctx,
+      "accent",
+      0.09,
+      0.09,
+      0.02,
+      [0, -0.02, face * 0.05],
+      [Math.PI / 2, 0, 0],
+      wheelSegments,
+    );
+    box(ctx, "accent", [0.2, 0.024, 0.016], [0, -0.02, face * 0.056]);
+    box(ctx, "accent", [0.024, 0.2, 0.016], [0, -0.02, face * 0.056]);
+  }
+}
+
+const FP_THIN_BUILDERS: Partial<
+  Record<BasePartId, (ctx: BuildContext) => void>
+> = {
+  "wall-panel": buildThinWall,
+  "floor-panel": buildThinFloor,
+  "roof-panel": buildThinRoof,
+  "door-panel": buildThinDoor,
+};
+
 const FP_ZERO_ANCHOR = [0, 0, 0] as const;
 
 const cache = new Map<string, BunkerPartGeometry>();
@@ -209,12 +326,16 @@ const cache = new Map<string, BunkerPartGeometry>();
 export function bunkerPartFpGeometry(
   id: BasePartId,
   tier: SurfaceGeometryTier,
+  thin = false,
 ): BunkerPartGeometry {
-  const builder = FP_BUILDERS[id];
+  // A thin sub-cell panel (F-117), built centered in its canonical axis; the
+  // caller rotates and offsets the group onto the target face. Parts with no
+  // thin builder (turret, spikes) fall through to their full model.
+  const builder = thin ? FP_THIN_BUILDERS[id] : FP_BUILDERS[id];
   // Spikes and the turret reuse the 2D cache's exact objects: same
   // geometry, same durability-wilt motion assembly.
   if (!builder) return bunkerPartGeometry(id, tier);
-  const key = `${id}:${tier}`;
+  const key = `${id}:${tier}:${thin ? "thin" : "full"}`;
   const existing = cache.get(key);
   if (existing) return existing;
   const ctx: BuildContext = {

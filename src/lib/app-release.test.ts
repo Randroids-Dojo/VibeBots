@@ -24,21 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fp-spawn note complete", () => {
+  it("keeps the latest thin-walls note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-16-0.1.273-bunker-fp-spawn");
+    expect(release.noticeId).toBe("2026-07-17-0.1.274-bunker-thin-walls");
     expect(latestNote).toMatchObject({
+      version: "0.1.274",
+      title: "Build thin walls on the face you aim at",
+      intro:
+        "Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Point a wall at a side of the cell you are standing in and it goes up as a thin panel on that face, so you can wall off a corner with two panels or line a room without packing it solid. Floors build as a deck on the floor you aim at, roofs as a ceiling overhead.",
+      "Aim a wall at the floor or a spot with no matching face and it still drops in as the old full-cell block, so nothing you already built or the way you used to build changes. Turrets and spikes still fill their cell as before.",
+    ]);
+  });
+
+  it("keeps the archived fp-spawn note complete", () => {
+    const release = getAppRelease();
+    const spawnNote = release.notes.find((note) => note.version === "0.1.273");
+
+    expect(spawnNote).toMatchObject({
       version: "0.1.273",
       title: "Spawn in the room, not inside the wall",
       intro:
         "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
-      "This only changes where you appear when you step inside; your bunker layout, your digging, and your saves are untouched. MINE_VERSION and SIM_VERSION are unchanged.",
-    ]);
   });
 
   it("keeps the archived bunker-ore-backfill note complete", () => {

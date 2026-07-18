@@ -3,6 +3,7 @@ import {
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   type BunkerFootprint,
+  type BunkerSlot,
   type BunkerState,
 } from "@/sim/bunker";
 
@@ -54,6 +55,49 @@ export interface FpEditCell {
 export interface FpEditIntent {
   kind: "place" | "pry" | "dig" | "collect";
   cell: FpEditCell;
+  /** Thin sub-cell slot the action targets (F-117). Absent for a legacy
+   * whole-cell part, a dig, or a collect. On a place it is the face the
+   * player aimed at; the sim canonicalizes a wall to one boundary. */
+  slot?: BunkerSlot;
+}
+
+/** How a thin part renders inside its cell: a small offset toward the target
+ * face plus a Y rotation to swing the canonical panel (built thin in z for
+ * walls/doors, thin in y for floors/roofs) onto that face. Room-local space
+ * is world-aligned at the cell center, and grid depth grows into world -z, so
+ * a +depth wall sits at negative local z. */
+export interface FpSlotRenderTransform {
+  x: number;
+  y: number;
+  z: number;
+  rotY: number;
+}
+
+// Half the cell minus half the 0.08 slab, so the panel's outer face lands on
+// the cell boundary (+-0.5) and two neighbors' panels meet without a gap.
+const FP_SLAB_OFFSET = 0.46;
+
+export function fpSlotRenderTransform(
+  slot: BunkerSlot | undefined,
+): FpSlotRenderTransform {
+  const o = FP_SLAB_OFFSET;
+  switch (slot) {
+    case "wall-px":
+      return { x: o, y: 0, z: 0, rotY: Math.PI / 2 };
+    case "wall-nx":
+      return { x: -o, y: 0, z: 0, rotY: Math.PI / 2 };
+    case "wall-pz":
+      return { x: 0, y: 0, z: -o, rotY: 0 };
+    case "wall-nz":
+      return { x: 0, y: 0, z: o, rotY: 0 };
+    case "floor":
+      return { x: 0, y: -o, z: 0, rotY: 0 };
+    case "roof":
+      return { x: 0, y: o, z: 0, rotY: 0 };
+    default:
+      // mount or legacy whole-cell: dead center, no rotation.
+      return { x: 0, y: 0, z: 0, rotY: 0 };
+  }
 }
 
 /** Maps a room-local cell back to mine-grid coordinates (the inverse

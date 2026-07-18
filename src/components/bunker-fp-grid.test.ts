@@ -25,6 +25,7 @@ import {
   fpCellIndex,
   fpGridCellFromLocal,
   fpLocalFromGrid,
+  fpSlotRenderTransform,
   fpSpawnCell,
 } from "./bunker-fp-grid";
 
@@ -424,6 +425,69 @@ describe("fpGridCellFromLocal", () => {
       col: footprint.col + 3,
       row: footprint.row + footprint.height - 1,
       depth: 0,
+    });
+  });
+});
+
+describe("fpSlotRenderTransform (F-117)", () => {
+  const O = 0.46;
+
+  it("offsets a wall to its face and rotates x-walls onto the x axis", () => {
+    expect(fpSlotRenderTransform("wall-px")).toEqual({
+      x: O,
+      y: 0,
+      z: 0,
+      rotY: Math.PI / 2,
+    });
+    expect(fpSlotRenderTransform("wall-nx")).toEqual({
+      x: -O,
+      y: 0,
+      z: 0,
+      rotY: Math.PI / 2,
+    });
+    // Grid depth grows into world -z, so a +depth wall sits at negative
+    // local z and a -depth wall at positive local z.
+    expect(fpSlotRenderTransform("wall-pz")).toEqual({
+      x: 0,
+      y: 0,
+      z: -O,
+      rotY: 0,
+    });
+    expect(fpSlotRenderTransform("wall-nz")).toEqual({
+      x: 0,
+      y: 0,
+      z: O,
+      rotY: 0,
+    });
+  });
+
+  it("decks a floor at the bottom and a roof at the top, unrotated", () => {
+    expect(fpSlotRenderTransform("floor")).toEqual({
+      x: 0,
+      y: -O,
+      z: 0,
+      rotY: 0,
+    });
+    expect(fpSlotRenderTransform("roof")).toEqual({
+      x: 0,
+      y: O,
+      z: 0,
+      rotY: 0,
+    });
+  });
+
+  it("centers a mount and a legacy whole-cell part", () => {
+    expect(fpSlotRenderTransform("mount")).toEqual({
+      x: 0,
+      y: 0,
+      z: 0,
+      rotY: 0,
+    });
+    expect(fpSlotRenderTransform(undefined)).toEqual({
+      x: 0,
+      y: 0,
+      z: 0,
+      rotY: 0,
     });
   });
 });

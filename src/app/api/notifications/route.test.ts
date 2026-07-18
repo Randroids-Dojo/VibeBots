@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-16-0.1.273-bunker-fp-spawn",
+      releaseNoticeId: "2026-07-17-0.1.274-bunker-thin-walls",
       releaseSummary:
-        "Spawn in the room, not inside the wall: Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
+        "Build thin walls on the face you aim at: Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-16-0.1.273-bunker-fp-spawn",
+      releaseNoticeId: "2026-07-17-0.1.274-bunker-thin-walls",
       attempted: 2,
       sent: 1,
       expired: 1,

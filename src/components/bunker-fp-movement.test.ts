@@ -6,6 +6,10 @@ import {
   FP_ROCK_UNDUG,
   FP_SOLID_PART,
   FP_SPIKES,
+  FP_STAIR_NX,
+  FP_STAIR_NZ,
+  FP_STAIR_PX,
+  FP_STAIR_PZ,
   type FpSolidGrid,
   fpCellIndex,
 } from "./bunker-fp-grid";
@@ -265,5 +269,123 @@ describe("fp movement", () => {
     // unclamped 5s step would smash through the floor bound instantly.
     expect(s.py).toBeGreaterThan(4.5 - FP_CAPSULE_HEIGHT - 0.1);
     expect(Math.abs(s.vy)).toBeLessThanOrEqual(22 * 0.05 + 1e-9);
+  });
+
+  describe("staircase ramp (F-117)", () => {
+    // yaw 0 faces -z, so a -90 deg yaw faces +x and +90 deg faces -x.
+    const walkPX = () => input({ forward: 1, yaw: -Math.PI / 2 });
+    const walkNX = () => input({ forward: 1, yaw: Math.PI / 2 });
+
+    it("climbs one layer walking up the ramp in its facing direction", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX; // ascend +x across cell 4
+      // The upper landing: solid blocks whose tops (0.5) form the next floor.
+      grid[fpCellIndex(5, 0, 0)] = FP_SOLID_PART;
+      grid[fpCellIndex(6, 0, 0)] = FP_SOLID_PART;
+      const s = state({ px: 3.2 });
+      stepMany(s, walkPX(), grid, 240, 1 / 60);
+      // Rose ~one cell from the floor at -0.5 to the landing top at 0.5.
+      expect(s.py).toBeGreaterThan(0.4);
+      expect(s.grounded).toBe(true);
+      expect(s.px).toBeGreaterThan(4.5);
+    });
+
+    it("lifts the feet to the slope height on the ramp incline", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX;
+      // px 3.8 is t 0.3 of the cell; with a 0.6 run that is halfway up.
+      const s = state({ px: 3.8, py: -0.5 });
+      stepFpMovement(s, input(), grid, 1 / 60);
+      expect(s.py).toBeCloseTo(0, 2);
+      expect(s.grounded).toBe(true);
+    });
+
+    it("walks back down the ramp to the lower layer", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX;
+      const s = state({ px: 4.3, py: 0.3 });
+      stepMany(s, walkNX(), grid, 240, 1 / 60);
+      expect(s.py).toBeCloseTo(-0.5, 3);
+      expect(s.grounded).toBe(true);
+      expect(s.px).toBeLessThan(3.5);
+    });
+
+    it("blocks the climb under a solid ceiling without clipping through", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX;
+      grid[fpCellIndex(4, 1, 0)] = FP_SOLID_PART; // no headroom over the stair
+      const s = state({ px: 3.2 });
+      for (let n = 0; n < 240; n++) {
+        stepFpMovement(s, walkPX(), grid, 1 / 60);
+        // The head never penetrates the ceiling cell (its floor is y 0.5).
+        expect(s.py + FP_CAPSULE_HEIGHT).toBeLessThanOrEqual(0.5 + 1e-6);
+      }
+      expect(s.py).toBeLessThan(0); // capped well short of a full-layer climb
+    });
+
+    it("reverses the slope when the orientation flips", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_NX; // ascends toward -x now
+      const s = state({ px: 4.8, py: -0.5 });
+      let apex = s.py;
+      for (let n = 0; n < 120; n++) {
+        stepFpMovement(s, walkNX(), grid, 1 / 60);
+        apex = Math.max(apex, s.py);
+      }
+      // Walking -x rides the reversed ramp up; a +x ramp here would not lift.
+      expect(apex).toBeGreaterThan(0.4);
+    });
+
+    it("climbs along the z axis for a +z-facing stair", () => {
+      // Grid depth +z is world -z, so yaw 0 (facing -z) ascends this stair.
+      const grid = createFpSolidGrid(); // all open
+      grid[fpCellIndex(3, 0, 1)] = FP_STAIR_PZ;
+      grid[fpCellIndex(3, 0, 2)] = FP_SOLID_PART; // deep-side landing
+      grid[fpCellIndex(3, 0, 3)] = FP_SOLID_PART;
+      grid[fpCellIndex(3, 0, 4)] = FP_SOLID_PART;
+      const s = state({ px: 3, pz: 0 });
+      stepMany(s, input({ forward: 1, yaw: 0 }), grid, 240, 1 / 60);
+      expect(s.py).toBeGreaterThan(0.4);
+      expect(s.grounded).toBe(true);
+      expect(-s.pz).toBeGreaterThan(1.5); // advanced deep past the stair
+    });
+
+    it("climbs along the z axis for a -z-facing stair", () => {
+      const grid = createFpSolidGrid();
+      grid[fpCellIndex(3, 0, 2)] = FP_STAIR_NZ; // ascends toward the shallow side
+      grid[fpCellIndex(3, 0, 1)] = FP_SOLID_PART;
+      grid[fpCellIndex(3, 0, 0)] = FP_SOLID_PART;
+      const s = state({ px: 3, pz: -3 });
+      // yaw PI faces +z (shallower), the -z stair's ascent direction.
+      stepMany(s, input({ forward: 1, yaw: Math.PI }), grid, 240, 1 / 60);
+      expect(s.py).toBeGreaterThan(0.4);
+      expect(s.grounded).toBe(true);
+      expect(-s.pz).toBeLessThan(1.5); // moved shallow past the stair
+    });
+
+    it("caps the head under a ceiling in an adjacent column, not just center", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX;
+      // A ceiling one column past the stair center; the climbing capsule's
+      // body reaches into it (its floor is y 0.5) before its center leaves
+      // column 4, so a center-only cap would let the head clip through.
+      grid[fpCellIndex(5, 1, 0)] = FP_SOLID_PART;
+      const s = state({ px: 3.2 });
+      for (let n = 0; n < 240; n++) {
+        stepFpMovement(s, walkPX(), grid, 1 / 60);
+        // The capsule box never overlaps cell (5,1,0): if it reaches into
+        // column 5 in x, the head stays at or below that cell's floor.
+        const reachesColumn5 = s.px + FP_CAPSULE_RADIUS > 4.5;
+        const headAboveCeilingFloor = s.py + FP_CAPSULE_HEIGHT > 0.5 + 1e-6;
+        expect(reachesColumn5 && headAboveCeilingFloor).toBe(false);
+      }
+    });
+
+    it("leaves a plain open floor unaffected", () => {
+      const grid = corridorGrid();
+      const s = state();
+      stepMany(s, walkPX(), grid, 120, 1 / 60);
+      expect(s.py).toBeCloseTo(-0.5, 5); // no stair, no lift
+    });
   });
 });

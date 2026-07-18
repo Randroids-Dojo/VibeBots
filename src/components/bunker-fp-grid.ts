@@ -32,6 +32,27 @@ export const FP_SPIKES = 3;
 export const FP_ROCK_UNDUG = 4;
 /** The owner's door: renders closed but the owner passes through. */
 export const FP_DOOR_OWNED = 5;
+/**
+ * A staircase ramp (F-117): walkable, and it raises the mover one layer as
+ * they cross it in its ascent direction. Four values encode that direction
+ * so the mover slopes the feet without a side table, matching
+ * BunkerOrientation (0 +x, 1 +z, 2 -x, 3 -z). Grid +z is world -z (deeper),
+ * so FP_STAIR_PZ rises as the player heads into the rock.
+ */
+export const FP_STAIR_PX = 6;
+export const FP_STAIR_PZ = 7;
+export const FP_STAIR_NX = 8;
+export const FP_STAIR_NZ = 9;
+
+/** The stair grid value for a staircase facing `orientation` (0-3). */
+export function fpStairValue(orientation: number): number {
+  return FP_STAIR_PX + orientation;
+}
+
+/** True for any of the four staircase ramp values. */
+export function fpCellIsStair(value: number): boolean {
+  return value >= FP_STAIR_PX && value <= FP_STAIR_NZ;
+}
 
 export type FpSolidGrid = Uint8Array;
 
@@ -265,6 +286,8 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
         ? FP_DOOR_OWNED
         : part.partId === "floor-spikes"
           ? FP_SPIKES
-          : FP_SOLID_PART;
+          : part.partId === "stair-panel"
+            ? fpStairValue(part.orientation ?? 0)
+            : FP_SOLID_PART;
   }
 }

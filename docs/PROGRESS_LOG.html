@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-stair-climb" data-date="2026-07-18">
+    <h3>Make the bunker staircase a walkable climbing ramp</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-stair-climb</code></dd>
+      <dt>PR</dt><dd>#268. Invisible pure-module movement, no package bump.</dd>
+      <dt>Changed</dt><dd>Built the staircase climb, the crux the plan flagged as highest-risk ("no precedent for a ramp in the discrete-cell mover"). The user chose the ramp model (walk smoothly up one layer) over an auto-jump step-up or a ladder climb. The grid (<code>bunker-fp-grid.ts</code>) gains four walkable stair values (<code>FP_STAIR_PX/PZ/NX/NZ</code>) that encode the ascent direction, and <code>buildFpSolidGrid</code> stamps a <code>stair-panel</code> to the value for its <code>orientation</code> (the first reader of the orientation field from the data-model slice). The mover (<code>bunker-fp-movement.ts</code>) gains a per-frame ramp pass after the Y resolution: it finds the highest stair-ramp surface within reach of the feet in the capsule's column and clamps the feet onto it, so crossing a stair in its facing direction slopes you up one full layer and walking the other way descends, while a jump off a stair stays intact. The ramp holds a flat top landing over its last 40% so the 0.3-radius capsule tops out and clears an adjacent solid landing before its body bumps the face, and a ceiling cap blocks the climb (instead of clipping) under a solid cell.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. 6 movement tests (climb up the facing direction, slope height on the incline, walk back down, ceiling blocks without clipping, orientation reverses the slope, plain floor unaffected) and a grid test (four values map to orientation, are walkable, stamped by <code>buildFpSolidGrid</code> with a legacy no-orientation stair defaulting to +x). Full unit suite green (1720). All mover additions are scalar and allocation-free (frame-loop rule); no canvas/render change, so the per-frame allocation profile is unchanged and the heap-churn A/B does not apply to this pure-module slice.</dd>
+      <dt>Assumptions</dt><dd>Still invisible: the stair stays <code>comingSoon</code>, so no stair part exists in production and the ramp code never fires until placement ships. The flat-top-landing shelf (run 0.6) and the 0.55 reach were tuned against the capsule radius while building; a real-device feel pass comes with placement.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. No REQ row change (REQ-046 stays <code>partial</code>). No <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump. Rule 13: no version bump, no tip change (part not obtainable). Rule 14: stamp reviewed, deferred to the reveal slice (a first-climb stamp fits once the part is obtainable and climbable).</dd>
+      <dt>Followups</dt><dd>The staircase arc continues in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log: placement (fp full-depth stair geometry, the orientation/rotate control, the place-route + orientation persistence wire) and the reveal (drop <code>comingSoon</code>, grant starter inventory, release chain); then full-cell retirement (which closes Q-026).</dd>
+    </dl>
+  </article>
+
   <article data-slice="hide-unreleased-staircase" data-date="2026-07-18">
     <h3>Hide the unreleased staircase from the shop and hotbar</h3>
     <dl>

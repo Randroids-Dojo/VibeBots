@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-raid-slot-wear" data-date="2026-07-17">
+    <h3>Wear live-raid parts by slot so two thin walls in a cell settle apart</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-slot-settlement</code></dd>
+      <dt>PR</dt><dd>(pending). Pure sim + one wire field, no package bump, no player-facing change (inert until slotted parts persist).</dd>
+      <dt>Changed</dt><dd>Closed the last F-117 activation blocker (blocker 1): live-raid wear now settles keyed on exact slot identity, not the cell. The bug was three identity keys built from <code>cellKey(col,row,depth)</code> that collapsed two thin walls sharing a cell: <code>validateLiveRaidOutcome</code>'s snapshot map (whose size dropped to one, so an honest two-wall report was rejected as <code>part-wear</code>) and its <code>seen</code> set, and <code>settleLiveRaidOutcome</code>'s <code>wearByCell</code> map (which applied one durability to both walls). Fix: <code>LiveRaidPart</code> carries an optional <code>slot</code> (absent on legacy full-cell parts), <code>createLiveRaid</code> threads it, and a new <code>partKey(col,row,depth,slot)</code> with a "-" placeholder for the legacy slotless case (byte-identical to the old key, so legacy behavior is unchanged) replaces <code>cellKey</code> in both functions. The resolve route's <code>partWear</code> wire item gains an optional <code>slot</code> string. Clanker nav is untouched: it already chews standing parts one at a time, so a cell holding any thin wall stays blocked until all its walls are gone (cell-granular defense; edge-precise nav is a later fidelity slice, not a blocker).</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. Five new sim tests (two walls in one cell validate distinctly, wear settles onto the exact slot not every part sharing the cell, an omitted wall rejects, a duplicated slot rejects, a legacy no-slot part still validates and settles); full sim suite green (404) and the server raid-live suite green (16).</dd>
+      <dt>Assumptions</dt><dd>Cell-granular raid defense (a thin wall protects its whole cell) is the accepted interim; edge-precise nav where a wall only blocks the move across its own face is deferred to a later raid-fidelity slice. The wire <code>slot</code> stays a loose string because the snapshot identity match in <code>settleLiveRaidOutcome</code> is the real trust bound, matching the sibling <code>partId</code> validation.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. REQ-046 stays <code>partial</code> (the arc continues to the visible slot slices).</dd>
+      <dt>Followups</dt><dd>None new. With all three activation blockers landed, the remaining F-117 slices (slot wire/persistence closing the Q-026 transient, fp slot targeting + thin geometry, rotate control + stair part, full-cell retirement) stay tracked in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-slot-settlement" data-date="2026-07-17">
     <h3>Wire two thin-part activation blockers: excavation faces and mount drops</h3>
     <dl>

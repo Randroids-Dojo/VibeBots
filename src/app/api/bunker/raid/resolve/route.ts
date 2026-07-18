@@ -29,6 +29,10 @@ const bodySchema = z.object({
         row: z.number().int(),
         depth: z.number().int(),
         durability: z.number().int().min(0),
+        // Thin sub-cell slot (F-117). Absent on legacy full-cell parts. The
+        // snapshot identity match in settleLiveRaidOutcome is the real bound,
+        // so this only needs to preserve the slot the client observed.
+        slot: z.string().max(16).optional(),
       }),
     )
     .max(200),

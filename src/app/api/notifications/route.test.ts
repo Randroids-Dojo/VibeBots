@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-17-0.1.274-bunker-thin-walls",
+      releaseNoticeId: "2026-07-18-0.1.275-bunker-panel-detail",
       releaseSummary:
-        "Build thin walls on the face you aim at: Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
+        "Bunker panels look built, not flat: The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-17-0.1.274-bunker-thin-walls",
+      releaseNoticeId: "2026-07-18-0.1.275-bunker-panel-detail",
       attempted: 2,
       sent: 1,
       expired: 1,

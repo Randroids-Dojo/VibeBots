@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-thin-panel-art" data-date="2026-07-18">
+    <h3>Detail the thin bunker panels so they read as riveted steel</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fp-thin-art</code></dd>
+      <dt>PR</dt><dd>(pending). Render-only art pass, package bumped to 0.1.275.</dd>
+      <dt>Changed</dt><dd>The F-117 thin wall/floor/roof/door panels shipped as plain slabs (shell + rim + one accent) that read as flat cardboard at eye level. A Fable-5 art pass rebuilt the four thin builders in <code>bunker-fp-part-geometry.ts</code> in the same riveted-gunmetal language as the full-cell parts, flattened onto the thin panel: the wall gets a beveled body, a recessed inner plate, corner rivets, and a hazard-chevron skirt; the floor a walkway grate over a dark pit with warm edge strips; the roof a warm emissive work-lamp proud of the underside plus a vent ridge; the door a framed hatch with a spin-wheel leaf (kept as one accent layer for future swing) and ready lights. Render-only over the unchanged colliders, materials, and slot contract (still centered in the canonical axis, still selected by the same <code>thin</code> flag and oriented by <code>fpSlotRenderTransform</code>); no new shaders or materials.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. The geometry unit test (20/20) confirms every thin variant stays within +-0.5 on all axes, thin on its own axis and spanning the other two, under the 1200/2400 triangle caps, and the door merges to exactly one accent layer. Measured triangle budgets (low/high): wall 504/936, door 724/1236, floor 264/516, roof 320/560. Full unit suite green (1709). The fp thin-wall e2e still passes (the new geometry renders; screenshot diff proves paint changed).</dd>
+      <dt>Assumptions</dt><dd>Fable authored the geometry against the exact bounds/cap/axis contract; every claim was verified locally by the geometry unit test rather than trusted. A real-device visual confirmation is the final polish check (the fp e2e proves it renders, not that it is beautiful).</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. No REQ row change (visual refinement of the shipped thin parts). Rule 13: package bumped with a release note; mine-tip rotation reviewed, unchanged (a look-only change alters no mine rule). Rule 14: no new stamp (cosmetic, not a mechanic or milestone).</dd>
+      <dt>Followups</dt><dd>None new. The remaining F-117 polish (staircase part; legacy full-cell retirement that closes Q-026) stays tracked in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-restore-e2e-stability-2" data-date="2026-07-18">
     <h3>Slow the restored elevator ride further so it survives CI's renderer</h3>
     <dl>

@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
+    "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "Point a wall at a side of the cell you are standing in and it goes up as a thin panel on that face",
+    "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "it still drops in as the old full-cell block",
+    "This is a look-only change",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.275", "Bunker panels look built, not flat"],
     ["0.1.274", "Build thin walls on the face you aim at"],
     ["0.1.273", "Spawn in the room, not inside the wall"],
     ["0.1.272", "Old bunkers show their ore again"],

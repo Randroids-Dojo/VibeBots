@@ -645,6 +645,16 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
   await status.getByRole("button", { name: "Close" }).click();
   await placeWallInFp(page);
 
+  // The wall placement left the fp pointer lock held, and a locked
+  // pointer routes every click to the canvas (a real player presses
+  // Escape to free the cursor first). Release it so the DOM button
+  // receives the click.
+  await page.evaluate(() => document.exitPointerLock?.());
+  await expect
+    .poll(async () => page.locator("canvas").getAttribute("data-fp-lock"), {
+      timeout: 10_000,
+    })
+    .not.toBe("locked");
   // The fp Bunker button drops back to the flat view with the status
   // sheet already open (the sheet's only doorway while the miner stands
   // in the claim, F-119 fold). The Reset row is a two-step confirm: the

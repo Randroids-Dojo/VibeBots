@@ -403,6 +403,17 @@ function baseReturnTarget(
 }
 
 function elevatorAutoDelayMs(gear: MineGear): number {
+  // Test hook: slow (or speed) the automatic ride cadence so timing-sensitive
+  // restore e2es can observe a mid-ride state without racing the real 240ms
+  // step. Ignored in production (the global is never set).
+  if (typeof window !== "undefined") {
+    const override = (
+      window as Window & { __vibebotsElevatorAutoDelayMs?: number }
+    ).__vibebotsElevatorAutoDelayMs;
+    if (typeof override === "number" && Number.isFinite(override)) {
+      return Math.max(0, override);
+    }
+  }
   return Math.max(70, 240 - ((gear.elevatorSpeed ?? 1) - 1) * 20);
 }
 

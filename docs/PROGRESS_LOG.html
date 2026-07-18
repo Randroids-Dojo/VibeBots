@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="elevator-restore-e2e-stability" data-date="2026-07-18">
+    <h3>Stabilize the elevator restore and shaft-buy full-E2E tests</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/elevator-restore-ascent-flake</code></dd>
+      <dt>PR</dt><dd>(pending). CI/test-robustness only, no package bump, no player-facing change.</dd>
+      <dt>Changed</dt><dd>The scheduled Full E2E matrix was red on four <code>mine-warp-elevator</code> tests (confirmed pre-existing, reproduced locally). Two root causes, both test-side. (1) The restore-ascent tests raced the ride: each automatic ride advances <code>elevatorSpeedRows</code> (6 rows) every 240ms, so a 60-row ascent finished in ~2.4s, faster than a reload/dismiss cycle, so the test never observed a mid-ride checkpoint (<code>data-elevator-riding</code> read <code>""</code>, <code>restoredDepth</code> read 0). Added a guarded test hook to <code>elevatorAutoDelayMs</code> (<code>window.__vibebotsElevatorAutoDelayMs</code>, ignored in production since the global is never set, matching the existing <code>__vibebots*</code> hook pattern) and set it to 700ms in the two restore tests, so the ascent stays observable regardless of runner speed; three consecutive local passes. (2) The shaft-place and premium-row buy tests asserted the exact <code>/api/elevator/upgrade</code> body but that body gained <code>expectedDepth</code> (F-121 #240) and a random <code>requestId</code> UUID (F-121 #243) and the assertions were never updated. Strip the random <code>requestId</code> at capture and assert the stable <code>expectedDepth</code> (0 for a new owner's first shaft, 4 for a relocated 4-row shaft, 1 for a premium-row buy). Product code unchanged except the guarded hook.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. The full <code>mine-warp-elevator</code> spec passes (15/15) where it was 4 red; the two restore tests pass three times running. Full unit suite green (1709).</dd>
+      <dt>Assumptions</dt><dd>The ride timing, resume logic, and sim are correct; the failures were test fragility (a timing race) and stale request-body assertions, not product regressions. The <code>requestId</code> dedup id is random per request, so asserting on it is inappropriate; the meaningful <code>column</code>/<code>expectedDepth</code> fields are asserted instead.</dd>
+      <dt>GDD coverage</dt><dd>No row change: CI/test hardening. Rule 13/14: no player-facing change, no tip or stamp review needed.</dd>
+      <dt>Followups</dt><dd>None new. Resolves the pre-existing red scheduled Full E2E on the elevator restore and shaft-buy tests (RULE 5 step 3).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-fp-thin-geometry" data-date="2026-07-17">
     <h3>Build thin wall, floor, and roof panels on the aimed face in first person</h3>
     <dl>

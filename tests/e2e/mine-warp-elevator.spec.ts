@@ -455,7 +455,14 @@ test("the elevator places a chosen shaft and sells one premium rail row", async 
   });
   const purchaseBodies: unknown[] = [];
   await page.route("**/api/elevator/upgrade", async (route) => {
-    const body = route.request().postDataJSON() as { column?: number };
+    // Drop the per-request dedup id (a random UUID, F-121 #243) so the body
+    // asserts on its stable fields (column, expectedDepth).
+    const { requestId: _requestId, ...body } = route
+      .request()
+      .postDataJSON() as {
+      column?: number;
+      requestId?: string;
+    };
     purchaseBodies.push(body);
     const first = purchaseBodies.length === 1;
     if (first) await firstPurchaseGate;
@@ -501,7 +508,7 @@ test("the elevator places a chosen shaft and sells one premium rail row", async 
   await page.keyboard.press("ArrowRight");
   await page.waitForTimeout(200);
   await expect(placement).toContainText("Shaft column -4");
-  expect(purchaseBodies).toEqual([{ column: -4 }]);
+  expect(purchaseBodies).toEqual([{ column: -4, expectedDepth: 0 }]);
   releaseFirstPurchase();
 
   await expect(status).toHaveAttribute("data-elevator-col", "-4");
@@ -510,7 +517,7 @@ test("the elevator places a chosen shaft and sells one premium rail row", async 
   await expect(
     page.getByRole("button", { name: "Open settings" }),
   ).toBeFocused();
-  expect(purchaseBodies).toEqual([{ column: -4 }]);
+  expect(purchaseBodies).toEqual([{ column: -4, expectedDepth: 0 }]);
 
   await pressMineKey(page, "ArrowLeft");
   const reopened = await openStall(page, "Elevator");
@@ -525,10 +532,16 @@ test("the elevator places a chosen shaft and sells one premium rail row", async 
   });
   await expect(buying).toBeVisible();
   await buying.click({ force: true });
-  expect(purchaseBodies).toEqual([{ column: -4 }, {}]);
+  expect(purchaseBodies).toEqual([
+    { column: -4, expectedDepth: 0 },
+    { expectedDepth: 1 },
+  ]);
   releaseSecondPurchase();
   await expect(status).toHaveAttribute("data-elevator-depth", "2");
-  expect(purchaseBodies).toEqual([{ column: -4 }, {}]);
+  expect(purchaseBodies).toEqual([
+    { column: -4, expectedDepth: 0 },
+    { expectedDepth: 1 },
+  ]);
 
   await page.reload();
   await expect(status).toHaveAttribute("data-elevator-col", "-4");
@@ -589,7 +602,11 @@ test("an existing owner places their full shaft once for free", async ({
   });
   const placementBodies: unknown[] = [];
   await page.route("**/api/elevator/upgrade", async (route) => {
-    const body = route.request().postDataJSON() as { column: number };
+    // Drop the per-request dedup id (a random UUID, F-121 #243) so the body
+    // asserts on its stable fields (column, expectedDepth).
+    const { requestId: _requestId, ...body } = route
+      .request()
+      .postDataJSON() as { column: number; requestId?: string };
     placementBodies.push(body);
     serverGear = { ...serverGear, elevatorColumn: body.column };
     placementRequired = false;
@@ -627,7 +644,7 @@ test("an existing owner places their full shaft once for free", async ({
   await expect(status).toHaveAttribute("data-elevator-depth", "4");
   await expect(status).toHaveAttribute("data-elevator-placement", "false");
   await expect(status).toHaveAttribute("data-wallet", "0");
-  expect(placementBodies).toEqual([{ column: -4 }]);
+  expect(placementBodies).toEqual([{ column: -4, expectedDepth: 4 }]);
 });
 
 test("surface entry calls the car before an explicit ride to the bottom", async ({
@@ -1286,6 +1303,13 @@ test("a restored upward elevator ride continues to the surface", async ({
       ],
     },
   );
+  // Slow the automatic ride so the resumed ascent stays observable rather than
+  // reaching the surface inside a single poll interval on a fast runner.
+  await page.addInitScript(() => {
+    (
+      window as Window & { __vibebotsElevatorAutoDelayMs?: number }
+    ).__vibebotsElevatorAutoDelayMs = 700;
+  });
   await installMineMotionProbe(page);
 
   await page.goto("/mine");
@@ -1330,6 +1354,8 @@ test("a restored upward elevator ride continues to the surface", async ({
 test("a repeatedly restored elevator ascent banks its exact action log once", async ({
   page,
 }) => {
+  // The slowed ride plus two reload cycles and a final ascent runs long.
+  test.setTimeout(120_000);
   const railDepth = 60;
   const ridesPerJourney = railDepth / 6;
   const gear = {
@@ -1422,6 +1448,13 @@ test("a repeatedly restored elevator ascent banks its exact action log once", as
       moves: initialMoves,
     },
   );
+  // Slow the automatic ride so each mid-ascent reload lands on a distinct
+  // checkpoint instead of the ascent finishing inside one reload cycle.
+  await page.addInitScript(() => {
+    (
+      window as Window & { __vibebotsElevatorAutoDelayMs?: number }
+    ).__vibebotsElevatorAutoDelayMs = 700;
+  });
 
   await page.goto("/mine");
   const status = page.getByLabel("Mine status");

@@ -762,6 +762,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   const baseView = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+      layoutVersion: 1,
       parts,
       skin: "steelworks",
       skinsOwned: [],

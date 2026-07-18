@@ -42,6 +42,7 @@ const FP_PLANE_DUG = (() => {
 const FP_BUNKER_VIEW = {
   bunker: {
     footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+    layoutVersion: 1,
     dug: FP_PLANE_DUG,
     parts: [
       {
@@ -1090,6 +1091,7 @@ test.describe("phone viewport", () => {
       ...FP_BUNKER_VIEW,
       bunker: {
         footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+        layoutVersion: 1,
         dug: FP_PLANE_DUG,
         parts: [1, 2, 3].map((offset) => ({
           partId: "wall-panel",
@@ -2101,6 +2103,7 @@ test("first-person bunker interior renders dirt, rock, and ore, not one flat gra
  * parts (the server normalizes these), so the client sim reads them. */
 const RAID_BUNKER = {
   footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+  layoutVersion: 1,
   dug: FP_PLANE_DUG,
   parts: [
     {

@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-e2e-layout-version-fixtures" data-date="2026-07-18">
+    <h3>Stamp the bunker e2e fixtures with the current layout version</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/load-animation-hud-overlap-3sefcn</code> (same PR as the bunker-button fold below).</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Latent full-matrix breakage found while verifying the fold: since the layout-version gate (PR #231), a mocked <code>/api/bunker</code> bunker without <code>layoutVersion</code> reads as layout-incompatible, so the first-person Enter affordance never appears and every fp-entry e2e stalls to its timeout. The real server always emits the stamp (pinned by <code>src/server/bunker.test.ts</code>), so the pre-#231 fixtures were out of contract. Stamped <code>layoutVersion: 1</code> on the banked-bunker fixtures in <code>mine-bunker-fp.spec.ts</code> (three), <code>mine-bunker.spec.ts</code> (skins view), <code>mine-viewport.spec.ts</code>, <code>visual-baselines.spec.ts</code>, and <code>bunker-arc-capture.spec.ts</code>; the old-layout fail-fast test keeps its intentional version-0 fixture. Consequence of the rot: Full E2E shards 1-3 hit their 20-minute job timeout and reported <em>cancelled</em> on the scheduled runs of July 14-18 while triage only saw the one <em>failed</em> shard (the elevator flake, fixed in PR #263). F-197 records the monitoring gap.</dd>
+      <dt>Verification</dt><dd>Locally against a production build: the fp bag-chip flow (a CI-green-in-name test that reproduced the stall before the stamp) and the reworked fold tests run with the stamped fixtures; results recorded in the fold entry below. Biome clean on the touched specs.</dd>
+      <dt>Assumptions</dt><dd>Fixtures should mirror the authoritative route's contract (always-stamped layout version) rather than exercise the legacy default implicitly; the legacy path keeps its own dedicated test.</dd>
+      <dt>GDD coverage</dt><dd>No rows changed (test-only repair).</dd>
+      <dt>Followups</dt><dd>F-197 (cancelled-shard triage blind spot) created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="first-paint-gate-and-bunker-button-fold" data-date="2026-07-18">
     <h3>Hold the loading animation until pixels land, and fold the bunker buttons to one</h3>
     <dl>

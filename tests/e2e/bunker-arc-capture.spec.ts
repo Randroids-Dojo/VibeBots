@@ -41,6 +41,7 @@ test("bunker arc capture run", async ({ page }) => {
   const view = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+      layoutVersion: 1,
       parts: damagedParts,
       skin: "steelworks",
       skinsOwned: [] as string[],

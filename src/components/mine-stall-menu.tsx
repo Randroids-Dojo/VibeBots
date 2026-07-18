@@ -81,6 +81,7 @@ const BASE_PART_ICONS: Record<BasePartId, string> = {
   "door-panel": "\u{1F6AA}",
   "basic-turret": "\u{1F6E1}\u{FE0F}",
   "floor-spikes": "\u{1F53A}",
+  "stair-panel": "\u{1FA9C}",
 };
 
 function HardwareStorePanel({

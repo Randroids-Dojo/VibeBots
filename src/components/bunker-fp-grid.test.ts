@@ -20,13 +20,19 @@ import {
   FP_ROWS,
   FP_SOLID_PART,
   FP_SPIKES,
+  FP_STAIR_NX,
+  FP_STAIR_NZ,
+  FP_STAIR_PX,
+  FP_STAIR_PZ,
   fpCellBlocks,
   fpCellBoxedIn,
   fpCellIndex,
+  fpCellIsStair,
   fpGridCellFromLocal,
   fpLocalFromGrid,
   fpSlotRenderTransform,
   fpSpawnCell,
+  fpStairValue,
 } from "./bunker-fp-grid";
 
 const MINER_COL = 24;
@@ -197,6 +203,46 @@ describe("fp solidity", () => {
     expect(fpCellBlocks(FP_DOOR_OWNED)).toBe(false);
     expect(fpCellBlocks(FP_SOLID_PART)).toBe(true);
     expect(fpCellBlocks(FP_ROCK_UNDUG)).toBe(true);
+  });
+
+  it("stamps a staircase as a walkable ramp keyed to its orientation", () => {
+    // The four stair values map 1:1 to BunkerOrientation.
+    expect(fpStairValue(0)).toBe(FP_STAIR_PX);
+    expect(fpStairValue(1)).toBe(FP_STAIR_PZ);
+    expect(fpStairValue(2)).toBe(FP_STAIR_NX);
+    expect(fpStairValue(3)).toBe(FP_STAIR_NZ);
+    for (const v of [FP_STAIR_PX, FP_STAIR_PZ, FP_STAIR_NX, FP_STAIR_NZ]) {
+      expect(fpCellIsStair(v)).toBe(true);
+      expect(fpCellBlocks(v)).toBe(false); // a ramp is walkable
+    }
+    expect(fpCellIsStair(FP_SOLID_PART)).toBe(false);
+
+    const bottomRow = footprint.row + footprint.height - 1;
+    const withStair: BunkerState = {
+      ...corridorBunker(),
+      parts: [
+        {
+          partId: "stair-panel",
+          col: footprint.col + 2,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+          slot: "mount",
+          orientation: 2,
+        },
+        // A legacy stair with no orientation defaults to +x.
+        {
+          partId: "stair-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+        },
+      ],
+    };
+    const grid = solidOf(withStair);
+    expect(grid[fpCellIndex(2, 0, 0)]).toBe(FP_STAIR_NX);
+    expect(grid[fpCellIndex(3, 0, 0)]).toBe(FP_STAIR_PX);
   });
 
   it("opens the spawn pocket on a fresh claim, rock elsewhere", () => {

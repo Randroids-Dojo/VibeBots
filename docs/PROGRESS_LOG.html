@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-staircase-datamodel" data-date="2026-07-18">
+    <h3>Add the staircase part to the bunker data model</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-staircase</code></dd>
+      <dt>PR</dt><dd>(pending). Invisible sim + geometry foundation, no package bump.</dd>
+      <dt>Changed</dt><dd>First slice of the F-117 staircase arc: the <code>stair-panel</code> part now exists end to end in the pure sim and part geometry, but is deliberately unreachable by any player. <code>BASE_PART_IDS</code> gains it; the catalog carries it (Staircase, "climb between bunker layers, facing the way you rotate it", price 12, durability 70, does not block clankers); both inventories carry it at 0 (the starter grant waits for the climb, since a placeable-but-unclimbable stair reads as broken); <code>allowedBunkerSlots</code> returns the interior <code>mount</code> (it stands on the cell floor like a turret, footing already handled by <code>isBunkerMountSupported</code>). A new <code>BunkerOrientation</code> union (0-3 quarter turns) and an optional <code>orientation</code> on <code>PlacedBasePart</code> record which way a stair faces (every other part's facing is fixed by its slot), and <code>placeBasePart</code> threads an optional <code>orientation</code> onto the mount write. Geometry: a 2D cross-section <code>buildStair</code> (a shallow side-on flight of four riveted treads with warm nosing and side stringers, within the part depth budget), plus an icon and an emissive entry.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. 2 new sim tests (a staircase mounts on a floored cell and remembers its orientation; a wall slot rejects it) plus a slot-mapping line; the existing geometry test's <code>BASE_PART_IDS</code> loop auto-covers the stair's finite cached layers, in-cell bounds, and triangle budget (~120 tris, well under the 700/1600 caps). Full unit suite green (1711).</dd>
+      <dt>Assumptions</dt><dd>Nothing writes <code>orientation</code> yet, so orientation persistence (parseBunkerState/bank/local-restore) is deferred to the placement slice that gives it a writer and owns its round-trip tests, per slice discipline (no speculative plumbing before a writer); the existing spread in <code>parseBunkerState</code> forwards the optional field harmlessly. Keeping the stair at 0 in the starter inventory until the climb ships is deliberate.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. No REQ row change (invisible foundation; REQ-046 stays <code>partial</code>). No <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump. Rule 13: no version bump and no tip change (part not obtainable). Rule 14: stamp reviewed, deferred to the placement slice (a stair-placed or first-climb stamp fits once the part is obtainable).</dd>
+      <dt>Followups</dt><dd>The staircase arc continues in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log: placement (fp full-depth geometry, orientation control, place-route + persistence wire, starter grant), then the movement climb, then full-cell retirement (which closes Q-026).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-thin-panel-art" data-date="2026-07-18">
     <h3>Detail the thin bunker panels so they read as riveted steel</h3>
     <dl>

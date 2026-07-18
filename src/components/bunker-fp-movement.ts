@@ -287,21 +287,34 @@ function stairRampFloor(
 }
 
 /** Cap the feet so the head does not ride a ramp up into a solid ceiling
- * cell in the capsule's column (a mis-built stair with no clearance blocks
- * the climb instead of clipping through). Returns the capped feet height. */
+ * (a mis-built stair with no clearance blocks the climb instead of clipping
+ * through). Scans every cell the capsule's XZ footprint overlaps at the head
+ * row, not just its center column, so a blocker at a cell boundary still
+ * stops it. Returns the capped feet height. */
 function stairCeilingCap(
   solid: FpSolidGrid,
   px: number,
   py: number,
   pz: number,
 ): number {
-  const gx = Math.round(px);
-  const gz = Math.round(-pz);
-  if (gx < 0 || gx >= FP_COLS || gz < 0 || gz >= FP_DEPTH) return py;
   const headCellY = Math.floor(py + FP_CAPSULE_HEIGHT + 0.5 - 1e-6);
   if (headCellY < 0 || headCellY >= FP_ROWS) return py;
-  if (!fpCellBlocks(solid[fpCellIndex(gx, headCellY, gz)])) return py;
-  return Math.min(py, headCellY - 0.5 - FP_CAPSULE_HEIGHT);
+  const r = FP_CAPSULE_RADIUS;
+  // The 1e-6 nudge drops cells the capsule only grazes at an exact
+  // boundary (matching resolveAxis's overlap-greater-than-zero skip), so a
+  // ceiling column the body merely touches does not falsely cap the climb.
+  const x0 = Math.max(0, Math.ceil(px - r - 0.5 + 1e-6));
+  const x1 = Math.min(FP_COLS - 1, Math.floor(px + r + 0.5 - 1e-6));
+  const gz0 = Math.max(0, Math.ceil(-(pz + r) - 0.5 + 1e-6));
+  const gz1 = Math.min(FP_DEPTH - 1, Math.floor(-(pz - r) + 0.5 - 1e-6));
+  for (let gz = gz0; gz <= gz1; gz++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      if (fpCellBlocks(solid[fpCellIndex(gx, headCellY, gz)])) {
+        return Math.min(py, headCellY - 0.5 - FP_CAPSULE_HEIGHT);
+      }
+    }
+  }
+  return py;
 }
 
 export function stepFpMovement(

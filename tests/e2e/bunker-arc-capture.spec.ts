@@ -130,20 +130,23 @@ test("bunker arc capture run", async ({ page }) => {
   await page.waitForTimeout(600);
   await shot("02-claim-steelworks");
 
-  // Standing inside the claim, the sheet opens through first person
-  // (F-119 fold): the fp Bunker button drops back out with it open.
-  const openSheetFromClaim = async () => {
+  // Standing inside the claim, the Upkeep sheet opens as an overlay
+  // over the live first-person canvas (F-119): enter once, then the fp
+  // Upkeep button opens and reopens the sheet in place.
+  const enterClaim = async () => {
     await page.getByTestId("bunker-fp-enter").click();
     await expect(page.getByLabel("Mine status")).toHaveAttribute(
       "data-fp-mode",
       "1",
     );
-    await page.getByTestId("bunker-fp-status").click();
-    await expect(page.getByLabel("Mine status")).toHaveAttribute(
-      "data-fp-mode",
-      "0",
-    );
   };
+  const openSheetFromClaim = async () => {
+    await page.getByTestId("bunker-fp-status").click();
+    await expect(
+      page.getByRole("region", { name: "Bunker upkeep" }),
+    ).toBeVisible();
+  };
+  await enterClaim();
   await openSheetFromClaim();
   const builder = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(builder).toBeVisible();

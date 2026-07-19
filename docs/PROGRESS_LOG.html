@@ -57,6 +57,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-upkeep-in-fp-overlay" data-date="2026-07-19">
+    <h3>Open Upkeep inside the bunker and move the glance numbers onto the HUD</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/load-animation-hud-overlap-3sefcn</code></dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>User design pass on the Upkeep flow (F-119 continuation): the fp Upkeep button no longer exits to the flat view; it opens the same sheet as a modal overlay over the live first-person canvas (pointer lock released; the fp tool keys, movement keys, and Escape-exit pause exactly like the bag, so Escape and the backdrop close the sheet). Repair and skins run over the live canvas (durability and paint only); a confirmed Reset exits first person first, since it invalidates the geometry the canvas is walking (the F-119 monitoring contract). The passive numbers left the sheet for the HUD: two glance chips under the fp bag chip show vibes and <q>Lv X/Y, XP a/b, Beacons N</q> at prop cadence. The sheet and backdrop z-order now sit above every fp and flat control (backdrop 19, sheet 20, still below the first-paint veil and notices), and the sheet's dead <code>bankedBlockedCells</code> prop plus its two feeding memos were removed (their only consumer was a no-op ternary cut in the trim slice).</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean, full type-check, full unit suite green (1736). Locally against a production build: the one-button invariant e2e reworked to prove the overlay keeps <code>data-fp-mode=1</code> through open and dismiss, and the skins-repaint e2e now measures the repaint on the fp walls under the open sheet. The reset e2e asserts the confirmed reset drops <code>data-fp-mode</code> to 0 (runs on CI; its wall-placement helper is environment-blocked in this sandbox). Broader e2e stays deferred to the scheduled full matrix per direction.</dd>
+      <dt>Assumptions</dt><dd>Beacon cap rides the level chip rather than its own chip (three chips is clutter; it is a build constraint, not a live meter). The flat-view sheet and claim flow are unchanged, and the flat collapsed trigger still opens the same sheet outside the claim. Rule 13: tips reviewed, no change needed (the sealed-in tip already names the Upkeep menu). Rule 14: no stamp. No package bump.</dd>
+      <dt>GDD coverage</dt><dd>No row change. Build-log entry appended to <code>docs/gdd/08-base-building.html</code>.</dd>
+      <dt>Followups</dt><dd>F-119 progress appended (step 4: the in-fp overlay, closing the fold's mode switch). No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-fullcell-retirement" data-date="2026-07-18">
     <h3>Retire the legacy whole-cell fallback for sealing parts</h3>
     <dl>

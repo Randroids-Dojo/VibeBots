@@ -16,6 +16,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import type { BunkerPlayerProgress } from "@/lib/bunker-api-types";
 import {
   AVAILABLE_BASE_PART_IDS,
   BASE_PART_CATALOG,
@@ -257,6 +258,7 @@ export function BunkerFpHud({
   onTogglePry,
   onOpenBag,
   onOpenStatus,
+  player,
   onExit,
   onStartLiveRaid,
   raidTierCeiling,
@@ -279,11 +281,14 @@ export function BunkerFpHud({
   onSelectPick: () => void;
   onTogglePry: () => void;
   onOpenBag: () => void;
-  /** One tap out of first person straight into the bunker status sheet
-   * (repair, skins, reset). The flat view hides its collapsed trigger
-   * while the miner stands in the claim (F-119 fold), so this button is
-   * the sheet's doorway from inside. */
+  /** Opens the Upkeep sheet as an overlay over the live first-person
+   * canvas (repair, skins, reset). The flat view hides its collapsed
+   * trigger while the miner stands in the claim (F-119 fold), so this
+   * button is the sheet's doorway from inside. */
   onOpenStatus: () => void;
+  /** Glance numbers for the passive HUD chips (vibes, level, XP, beacon
+   * cap); null while the bunker view has not loaded. */
+  player: BunkerPlayerProgress | null;
   onExit: () => void;
   /** Start a live first-person raid at the chosen tier. */
   onStartLiveRaid: (tier: number) => void;
@@ -648,6 +653,22 @@ export function BunkerFpHud({
               role="status"
             >
               {denyNotice}
+            </div>
+          )}
+          {player && (
+            <div
+              className="bunker-fp-status-chips"
+              role="status"
+              aria-label="Bunker player status"
+            >
+              <span className="bunker-fp-chip bunker-fp-chip-vibes">
+                {`\u{1FA99} ${player.balance} vibes`}
+              </span>
+              <span className="bunker-fp-chip">
+                {player.nextLevelXp === null
+                  ? `Lv ${player.overallLevel}/${player.levelCap} \u00b7 XP capped \u00b7 Beacons ${player.beaconLimit}`
+                  : `Lv ${player.overallLevel}/${player.levelCap} \u00b7 XP ${player.progressXp}/${player.progressXp + player.neededXp} \u00b7 Beacons ${player.beaconLimit}`}
+              </span>
             </div>
           )}
           <button

@@ -32,7 +32,7 @@
 
 .bunker-status-backdrop {
   position: absolute;
-  z-index: 7;
+  z-index: 19;
   inset: 0 0 104px;
   border: 0;
   background: rgba(2, 6, 12, 0.12);
@@ -41,9 +41,10 @@
 
 .bunker-status-sheet {
   position: absolute;
-  /* Above the bunker toolbelt (z 10): the open sheet is a modal and
-   * its bottom rows (repair, reset) must win the taps (Rule 10). */
-  z-index: 11;
+  /* A modal in both views (Rule 10): above every fp control (raid
+   * panel z 14, exit/upkeep z 12) and flat control, below the
+   * first-paint veil (30) and the loading/error notices (40). */
+  z-index: 20;
   right: 10px;
   bottom: 106px;
   left: 10px;
@@ -1633,6 +1634,36 @@ button[data-bag-full-flash="true"] {
 .bunker-fp-raid-start-button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+/* Passive glance chips under the bag (F-119: vibes, level, XP, and
+ * beacon cap moved out of the Upkeep sheet onto the HUD). Never
+ * interactive; the touch look zone keeps its pointer events. */
+.bunker-fp-status-chips {
+  position: absolute;
+  z-index: 12;
+  top: calc(62px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  pointer-events: none;
+}
+
+.bunker-fp-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 147, 167, 0.4);
+  background: rgba(14, 20, 28, 0.78);
+  color: #aeb8ce;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.bunker-fp-chip-vibes {
+  color: #f5c542;
+  border-color: rgba(245, 197, 66, 0.45);
 }
 
 .bunker-fp-bag {

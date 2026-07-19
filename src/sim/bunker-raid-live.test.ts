@@ -3,6 +3,7 @@ import {
   BASE_PART_CATALOG,
   BASIC_TURRET_AMMO,
   type BunkerFootprint,
+  type BunkerSlot,
   type BunkerState,
   CLANKER_TANK_TURRET_SHOTS,
   clankerKindFor,
@@ -54,6 +55,7 @@ function part(
   col: number,
   row: number,
   depth: number,
+  slot?: BunkerSlot,
 ): PlacedBasePart {
   return {
     partId,
@@ -61,6 +63,7 @@ function part(
     row,
     depth,
     durability: BASE_PART_CATALOG[partId].durability,
+    ...(slot ? { slot } : {}),
   };
 }
 
@@ -520,6 +523,130 @@ describe("outcome report and validation (F-110)", () => {
       ok: false,
       reason: "part-wear",
     });
+  });
+
+  // F-117: a cell can hold more than one thin wall (one per face), so wear
+  // and validation key on the exact slot. Cell-keyed identity collapsed two
+  // walls in a cell into one entry and rejected an honest report.
+  function twoWallCell(): BunkerState {
+    return makeBunker(
+      [
+        { col: 8, row: 7, depth: 2 },
+        { col: 9, row: 7, depth: 2 },
+      ],
+      [
+        part("wall-panel", 9, 7, 2, "wall-px"),
+        part("wall-panel", 9, 7, 2, "wall-nz"),
+      ],
+    );
+  }
+
+  it("keeps two thin walls in one cell distinct through validation", () => {
+    const bunker = twoWallCell();
+    const raid = createLiveRaid(bunker, 1);
+    expect(raid.parts).toHaveLength(2);
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    expect(report.partWear).toHaveLength(2);
+    expect(new Set(report.partWear.map((p) => p.slot))).toEqual(
+      new Set(["wall-px", "wall-nz"]),
+    );
+    expect(validateLiveRaidOutcome(bunker, 1, report)).toEqual({ ok: true });
+  });
+
+  it("settles wear onto the exact slot, not every part sharing the cell", () => {
+    const full = BASE_PART_CATALOG["wall-panel"].durability;
+    const bunker = twoWallCell();
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const report: LiveRaidOutcomeReport = {
+      ...liveRaidOutcomeReport(raid),
+      partWear: [
+        {
+          partId: "wall-panel",
+          col: 9,
+          row: 7,
+          depth: 2,
+          slot: "wall-px",
+          durability: 0,
+        },
+        {
+          partId: "wall-panel",
+          col: 9,
+          row: 7,
+          depth: 2,
+          slot: "wall-nz",
+          durability: full,
+        },
+      ],
+    };
+    const settled = settleLiveRaidOutcome(bunker, 1, report);
+    expect(settled.ok).toBe(true);
+    if (!settled.ok) return;
+    const parts = settled.settlement.bunker.parts;
+    expect(parts.find((p) => p.slot === "wall-px")?.durability).toBe(0);
+    expect(parts.find((p) => p.slot === "wall-nz")?.durability).toBe(full);
+  });
+
+  it("rejects a report that omits one of two walls sharing a cell", () => {
+    const bunker = twoWallCell();
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    const bad: LiveRaidOutcomeReport = {
+      ...report,
+      partWear: report.partWear.slice(0, 1),
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "part-wear",
+    });
+  });
+
+  it("rejects a report that lists one slot twice for a shared cell", () => {
+    const full = BASE_PART_CATALOG["wall-panel"].durability;
+    const bunker = twoWallCell();
+    const raid = createLiveRaid(bunker, 1);
+    runToEnd(raid, SEALED_PLAYER);
+    const bad: LiveRaidOutcomeReport = {
+      ...liveRaidOutcomeReport(raid),
+      partWear: [
+        {
+          partId: "wall-panel",
+          col: 9,
+          row: 7,
+          depth: 2,
+          slot: "wall-px",
+          durability: full,
+        },
+        {
+          partId: "wall-panel",
+          col: 9,
+          row: 7,
+          depth: 2,
+          slot: "wall-px",
+          durability: full,
+        },
+      ],
+    };
+    expect(validateLiveRaidOutcome(bunker, 1, bad)).toEqual({
+      ok: false,
+      reason: "part-wear",
+    });
+  });
+
+  it("still validates and settles a legacy full-cell part with no slot", () => {
+    const bunker = makeBunker(
+      [{ col: 8, row: 7, depth: 2 }],
+      [part("wall-panel", 9, 7, 2)],
+    );
+    const raid = createLiveRaid(bunker, 1);
+    expect(raid.parts[0]?.slot).toBeUndefined();
+    runToEnd(raid, SEALED_PLAYER);
+    const report = liveRaidOutcomeReport(raid);
+    expect(report.partWear[0]?.slot).toBeUndefined();
+    expect(validateLiveRaidOutcome(bunker, 1, report)).toEqual({ ok: true });
+    expect(settleLiveRaidOutcome(bunker, 1, report).ok).toBe(true);
   });
 });
 

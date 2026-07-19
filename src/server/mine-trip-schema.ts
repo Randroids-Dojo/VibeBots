@@ -4,7 +4,9 @@ import {
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_SLOTS,
   type BunkerSkinId,
+  type BunkerSlot,
   isBunkerSkinId,
 } from "@/sim/bunker";
 import { withSpawnPocket } from "@/sim/bunker-blocks";
@@ -102,6 +104,18 @@ const legacyPartDepth = z.preprocess(
   bunkerCellDepth,
 );
 
+// Thin sub-cell slot (F-117). A saved trip from a build without slots, or a
+// malformed value, coerces to undefined (a legacy whole-cell part) rather than
+// rejecting the whole trip, mirroring `legacyPartDepth`.
+const legacyPartSlot = z.preprocess(
+  (value) =>
+    typeof value === "string" &&
+    (BUNKER_SLOTS as readonly string[]).includes(value)
+      ? value
+      : undefined,
+  z.enum(BUNKER_SLOTS).optional() as z.ZodType<BunkerSlot | undefined>,
+);
+
 const basePartIdSchema = z.enum(BASE_PART_IDS);
 // Skins are purely cosmetic and re-derived server-side, so an unrecognized id
 // (e.g. a trip saved by a newer build, loaded by an older one) coerces to the
@@ -115,6 +129,7 @@ const placedBasePartSchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
   depth: legacyPartDepth,
+  slot: legacyPartSlot,
   durability: z
     .number()
     .int()

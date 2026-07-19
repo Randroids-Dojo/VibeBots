@@ -205,6 +205,28 @@ function buildTurret(ctx: BuildContext): void {
   box(motion, "emissive", [0.08, 0.06, 0.02], [0, 0.34, 0.13]);
 }
 
+/** A solid four-step staircase ascending in +x (orientation 0). The fp
+ * slice adds a thin variant and the movement slice makes it climbable; the
+ * canvas rotates the whole part by its orientation. */
+function buildStair(ctx: BuildContext): void {
+  // A side-on flight in the shallow cross-section relief: treads rise in y
+  // as they march across x, kept within the part depth budget in z. The
+  // fp view rebuilds the stair full-depth; this is the 2D silhouette.
+  const steps = 4;
+  const depth = 0.2;
+  for (let i = 0; i < steps; i++) {
+    const h = ((i + 1) / steps) * 0.98;
+    const x = -0.5 + (i + 0.5) / steps;
+    box(ctx, "shell", [1 / steps, h, depth], [x, -0.5 + h / 2, 0]);
+    // Warm tread nose catching the lamp along the front lip of each step.
+    box(ctx, "accent", [1 / steps, 0.03, depth], [x, -0.5 + h - 0.015, 0.01]);
+  }
+  // Side stringers frame the flight against the cell wall.
+  for (const z of [-0.09, 0.09]) {
+    box(ctx, "frame", [0.98, 0.06, 0.03], [0, -0.1, z]);
+  }
+}
+
 const BUILDERS: Record<BasePartId, (ctx: BuildContext) => void> = {
   "wall-panel": buildWall,
   "floor-panel": buildFloor,
@@ -212,6 +234,7 @@ const BUILDERS: Record<BasePartId, (ctx: BuildContext) => void> = {
   "door-panel": buildDoor,
   "floor-spikes": buildSpikes,
   "basic-turret": buildTurret,
+  "stair-panel": buildStair,
 };
 
 const ZERO_ANCHOR = [0, 0, 0] as const;

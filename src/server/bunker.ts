@@ -16,10 +16,12 @@ import {
   BUNKER_RAID_COOLDOWN_HOURS,
   BUNKER_RAID_DURATION_SECONDS,
   BUNKER_SKIN_CATALOG,
+  BUNKER_SLOTS,
   type BunkerFootprint,
   type BunkerLoot,
   type BunkerRaidRewardReport,
   type BunkerSkinId,
+  type BunkerSlot,
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
@@ -152,6 +154,16 @@ function normalizedBunkerDepth(value: unknown): number {
     : 0;
 }
 
+/** A stored part's thin sub-cell slot (F-117), kept only when it is a known
+ * slot; anything absent, legacy, or malformed reads as no slot, i.e. a
+ * whole-cell part. Mirrors `normalizedBunkerDepth` for the slot axis. */
+function normalizedBunkerSlot(value: unknown): BunkerSlot | undefined {
+  return typeof value === "string" &&
+    (BUNKER_SLOTS as readonly string[]).includes(value)
+    ? (value as BunkerSlot)
+    : undefined;
+}
+
 function normalizedDugCells(value: unknown): DugBunkerCell[] {
   if (!Array.isArray(value)) return [];
   return value.filter((cell): cell is DugBunkerCell => {
@@ -266,7 +278,11 @@ function parseBunkerState(
           isBasePartId(candidate.partId)
         );
       })
-      .map((part) => ({ ...part, depth: normalizedBunkerDepth(part.depth) })),
+      .map((part) => ({
+        ...part,
+        depth: normalizedBunkerDepth(part.depth),
+        slot: normalizedBunkerSlot(part.slot),
+      })),
   };
 }
 
@@ -676,6 +692,13 @@ export async function buyBasePart(
     count,
   );
   if (!allowed.ok) {
+    if (allowed.reason === "unreleased") {
+      return {
+        ok: false,
+        status: 409,
+        error: "part not available yet",
+      };
+    }
     if (allowed.reason === "level") {
       return {
         ok: false,
@@ -763,6 +786,7 @@ export async function placeBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
   expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
@@ -781,6 +805,7 @@ export async function placeBunkerPart(
     col,
     row,
     depth,
+    slot,
   );
   if (!placed.ok) {
     return { ok: false, status: 409, error: `cannot place: ${placed.reason}` };
@@ -802,6 +827,7 @@ export async function removeBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
   expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
@@ -813,7 +839,14 @@ export async function removeBunkerPart(
     return { ok: false, status: 409, error: "finish the raid first" };
   const expected = resolveExpectedRevision(view, expectedRevision);
   if (expected === null) return revisionConflict(view);
-  const removed = removeBasePart(view.bunker, view.inventory, col, row, depth);
+  const removed = removeBasePart(
+    view.bunker,
+    view.inventory,
+    col,
+    row,
+    depth,
+    slot,
+  );
   if (!removed.ok) {
     return {
       ok: false,

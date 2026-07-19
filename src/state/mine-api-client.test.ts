@@ -774,15 +774,41 @@ describe("mine API client", () => {
       track: "lantern",
     });
 
-    await buyRemoteElevator(-17);
+    // The first rail carries its column, the required depth 0 (which must be
+    // sent, not dropped as a falsy value), and the durable-outbox request id.
+    const reqA = "11111111-2222-4333-8444-555555555555";
+    await buyRemoteElevator(-17, 0, reqA);
     expect(fetchMock.mock.calls.at(-1)?.[0]).toBe("/api/elevator/upgrade");
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
       column: -17,
+      expectedDepth: 0,
+      requestId: reqA,
     });
 
-    await buyRemoteElevator();
-    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual(
-      {},
+    const reqB = "22222222-3333-4444-8555-666666666666";
+    await buyRemoteElevator(-17, 3, reqB);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      column: -17,
+      expectedDepth: 3,
+      requestId: reqB,
+    });
+
+    // An extend omits the column but still carries the required expectedDepth.
+    const reqC = "33333333-4444-4555-8666-777777777777";
+    await buyRemoteElevator(undefined, 4, reqC);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toEqual({
+      expectedDepth: 4,
+      requestId: reqC,
+    });
+
+    // With no explicit id, one is generated per call: a fresh UUID each time.
+    await buyRemoteElevator(undefined, 5);
+    const generated = JSON.parse(
+      String(fetchMock.mock.calls.at(-1)?.[1]?.body),
+    ) as { requestId: string; expectedDepth: number };
+    expect(generated.expectedDepth).toBe(5);
+    expect(generated.requestId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
 
     await teleportRemoteBase(7);

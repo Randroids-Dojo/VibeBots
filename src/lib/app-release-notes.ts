@@ -1,9 +1,94 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-15-0.1.270-bunker-core-removed";
+export const RELEASE_NOTICE_ID = "2026-07-18-0.1.275-bunker-panel-detail";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.275",
+      date: "2026-07-18",
+      title: "Bunker panels look built, not flat",
+      intro:
+        "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
+      changes: [
+        {
+          build,
+          text: "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe; floors get a walkway grate over a dark pit; roofs hang a warm work lamp underneath; doors get a framed hatch with a spin-wheel leaf and ready lights. Same panels in the same spots, just detailed to match the rest of the bunker.",
+        },
+        {
+          build,
+          text: "This is a look-only change: nothing about placing, prying, or how your bunker plays is different, and your saved bunker is untouched.",
+        },
+      ],
+    },
+    {
+      version: "0.1.274",
+      date: "2026-07-17",
+      title: "Build thin walls on the face you aim at",
+      intro:
+        "Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
+      changes: [
+        {
+          build,
+          text: "Point a wall at a side of the cell you are standing in and it goes up as a thin panel on that face, so you can wall off a corner with two panels or line a room without packing it solid. Floors build as a deck on the floor you aim at, roofs as a ceiling overhead.",
+        },
+        {
+          build,
+          text: "Aim a wall at the floor or a spot with no matching face and it still drops in as the old full-cell block, so nothing you already built or the way you used to build changes. Turrets and spikes still fill their cell as before.",
+        },
+      ],
+    },
+    {
+      version: "0.1.273",
+      date: "2026-07-16",
+      title: "Spawn in the room, not inside the wall",
+      intro:
+        "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
+      changes: [
+        {
+          build,
+          text: "If you entered a bunker while standing off to one side, you could spawn stuck inside solid rock and have to walk out before you could see anything. You now always spawn on the floor of the open starter room, at the nearest open spot to where you entered.",
+        },
+        {
+          build,
+          text: "This only changes where you appear when you step inside; your bunker layout, your digging, and your saves are untouched. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.272",
+      date: "2026-07-16",
+      title: "Old bunkers show their ore again",
+      intro:
+        "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
+      changes: [
+        {
+          build,
+          text: "If you claimed a bunker before its walls started generating ore, it was stuck as solid dirt that paid nothing when you dug it, and even a reset did not fix it. Opening the bunker now fills in the ore it should have had, so its walls show the mine's dirt, rock, and ore for that depth and digging pays again.",
+        },
+        {
+          build,
+          text: "This only fills in ore that was missing. It never regrows ore you already mined, and it leaves any bunker that already had ore unchanged. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
+    {
+      version: "0.1.271",
+      date: "2026-07-16",
+      title: "Old bunkers need a fresh start",
+      intro:
+        "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+      changes: [
+        {
+          build,
+          text: "If your bunker was built under the old whole-block layout, it can no longer be edited as it is. Open the bunker sheet and it now shows a Start fresh button instead of the Enter button. Start fresh clears the old build and lets you build again under the new system, and it keeps every room you dug out, so you never lose your digging.",
+        },
+        {
+          build,
+          text: "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
+        },
+      ],
+    },
     {
       version: "0.1.270",
       date: "2026-07-15",

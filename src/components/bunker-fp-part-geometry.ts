@@ -195,11 +195,479 @@ function buildFpDoor(ctx: BuildContext): void {
   }
 }
 
+/** Stair flight: five risers climb the first 60% of the cell in +x
+ * (x -0.5..0.1), cell floor to landing level, so the render matches the
+ * collision ramp exactly. Each tread top sits at -0.5 + 0.19 * (i + 1). */
+const FP_STAIR_STEPS = 5;
+const FP_STAIR_STEP_W = 0.12;
+const FP_STAIR_RISE = 0.19;
+
+/** Slope of the flight (rise 0.95 over run 0.6) for the side stringers. */
+const FP_STAIR_ANGLE = Math.atan2(0.95, 0.6);
+
+/** [x, y] rivet spots along the stringer slope line (center -0.2, -0.025,
+ * direction [0.534, 0.845]). Ends ship on both tiers; the in-between pair
+ * is the high-tier extra. */
+const FP_STAIR_STRINGER_RIVETS: readonly (readonly [number, number])[] = [
+  [-0.387, -0.321],
+  [-0.2, -0.025],
+  [-0.013, 0.271],
+];
+const FP_STAIR_STRINGER_RIVETS_HIGH: readonly (readonly [number, number])[] = [
+  [-0.293, -0.173],
+  [-0.107, 0.123],
+];
+
+function buildFpStair(ctx: BuildContext): void {
+  // Five solid steps ascend in +x, then a solid plinth landing fills the
+  // last 40% of the cell at full height (top y 0.45). Everything spans
+  // the full 0.9 cell depth in z, wide enough to climb side by side.
+  for (let i = 0; i < FP_STAIR_STEPS; i++) {
+    const h = FP_STAIR_RISE * (i + 1);
+    const xFront = -0.5 + FP_STAIR_STEP_W * i;
+    box(
+      ctx,
+      "shell",
+      [FP_STAIR_STEP_W, h, 0.9],
+      [xFront + FP_STAIR_STEP_W / 2, -0.5 + h / 2, 0],
+    );
+    // Warm tread nosing along each leading edge, proud of the tread top.
+    box(
+      ctx,
+      "accent",
+      [0.05, 0.02, 0.86],
+      [xFront + 0.025, -0.5 + h + 0.008, 0],
+    );
+  }
+  box(ctx, "shell", [0.4, 0.95, 0.9], [0.3, -0.025, 0]);
+  // Dark joint seams where each tread meets the next riser, plus a warm
+  // under-nosing light strip on each riser above the first.
+  for (let i = 1; i < FP_STAIR_STEPS; i++) {
+    const xFront = -0.5 + FP_STAIR_STEP_W * i;
+    box(
+      ctx,
+      "composite",
+      [0.03, 0.014, 0.88],
+      [xFront - 0.015, -0.5 + FP_STAIR_RISE * i + 0.005, 0],
+    );
+    box(
+      ctx,
+      "emissive",
+      [0.016, 0.03, 0.5],
+      [xFront - 0.008, -0.5 + FP_STAIR_RISE * (i + 1) - 0.05, 0],
+    );
+  }
+  // Seam marking the flight-to-landing joint on the landing top.
+  box(ctx, "composite", [0.03, 0.014, 0.88], [0.115, 0.455, 0]);
+  for (const side of [-1, 1] as const) {
+    // Side stringer tracking the flight, half proud of the step sides,
+    // with a curb rail continuing it around the landing.
+    box(
+      ctx,
+      "frame",
+      [0.99, 0.08, 0.05],
+      [-0.2, -0.025, side * 0.45],
+      [0, 0, FP_STAIR_ANGLE],
+    );
+    box(ctx, "frame", [0.4, 0.08, 0.05], [0.3, 0.42, side * 0.45]);
+    for (const [x, y] of FP_STAIR_STRINGER_RIVETS) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, y, side * 0.478],
+        [(side * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+    cylinder(
+      ctx,
+      "frame",
+      0.045,
+      0.05,
+      0.04,
+      [0.3, 0.42, side * 0.478],
+      [(side * Math.PI) / 2, 0, 0],
+      6,
+    );
+  }
+  // End rail across the step-off edge, capped by a warm painted lip.
+  box(ctx, "frame", [0.05, 0.08, 0.9], [0.475, 0.42, 0]);
+  box(ctx, "accent", [0.05, 0.02, 0.86], [0.475, 0.465, 0]);
+  if (ctx.tier !== "high") return;
+  for (const side of [-1, 1] as const) {
+    for (const [x, y] of FP_STAIR_STRINGER_RIVETS_HIGH) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, y, side * 0.478],
+        [(side * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+    for (const x of [0.16, 0.44]) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, 0.42, side * 0.478],
+        [(side * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+    // Deck rivets pinning the landing top corners.
+    for (const x of [0.2, 0.44]) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, 0.47, side * 0.36],
+        [0, 0, 0],
+        6,
+      );
+    }
+    // Weld seam along each stringer's outer face.
+    box(
+      ctx,
+      "composite",
+      [0.9, 0.02, 0.012],
+      [-0.2, -0.025, side * 0.4785],
+      [0, 0, FP_STAIR_ANGLE],
+    );
+  }
+  // Dark kick plates shadowing the riser feet.
+  for (let i = 1; i < FP_STAIR_STEPS; i++) {
+    const xFront = -0.5 + FP_STAIR_STEP_W * i;
+    box(
+      ctx,
+      "composite",
+      [0.014, 0.05, 0.86],
+      [xFront - 0.006, -0.5 + FP_STAIR_RISE * i + 0.032, 0],
+    );
+  }
+}
+
 const FP_BUILDERS: Partial<Record<BasePartId, (ctx: BuildContext) => void>> = {
   "wall-panel": buildFpWall,
   "floor-panel": buildFpFloor,
   "roof-panel": buildFpRoof,
   "door-panel": buildFpDoor,
+  "stair-panel": buildFpStair,
+};
+
+/**
+ * Thin sub-cell variants (F-117). A thin part fills one face or plane of
+ * the cell, not the whole room, so a corner can hold two walls and a room
+ * can be capped without filling it. Each panel is built CENTERED in a
+ * canonical thin axis: wall and door thin in z (a slab facing the corridor),
+ * floor and roof thin in y (a deck). The canvas rotates and offsets the
+ * whole group onto the target face (fpSlotRenderTransform), so one geometry
+ * serves all of a part's slots. Extents stay within +-0.5 like the full-cell
+ * parts, and the slab is 0.08 thick so it reads as a panel, not cardboard.
+ */
+const FP_SLAB_T = 0.08;
+const FP_SLAB_SPAN = 0.94;
+
+/** In-plane rivet spots for the thin panels. Corners ship on both tiers;
+ * edge midpoints are the high-tier extras. The z-panel spots sit clear of
+ * the rim grooves and raised borders; the y-panel spots pin the deck's
+ * painted edge strips. */
+const FP_THIN_RIVET_CORNERS: readonly (readonly [number, number])[] = [
+  [-0.38, -0.38],
+  [-0.38, 0.38],
+  [0.38, -0.38],
+  [0.38, 0.38],
+];
+const FP_THIN_RIVET_EDGES_Z: readonly (readonly [number, number])[] = [
+  [0, 0.405],
+  [0, -0.405],
+  [0.405, 0],
+  [-0.405, 0],
+];
+const FP_THIN_RIVET_CORNERS_Y: readonly (readonly [number, number])[] = [
+  [-0.4, -0.4],
+  [-0.4, 0.4],
+  [0.4, -0.4],
+  [0.4, 0.4],
+];
+const FP_THIN_RIVET_EDGES_Y: readonly (readonly [number, number])[] = [
+  [0, 0.4],
+  [0, -0.4],
+  [0.4, 0],
+  [-0.4, 0],
+];
+
+/** Dark rim groove around a thin slab's four in-plane edges, so a panel
+ * reads as framed steel and two coplanar panels share a continuous seam. */
+function thinRimZ(ctx: BuildContext): void {
+  const e = FP_SLAB_SPAN / 2;
+  box(ctx, "composite", [FP_SLAB_SPAN, 0.06, FP_SLAB_T + 0.008], [0, e, 0]);
+  box(ctx, "composite", [FP_SLAB_SPAN, 0.06, FP_SLAB_T + 0.008], [0, -e, 0]);
+  box(ctx, "composite", [0.06, FP_SLAB_SPAN, FP_SLAB_T + 0.008], [e, 0, 0]);
+  box(ctx, "composite", [0.06, FP_SLAB_SPAN, FP_SLAB_T + 0.008], [-e, 0, 0]);
+}
+
+function thinRimY(ctx: BuildContext): void {
+  const e = FP_SLAB_SPAN / 2;
+  box(ctx, "composite", [FP_SLAB_SPAN, FP_SLAB_T + 0.008, 0.06], [0, 0, e]);
+  box(ctx, "composite", [FP_SLAB_SPAN, FP_SLAB_T + 0.008, 0.06], [0, 0, -e]);
+  box(ctx, "composite", [0.06, FP_SLAB_T + 0.008, FP_SLAB_SPAN], [e, 0, 0]);
+  box(ctx, "composite", [0.06, FP_SLAB_T + 0.008, FP_SLAB_SPAN], [-e, 0, 0]);
+}
+
+/** Tapered rivet heads proud of both faces of a z-thin panel, narrow end
+ * out (the thin cousin of faceRivets), kept within |z| 0.06. */
+function thinRivetsZ(
+  ctx: BuildContext,
+  spots: readonly (readonly [number, number])[],
+): void {
+  for (const face of [-1, 1] as const) {
+    for (const [x, y] of spots) {
+      cylinder(
+        ctx,
+        "frame",
+        0.03,
+        0.037,
+        0.024,
+        [x, y, face * 0.048],
+        [(face * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+  }
+}
+
+/** Tapered rivet heads proud of one deck face of a y-thin panel. */
+function thinRivetsY(
+  ctx: BuildContext,
+  face: -1 | 1,
+  spots: readonly (readonly [number, number])[],
+): void {
+  for (const [x, z] of spots) {
+    cylinder(
+      ctx,
+      "frame",
+      0.03,
+      0.037,
+      0.024,
+      [x, face * 0.048, z],
+      [face === 1 ? 0 : Math.PI, 0, 0],
+      6,
+    );
+  }
+}
+
+function buildThinWall(ctx: BuildContext): void {
+  // Beveled plate body: chamfered so raking corridor light catches the edge.
+  chamferedBox(
+    ctx,
+    "shell",
+    [FP_SLAB_SPAN, FP_SLAB_SPAN, FP_SLAB_T],
+    [0, 0, 0],
+    0.028,
+  );
+  thinRimZ(ctx);
+  // Recessed inner panel: a dark inset plate behind a raised steel border,
+  // the thin cousin of the full wall's patched-steel faces.
+  box(ctx, "composite", [0.6, 0.44, 0.084], [0, 0.1, 0]);
+  box(ctx, "frame", [0.68, 0.045, 0.094], [0, 0.3425, 0]);
+  box(ctx, "frame", [0.68, 0.045, 0.094], [0, -0.1425, 0]);
+  box(ctx, "frame", [0.045, 0.53, 0.094], [0.3225, 0.1, 0]);
+  box(ctx, "frame", [0.045, 0.53, 0.094], [-0.3225, 0.1, 0]);
+  for (const face of [-1, 1] as const) {
+    // Horizontal plate seam between the panel zone and the hazard skirt.
+    box(ctx, "composite", [0.86, 0.026, 0.012], [0, -0.21, face * 0.0445]);
+    // Hazard chevron skirt: three angled stripes along the plate foot.
+    for (const x of [-0.22, 0, 0.22]) {
+      box(
+        ctx,
+        "accent",
+        [0.26, 0.05, 0.012],
+        [x, -0.33, face * 0.0445],
+        [0, 0, Math.PI / 4],
+      );
+    }
+  }
+  thinRivetsZ(ctx, FP_THIN_RIVET_CORNERS);
+  if (ctx.tier !== "high") return;
+  thinRivetsZ(ctx, FP_THIN_RIVET_EDGES_Z);
+  // Weld lines inside the recessed panel.
+  for (const face of [-1, 1] as const) {
+    box(ctx, "composite", [0.024, 0.36, 0.008], [-0.15, 0.1, face * 0.043]);
+    box(ctx, "composite", [0.024, 0.36, 0.008], [0.15, 0.1, face * 0.043]);
+  }
+}
+
+function buildThinFloor(ctx: BuildContext): void {
+  box(ctx, "shell", [FP_SLAB_SPAN, FP_SLAB_T, FP_SLAB_SPAN], [0, 0, 0]);
+  thinRimY(ctx);
+  // Dark grate pit under the walkway so the slats read over a void.
+  box(ctx, "composite", [0.78, 0.082, 0.6], [0, 0, 0]);
+  // Walkway grate proud of the deck: side rails plus slats, denser on high.
+  box(ctx, "frame", [0.9, 0.026, 0.065], [0, 0.049, 0.315]);
+  box(ctx, "frame", [0.9, 0.026, 0.065], [0, 0.049, -0.315]);
+  const slats = ctx.tier === "high" ? FP_GRATE_XS_HIGH : FP_GRATE_XS_LOW;
+  for (const x of slats) {
+    box(ctx, "frame", [0.055, 0.026, 0.7], [x, 0.049, 0]);
+  }
+  // Warm painted edge strips on the bare deck outside the rails, pinned by
+  // the corner rivets.
+  box(ctx, "accent", [0.9, 0.018, 0.06], [0, 0.046, 0.4]);
+  box(ctx, "accent", [0.9, 0.018, 0.06], [0, 0.046, -0.4]);
+  thinRivetsY(ctx, 1, FP_THIN_RIVET_CORNERS_Y);
+  if (ctx.tier !== "high") return;
+  // Cross bars lace the grate, plus edge bolts and underside rivets.
+  for (const z of [-0.2, 0, 0.2]) {
+    box(ctx, "frame", [0.74, 0.02, 0.045], [0, 0.044, z]);
+  }
+  thinRivetsY(ctx, 1, FP_THIN_RIVET_EDGES_Y);
+  thinRivetsY(ctx, -1, FP_THIN_RIVET_CORNERS_Y);
+}
+
+function buildThinRoof(ctx: BuildContext): void {
+  box(ctx, "shell", [FP_SLAB_SPAN, FP_SLAB_T, FP_SLAB_SPAN], [0, 0, 0]);
+  thinRimY(ctx);
+  // Work lamp proud of the underside: dark surround, steel housing, end
+  // brackets, and the emissive panel hanging lowest so the warm glow reads
+  // from below.
+  box(ctx, "composite", [0.5, 0.02, 0.34], [0, -0.045, 0]);
+  box(ctx, "frame", [0.44, 0.03, 0.28], [0, -0.052, 0]);
+  box(ctx, "emissive", [0.34, 0.024, 0.2], [0, -0.066, 0]);
+  box(ctx, "frame", [0.05, 0.05, 0.3], [0.225, -0.048, 0]);
+  box(ctx, "frame", [0.05, 0.05, 0.3], [-0.225, -0.048, 0]);
+  // Warm trim flanking the lamp, and a conduit feeding it from the rim.
+  box(ctx, "accent", [0.44, 0.016, 0.035], [0, -0.046, 0.19]);
+  box(ctx, "accent", [0.44, 0.016, 0.035], [0, -0.046, -0.19]);
+  cylinder(
+    ctx,
+    "frame",
+    0.022,
+    0.022,
+    0.3,
+    [0.2, -0.048, 0.31],
+    [Math.PI / 2, 0, 0],
+    8,
+  );
+  // Vent ridge on the top face.
+  box(ctx, "composite", [0.62, 0.024, 0.28], [0, 0.048, 0]);
+  const fins = ctx.tier === "high" ? FP_FIN_XS_HIGH : FP_FIN_XS_LOW;
+  for (const x of fins) {
+    box(ctx, "frame", [0.05, 0.022, 0.3], [x, 0.058, 0]);
+  }
+  thinRivetsY(ctx, -1, FP_THIN_RIVET_CORNERS_Y);
+  if (ctx.tier !== "high") return;
+  // Conduit clamps, extra underside rivets, and top-face corner rivets.
+  box(ctx, "frame", [0.06, 0.05, 0.05], [0.2, -0.048, 0.24]);
+  box(ctx, "frame", [0.06, 0.05, 0.05], [0.2, -0.048, 0.4]);
+  thinRivetsY(ctx, -1, FP_THIN_RIVET_EDGES_Y);
+  thinRivetsY(ctx, 1, FP_THIN_RIVET_CORNERS_Y);
+}
+
+function buildThinDoor(ctx: BuildContext): void {
+  // Hatch frame in the wall slab's footprint: sill, lintel, and jambs.
+  box(ctx, "shell", [FP_SLAB_SPAN, 0.2, FP_SLAB_T], [0, -0.37, 0]);
+  box(ctx, "shell", [FP_SLAB_SPAN, 0.24, FP_SLAB_T], [0, 0.35, 0]);
+  box(ctx, "shell", [0.17, FP_SLAB_SPAN, FP_SLAB_T], [-0.385, 0, 0]);
+  box(ctx, "shell", [0.17, FP_SLAB_SPAN, FP_SLAB_T], [0.385, 0, 0]);
+  thinRimZ(ctx);
+  // Raised steel border seating the leaf, plus hinge knuckles on the left.
+  box(ctx, "frame", [0.72, 0.05, 0.096], [0, 0.255, 0]);
+  box(ctx, "frame", [0.72, 0.05, 0.096], [0, -0.295, 0]);
+  box(ctx, "frame", [0.05, 0.6, 0.096], [-0.335, -0.02, 0]);
+  box(ctx, "frame", [0.05, 0.6, 0.096], [0.335, -0.02, 0]);
+  box(ctx, "frame", [0.05, 0.11, 0.112], [-0.315, 0.12, 0]);
+  box(ctx, "frame", [0.05, 0.11, 0.112], [-0.315, -0.16, 0]);
+  thinRivetsZ(ctx, FP_THIN_RIVET_CORNERS);
+  // Twin ready lights on the lintel, both corridor faces.
+  for (const face of [-1, 1] as const) {
+    box(ctx, "emissive", [0.1, 0.04, 0.014], [-0.19, 0.315, face * 0.0445]);
+    box(ctx, "emissive", [0.1, 0.04, 0.014], [0.19, 0.315, face * 0.0445]);
+  }
+  if (ctx.tier === "high") {
+    thinRivetsZ(ctx, FP_THIN_RIVET_EDGES_Z);
+    // Dark bezels behind the ready lights.
+    for (const face of [-1, 1] as const) {
+      box(ctx, "composite", [0.13, 0.06, 0.01], [-0.19, 0.315, face * 0.0435]);
+      box(ctx, "composite", [0.13, 0.06, 0.01], [0.19, 0.315, face * 0.0435]);
+    }
+  }
+  // THE LEAF: the door's single dedicated "accent" layer (chamfered slab,
+  // spin wheel, spokes, hazard chevron together), future-swingable as one.
+  chamferedBox(ctx, "accent", [0.6, 0.52, 0.1], [0, -0.02, 0], 0.035);
+  const wheelSegments = ctx.tier === "high" ? 12 : 8;
+  for (const face of [-1, 1] as const) {
+    cylinder(
+      ctx,
+      "accent",
+      0.105,
+      0.105,
+      0.02,
+      [0, 0.03, face * 0.053],
+      [Math.PI / 2, 0, 0],
+      wheelSegments,
+    );
+    cylinder(
+      ctx,
+      "accent",
+      0.034,
+      0.04,
+      0.028,
+      [0, 0.03, face * 0.058],
+      [(face * Math.PI) / 2, 0, 0],
+      6,
+    );
+    box(ctx, "accent", [0.2, 0.024, 0.012], [0, 0.03, face * 0.059]);
+    box(ctx, "accent", [0.024, 0.2, 0.012], [0, 0.03, face * 0.059]);
+    if (ctx.tier === "high") {
+      box(
+        ctx,
+        "accent",
+        [0.2, 0.024, 0.012],
+        [0, 0.03, face * 0.059],
+        [0, 0, Math.PI / 4],
+      );
+      box(
+        ctx,
+        "accent",
+        [0.2, 0.024, 0.012],
+        [0, 0.03, face * 0.059],
+        [0, 0, -Math.PI / 4],
+      );
+    }
+    // Hazard chevron on the leaf foot (accent, so it swings with the leaf).
+    box(
+      ctx,
+      "accent",
+      [0.15, 0.034, 0.012],
+      [-0.05, -0.2, face * 0.053],
+      [0, 0, Math.PI / 4],
+    );
+    box(
+      ctx,
+      "accent",
+      [0.15, 0.034, 0.012],
+      [0.05, -0.2, face * 0.053],
+      [0, 0, -Math.PI / 4],
+    );
+  }
+}
+
+const FP_THIN_BUILDERS: Partial<
+  Record<BasePartId, (ctx: BuildContext) => void>
+> = {
+  "wall-panel": buildThinWall,
+  "floor-panel": buildThinFloor,
+  "roof-panel": buildThinRoof,
+  "door-panel": buildThinDoor,
 };
 
 const FP_ZERO_ANCHOR = [0, 0, 0] as const;
@@ -209,12 +677,16 @@ const cache = new Map<string, BunkerPartGeometry>();
 export function bunkerPartFpGeometry(
   id: BasePartId,
   tier: SurfaceGeometryTier,
+  thin = false,
 ): BunkerPartGeometry {
-  const builder = FP_BUILDERS[id];
+  // A thin sub-cell panel (F-117), built centered in its canonical axis; the
+  // caller rotates and offsets the group onto the target face. Parts with no
+  // thin builder (turret, spikes) fall through to their full model.
+  const builder = thin ? FP_THIN_BUILDERS[id] : FP_BUILDERS[id];
   // Spikes and the turret reuse the 2D cache's exact objects: same
   // geometry, same durability-wilt motion assembly.
   if (!builder) return bunkerPartGeometry(id, tier);
-  const key = `${id}:${tier}`;
+  const key = `${id}:${tier}:${thin ? "thin" : "full"}`;
   const existing = cache.get(key);
   if (existing) return existing;
   const ctx: BuildContext = {

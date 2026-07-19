@@ -31,6 +31,8 @@ import {
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_LAYOUT_VERSION,
+  BUNKER_SLOTS,
   type BunkerFootprint,
   type BunkerState,
   createBunker,
@@ -79,6 +81,15 @@ const placedBasePartSchema = z.object({
     .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1)
     .default(0),
+  // Thin sub-cell slot (F-117); absent for a legacy whole-cell part. The
+  // claim replay re-places each part through the sim, which enforces the
+  // slot rules, then samePlacedParts confirms the layout round-trips.
+  slot: z.enum(BUNKER_SLOTS).optional(),
+  // Facing for a rotatable part (F-117 stair), quarter turns 0-3; absent on
+  // fixed-orientation parts. Replayed through the sim and round-trip checked.
+  orientation: z
+    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
+    .optional(),
   durability: z.number().int().min(1).max(1000),
 });
 const dugBunkerCellSchema = z.object({
@@ -95,6 +106,10 @@ const dugBunkerCellSchema = z.object({
 // The whole 7x5x5 volume is diggable, so the dug list can name every cell.
 const MAX_DUG_CELLS =
   BUNKER_CLAIM_WIDTH * BUNKER_CLAIM_HEIGHT * BUNKER_CLAIM_DEPTH;
+// Gear levels only, for validation-failure debugging. Deliberately omits
+// elevatorColumn: the player-chosen shaft column is a location coordinate, not
+// a level, and must not be retained in cash-out or gear_not_owned telemetry
+// (F-121). The rail DEPTH (elevator) stays because it is a bounded level.
 const GEAR_LOG_FIELDS = [
   "pickaxe",
   "battery",
@@ -102,7 +117,6 @@ const GEAR_LOG_FIELDS = [
   "cargo",
   "lantern",
   "elevator",
-  "elevatorColumn",
   "warpcoil",
   "blast",
   "elevatorSpeed",
@@ -180,7 +194,7 @@ function fieldSummary(
   return summary;
 }
 
-function cashOutRequestSummary(body: unknown): Record<string, unknown> {
+export function cashOutRequestSummary(body: unknown): Record<string, unknown> {
   if (!isRecord(body)) {
     return { bodyType: valueKind(body) };
   }
@@ -263,7 +277,10 @@ export function gearOwnershipError(
   const submittedColumn = elevatorColumn(gear);
   const ownedColumn = mineElevatorColumnFromProfile(owned);
   if (gear.elevator > 0 && submittedColumn !== ownedColumn) {
-    return `rail not owned: column ${submittedColumn ?? "none"}`;
+    // Bounded state, never the exact submitted column (F-121). With rail owned
+    // (elevator > 0), elevatorColumn always resolves a number (legacy shafts
+    // fall back to the fixed column), so this is always a "mismatch".
+    return "rail not owned: column mismatch";
   }
   return null;
 }
@@ -354,6 +371,8 @@ function samePlacedParts(
         part.col === other.col &&
         part.row === other.row &&
         part.depth === other.depth &&
+        part.slot === other.slot &&
+        part.orientation === other.orientation &&
         part.durability === other.durability
       );
     })
@@ -431,6 +450,8 @@ export function validatePendingBunkerClaim(
       part.col,
       part.row,
       part.depth,
+      part.slot,
+      part.orientation,
     );
     if (!placed.ok) {
       return { ok: false, error: `cannot place bunker part: ${placed.reason}` };
@@ -613,7 +634,9 @@ export async function POST(request: Request): Promise<Response> {
       severity: "error",
       ...playerLogContext,
       detail: gearError,
-      submitted: gear,
+      // The bounded per-level summary, never the full gear object, which would
+      // carry the exact elevatorColumn shaft coordinate (F-121).
+      submitted: fieldSummary(gear, GEAR_LOG_FIELDS),
     });
     return Response.json({ error: gearError }, { status: 422 });
   }
@@ -834,14 +857,15 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot)
+      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot, layout_version)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
         ${JSON.stringify(claimedBunker?.parts ?? [])}::jsonb,
         ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb,
         ${claimedBunker?.blockSeed ?? null},
-        ${JSON.stringify(claimedBunker?.loot ?? [])}::jsonb
+        ${JSON.stringify(claimedBunker?.loot ?? [])}::jsonb,
+        ${BUNKER_LAYOUT_VERSION}
       WHERE ${hasPendingBunker} AND EXISTS (SELECT 1 FROM world)
       ON CONFLICT (player_id) DO NOTHING
       RETURNING player_id

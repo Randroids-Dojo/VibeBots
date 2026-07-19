@@ -7,8 +7,8 @@ import {
   useState,
 } from "react";
 import {
+  AVAILABLE_BASE_PART_IDS,
   BASE_PART_CATALOG,
-  BASE_PART_IDS,
   type BasePartId,
   basePartMinimumLevel,
   basePartOwnedCount,
@@ -81,6 +81,7 @@ const BASE_PART_ICONS: Record<BasePartId, string> = {
   "door-panel": "\u{1F6AA}",
   "basic-turret": "\u{1F6E1}\u{FE0F}",
   "floor-spikes": "\u{1F53A}",
+  "stair-panel": "\u{1FA9C}",
 };
 
 function HardwareStorePanel({
@@ -103,7 +104,7 @@ function HardwareStorePanel({
   return (
     <div>
       <QuantityPicker value={buyQuantity} onChange={setBuyQuantity} />
-      {BASE_PART_IDS.map((partId) => {
+      {AVAILABLE_BASE_PART_IDS.map((partId) => {
         const def = BASE_PART_CATALOG[partId];
         const totalPrice = def.price * buyQuantity;
         const affordable = balance !== null && balance >= totalPrice;
@@ -236,6 +237,9 @@ export function StallMenu({
   cashOutPending,
   elevatorPurchasePending,
   elevatorPlacementRequired,
+  railResyncFailed,
+  railRetryPending,
+  onRetryRailResync,
   onBuyConsumable,
   onBuyBasePart,
   onBuyGear,
@@ -256,6 +260,9 @@ export function StallMenu({
   cashOutPending: boolean;
   elevatorPurchasePending: boolean;
   elevatorPlacementRequired: boolean;
+  railResyncFailed: boolean;
+  railRetryPending: boolean;
+  onRetryRailResync: () => void;
   onBuyConsumable: (item: DepotItem, quantity: number) => void;
   onBuyBasePart: (partId: BasePartId, quantity: number) => void;
   onBuyGear: (track: MineGearTrack) => void;
@@ -626,6 +633,7 @@ export function StallMenu({
                 }
                 disabled={
                   elevatorPurchasePending ||
+                  railResyncFailed ||
                   (!choosingExistingShaft &&
                     (elevatorMaxed ||
                       upgradeFunds === null ||
@@ -633,6 +641,7 @@ export function StallMenu({
                 }
                 style={sheetButtonStyle(
                   !elevatorPurchasePending &&
+                    !railResyncFailed &&
                     (choosingExistingShaft ||
                       (!elevatorMaxed &&
                         upgradeFunds !== null &&
@@ -653,6 +662,40 @@ export function StallMenu({
               </button>
             }
           />
+          {railResyncFailed && (
+            <div
+              data-testid="rail-resync-recovery"
+              role="alert"
+              style={{
+                margin: "8px 0 0",
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(245, 158, 11, 0.5)",
+                background: "rgba(245, 158, 11, 0.12)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
+                Your rail moved on another device and the refresh failed. Retry
+                to reload the latest rail before buying.
+              </span>
+              <button
+                type="button"
+                data-testid="rail-resync-retry"
+                aria-label="Retry refreshing the rail"
+                onClick={onRetryRailResync}
+                disabled={railRetryPending}
+                style={{
+                  ...sheetButtonStyle(!railRetryPending),
+                  alignSelf: "flex-start",
+                }}
+              >
+                {railRetryPending ? "Refreshing..." : "Retry refresh"}
+              </button>
+            </div>
+          )}
           <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
             {choosingExistingShaft
               ? "Choose any surface column. The old shaft stays open as a tunnel."

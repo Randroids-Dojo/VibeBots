@@ -8,6 +8,16 @@ export const BUNKER_CLAIM_HEIGHT = 5;
 /** Cells of buildable depth behind the tunnel plane. Depth 0 is the plane
  * the 2D mine view shows; deeper cells extend into the claim rock. */
 export const BUNKER_CLAIM_DEPTH = 5;
+/**
+ * Build-era generation stamped on every bunker (F-117). It marks which
+ * bunker-design era a layout was created or last reset under, not a
+ * specific part model: version 1 is the current 7x5x5 dig-out redesign.
+ * A bunker from an older era fails fast and offers a confirmed Start
+ * fresh (Q-022, a product decision to clear pre-redesign layouts rather
+ * than migrate them) instead of being edited under the new design. Rows
+ * that predate the marker persist as 0 and read as an older era. Bump
+ * this only when a redesign should force existing layouts to reset. */
+export const BUNKER_LAYOUT_VERSION = 1;
 export const BUNKER_RAID_DURATION_SECONDS = 180;
 export const BUNKER_RAID_COOLDOWN_HOURS = 4;
 export const DEFENSE_XP_PER_LEVEL = 100;
@@ -38,6 +48,7 @@ export const BASE_PART_IDS = [
   "door-panel",
   "basic-turret",
   "floor-spikes",
+  "stair-panel",
 ] as const;
 export type BasePartId = (typeof BASE_PART_IDS)[number];
 
@@ -50,6 +61,11 @@ export interface BasePartDef {
   blocksClankers: boolean;
   ammo?: number;
   stepDamage?: number;
+  /** Fully modeled but not yet offered: hidden from the shop, the build
+   * hotbar, and the buy path until its mechanic ships. Keeps the part in
+   * BASE_PART_IDS (so schemas, geometry, and the type stay complete) while
+   * keeping it out of every player-facing enumeration. */
+  comingSoon?: boolean;
 }
 
 export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
@@ -103,7 +119,27 @@ export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
     blocksClankers: false,
     stepDamage: FLOOR_SPIKES_DAMAGE,
   },
+  "stair-panel": {
+    id: "stair-panel",
+    name: "Staircase",
+    blurb: "climb between bunker layers, facing the way you rotate it",
+    price: 12,
+    durability: 70,
+    blocksClankers: false,
+    // Hidden until the climb ships (F-117 staircase arc). A placeable but
+    // unclimbable stair reads as broken, so it stays out of the shop and
+    // hotbar even though it is fully modeled.
+    comingSoon: true,
+  },
 };
+
+/** The parts a player can currently obtain and use: BASE_PART_IDS minus the
+ * ones still flagged comingSoon. Every player-facing enumeration (the shop
+ * list, the build hotbar, the number-key selection) iterates this, so a
+ * modeled-but-unshipped part never appears as a buyable or selectable slot.
+ * Schemas, geometry, and persistence keep using the complete BASE_PART_IDS. */
+export const AVAILABLE_BASE_PART_IDS: readonly BasePartId[] =
+  BASE_PART_IDS.filter((id) => !BASE_PART_CATALOG[id].comingSoon);
 
 export type BasePartInventory = Record<BasePartId, number>;
 
@@ -114,6 +150,7 @@ export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
   "door-panel": 0,
   "basic-turret": 0,
   "floor-spikes": 0,
+  "stair-panel": 0,
 };
 
 /**
@@ -129,7 +166,10 @@ export const STARTER_BASE_PART_INVENTORY: BasePartInventory = {
   "roof-panel": 4,
   "door-panel": 1,
   "basic-turret": 0,
+  // Staircase is granted once the climb ships; kept at 0 until then so it is
+  // not placeable before it does anything (F-117 stair slice A).
   "floor-spikes": 0,
+  "stair-panel": 0,
 };
 
 export interface BunkerFootprint {
@@ -139,6 +179,70 @@ export interface BunkerFootprint {
   height: number;
 }
 
+/**
+ * Sub-cell slots a thin part occupies (F-117). One cell holds at most one
+ * part per slot: four wall faces on the horizontal boundaries, a floor
+ * slab, a roof slab, and one interior mount (turret, spikes, or stair).
+ * Wall faces sit on the boundary *between* two cells; `canonicalWallSlot`
+ * pins each divider to a single (cell, face) so it cannot be placed from
+ * both sides. Axes match the fp grid: `px`/`nx` face col+1/col-1, `pz`/`nz`
+ * face depth+1/depth-1; floor is the cell's bottom (toward the cell below,
+ * row+1), roof its top (toward the cell above, row-1).
+ */
+export const BUNKER_SLOTS = [
+  "floor",
+  "roof",
+  "wall-px",
+  "wall-nx",
+  "wall-pz",
+  "wall-nz",
+  "mount",
+] as const;
+export type BunkerSlot = (typeof BUNKER_SLOTS)[number];
+
+export function isBunkerWallSlot(slot: BunkerSlot): boolean {
+  return (
+    slot === "wall-px" ||
+    slot === "wall-nx" ||
+    slot === "wall-pz" ||
+    slot === "wall-nz"
+  );
+}
+
+const WALL_SLOTS: readonly BunkerSlot[] = [
+  "wall-px",
+  "wall-nx",
+  "wall-pz",
+  "wall-nz",
+];
+
+/**
+ * Which slots a part may occupy under the thin model (F-117). Walls and
+ * doors are boundary dividers (any of the four wall faces); floor and roof
+ * are the horizontal slabs; turrets, spikes, and future stairs stand in
+ * the cell interior (the single mount slot).
+ */
+export function allowedBunkerSlots(partId: BasePartId): readonly BunkerSlot[] {
+  switch (partId) {
+    case "wall-panel":
+    case "door-panel":
+      return WALL_SLOTS;
+    case "floor-panel":
+      return ["floor"];
+    case "roof-panel":
+      return ["roof"];
+    case "basic-turret":
+    case "floor-spikes":
+    case "stair-panel":
+      return ["mount"];
+  }
+}
+
+/** A staircase's facing: which of the four horizontal directions its low end
+ * points toward, as quarter turns (0 = +x, 1 = +z, 2 = -x, 3 = -z). Only a
+ * stair carries one; every other part's orientation is fixed by its slot. */
+export type BunkerOrientation = 0 | 1 | 2 | 3;
+
 export interface PlacedBasePart {
   partId: BasePartId;
   col: number;
@@ -146,6 +250,18 @@ export interface PlacedBasePart {
   /** 0..BUNKER_CLAIM_DEPTH-1; legacy rows normalize to 0 (the tunnel plane). */
   depth: number;
   durability: number;
+  /**
+   * Sub-cell slot this thin part occupies (F-117). Absent on legacy
+   * full-cell parts placed before the thin model. Wall slots are stored in
+   * canonical form (see `canonicalWallSlot`). The slice that lets the UI
+   * place thin parts writes this field and enforces the slot invariants
+   * (occupancy, support, roof-top-only); this foundation slice only defines
+   * the vocabulary. Stair orientation lands with the stair part.
+   */
+  slot?: BunkerSlot;
+  /** Facing of a rotatable part (only the staircase uses it), as quarter
+   * turns; absent on every fixed-orientation part. */
+  orientation?: BunkerOrientation;
 }
 
 /** Cosmetic bunker skins (F-087, REQ-034/REQ-038): palette variants for
@@ -224,6 +340,10 @@ export interface BunkerState {
   skin?: BunkerSkinId;
   /** Skins this player owns beyond the free default. */
   skinsOwned?: BunkerSkinId[];
+  /** Layout-model version this bunker was built under (F-117). Absent or
+   * below BUNKER_LAYOUT_VERSION means the persisted layout predates the
+   * current placement model and must Start fresh before editing. */
+  layoutVersion?: number;
 }
 
 export interface PendingBunkerBuild {
@@ -372,6 +492,36 @@ export function applyBunkerReset(
   };
 }
 
+/**
+ * True when this bunker's persisted layout predates the current layout
+ * model and cannot be edited under the present placement rules (F-117).
+ * Legacy rows carry no version (read as 0); anything below the current
+ * version is incompatible. The caller (server + client) blocks editing
+ * and offers Start fresh instead of migrating (Q-022).
+ */
+export function isBunkerLayoutIncompatible(bunker: BunkerState): boolean {
+  return (bunker.layoutVersion ?? 0) < BUNKER_LAYOUT_VERSION;
+}
+
+/**
+ * Hard reset an incompatible bunker to a bare, current-version claim
+ * (F-117, Q-022). Unlike applyBunkerReset this refunds nothing: the old
+ * layout is structurally gone, so its parts do not return to inventory.
+ * The excavation, footprint, skin, seed, and loot survive (all still
+ * valid under the new model); only the built parts clear and the layout
+ * version stamps forward. Pure: persistence is the caller's concern.
+ */
+export function applyBunkerStartFresh(bunker: BunkerState): BunkerState {
+  return {
+    ...bunker,
+    parts: [],
+    layoutVersion: BUNKER_LAYOUT_VERSION,
+    // Dug cells, footprint, skin, seed, and loot stay: they carry no
+    // layout-model assumptions, so mined ore never regrows and the
+    // spawn pocket stays open (matches applyBunkerReset's F-120 rule).
+  };
+}
+
 export function overallPlayerLevel(trackXp: number, defenseXp: number): number {
   void trackXp;
   return playerLevelProgress(defenseXp).level;
@@ -446,10 +596,13 @@ export function canBuyBasePart(
   | { ok: true }
   | {
       ok: false;
-      reason: "level" | "limit";
+      reason: "level" | "limit" | "unreleased";
       minLevel?: number;
       limit?: number;
     } {
+  if (BASE_PART_CATALOG[partId].comingSoon) {
+    return { ok: false, reason: "unreleased" };
+  }
   const minLevel = basePartMinimumLevel(partId);
   if (playerLevel < minLevel) {
     return { ok: false, reason: "level", minLevel };
@@ -517,6 +670,237 @@ export function containsBunkerCell3D(
   );
 }
 
+/** One sub-cell slot anchored to an absolute cell (F-117). */
+export interface BunkerSlotRef {
+  col: number;
+  row: number;
+  depth: number;
+  slot: BunkerSlot;
+}
+
+/**
+ * Canonical (cell, face) for a wall divider (F-117). A wall between two
+ * cells is one physical slab; addressing it from either side must resolve
+ * to the same slot so it cannot be placed twice. We pin it to the lower
+ * coordinate on its axis when that neighbor is in-footprint: a `wall-nx`
+ * becomes the `wall-px` of the cell to its left, a `wall-nz` the `wall-pz`
+ * of the cell in front of it. An edge wall whose lower neighbor is outside
+ * the footprint keeps its own face. Non-wall slots are returned unchanged.
+ */
+export function canonicalWallSlot(
+  footprint: BunkerFootprint,
+  col: number,
+  row: number,
+  depth: number,
+  slot: BunkerSlot,
+): BunkerSlotRef {
+  if (
+    slot === "wall-nx" &&
+    containsBunkerCell3D(footprint, col - 1, row, depth)
+  ) {
+    return { col: col - 1, row, depth, slot: "wall-px" };
+  }
+  if (
+    slot === "wall-nz" &&
+    containsBunkerCell3D(footprint, col, row, depth - 1)
+  ) {
+    return { col, row, depth: depth - 1, slot: "wall-pz" };
+  }
+  return { col, row, depth, slot };
+}
+
+/** The slotted part occupying an exact canonical slot, or undefined. A
+ * legacy whole-cell part (no slot) never matches a defined slot ref. */
+function bunkerPartAtSlot(
+  bunker: BunkerState,
+  ref: BunkerSlotRef,
+): PlacedBasePart | undefined {
+  return bunker.parts.find(
+    (part) =>
+      part.col === ref.col &&
+      part.row === ref.row &&
+      part.depth === ref.depth &&
+      part.slot === ref.slot,
+  );
+}
+
+/** True when a part already occupies `ref`'s slot (F-117). A legacy
+ * full-cell part (no slot) fills its whole cell, so it conflicts with any
+ * slot in that cell; a slotted part conflicts only on the same canonical
+ * slot. A wall divides two cells, so a legacy whole-cell part on the far
+ * side of the boundary also blocks the divider (a canonical wall ref always
+ * faces +col or +depth). Legacy and slotted parts never coexist in a live
+ * bunker (Q-022 hard-resets an old layout before the thin model loads), so
+ * the cross-cell legacy case only matters defensively until that boundary
+ * lands. */
+function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
+  const here = bunker.parts.some((part) => {
+    if (
+      part.col !== ref.col ||
+      part.row !== ref.row ||
+      part.depth !== ref.depth
+    ) {
+      return false;
+    }
+    return part.slot === undefined || part.slot === ref.slot;
+  });
+  if (here) return true;
+  if (!isBunkerWallSlot(ref.slot)) return false;
+  const farCol = ref.slot === "wall-px" ? ref.col + 1 : ref.col;
+  const farDepth = ref.slot === "wall-pz" ? ref.depth + 1 : ref.depth;
+  return bunker.parts.some(
+    (part) =>
+      part.slot === undefined &&
+      part.col === farCol &&
+      part.row === ref.row &&
+      part.depth === farDepth,
+  );
+}
+
+/** True when a thin wall divider already sits on any of a cell's four
+ * boundaries (F-117). A whole-cell legacy part fills the cell out to its
+ * shared edges, so it physically collides with such a divider; this is the
+ * legacy-side of the boundary rule that `bunkerSlotOccupied` enforces from
+ * the wall side, so legacy placement and a legacy move target are blocked in
+ * the same case regardless of which part landed first. It ignores legacy
+ * neighbors (they carry no wall slot), matching only slotted dividers. */
+function bunkerCellBlockedByWall(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  for (const face of WALL_SLOTS) {
+    const ref = canonicalWallSlot(bunker.footprint, col, row, depth, face);
+    if (bunkerPartAtSlot(bunker, ref)) return true;
+  }
+  return false;
+}
+
+/** Minimum walls an overhead floor needs beneath it to stand (F-117). */
+export const BUNKER_OVERHEAD_FLOOR_MIN_WALLS = 2;
+
+/** A floor slab rests on solid ground when the cell directly below it is
+ * not open. Room-local y counts up as `row` decreases (see the fp grid),
+ * so the cell below is `row + 1`. A grounded floor needs no walls; an
+ * overhead floor (open space below) must be held up. */
+function isGroundedBunkerFloor(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  return !isOpenBunkerCell(bunker, col, row + 1, depth);
+}
+
+/** Walls holding up a floor slab: the wall faces of the cell directly
+ * below it, which rise to meet the floor's underside. Counts the canonical
+ * wall slots that carry a load-bearing part (only walls and doors can sit
+ * in a wall slot, and both are structural dividers). A part chewed down to
+ * zero durability is rubble, not support, so the support count is recomputed
+ * on each settlement pass. Today a settlement pass runs only on a pry or an
+ * excavation. Live raids are already active, so before any thin-part
+ * persistence or activation the live-raid wear resolution must run this
+ * settlement itself, with exact slot identity, at the moment a support is
+ * destroyed; leaning on a later unrelated mutation to settle is not
+ * acceptable. That integration is tracked as deferred in the F-117 slice
+ * log. */
+function bunkerFloorSupportWalls(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): number {
+  let count = 0;
+  for (const face of WALL_SLOTS) {
+    const ref = canonicalWallSlot(bunker.footprint, col, row + 1, depth, face);
+    const part = bunkerPartAtSlot(bunker, ref);
+    if (part && part.durability > 0) count++;
+  }
+  return count;
+}
+
+/** True when a floor slab at the cell may stand: grounded, or overhead
+ * with at least the minimum supporting walls beneath it (F-117). */
+function isBunkerFloorSupported(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  if (isGroundedBunkerFloor(bunker, col, row, depth)) return true;
+  return (
+    bunkerFloorSupportWalls(bunker, col, row, depth) >=
+    BUNKER_OVERHEAD_FLOOR_MIN_WALLS
+  );
+}
+
+/** A mount (turret, floor spikes, and later a stair) stands on the floor of
+ * its cell (F-117): it is held up either by solid ground below the cell or by
+ * a floor slab in the cell. When that footing is gone the mount falls with
+ * it. Checked after floors settle, so a floor slab that just fell no longer
+ * counts. */
+function isBunkerMountSupported(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  if (isGroundedBunkerFloor(bunker, col, row, depth)) return true;
+  return (
+    bunkerPartAtSlot(bunker, { col, row, depth, slot: "floor" }) !== undefined
+  );
+}
+
+/**
+ * Settle a layout after a support changes (F-117): first drop every overhead
+ * floor that has lost its support (open space below and fewer than the
+ * minimum supporting walls), then drop every dependent mount (turret, floor
+ * spikes, future stair) that lost the floor it stood on. Floors do not
+ * support other floors and mounts support nothing, so a single floors-then-
+ * mounts pass settles it. A caller runs this after a wall is pried, a cell is
+ * dug, or raid wear destroys a support. Pure; returns the culled bunker and
+ * the fallen parts (destroyed, so callers do not refund them).
+ */
+export function cascadeUnsupportedFloors(bunker: BunkerState): {
+  bunker: BunkerState;
+  fallen: PlacedBasePart[];
+} {
+  const fallenFloors = bunker.parts.filter(
+    (part) =>
+      part.slot === "floor" &&
+      !isBunkerFloorSupported(bunker, part.col, part.row, part.depth),
+  );
+  const floorSet = new Set(fallenFloors);
+  const partsAfterFloors =
+    fallenFloors.length === 0
+      ? bunker.parts
+      : bunker.parts.filter((part) => !floorSet.has(part));
+  const bunkerAfterFloors =
+    fallenFloors.length === 0 ? bunker : { ...bunker, parts: partsAfterFloors };
+  const fallenMounts = partsAfterFloors.filter(
+    (part) =>
+      part.slot === "mount" &&
+      !isBunkerMountSupported(
+        bunkerAfterFloors,
+        part.col,
+        part.row,
+        part.depth,
+      ),
+  );
+  if (fallenFloors.length === 0 && fallenMounts.length === 0) {
+    return { bunker, fallen: [] };
+  }
+  const dropped = new Set<PlacedBasePart>([...fallenFloors, ...fallenMounts]);
+  return {
+    bunker: {
+      ...bunker,
+      parts: bunker.parts.filter((part) => !dropped.has(part)),
+    },
+    fallen: [...fallenFloors, ...fallenMounts],
+  };
+}
+
 /** Open = walkable/buildable air. Every cell (including the depth-0
  * plane) starts as solid claim rock (F-115/F-116); a cell is open only
  * if it has been excavated, and the pre-mined spawn pocket is seeded
@@ -533,6 +917,45 @@ export function isOpenBunkerCell(
   );
 }
 
+/** The shared face between the target cell and an already-open neighbor is
+ * unobstructed, so a dig can pass through it (F-117). A thin wall or door on a
+ * lateral boundary seals it; a floor or roof slab on a horizontal boundary
+ * seals it. `dCol`/`dRow`/`dDepth` is the unit step from the target toward the
+ * open neighbor. */
+function isBunkerDigFaceOpen(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+  dCol: number,
+  dRow: number,
+  dDepth: number,
+): boolean {
+  if (dCol !== 0) {
+    const face = dCol < 0 ? "wall-nx" : "wall-px";
+    return !bunkerPartAtSlot(
+      bunker,
+      canonicalWallSlot(bunker.footprint, col, row, depth, face),
+    );
+  }
+  if (dDepth !== 0) {
+    const face = dDepth < 0 ? "wall-nz" : "wall-pz";
+    return !bunkerPartAtSlot(
+      bunker,
+      canonicalWallSlot(bunker.footprint, col, row, depth, face),
+    );
+  }
+  // Vertical boundary. Room-local y counts up as `row` decreases, so the
+  // neighbor above is `row - 1` and below is `row + 1`. The horizontal plane
+  // between two cells carries the upper cell's floor and the lower cell's
+  // roof; either slab seals the dig.
+  const upperRow = dRow < 0 ? row - 1 : row;
+  return (
+    !bunkerPartAtSlot(bunker, { col, row: upperRow, depth, slot: "floor" }) &&
+    !bunkerPartAtSlot(bunker, { col, row: upperRow + 1, depth, slot: "roof" })
+  );
+}
+
 /** Excavation is free, yields nothing, and cannot be undone in v1. It
  * must chain from an already-open face so server-side replays of the
  * ordered dug list prove every dig was physically reachable. */
@@ -542,26 +965,51 @@ export function excavateBunkerCell(
   row: number,
   depth: number,
 ):
-  | { ok: true; bunker: BunkerState }
-  | { ok: false; reason: "outside" | "open" | "unreachable" } {
+  | { ok: true; bunker: BunkerState; fallen?: PlacedBasePart[] }
+  | { ok: false; reason: "outside" | "open" | "unreachable" | "obstructed" } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
   }
   if (isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "open" };
   }
+  // Reachable only through an OPEN neighbor whose shared face is unobstructed:
+  // a thin wall, door, floor, or roof on the boundary seals the dig (F-117).
+  const openNx = isOpenBunkerCell(bunker, col - 1, row, depth);
+  const openPx = isOpenBunkerCell(bunker, col + 1, row, depth);
+  const openNz = isOpenBunkerCell(bunker, col, row, depth - 1);
+  const openPz = isOpenBunkerCell(bunker, col, row, depth + 1);
+  const openUp = isOpenBunkerCell(bunker, col, row - 1, depth);
+  const openDown = isOpenBunkerCell(bunker, col, row + 1, depth);
+  const hasOpenNeighbor =
+    openNx || openPx || openNz || openPz || openUp || openDown;
   const reachable =
-    isOpenBunkerCell(bunker, col - 1, row, depth) ||
-    isOpenBunkerCell(bunker, col + 1, row, depth) ||
-    isOpenBunkerCell(bunker, col, row - 1, depth) ||
-    isOpenBunkerCell(bunker, col, row + 1, depth) ||
-    isOpenBunkerCell(bunker, col, row, depth - 1) ||
-    isOpenBunkerCell(bunker, col, row, depth + 1);
-  if (!reachable) return { ok: false, reason: "unreachable" };
-  return {
-    ok: true,
-    bunker: { ...bunker, dug: [...bunker.dug, { col, row, depth }] },
+    (openNx && isBunkerDigFaceOpen(bunker, col, row, depth, -1, 0, 0)) ||
+    (openPx && isBunkerDigFaceOpen(bunker, col, row, depth, 1, 0, 0)) ||
+    (openNz && isBunkerDigFaceOpen(bunker, col, row, depth, 0, 0, -1)) ||
+    (openPz && isBunkerDigFaceOpen(bunker, col, row, depth, 0, 0, 1)) ||
+    (openUp && isBunkerDigFaceOpen(bunker, col, row, depth, 0, -1, 0)) ||
+    (openDown && isBunkerDigFaceOpen(bunker, col, row, depth, 0, 1, 0));
+  if (!reachable) {
+    // A sealed face is a distinct failure from a cell with no open neighbor:
+    // the dig is blocked by a part, not physically isolated.
+    return {
+      ok: false,
+      reason: hasOpenNeighbor ? "obstructed" : "unreachable",
+    };
+  }
+  // Opening this cell can pull the ground out from under a floor one row up
+  // (its below-cell just became open), so settle unsupported floors here on
+  // the same path a pried wall uses (F-117). Fallen floors are destroyed, so
+  // callers do not refund them.
+  const dug: BunkerState = {
+    ...bunker,
+    dug: [...bunker.dug, { col, row, depth }],
   };
+  const settled = cascadeUnsupportedFloors(dug);
+  return settled.fallen.length > 0
+    ? { ok: true, bunker: settled.bunker, fallen: settled.fallen }
+    : { ok: true, bunker: settled.bunker };
 }
 
 function bunkerLootKey(col: number, row: number, depth: number): string {
@@ -698,6 +1146,8 @@ export function createBunker(
     // room a fresh claim ships with (F-115).
     dug: bunkerSpawnPocketCells(footprint),
     blockSeed,
+    // Fresh claims are born under the current layout model (F-117).
+    layoutVersion: BUNKER_LAYOUT_VERSION,
   };
 }
 
@@ -708,11 +1158,20 @@ export function placeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
+  orientation?: BunkerOrientation,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
       ok: false;
-      reason: "outside" | "rock" | "occupied" | "stock";
+      reason:
+        | "outside"
+        | "rock"
+        | "occupied"
+        | "stock"
+        | "slot"
+        | "roof-top"
+        | "unsupported";
     } {
   if (!containsBunkerCell3D(bunker.footprint, col, row, depth)) {
     return { ok: false, reason: "outside" };
@@ -720,22 +1179,78 @@ export function placeBasePart(
   if (!isOpenBunkerCell(bunker, col, row, depth)) {
     return { ok: false, reason: "rock" };
   }
-  if (
-    bunker.parts.some(
-      (part) => part.col === col && part.row === row && part.depth === depth,
-    )
-  ) {
+  const def = BASE_PART_CATALOG[partId];
+  // Legacy whole-cell placement (no slot): one part per cell, as before.
+  if (slot === undefined) {
+    if (
+      bunker.parts.some(
+        (part) => part.col === col && part.row === row && part.depth === depth,
+      )
+    ) {
+      return { ok: false, reason: "occupied" };
+    }
+    // A whole-cell part also collides with any thin wall already on one of
+    // its boundaries, so the physical boundary rule holds whichever part was
+    // placed first (F-117).
+    if (bunkerCellBlockedByWall(bunker, col, row, depth)) {
+      return { ok: false, reason: "occupied" };
+    }
+    if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
+    return {
+      ok: true,
+      bunker: {
+        ...bunker,
+        parts: [
+          ...bunker.parts,
+          { partId, col, row, depth, durability: def.durability },
+        ],
+      },
+      inventory: addBasePartInventory(inventory, partId, -1),
+    };
+  }
+  // Thin sub-cell placement: validate the slot, resolve the canonical
+  // divider, and enforce the structural rules so the layout can never hold
+  // an unsupported floor or a roof off the top of its room.
+  if (!allowedBunkerSlots(partId).includes(slot)) {
+    return { ok: false, reason: "slot" };
+  }
+  const ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  if (bunkerSlotOccupied(bunker, ref)) {
     return { ok: false, reason: "occupied" };
   }
+  // A roof is the bunker's actual ceiling, so it may sit only in the topmost
+  // row of the claim volume (Q-025, dev direction 2026-07-16: "only the very
+  // top gets actual roof"). row counts up as it decreases, so the top row is
+  // footprint.row. An interior room that tops out against rock is capped with
+  // a second-story floor (the deck above doubles as that room's ceiling), not
+  // a roof.
+  if (slot === "roof" && row !== bunker.footprint.row) {
+    return { ok: false, reason: "roof-top" };
+  }
+  // An overhead floor must already have the walls that hold it up beneath
+  // it; a grounded floor stands on its own.
+  if (
+    slot === "floor" &&
+    !isBunkerFloorSupported(bunker, ref.col, ref.row, ref.depth)
+  ) {
+    return { ok: false, reason: "unsupported" };
+  }
   if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
-  const def = BASE_PART_CATALOG[partId];
   return {
     ok: true,
     bunker: {
       ...bunker,
       parts: [
         ...bunker.parts,
-        { partId, col, row, depth, durability: def.durability },
+        {
+          partId,
+          col: ref.col,
+          row: ref.row,
+          depth: ref.depth,
+          durability: def.durability,
+          slot: ref.slot,
+          ...(orientation !== undefined ? { orientation } : {}),
+        },
       ],
     },
     inventory: addBasePartInventory(inventory, partId, -1),
@@ -748,14 +1263,49 @@ export function removeBasePart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
 ):
-  | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
+  | {
+      ok: true;
+      bunker: BunkerState;
+      inventory: BasePartInventory;
+      /** Overhead floors dropped because this part held them up (F-117).
+       * Destroyed, not refunded; absent when nothing fell. */
+      fallen?: PlacedBasePart[];
+    }
   | {
       ok: false;
       reason: "missing" | "damaged";
     } {
+  // With a slot, target that exact divider; without one, the legacy
+  // whole-cell match (first part in the cell) is preserved for one-part
+  // layouts.
+  let ref: BunkerSlotRef | null = null;
+  if (slot !== undefined) {
+    // Canonicalize only from an open origin cell. A wall is pried from the
+    // open side you stand on, so the origin must be excavated air, not solid
+    // rock or out of bounds. Without this an out-of-footprint or solid-side
+    // coordinate could alias onto a real divider (wall-nx at col 7 folds to
+    // wall-px at col 6; wall-nz at a solid cell folds onto the open cell's
+    // shared face) and pry a part through a cell the player is not in.
+    if (!isOpenBunkerCell(bunker, col, row, depth)) {
+      return { ok: false, reason: "missing" };
+    }
+    ref = canonicalWallSlot(bunker.footprint, col, row, depth, slot);
+  }
   const part = bunker.parts.find((candidate) => {
+    if (ref) {
+      return (
+        candidate.col === ref.col &&
+        candidate.row === ref.row &&
+        candidate.depth === ref.depth &&
+        candidate.slot === ref.slot
+      );
+    }
+    // Legacy removal targets only a whole-cell part; a slotted divider in
+    // the same cell is pried by naming its slot, never by a bare cell match.
     return (
+      candidate.slot === undefined &&
       candidate.col === col &&
       candidate.row === row &&
       candidate.depth === depth
@@ -763,13 +1313,22 @@ export function removeBasePart(
   });
   if (!part) return { ok: false, reason: "missing" };
   if (isBasePartDamaged(part)) return { ok: false, reason: "damaged" };
+  let next: BunkerState = {
+    ...bunker,
+    parts: bunker.parts.filter((candidate) => candidate !== part),
+  };
+  // Prying a wall can drop the overhead floors it was holding up.
+  let fallen: PlacedBasePart[] = [];
+  if (part.slot !== undefined && isBunkerWallSlot(part.slot)) {
+    const cascade = cascadeUnsupportedFloors(next);
+    next = cascade.bunker;
+    fallen = cascade.fallen;
+  }
   return {
     ok: true,
-    bunker: {
-      ...bunker,
-      parts: bunker.parts.filter((candidate) => candidate !== part),
-    },
+    bunker: next,
     inventory: addBasePartInventory(inventory, part.partId, 1),
+    ...(fallen.length > 0 ? { fallen } : {}),
   };
 }
 
@@ -787,8 +1346,12 @@ export function moveBasePart(
       ok: false;
       reason: "missing" | "outside" | "rock" | "occupied";
     } {
+  // Whole-cell move only: a thin (slotted) part is never relocated by the
+  // cell mover, so a multi-part cell cannot be moved ambiguously. Slot-aware
+  // move lands with the slice that lets the UI relocate a thin part.
   const part = bunker.parts.find((candidate) => {
     return (
+      candidate.slot === undefined &&
       candidate.col === fromCol &&
       candidate.row === fromRow &&
       candidate.depth === fromDepth
@@ -811,6 +1374,11 @@ export function moveBasePart(
       );
     })
   ) {
+    return { ok: false, reason: "occupied" };
+  }
+  // The moved whole-cell part cannot land on a boundary a thin wall already
+  // divides, matching the legacy-placement boundary rule (F-117).
+  if (bunkerCellBlockedByWall(bunker, toCol, toRow, toDepth)) {
     return { ok: false, reason: "occupied" };
   }
   if (fromCol === toCol && fromRow === toRow && fromDepth === toDepth) {

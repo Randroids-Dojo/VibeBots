@@ -20,6 +20,7 @@ import {
   placeRemoteBunkerPart,
   resetRemoteBunker,
   resolveRemoteLiveRaid,
+  startFreshRemoteBunker,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 import { useBunkerStore } from "./bunker-store";
@@ -36,6 +37,7 @@ vi.mock("./bunker-api-client", async (importOriginal) => {
     placeRemoteBunkerPart: vi.fn(),
     resetRemoteBunker: vi.fn(),
     resolveRemoteLiveRaid: vi.fn(),
+    startFreshRemoteBunker: vi.fn(),
     startRemoteLiveBunkerRaid: vi.fn(),
   };
 });
@@ -46,6 +48,7 @@ const mockedExcavate = vi.mocked(excavateRemoteBunkerCell);
 const mockedLoad = vi.mocked(loadRemoteBunker);
 const mockedPlace = vi.mocked(placeRemoteBunkerPart);
 const mockedReset = vi.mocked(resetRemoteBunker);
+const mockedStartFresh = vi.mocked(startFreshRemoteBunker);
 const mockedResolveLive = vi.mocked(resolveRemoteLiveRaid);
 const mockedForfeitLive = vi.mocked(forfeitRemoteLiveRaid);
 const mockedStartLive = vi.mocked(startRemoteLiveBunkerRaid);
@@ -312,6 +315,26 @@ describe("bunker store", () => {
       note: "finish the raid first",
     });
   });
+
+  it("applies a Start fresh view through the shared mutation path (F-117)", async () => {
+    // Server returns the wiped, current-version bunker (no refund).
+    const bunker = createBunker(proposedBunkerFootprint(10, 8));
+    mockedStartFresh.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, bunker },
+    });
+
+    const body = await useBunkerStore.getState().startFreshBunker();
+
+    expect(body).not.toBeNull();
+    expect(mockedStartFresh).toHaveBeenCalledTimes(1);
+    expect(useBunkerStore.getState()).toMatchObject({
+      status: "ready",
+      bunker,
+      note: null,
+    });
+  });
 });
 
 describe("banked edit concurrency (F-122)", () => {
@@ -433,7 +456,16 @@ describe("banked edit concurrency (F-122)", () => {
 
     await useBunkerStore.getState().placePart("wall-panel", 7, 4, 0);
 
-    expect(mockedPlace.mock.calls[0]).toEqual(["wall-panel", 7, 4, 0, 2]);
+    // A legacy whole-cell placement passes no slot (undefined) ahead of the
+    // guarding revision (F-117).
+    expect(mockedPlace.mock.calls[0]).toEqual([
+      "wall-panel",
+      7,
+      4,
+      0,
+      undefined,
+      2,
+    ]);
     expect(useBunkerStore.getState().revision).toBe(3);
   });
 

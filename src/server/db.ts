@@ -189,6 +189,13 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 0`;
+  // Layout-model version stamped per bunker (F-117). New DEFAULT 0 means
+  // every pre-existing row reads as legacy: incompatible with the current
+  // placement model, so it fails fast and offers Start fresh (Q-022).
+  // Fresh claims and Start fresh write BUNKER_LAYOUT_VERSION instead.
+  await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS layout_version integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS bunker_raids (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -454,6 +461,30 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     CREATE INDEX IF NOT EXISTS player_balance_events_event_created_at_idx
     ON player_balance_events (event, created_at DESC)`;
+  // Durable, deduplicated elevator-upgrade mutation outcomes (F-121). One row
+  // per client request id, inserted inside the guarded-write CTE so it commits
+  // atomically with the charge (transactional outbox). `delivered_at` is null
+  // until the structured monitoring event is emitted; a crash between commit and
+  // delivery leaves the row for the recovery drain to redeliver. The unique
+  // request id makes the durable record exactly-once and lets a replay be
+  // recognized as a duplicate instead of re-charging.
+  await sql`
+    CREATE TABLE IF NOT EXISTS elevator_upgrade_outcomes (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      request_id uuid NOT NULL UNIQUE,
+      player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+      operation text NOT NULL,
+      result text NOT NULL,
+      reason text,
+      delivered_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )`;
+  // Partial index over the drain's working set: only undelivered rows, ordered
+  // by age, so the recovery sweep stays cheap as the table grows.
+  await sql`
+    CREATE INDEX IF NOT EXISTS elevator_upgrade_outcomes_undelivered_idx
+    ON elevator_upgrade_outcomes (created_at)
+    WHERE delivered_at IS NULL`;
 }
 
 /** The shared SQL client, with the schema guaranteed applied. */

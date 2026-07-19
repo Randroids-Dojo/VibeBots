@@ -17,13 +17,16 @@ import {
   setCell,
 } from "@/sim/mine";
 import {
+  anyRailResyncBlock,
   loadLocalTrip,
+  loadRailResyncBlock,
   localTripKey,
   normalizePendingBunker,
   removeLocalTrip,
   replaySavedTrip,
   type SavedTrip,
   saveLocalTrip,
+  saveRailResyncBlock,
   storedTripPendingBunkerIsCorrupt,
 } from "./mine-trip-persistence";
 
@@ -358,6 +361,90 @@ describe("pending bunker depth normalization", () => {
     // (F-115), which is exactly what a fresh createBunker ships.
     expect(loaded?.pendingBunker?.bunker.dug).toEqual(bunker.dug);
   });
+
+  it("keeps a valid part slot and drops a malformed one (F-117)", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const pending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        parts: [
+          {
+            partId: "wall-panel",
+            col: 2,
+            row: 5,
+            depth: 0,
+            slot: "wall-px",
+            durability: 90,
+          },
+          {
+            partId: "wall-panel",
+            col: 3,
+            row: 5,
+            depth: 0,
+            slot: "bogus",
+            durability: 90,
+          },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(pending)),
+    );
+
+    const parts = loadLocalTrip(1)?.pendingBunker?.bunker.parts;
+    // The known slot survives the persistence round-trip; a malformed one
+    // coerces to a legacy whole-cell part rather than rejecting the trip.
+    expect(parts?.[0].slot).toBe("wall-px");
+    expect(parts?.[1].slot).toBeUndefined();
+  });
+
+  it("keeps a valid stair orientation and drops a malformed one (F-117)", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const pending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        parts: [
+          {
+            partId: "stair-panel",
+            col: 2,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 2,
+            durability: 70,
+          },
+          {
+            partId: "stair-panel",
+            col: 3,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 7,
+            durability: 70,
+          },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(pending)),
+    );
+
+    const parts = loadLocalTrip(1)?.pendingBunker?.bunker.parts;
+    // The valid facing survives; an out-of-range one coerces to undefined
+    // rather than rejecting the trip.
+    expect(parts?.[0].orientation).toBe(2);
+    expect(parts?.[1].orientation).toBeUndefined();
+  });
 });
 
 function savedTripWithPending(pending: PendingBunkerBuild): SavedTrip {
@@ -511,5 +598,34 @@ describe("pending bunker validation (F-112)", () => {
     const normalized = normalizePendingBunker(skinned);
     expect(normalized).not.toBeNull();
     expect(normalized?.bunker.skin).toBeUndefined();
+  });
+
+  it("round-trips the rail-resync block per slot", () => {
+    expect(loadRailResyncBlock(1)).toBe(false);
+
+    saveRailResyncBlock(1, true);
+    expect(loadRailResyncBlock(1)).toBe(true);
+    // The block is scoped to its own slot only.
+    expect(loadRailResyncBlock(2)).toBe(false);
+
+    saveRailResyncBlock(1, false);
+    expect(loadRailResyncBlock(1)).toBe(false);
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-rail-resync-blocked-slot-1",
+    );
+  });
+
+  it('treats any non-"1" stored rail-block value as unblocked', () => {
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-3", "true");
+    expect(loadRailResyncBlock(3)).toBe(false);
+  });
+
+  it("reports a block on ANY slot for the unresolved-slot fail-closed check", () => {
+    expect(anyRailResyncBlock()).toBe(false);
+    // A block on a slot other than the assumed active one still trips it.
+    saveRailResyncBlock(2, true);
+    expect(anyRailResyncBlock()).toBe(true);
+    saveRailResyncBlock(2, false);
+    expect(anyRailResyncBlock()).toBe(false);
   });
 });

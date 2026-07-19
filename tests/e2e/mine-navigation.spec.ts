@@ -80,9 +80,18 @@ test("surface base indicator offers a paid return", async ({ page }) => {
   await teleport.click();
 
   await expect(page.locator(".mine-base-teleport-burst")).toBeVisible();
+  // Authoritative: the base return puts the miner's store column back at the
+  // surface base (data-horizontal-distance 0), then the rendered position
+  // glides to center. Generous budgets survive the throttled round-trip
+  // latency instead of racing the animated position on a default deadline
+  // (F-196, the same round-trip hazard F-127 fixed).
+  await expect(status).toHaveAttribute("data-horizontal-distance", "0", {
+    timeout: 15_000,
+  });
   await expect
-    .poll(async () =>
-      Math.abs(Number(await canvas.getAttribute("data-miner-x"))),
+    .poll(
+      async () => Math.abs(Number(await canvas.getAttribute("data-miner-x"))),
+      { timeout: 15_000 },
     )
     .toBeLessThan(0.6);
   await expect(indicator).not.toBeVisible();
@@ -133,9 +142,18 @@ test("surface base return skips checkpoint for a touched surface mine", async ({
   await expect(teleport).toContainText("Confirm for");
   await teleport.click();
 
+  // Authoritative: the base return puts the miner's store column back at the
+  // surface base (data-horizontal-distance 0), then the rendered position
+  // glides to center. Generous budgets survive the throttled round-trip
+  // latency instead of racing the animated position on a default deadline
+  // (F-196, the same round-trip hazard F-127 fixed).
+  await expect(status).toHaveAttribute("data-horizontal-distance", "0", {
+    timeout: 15_000,
+  });
   await expect
-    .poll(async () =>
-      Math.abs(Number(await canvas.getAttribute("data-miner-x"))),
+    .poll(
+      async () => Math.abs(Number(await canvas.getAttribute("data-miner-x"))),
+      { timeout: 15_000 },
     )
     .toBeLessThan(0.6);
   expect(bankRequests).toBe(0);

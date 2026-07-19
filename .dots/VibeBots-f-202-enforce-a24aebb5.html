@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-202 Enforce the performance-rollup data-quality contract</title>
+<meta name="dot-title" content="F-202 Enforce the performance-rollup data-quality contract">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-17T08:24:03.231838-05:00">
+</head>
+<body>
+<article>
+<h1>F-202 Enforce the performance-rollup data-quality contract</h1>
+<section id="description">
+PR 252 merged f1a47b7d as 35186721 and archived F-103 while four data-quality gaps remain. Represent GPU classification as real, software, or unknown rather than mapping null GPU to false. Pass validated explicit source intent into the summary so byBuild is empty without ?source= and appears only for the requested homogeneous source. Use jsHeapMb as the segment and build min/max fallback when heapMinMb or heapMaxMb is null unless a narrower deep-window-only contract is explicitly approved and documented. Correct F-071 to use post-F-100 attribution builds queried through the corrected F-103 endpoint with an explicit source, not only post-F-103 builds. Test null, real, and software GPU rows; unfiltered single-source, explicit-source, and mixed-source rows; and null min/max fallback. Append F-103, F-071, and progress corrections without rewriting history. Close only after the final exact head is reviewed and green.
+</section>
+</article>
+</body>
+</html>

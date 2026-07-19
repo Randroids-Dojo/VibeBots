@@ -17,8 +17,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
+  AVAILABLE_BASE_PART_IDS,
   BASE_PART_CATALOG,
-  BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
 } from "@/sim/bunker";
@@ -97,8 +97,8 @@ function FpBoxedInHint() {
       onClick={() => setDismissed(true)}
     >
       <span>
-        Boxed in? Hold a touch on a part to pry it loose, or Exit and use Bunker
-        then Reset.
+        Boxed in? Press and hold (or right-click) a part to pry it loose, or
+        open Bunker (top right) then Reset.
       </span>
       <strong aria-hidden="true">&#10005;</strong>
     </button>
@@ -143,9 +143,9 @@ const FP_TUTORIAL_COPY: Record<
   },
   done: {
     touch:
-      "That is the whole kit. Reset bunker lives in the Bunker sheet outside, and Exit is top right.",
+      "That is the whole kit. The Bunker button (top right) opens repair, skins, and Reset; Exit is above it.",
     desktop:
-      "That is the whole kit. Reset bunker lives in the Bunker sheet outside, and Exit is top right.",
+      "That is the whole kit. The Bunker button (top right) opens repair, skins, and Reset; Exit is above it.",
   },
 };
 
@@ -252,6 +252,7 @@ export function BunkerFpHud({
   onSelectPick,
   onTogglePry,
   onOpenBag,
+  onOpenStatus,
   onExit,
   onStartLiveRaid,
   raidTierCeiling,
@@ -269,6 +270,11 @@ export function BunkerFpHud({
   onSelectPick: () => void;
   onTogglePry: () => void;
   onOpenBag: () => void;
+  /** One tap out of first person straight into the bunker status sheet
+   * (repair, skins, reset). The flat view hides its collapsed trigger
+   * while the miner stands in the claim (F-119 fold), so this button is
+   * the sheet's doorway from inside. */
+  onOpenStatus: () => void;
   onExit: () => void;
   /** Start a live first-person raid at the chosen tier. */
   onStartLiveRaid: (tier: number) => void;
@@ -325,7 +331,7 @@ export function BunkerFpHud({
   // the machine the total at prop cadence, never per frame.
   useEffect(() => {
     let total = 0;
-    for (const partId of BASE_PART_IDS) total += inventory[partId];
+    for (const partId of AVAILABLE_BASE_PART_IDS) total += inventory[partId];
     setFpTutorialStock(total);
   }, [inventory]);
 
@@ -581,7 +587,7 @@ export function BunkerFpHud({
               <small>Pick</small>
             </button>
             <span className="bunker-fp-hotbar-divider" aria-hidden="true" />
-            {BASE_PART_IDS.map((partId, index) => {
+            {AVAILABLE_BASE_PART_IDS.map((partId, index) => {
               const count = inventory[partId];
               const active = tool === "build" && selectedPartId === partId;
               return (
@@ -685,6 +691,15 @@ export function BunkerFpHud({
             onClick={onExit}
           >
             Exit bunker
+          </button>
+          <button
+            type="button"
+            className="bunker-fp-status"
+            data-testid="bunker-fp-status"
+            aria-label="Open bunker status"
+            onClick={onOpenStatus}
+          >
+            Bunker
           </button>
         </>
       )}

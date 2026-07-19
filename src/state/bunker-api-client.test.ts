@@ -13,6 +13,7 @@ import {
   removeRemoteBunkerPart,
   resetRemoteBunker,
   resolveRemoteLiveRaid,
+  startFreshRemoteBunker,
   startRemoteLiveBunkerRaid,
 } from "./bunker-api-client";
 
@@ -93,6 +94,16 @@ describe("bunker API client", () => {
       depth: 2,
     });
 
+    // A thin part carries its slot on the wire (F-117).
+    await placeRemoteBunkerPart("wall-panel", 8, 6, 2, "wall-px");
+    expect(lastBody()).toEqual({
+      partId: "wall-panel",
+      col: 8,
+      row: 6,
+      depth: 2,
+      slot: "wall-px",
+    });
+
     await removeRemoteBunkerPart(8, 6);
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
       "/api/bunker/parts/remove",
@@ -101,6 +112,9 @@ describe("bunker API client", () => {
 
     await removeRemoteBunkerPart(8, 6, 1);
     expect(lastBody()).toEqual({ col: 8, row: 6, depth: 1 });
+
+    await removeRemoteBunkerPart(8, 6, 1, "wall-px");
+    expect(lastBody()).toEqual({ col: 8, row: 6, depth: 1, slot: "wall-px" });
 
     await moveRemoteBunkerPart(8, 6, 9, 6);
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
@@ -133,6 +147,12 @@ describe("bunker API client", () => {
 
     await resetRemoteBunker();
     expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe("/api/bunker/reset");
+    expect(lastBody()).toEqual({});
+
+    await startFreshRemoteBunker();
+    expect(vi.mocked(fetch).mock.calls.at(-1)?.[0]).toBe(
+      "/api/bunker/start-fresh",
+    );
     expect(lastBody()).toEqual({});
   });
 

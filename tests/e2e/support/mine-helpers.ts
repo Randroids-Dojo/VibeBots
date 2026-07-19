@@ -809,3 +809,34 @@ export async function armFpPointer(page: Page): Promise<void> {
     })
     .not.toBe("unlocked");
 }
+
+/** Hold the primary input until the fp open-cell count reaches
+ * `openCells`. Bunker blocks take multiple pickaxe hits (surface
+ * parity, REQ-013), so one click is one swing, not one block; the held
+ * press auto-restarts the swing until the aimed block (or run of
+ * blocks) breaks. Parking the pointer on the canvas center emits
+ * movement deltas that the pointer-locked look consumes on some
+ * chromium builds, so the aim is re-squared through the test hook after
+ * the move (level-forward by default; pass the aim the strike needs). */
+export async function holdFpDigUntil(
+  page: Page,
+  openCells: number,
+  { yaw = 0, pitch = 0, timeout = 45_000 } = {},
+): Promise<void> {
+  const canvas = page.locator("canvas");
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("no canvas bounding box");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await aimFp(page, yaw, pitch);
+  await page.mouse.down();
+  try {
+    await expect
+      .poll(
+        async () => Number(await canvas.getAttribute("data-fp-open-cells")),
+        { timeout },
+      )
+      .toBeGreaterThanOrEqual(openCells);
+  } finally {
+    await page.mouse.up();
+  }
+}

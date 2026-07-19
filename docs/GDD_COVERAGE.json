@@ -1177,7 +1177,8 @@
         "src/state/mine-store.ts",
         "src/state/bunker-store.ts",
         "src/state/bunker-api-client.ts",
-        "src/components/bunker-fp-canvas.tsx"
+        "src/components/bunker-fp-canvas.tsx",
+        "src/components/bunker-fp-grid.ts"
       ],
       "testRefs": [
         "src/sim/bunker-blocks.test.ts",
@@ -1185,7 +1186,8 @@
         "src/server/bunker.test.ts",
         "src/app/api/bunker/route.test.ts",
         "src/state/bunker-store.test.ts",
-        "tests/e2e/mine-bunker-fp.spec.ts"
+        "tests/e2e/mine-bunker-fp.spec.ts",
+        "tests/e2e/support/mine-helpers.ts"
       ],
       "followupRefs": [
         "F-116",
@@ -1194,7 +1196,8 @@
         "F-133",
         "F-181",
         "F-184"
-      ]
+      ],
+      "notes": "Break-rule parity shipped 2026-07-19 (0.1.279): bunkerCellDigHits paces dirt/rock/ore blocks like surface multi-hit digging (rock scales with depth tier instead of hard-gating; ore takes one swing per seeded oreSwingYield chip) and bunkerCellSwingOre narrates per-swing ore chips; payout still lands per completed dug cell (Q-030 default A)."
     },
     {
       "id": "REQ-046",

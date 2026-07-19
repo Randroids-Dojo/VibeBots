@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Placed floors are now thin decks you actually walk on",
+    "Digging inside your bunker now paces like the mine outside",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "Now the slab is the surface",
+    "the same kind of multi-hit digging as the open mine",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Decks are one-way from below",
+    "each hit has a chance to knock ore loose",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.279", "Bunker blocks take real swings"],
     ["0.1.278", "Walk onto the floors you place"],
     ["0.1.277", "Build floors at any level"],
     ["0.1.276", "Build a staircase and climb between floors"],

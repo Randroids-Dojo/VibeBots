@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-19-0.1.278-walkable-decks",
+      releaseNoticeId: "2026-07-19-0.1.279-bunker-multi-hit",
       releaseSummary:
-        "Walk onto the floors you place: Placed floors are now thin decks you actually walk on, so stepping off a stair top onto your new floor works instead of hitting an invisible wall.",
+        "Bunker blocks take real swings: Digging inside your bunker now paces like the mine outside: blocks take several pickaxe swings, and ore flecks out chip by chip while you work.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-19-0.1.278-walkable-decks",
+      releaseNoticeId: "2026-07-19-0.1.279-bunker-multi-hit",
       attempted: 2,
       sent: 1,
       expired: 1,

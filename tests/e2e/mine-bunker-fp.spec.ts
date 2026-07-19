@@ -12,6 +12,7 @@ import {
   digTo,
   dismissReleaseNotes,
   exportDiff,
+  holdFpDigUntil,
   MINE_VERSION,
   START_COL,
   STARTING_CONSUMABLES,
@@ -758,7 +759,23 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     })
     .toBe("3:0:3:rock-diggable");
   const beforeDig = await canvas.screenshot();
+  // Multi-hit digging (surface parity): one swing cracks the block but
+  // does not break it. The single click lands exactly one strike; the
+  // cell stays solid and the hit counter reads 1 of a multi-hit
+  // requirement.
   await canvas.click();
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-dig-hits"), {
+      timeout: 10_000,
+    })
+    .toBe("1");
+  expect(
+    Number(await canvas.getAttribute("data-fp-dig-required")),
+  ).toBeGreaterThan(1);
+  await expect(canvas).toHaveAttribute("data-fp-open-cells", "27");
+  // Holding the press swings until the block's hit requirement is met
+  // and the room gains the cell.
+  await holdFpDigUntil(page, 28);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
       timeout: 10_000,
@@ -1417,6 +1434,10 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   await page.mouse.move(cx, cy);
+  // Parking the pointer emits movement deltas that the pointer-locked
+  // look consumes on some chromium builds; re-square the aim so the
+  // held swings strike the column ahead, not a drifted corner.
+  await aimFp(page, 0, 0);
   await page.mouse.down();
   try {
     await expect
@@ -1435,15 +1456,17 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
     ).toBeGreaterThan(0.00005);
 
     // A single sustained hold mines the two rock cells left in the column
-    // past the deeper spawn pocket (26 -> 28).
+    // past the deeper spawn pocket (27 -> 29). Multi-hit digging means
+    // each block soaks several swings before it breaks, so the hold must
+    // run until both cells actually open, not until the first crack.
     await expect
       .poll(
         async () => Number(await canvas.getAttribute("data-fp-open-cells")),
         {
-          timeout: 20_000,
+          timeout: 30_000,
         },
       )
-      .toBeGreaterThanOrEqual(28);
+      .toBeGreaterThanOrEqual(29);
   } finally {
     await page.mouse.up();
   }
@@ -1974,7 +1997,8 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
   await expect.poll(() => tutorialStep(page), { timeout: 15_000 }).toBe("dig");
   await page.keyboard.up("d");
 
-  // The pick digs the interior rock straight ahead.
+  // The pick digs the interior rock straight ahead: blocks take several
+  // swings now (surface parity), so hold until the block breaks.
   await page.keyboard.press("0");
   await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
     "aria-pressed",
@@ -1987,12 +2011,7 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
     .toContain("rock-diggable");
   await armFpPointer(page);
   const openBefore = Number(await canvas.getAttribute("data-fp-open-cells"));
-  await canvas.click();
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-open-cells")), {
-      timeout: 10_000,
-    })
-    .toBe(openBefore + 1);
+  await holdFpDigUntil(page, openBefore + 1);
   await expect
     .poll(() => tutorialStep(page), { timeout: 10_000 })
     .toBe("place");

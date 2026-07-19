@@ -50,6 +50,9 @@ Head 279f2a89 pushed the third replacement and preclaimed a successful redispatc
 <section id="pr-244-third-forced-artifacts-2026-07-16">
 Run 29540487421 retained four artifacts with exactly one index.html and one results.json per shard. It retained no marker, screenshot, trace, error-context file, or other attachment. Every JSON report records both the 30-second global timeout and teardown timeout. Shard 1 passed six tests, including a 23.637-second arena test, while shards 2 through 4 ran no tests. This contradicts the claim that the proof expired before any test ran and leaves every new evidence fallback path untested. It proves only that four failure-guarded uploads executed.
 </section>
+<section id="scheduled-proof-29682444566">
+Scheduled run 29682444566 on 5b5d17ef proves the default deadline path now fails instead of cancels and retains useful evidence. Shards 1, 2, and 3 stopped at 991s, 988s, and 1002s and uploaded artifacts 8441156408, 8441156134, and 8441155843 with three JSON reports, three HTML reports, 18 screenshots, 11 retry traces, and 21 error contexts. Keep this open because three shards did not finish, 88 tests did not run, and acceptance still requires every shard plus three consecutive complete green matrices.
+</section>
 </article>
 </body>
 </html>

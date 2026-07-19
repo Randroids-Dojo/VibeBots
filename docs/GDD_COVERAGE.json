@@ -768,7 +768,9 @@
         "src/state/mine-store.test.ts",
         "tests/e2e/mine-save-slots.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-176"
+      ]
     },
     {
       "id": "REQ-034",
@@ -1149,7 +1151,9 @@
         "F-115",
         "F-120",
         "F-133",
-        "F-168"
+        "F-168",
+        "F-174",
+        "F-175"
       ]
     },
     {

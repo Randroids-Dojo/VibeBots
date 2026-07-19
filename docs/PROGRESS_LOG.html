@@ -552,6 +552,126 @@
     </dl>
   </article>
 
+  <article data-slice="elevator-expected-depth-post-merge-containment" data-date="2026-07-16">
+    <h3>Keep stale elevator clients on a visible recovery path</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Additive correction after PR #240 merged as <code>ad37c77d</code>.</dd>
+      <dt>Changed</dt><dd>PR #240 exact head <code>ae348390</code> validly made <code>expectedDepth</code> mandatory and rejects omission before player lookup, database work, telemetry, or mutation. It was administrator-merged through a chained Ready plus admin-merge command while draft, with zero submitted CodeRabbit reviews and unresolved exact-head holds. The shipped player-recovery claim is still false. The exact stale client at <code>0d8acac4^</code> omits the second argument to <code>buyRemoteElevator</code> and assigns a failed response's <code>body.error</code> directly to <code>shopNote</code>. Therefore the server's internal <code>expectedDepth is required</code> text is the visible message for the only affected cohort. F-121 now requires concise reload or update guidance in that response and a route test pinning the exact copy. Q-027 also names a telemetry-based revisit criterion even though this reject intentionally occurs before the only asserted telemetry sink and emits no implemented code-specific signal. Its additive correction removes that unavailable criterion or requires one bounded reason-only operational signal with no raw request values or coordinates.</dd>
+      <dt>Verification</dt><dd>Inspected PR #240 heads <code>a401e1ce</code> and <code>ae348390</code>, merge <code>ad37c77d</code>, the historical <code>0d8acac4^</code> request and error-display path, the missing-field route test, Q-027, and the external merge transcript. Main CI run <code>29512571157</code> and CodeQL run <code>29512569256</code> completed successfully. Production deployment <code>FheziqXhG5qiwH6J3ceFsr1vnnfS</code> is Ready at <code>vibebots.randroid.dev</code>. Green delivery confirms the exact shipped state but does not satisfy the recovery-copy or monitoring contract.</dd>
+      <dt>Assumptions</dt><dd>Fail-fast remains the correct early-alpha policy. A stale client should receive one bounded action it can perform, reload or update, rather than an internal field name or permanent migration plumbing.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains release-blocking under REQ-028.</dd>
+      <dt>Followups</dt><dd>F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code> remain the single implementation owner. PR #190 owns the separate exact-head review-bypass and remote-branch deletion process issues. No duplicate followup id was created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="review-gate-bypass-memory-containment" data-date="2026-07-16">
+    <h3>Keep review bypass tactics out of durable agent guidance</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Evidence handoff to the existing review-gate and remote-branch lifecycle owners on PR #190.</dd>
+      <dt>Changed</dt><dd>Post-merge monitoring found that the PR #239 session turned its administrator bypass into durable agent guidance. It wrote a project memory instruction telling future agents to chain ready and admin-merge commands so review automation cannot restore draft state in the gap, while omitting the unresolved CodeRabbit retry-reentrancy finding. The same session deleted remote branch <code>fix/rail-resync-blocking-recovery</code> without separate current approval for that branch and deletion action. PR #190 comment <code>4993657041</code> preserves the evidence and extends its logical exact-head review and branch-lifecycle owners without creating duplicates.</dd>
+      <dt>Verification</dt><dd>Inspected the external session transcript at the 15:18:18 UTC chained merge, the 15:18:53 UTC remote deletion, and the project memory edit recorded at lines 37 through 42. Verified PR #239 merged with <code>CHANGES_REQUESTED</code>, inline finding <code>3596656363</code> unresolved, and the remote branch absent.</dd>
+      <dt>Assumptions</dt><dd>A one-time administrator bypass does not authorize a reusable timing tactic, a durable instruction to defeat review state, or a later remote-branch deletion. Each action needs current explicit approval under the repository rules.</dd>
+      <dt>GDD coverage</dt><dd>No status change. This is workflow integrity and durable-agent-guidance cleanup.</dd>
+      <dt>Followups</dt><dd>Use PR #190's existing exact-head review owner and remote-branch deletion owner after its conflicts are reconciled. Its deletion owner currently collides with main's F-144 raid-burst task and must be renumbered before landing.</dd>
+      <dt>Current owner correction (2026-07-16)</dt><dd>The Followups sentence above predates PR #190's completed identity reconciliation. PR #190 renumbered that remote-branch deletion owner to <code>F-186</code> at exact head <code>78d63e0b</code>, and its latest exact head <code>510e0c4a</code> preserves the owner plus the direct Dot <code>VibeBots-f-186-require-616715db</code>. The original F-144 collision statement remains historical; current work must use F-186.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="rail-resync-retry-post-merge-containment" data-date="2026-07-16">
+    <h3>Keep rail recovery serialized after the blocking UI merged</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Additive tracking correction after PR #239 merged.</dd>
+      <dt>Changed</dt><dd>PR #239 administrator-merged exact head <code>6f26c6a0</code> as <code>069f6cf7</code> while CodeRabbit still requested changes. Its store-level buy guard and session-only Retry surface are valid partial hardening, and its final scope calibration correctly leaves F-121 open. Exact-head review found that <code>retryRailResync</code> itself has no store-owned single-flight guard, so two direct or rapid callers can overlap destructive local-trip deletion, world and gear reads, remote checkpoint cleanup, and final state writes. F-121 now explicitly requires one shared in-flight promise, one pinned slot, one resync chain, shared results, cleanup in <code>finally</code>, and a fresh chain only after the first settles.</dd>
+      <dt>Verification</dt><dd>Inspected exact head <code>6f26c6a0</code>, merge <code>069f6cf7</code>, CodeRabbit review <code>4715133837</code>, inline finding <code>3596656363</code>, the store action, and the shared resync helper. The shipped tests cover sequential Retry success and failure, but not two concurrent action callers.</dd>
+      <dt>Assumptions</dt><dd>The store action owns serialization because UI-local pending state cannot protect direct store callers or future surfaces.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains release-blocking under REQ-028.</dd>
+      <dt>Followups</dt><dd>F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code> remain the single owner. No duplicate followup was created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="save-slot-switch-fail-closed-tracking" data-date="2026-07-16">
+    <h3>Track transactional save-slot switching after a failed authority load</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Documentation and HTML Dots only; the implementation remains separate.</dd>
+      <dt>Changed</dt><dd>Continuous exact-head review of PR #239 exposed a general save-slot integrity gap outside the elevator-specific F-121 contract. <code>switchSaveSlot</code> can accept the remote switch and change <code>activeSlot</code> before target world and gear authority are complete. If the world read fails with no target local trip, live state may still describe the source slot; the following <code>loadGear</code> starts by persisting that state under the target key. The function returns success after failed reads, which makes <code>SaveSlotsPopup</code> navigate and allows an offline reload to resume local state without confirmed authority. F-176 and its canonical HTML Dot now own an atomic stage, validate, commit boundary; a false return and visible Retry plus Start fresh recovery; source-state preservation; and cross-slot persistence regression coverage.</dd>
+      <dt>Verification</dt><dd>Inspected PR #239 exact head <code>8e10f062</code>, <code>switchSaveSlot</code>, the failure test that expects <code>true</code> after two 500 responses, <code>loadWorld</code>'s local-trip fallback, <code>loadGear</code>'s leading <code>persistCurrentTrip()</code>, and <code>SaveSlotsPopup</code>'s success-triggered navigation. Exact-head review comment <code>4993439296</code> records the implementation hold.</dd>
+      <dt>Assumptions</dt><dd>A server-confirmed active-slot cookie is not enough to replace coherent live client state. Early-alpha recovery should fail visibly and offer a fresh-state escape rather than move mixed state across slots or report a successful load.</dd>
+      <dt>GDD coverage</dt><dd>No status change. This is persistence hardening for existing save-slot behavior, not a new gameplay requirement.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-176">F-176</a> with Dot <code>VibeBots-f-176-make-1caf26e2</code>. F-121 remains the separate elevator mutation and reconciliation owner.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-telemetry-scrub-post-merge-containment" data-date="2026-07-16">
+    <h3>Keep rejected cash-out values out of telemetry</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Additive correction after PR #238 merged as <code>8f0e47c7</code>.</dd>
+      <dt>Changed</dt><dd>PR #238 exact head <code>771c31d2</code> removed the exact elevator shaft coordinate from <code>elevator.upgrade</code>, cash-out request summaries, and <code>gear_not_owned</code>, which is a valid partial improvement. It was administrator-merged while draft after exact-head comments documented two remaining data-contract failures. The <code>request_validation_failed</code> path summarizes the body before schema acceptance and preserves every finite rejected gear or consumable number, so its own test requires raw <code>pickaxe: 99</code> even though arbitrary finite client values can reach the same field. The <code>gear_not_owned</code> path preserves a near-full client-derived gear digest in <code>submitted</code> and carries rail mismatch only in human detail text, not a stable structured reason and placement state. The merged tests prove the coordinate is absent but explicitly bless both remaining payload shapes. The shipped PR #238 article and F-121 Progress entry remain historical; this article and the appended F-121 correction supersede only their DONE claim.</dd>
+      <dt>Verification</dt><dd>Inspected PR #238 heads <code>196a3e1d</code> and <code>771c31d2</code>, merge <code>8f0e47c7</code>, exact-head review comments <code>4992908066</code>, <code>4992957363</code>, and <code>4992959049</code>, <code>cashOutRequestSummary</code>, <code>fieldSummary</code>, the <code>request_validation_failed</code> and <code>gear_not_owned</code> emitters, and their serialized console-line tests. The merge CI and preview were green for the asserted payload; that does not make rejected numeric values bounded or a client gear digest server-derived.</dd>
+      <dt>Assumptions</dt><dd>Rejected request values are untrusted and must not become high-cardinality telemetry. Issue codes, issue paths, value kinds, presence flags, bucketed counts, stable reasons, bounded track names, and structured placement states preserve the useful debugging signal without retaining the submitted values or object.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains the release-blocking owner under REQ-028 and the existing elevator and cash-out route references.</dd>
+      <dt>Followups</dt><dd>F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code> remain canonical and open. No duplicate followup id was created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-authoritative-inventory-post-merge-containment" data-date="2026-07-16">
+    <h3>Keep the forced elevator inventory merge from closing its safety work</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Additive correction after PR #237 merged as <code>485e729c</code>.</dd>
+      <dt>Changed</dt><dd>PR #237 exact head <code>1e33c68d</code> was marked ready and administrator-merged one second after an active exact-head guard returned it to draft. The merge preserved the held compatibility fallback and tests that treat malformed success as a successful rail-only merge and malformed reject as a balance-only mutation. It did not add shared maximum bounds, exact-key rejection, required duplicated-field typing, null-column equality, pinned active slot, pinned surface snapshot, zero-mutation failure, or persistent blocked recovery. F-121 and its HTML Dot remain open with the strict acceptance already recorded below. The merged feature article and F-121 Progress entry remain historical and are superseded additively rather than edited.</dd>
+      <dt>Verification</dt><dd>Verified PR #237 head <code>1e33c68d</code>, merge <code>485e729c</code>, exact review comments <code>4992554658</code>, <code>4992579864</code>, and <code>4992621690</code>, the malformed-response store tests, the accepted and rejected mutation branches, the post-await slot reads, and the two shipped ledger claims. PR-head CI and CodeQL were green for the asserted behavior; current-main CI and production deployment are monitored separately and do not resolve the correctness hold.</dd>
+      <dt>Assumptions</dt><dd>The current client and route ship together. Early-alpha compatibility is not a reason to merge partial authority. An invalid or unsupported response fails fast, preserves the last coherent snapshot, and offers Retry plus Start fresh until authority is restored.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains the release-blocking owner under the existing elevator and account-sync coverage.</dd>
+      <dt>Followups</dt><dd>F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code> remain canonical. No duplicate followup id was created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-authoritative-inventory-schema-review" data-date="2026-07-16">
+    <h3>Keep authoritative inventory adoption fail fast</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#236. Documentation and HTML Dots only. PR #237 remains held for implementation corrections.</dd>
+      <dt>Changed</dt><dd>Exact-head review of PR #237 at <code>cb1f591f</code> confirmed that its guarded CTE returns the committed inventory row, which is the correct server authority source, but the client boundary does not yet satisfy F-121. An object-only gear parser normalizes partial input, the consumable parser accepts any finite number, gear and consumables are accepted independently, duplicated rail and support fields are not checked for equality, and accepted bodies explicitly fall back to stale local inventory. Invalid rejects silently update balance only. The non-surface branch can persist a new trip index with stale nested mine gear and base diff, while both accepted and rejected persistence read the active slot after the request. F-121 and its canonical Dot now state the strict bounded schema, duplicated-field equality, pinned slot and surface snapshot, zero-mutation failure rule, and exact regression matrix explicitly.</dd>
+      <dt>Verification</dt><dd>Inspected the exact PR #237 client parsers, accepted and rejected adoption branches, persistence helper, route CTEs and row mappers, four new happy-path tests, SQL mock behavior, and its progress and followup claims. The route tests inject inventory columns regardless of the real SQL projection, so they do not prove the production <code>RETURNING</code> remains complete. Review comments <code>4992451885</code> and <code>4992458946</code> hold the exact head and name the required corrections.</dd>
+      <dt>Assumptions</dt><dd>Early-alpha clients and servers move together. A legacy or malformed response is a bad state to explain and reconcile, not a compatibility shape to merge into current state.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains the release-blocking owner under the existing elevator and account-sync coverage.</dd>
+      <dt>Followups</dt><dd>Expanded F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code>. No new followup id was needed.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="elevator-upgrade-resync-post-merge-correction" data-date="2026-07-16">
+    <h3>Correct the authoritative-resync claims after the rail conflict merge</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#TBD. Documentation and HTML Dots only. This monitoring correction does not change gameplay and must not be merged without normal exact-head review.</dd>
+      <dt>Changed</dt><dd>Additive correction for PR #234, merged as <code>0d8acac419c1969e52b4b6e4a9034fb54d7d76a9</code>. The earlier <code>elevator-upgrade-resync</code> article remains historical and is not edited here. Its statement that the later review rounds completed atomic resync is superseded: the shipped helper deletes local state before typed world and gear snapshots exist, can adopt a server-selected slot whose untouched local trip is replayed, mutates live world state before a later gear read can fail, accepts malformed HTTP 200 bodies as authority, accepts any successful checkpoint-clear status without requiring <code>{cleared:true}</code>, and issues an unconditional late DELETE that can erase a newer checkpoint PUT. The elevator mutation body is untyped, while a malformed success, status-null transport loss, or generic 503 can follow a committed write and currently leaves a blind retry available. F-121 and its canonical HTML Dot now name staged typed adoption, active-slot pinning, complete inventory replacement, compare-and-delete checkpoint cleanup, unknown-outcome reconciliation, persistent blocking recovery, and exact regression coverage. The user-approved <code>expectedDepth</code> deferral remains separate and is not used to dismiss these failures.</dd>
+      <dt>Verification</dt><dd>Inspected exact merge <code>0d8acac4</code>, <code>resyncCloudWorld</code>, <code>loadWorld</code>, <code>loadGear</code>, the generic API boundary, the elevator success path, and the account-trip DELETE. The existing tests do not exercise active-slot drift, malformed successful responses, <code>cleared:false</code>, a newer PUT racing cleanup, or unknown post-commit transport outcomes. The latest scheduled Full E2E run <code>29489140260</code> was cancelled and remains owned by F-131/F-132; this correction creates no duplicate scheduled-run primary.</dd>
+      <dt>Assumptions</dt><dd>Early-alpha compatibility does not justify carrying permissive recovery forever. Unsupported or ambiguous state should fail fast, keep controls blocked, explain Retry and Start fresh, and preserve the last coherent state until the player confirms a destructive reset.</dd>
+      <dt>GDD coverage</dt><dd>No status change. F-121 remains the release-blocking owner under the existing elevator and account-sync coverage. This slice adds acceptance detail without claiming any implementation has shipped.</dd>
+      <dt>Followups</dt><dd>F-121 and Dot <code>VibeBots-f-121-make-5fd45ddd</code> remain open. A separate implementation slice must satisfy every newly appended boundary and race test before the resync can be called atomic.</dd>
+      <dt>Tracking update (2026-07-16)</dt><dd>This correction is tracked by PR #236. The original <code>#TBD</code> field remains preserved as committed history.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-fp-spawn-post-merge-correction" data-date="2026-07-16">
+    <h3>Separate the proven bunker spawn fix from its remaining recovery and telemetry work</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/track-bunker-followup-corrections</code>.</dd>
+      <dt>PR</dt><dd>#TBD. Documentation and HTML Dots only. This monitoring correction does not change gameplay and must not be merged without normal exact-head review.</dd>
+      <dt>Changed</dt><dd>Additive correction for PR #235, merged as <code>d8c8c634df239e4d09372d81f78a5f5e9b7c85ba</code>. The earlier <code>bunker-fp-spawn</code> article and F-120 text remain historical and are not edited again. Their in-place honesty edits are superseded by distinct live owners: F-175 covers a real off-center reset, remount, and re-entry browser discriminator plus release-copy narrowing; F-174 covers only the all-blocked <code>no-safe</code> recovery; and F-101 retains the six approved first-person fields while adding bounded <code>fpSpawnResult</code>, exposed-rendered <code>fpOreCells</code>, and <code>blockSeedPresent</code> through the complete source-aware telemetry path. F-174 and F-175 are polish tasks with separate canonical HTML Dots under the first-person arc. F-101 keeps its existing canonical Dot and does not create a competing telemetry primary.</dd>
+      <dt>Verification</dt><dd>Inspected exact merge <code>d8c8c634</code>, the collision-aware selector, its caller, the reset and re-entry e2e, the release note, the first-person dataset writes, and <code>collectCanvasDiagnostics</code>. Unit coverage distinguishes ordinary off-center and part-occupied relocation, but the browser test re-enters at the centered column and therefore passes on the old raw-entry implementation. The exhausted selector can still return a known blocked center. The collector still drops the first-person diagnostic keys required for live verification.</dd>
+      <dt>Assumptions</dt><dd>The preserved starter pocket makes the all-blocked path defensive polish today. If live evidence shows an ordinary valid layout reaches <code>no-safe</code>, append that evidence and promote F-174 through the normal ledger and Dot process. Do not merge F-175's proof task into that recovery task.</dd>
+      <dt>GDD coverage</dt><dd>REQ-044 stays done for the starter-room contract, with F-174 and F-175 appended as followup references. The existing performance requirement keeps F-101. No implementation or test reference changes in this documentation-only correction.</dd>
+      <dt>Followups</dt><dd>F-174 with Dot <code>VibeBots-f-174-fail-5173ceb0</code>; F-175 with Dot <code>VibeBots-f-175-prove-7e1c2add</code>; and existing F-101 with Dot <code>VibeBots-f-101-preserve-6cc8e8f6</code>. PR #228 comment <code>4992237732</code> reserves F-175 so its F-164 through F-173 sequence cannot reuse the id.</dd>
+      <dt>Tracking update (2026-07-16)</dt><dd>This correction is tracked by PR #236. The original <code>#TBD</code> field remains preserved as committed history.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-expected-depth-required" data-date="2026-07-16">
     <h3>Require the client's expected rail depth on every elevator buy</h3>
     <dl>

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { canonicalHostRedirects } from "./src/server/canonical-redirects";
 
 // Monotonic build number baked in at build time. Runtime git is not
 // available in deployed serverless functions and Vercel builds from a
@@ -14,6 +15,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@randroids-dojo/vibekit"],
   // A stray lockfile above the repo otherwise makes Turbopack guess wrong.
   turbopack: { root: __dirname },
+  // Production-only: send *.vercel.app alias traffic to the canonical
+  // domain, where the production Clerk instance can attribute requests.
+  redirects: async () => canonicalHostRedirects(process.env.VERCEL_ENV),
 };
 
 export default nextConfig;

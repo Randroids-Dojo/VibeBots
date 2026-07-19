@@ -5,6 +5,7 @@ import {
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   BUNKER_SLOTS,
+  type BunkerOrientation,
   type BunkerSkinId,
   type BunkerSlot,
   isBunkerSkinId,
@@ -116,6 +117,19 @@ const legacyPartSlot = z.preprocess(
   z.enum(BUNKER_SLOTS).optional() as z.ZodType<BunkerSlot | undefined>,
 );
 
+// Facing for a rotatable part (F-117 stair). A saved trip without an
+// orientation, or a malformed value, coerces to undefined, mirroring
+// `legacyPartSlot`.
+const legacyPartOrientation = z.preprocess(
+  (value) =>
+    value === 0 || value === 1 || value === 2 || value === 3
+      ? value
+      : undefined,
+  z
+    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
+    .optional() as z.ZodType<BunkerOrientation | undefined>,
+);
+
 const basePartIdSchema = z.enum(BASE_PART_IDS);
 // Skins are purely cosmetic and re-derived server-side, so an unrecognized id
 // (e.g. a trip saved by a newer build, loaded by an older one) coerces to the
@@ -130,6 +144,7 @@ const placedBasePartSchema = z.object({
   row: z.number().int().min(1),
   depth: legacyPartDepth,
   slot: legacyPartSlot,
+  orientation: legacyPartOrientation,
   durability: z
     .number()
     .int()

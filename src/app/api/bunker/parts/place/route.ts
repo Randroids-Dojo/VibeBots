@@ -21,6 +21,11 @@ const bodySchema = z.object({
   // Thin sub-cell slot (F-117). Absent for a legacy whole-cell placement; the
   // sim enforces which slots each part may occupy and the structural rules.
   slot: z.enum(BUNKER_SLOTS).optional(),
+  // Facing for a rotatable part (F-117 stair), as quarter turns 0-3. Absent
+  // on every fixed-orientation part; the sim only records it where used.
+  orientation: z
+    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
+    .optional(),
   expectedRevision: z.number().int().nonnegative().optional(),
 });
 
@@ -38,6 +43,7 @@ export async function POST(request: Request): Promise<Response> {
           body.row,
           body.depth,
           body.slot,
+          body.orientation,
           body.expectedRevision,
         ),
         (result) => result.view,

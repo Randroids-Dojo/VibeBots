@@ -422,6 +422,7 @@ describe("bunker API routes", () => {
       0,
       undefined,
       undefined,
+      undefined,
     );
   });
 
@@ -443,6 +444,7 @@ describe("bunker API routes", () => {
       7,
       4,
       3,
+      undefined,
       undefined,
       undefined,
     );
@@ -469,6 +471,32 @@ describe("bunker API routes", () => {
       2,
       "wall-px",
       undefined,
+      undefined,
+    );
+  });
+
+  it("forwards a stair's orientation to the placement (F-117)", async () => {
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "stair-panel",
+        col: 7,
+        row: 4,
+        slot: "mount",
+        orientation: 2,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedPlace).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "stair-panel",
+      7,
+      4,
+      0,
+      "mount",
+      2,
+      undefined,
     );
   });
 
@@ -490,6 +518,7 @@ describe("bunker API routes", () => {
       7,
       4,
       0,
+      undefined,
       undefined,
       9,
     );

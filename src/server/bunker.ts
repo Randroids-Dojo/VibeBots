@@ -19,6 +19,7 @@ import {
   BUNKER_SLOTS,
   type BunkerFootprint,
   type BunkerLoot,
+  type BunkerOrientation,
   type BunkerRaidRewardReport,
   type BunkerSkinId,
   type BunkerSlot,
@@ -164,6 +165,17 @@ function normalizedBunkerSlot(value: unknown): BunkerSlot | undefined {
     : undefined;
 }
 
+/** A stored part's facing (F-117 stair), kept only for the four quarter
+ * turns; anything absent or malformed reads as no orientation. Mirrors
+ * `normalizedBunkerSlot` for the orientation axis. */
+function normalizedBunkerOrientation(
+  value: unknown,
+): BunkerOrientation | undefined {
+  return value === 0 || value === 1 || value === 2 || value === 3
+    ? value
+    : undefined;
+}
+
 function normalizedDugCells(value: unknown): DugBunkerCell[] {
   if (!Array.isArray(value)) return [];
   return value.filter((cell): cell is DugBunkerCell => {
@@ -282,6 +294,7 @@ function parseBunkerState(
         ...part,
         depth: normalizedBunkerDepth(part.depth),
         slot: normalizedBunkerSlot(part.slot),
+        orientation: normalizedBunkerOrientation(part.orientation),
       })),
   };
 }
@@ -787,6 +800,7 @@ export async function placeBunkerPart(
   row: number,
   depth = 0,
   slot?: BunkerSlot,
+  orientation?: BunkerOrientation,
   expectedRevision?: number,
 ): Promise<BunkerOperationResult> {
   const view = await loadBunkerView(sql, playerId);
@@ -806,6 +820,7 @@ export async function placeBunkerPart(
     row,
     depth,
     slot,
+    orientation,
   );
   if (!placed.ok) {
     return { ok: false, status: 409, error: `cannot place: ${placed.reason}` };

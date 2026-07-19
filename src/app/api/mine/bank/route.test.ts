@@ -396,6 +396,40 @@ describe("POST /api/mine/bank", () => {
     ]);
   });
 
+  it("banks a stair on its mount carrying its facing (F-117)", () => {
+    // A grounded bottom-row mount holds the stair; the claim replay must
+    // forward the orientation to the sim so the facing round-trips.
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: [],
+        parts: [
+          {
+            partId: "stair-panel",
+            col: START_COL - 1,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 2,
+            durability: BASE_PART_CATALOG["stair-panel"].durability,
+          },
+        ],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      { ...STARTER_BASE_PART_INVENTORY, "stair-panel": 1 },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bunker.parts[0].orientation).toBe(2);
+  });
+
   it("banks a fresh claim whose dug payload carries the whole spawn pocket", () => {
     // Regression: the client submits its entire dug set, which for a
     // fresh claim is exactly the pre-mined spawn pocket createBunker

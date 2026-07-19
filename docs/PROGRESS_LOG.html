@@ -57,6 +57,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-stair-placement" data-date="2026-07-18">
+    <h3>Wire the staircase geometry and orientation persistence</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-stair-placement</code></dd>
+      <dt>PR</dt><dd>(pending). Invisible geometry + server-side orientation wire, no package bump. Placement plumbing, part 1 of 2.</dd>
+      <dt>Changed</dt><dd>The server/geometry half of staircase placement (the client emit path, rotate control, reveal, and e2e are part 2). Geometry: a full-depth first-person <code>buildFpStair</code> (registered in <code>FP_BUILDERS</code>; the stair previously fell through to the shallow 2D silhouette), authored by a Fable-5 agent to match the collision ramp exactly (five risers over the first 60% of the cell in +x, then a flat top landing), in the riveted-steel language of the sibling parts. Orientation wire: threaded the optional <code>orientation</code> (quarter turns 0-3) through the server-side write/read path so a placed-with-facing stair round-trips: the place route schema and <code>placeBunkerPart</code> wrapper, <code>parseBunkerState</code> (a new <code>normalizedBunkerOrientation</code> guard), the bank claim path (schema, <code>samePlacedParts</code>, the replay), and the local-restore schema (<code>legacyPartOrientation</code>). Inserting <code>orientation</code> before <code>expectedRevision</code> in the wrapper shifted the positional revision arg, so the revision-guard tests and the place-route call-arg assertions were updated too.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. Fable's geometry was verified locally, not trusted: measured 504 tris low / 864 high (under the 1200/2400 caps) and extents within +-0.501; the fp geometry bounds test was widened from the four full-cell ids to every <code>BASE_PART_ID</code>, so the stair (and the reused turret/spikes models) are now actually bounds-checked. New server-wrapper, bank-claim, local-restore, and place-route tests confirm the orientation round-trips. Full unit suite green (1727).</dd>
+      <dt>Assumptions</dt><dd>Still <code>comingSoon</code>: no client emits an orientation yet, so the wire is dormant. Threading orientation through the server before the client writer follows the same foundation pattern the slot wire used, and part 2 immediately consumes it.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. No REQ row change (REQ-046 stays <code>partial</code>). No <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump. Rule 13/14: no tip or stamp change (part not obtainable yet).</dd>
+      <dt>Followups</dt><dd>The arc continues in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log: placement part 2 (client emit, rotate control UI, ghost orientation) plus the reveal (drop <code>comingSoon</code>, grant starter inventory, release chain, e2e); then full-cell retirement (which closes Q-026).</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-stair-climb" data-date="2026-07-18">
     <h3>Make the bunker staircase a walkable climbing ramp</h3>
     <dl>

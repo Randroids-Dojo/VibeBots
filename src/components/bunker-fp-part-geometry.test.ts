@@ -45,8 +45,10 @@ describe("bunker fp part geometry", () => {
       }
     });
 
-    it(`${tier} tier full-cell parts stay inside +-0.5 on every axis`, () => {
-      for (const id of FULL_CELL_IDS) {
+    it(`${tier} tier keeps every fp part inside its own cell`, () => {
+      // Every part, sealing or not (the stair and the reused mount models
+      // included), must fit within +-0.5 so it never pokes into a neighbor.
+      for (const id of BASE_PART_IDS) {
         const { bounds } = bunkerPartFpGeometry(id, tier);
         expect(bounds.min.x, `${id}:min.x`).toBeGreaterThanOrEqual(-LIMIT);
         expect(bounds.max.x, `${id}:max.x`).toBeLessThanOrEqual(LIMIT);

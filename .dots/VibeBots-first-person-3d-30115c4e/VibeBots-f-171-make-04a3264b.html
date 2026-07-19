@@ -4,12 +4,10 @@
 <meta charset="utf-8">
 <title>F-171 Make bunker part and inventory writes atomic</title>
 <meta name="dot-title" content="F-171 Make bunker part and inventory writes atomic">
-<meta name="dot-status" content="closed">
+<meta name="dot-status" content="active">
 <meta name="dot-priority" content="0">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-15T20:05:06.452482-05:00">
-<meta name="dot-closed-at" content="2026-07-19T17:37:20.219851-05:00">
-<meta name="dot-close-reason" content="Atomic guarded-CTE write: revision-guarded parts UPDATE + player_base_parts delta upsert in one statement; deltas not absolute snapshot; below-zero debit rejected; resync on loss. Direct commit to main, ships dark. 5 tests in src/server/bunker.test.ts, full suite green (1760).">
 </head>
 <body>
 <article>

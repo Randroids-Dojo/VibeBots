@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-207" data-f="F-207" data-priority="blocks-release">
+    <h3>F-207: Re-aim the boxed-in e2e's re-enclosure wall onto a legal face</h3>
+    <dl>
+      <dt>Context</dt><dd>Found while verifying the F-206 slice on 2026-07-19: <code>tests/e2e/mine-bunker-fp.spec.ts</code> <q>an enclosed spawn shows the boxed-in escape hint until a part is pried</q> fails deterministically on <code>9ceecaa</code> (the current <code>origin/main</code> tip) with place <code>none</code> where it expects <code>4:0:0</code>. The re-enclosure step aims the wall at yaw -1.57 pitch -0.62; from the spawn eye that ray exits the volume through the floor boundary's top face under the pried cell, and since the full-cell retirement (PR #272) a wall aimed at a horizontal face has no slot, so <code>placeOk</code> is correctly false. The expectation predates the retirement. This test appears to run only in the full Playwright matrix, not the required parallel gate, so the break can sit unseen until a scheduled run trips it. Two other full-matrix tests (the phone hotbar viewport check and the progressive tutorial chain) also failed in the same remote verification environment on both <code>9ceecaa</code> and the F-206 branch, but those look environment-specific (headed software-GL timing); the boxed-in failure is geometric and reproduces anywhere.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Re-aim the re-enclosure step onto a legal lateral wall face (a shallower pitch that hits the open cell's far boundary through a vertical face), or place a floor there instead if the intent is only to re-enclose, and confirm the newest scheduled Full E2E conclusion afterward per the Rule 5 step-3 check. Do not weaken the retirement assertion itself.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised during the F-206 multi-level floor placement slice; no Dot (the <code>dot-html</code> CLI is unavailable in the reporting environment).</dd>
+    </dl>
+  </section>
+
   <section id="F-206" data-f="F-206" data-priority="blocks-release">
     <h3>F-206: Let floors place at any level, including past a stair top</h3>
     <dl>

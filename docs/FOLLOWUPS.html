@@ -71,6 +71,7 @@
       <dt>Blocker (if any)</dt><dd>None.</dd>
       <dt>Unblock condition</dt><dd>Re-aim the re-enclosure step onto a legal lateral wall face (a shallower pitch that hits the open cell's far boundary through a vertical face), or place a floor there instead if the intent is only to re-enclose, and confirm the newest scheduled Full E2E conclusion afterward per the Rule 5 step-3 check. Do not weaken the retirement assertion itself.</dd>
       <dt>PR / Dot reference</dt><dd>Raised during the F-206 multi-level floor placement slice; no Dot (the <code>dot-html</code> CLI is unavailable in the reporting environment).</dd>
+      <dt>Nightly evidence 2026-07-19</dt><dd>Scheduled Full E2E run 29682444566 (head <code>5b5d17e</code>) hit this test but failed one step EARLIER than the stale-aim assertion: the right-click quick pry's refund (<q>Wall x7</q>) never landed under the shard's degraded timing (the shard ran 16.5m against a normal ~8m because two genuinely broken tests burned retries first). The stale wall aim documented above still stands as the deterministic break to fix; treat the earlier pry-step timeout as the flake tail, not a second defect.</dd>
     </dl>
   </section>
 

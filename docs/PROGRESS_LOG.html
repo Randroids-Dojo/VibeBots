@@ -30,6 +30,16 @@
 </section>
 
 <main id="entries">
+  <article data-slice="nightly-triage-deselect-e2es" data-date="2026-07-19">
+    <h3>Red nightly triage: deselect broke two e2e arming steps</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/multi-level-floor-placement-dpndmm</code></dd>
+      <dt>PR</dt><dd>(pending). Test-only fixes plus triage record; no app code change, no package bump.</dd>
+      <dt>Changed</dt><dd>Scheduled Full E2E 29682444566 (head <code>5b5d17e</code>, the first full matrix over the 07-18/19 merge burst: staircase #271, retirement #272, Upkeep #273-#275, and the floor/deck/deselect slices) went red in shards 1-3. Root causes found: (1) the progressive-tutorial and banked dig-and-place e2es pressed <code>0</code> right after entry, where the pick is already armed, and the F-209 deselect toggle now clears it, killing their dig steps; both tests now assert the armed state instead of re-pressing. (2) The tutorial's closer-card DOM click runs with the pointer lock held, where the browser hit-tests every click to the locked canvas; the test now presses Escape (the player's own gesture) and waits for <code>data-fp-lock</code> to read <code>unlocked</code> before clicking, matching the suite's keyboard-after-lock convention.</dd>
+      <dt>Verification</dt><dd>All six failing bunker-fp nightly tests were re-run locally headed on the exact <code>main</code> tip: pry-damaged deny, overflow-loot walk-over, walks/looks/jumps, and F-100 telemetry pass as-is (no code defect; their CI failures are the flake tail of shards that ran 16.5m against a normal ~8m once the two genuinely broken tests burned retries), the tutorial reaches the closer with the press-0 fix, and boxed-in fails at its known F-207 stale aim. The fixed tutorial and banked round-trip tests re-run green locally before push.</dd>
+      <dt>Assumptions</dt><dd>The remaining shard failures (mine-navigation arena entry, stamp-alert open, holodeck pinch, account-sync pair, keyboard-controls depth, and shard-2's pry-damaged/loot pair) are treated as the contention flake tail of this run, not regressions: none touch changed surfaces, all are timeout-flavored, and yesterday's two elevator failures passed today, the signature of that class. A follow-up full-matrix dispatch on the fixed head is the check on that assumption; anything that stays red there gets its own triage.</dd>
+      <dt>GDD coverage</dt><dd>None (test-only). F-207 gains a dated evidence note (the nightly failed that test one step earlier under degraded timing; the stale aim remains the deterministic break).</dd>
+      <dt>Followups</dt><dd>No new entry: the broken tests belong to F-209's slice (fixed here), the boxed-in break stays tracked as F-207.</dd>
   <article data-slice="bunker-multi-hit-digging" data-date="2026-07-19">
     <h3>Bunker blocks take multi-hit digging with per-swing ore chips</h3>
     <dl>

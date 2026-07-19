@@ -1836,8 +1836,13 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
     })
     .toBe("34");
 
-  // Dig the rock straight ahead through the banked excavate API.
-  await page.keyboard.press("0");
+  // Dig the rock straight ahead through the banked excavate API. Entry
+  // already armed the pick; pressing 0 again would clear it (F-209
+  // deselect), so assert the armed state rather than re-press.
+  await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 20_000,
@@ -1998,8 +2003,10 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
   await page.keyboard.up("d");
 
   // The pick digs the interior rock straight ahead: blocks take several
-  // swings now (surface parity), so hold until the block breaks.
-  await page.keyboard.press("0");
+  // swings now (surface parity), so hold until the block breaks. Entry
+  // already armed the pick (0.1.254), and pressing 0 again would clear
+  // the tool (F-209 deselect), so confirm the armed state instead of
+  // re-pressing.
   await expect(page.getByTestId("bunker-fp-pick")).toHaveAttribute(
     "aria-pressed",
     "true",
@@ -2057,7 +2064,18 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
   await expect.poll(() => tutorialStep(page), { timeout: 10_000 }).toBe("done");
 
   // The closer card is a button: tapping it completes the chain and
-  // persists the done flag.
+  // persists the done flag. Release the pointer lock first: with the lock
+  // held the browser hit-tests every click to the locked canvas, so a DOM
+  // click on the card gets intercepted. A real player presses Escape and
+  // the BROWSER frees the lock natively; synthetic Escape cannot trigger
+  // that user-agent path, so the test frees it the same way the browser
+  // would, through exitPointerLock.
+  await page.evaluate(() => document.exitPointerLock());
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-lock"), {
+      timeout: 10_000,
+    })
+    .toBe("unlocked");
   await page.getByTestId("bunker-fp-tutorial").click();
   await expect(page.getByTestId("bunker-fp-tutorial")).toHaveCount(0);
   expect(

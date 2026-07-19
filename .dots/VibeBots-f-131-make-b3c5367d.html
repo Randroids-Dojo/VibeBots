@@ -15,6 +15,9 @@
 <section id="description">
 Treat non-superseded scheduled shard timeouts as actionable, finish Playwright before the job deadline, retain reports and partial evidence for every non-success shard, prove a forced timeout fails with artifacts, and complete three consecutive full matrices within budget without only raising the timeout.
 </section>
+<section id="recurrence-29406448908">
+Scheduled run 29406448908 on exact main c40b7e16 reproduced the blocker for a third consecutive schedule. Shard 4 passed, shards 1 through 3 reached 37/47, 13/47, and 31/47 results before the exact 20-minute limit cancelled them, the failure-only report step skipped, and the run retained zero artifacts or final assertion summaries. The run was not superseded or manually cancelled and must be treated as red.
+</section>
 </article>
 </body>
 </html>

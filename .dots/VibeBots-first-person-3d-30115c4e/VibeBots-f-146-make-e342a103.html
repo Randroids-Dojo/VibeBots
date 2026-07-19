@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-146 Make bunker mutations atomic and serialize every client write</title>
+<meta name="dot-title" content="F-146 Make bunker mutations atomic and serialize every client write">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:36:43.811776-05:00">
+</head>
+<body>
+<article>
+<h1>F-146 Make bunker mutations atomic and serialize every client write</h1>
+<section id="description">
+Make every bunker mutation all-or-nothing across bunker revision, inventory, refunds, balance, and owned-item rows. Serialize all client bunker writes, return stable conflicts with the complete authoritative view, and inject secondary-write failures plus overlapping operations in tests.
+</section>
+<section id="live-ui-hard-gate-2026-07-15">
+The first-person live raid UI branch published d7f6a5f5 from ac99bcf1 before F-146 implementation. Ledger authority alone does not unblock start or resolve call sites. Land the global queue, atomic writes, authoritative replacement, and overlap tests first.
+</section>
+<section id="local-player-wiring-gate-2026-07-15">
+The unpublished player path now wires unlatched start and fire-and-forget resolve before F-146. Overflow collection still runs before the raid gate, its same-raid response can restart the local wave, and an active dig swing can land after start. Keep the path unshippable, put every edit and lifecycle action behind one queue and combat gate, key runtime by raid ID, cancel in-flight edits, and prove no duplicate start, rejected edit churn, or wave restart.
+</section>
+<section id="production-atomicity-exploit-pr-221">
+Main c84a4403 lets remove, place, reset, repair, collect, or dig overlap Start and resolve outside one queue and atomic boundary. Resolve can restore a refunded part, erase a consumed placement, or overwrite paid repair durability. Serialize every bunker mutation against one freshest authoritative revision and prove no duplicate or lost inventory, balance, part, or revision across delayed overlaps.
+</section>
+<section id="forfeit-serialization-review-2026-07-15">
+The draft client forfeit runs outside the shared queue with no latch or raid identity. A delayed exit can target a newly started raid or clear newer equal-revision state. Serialize it with exact identity and prove duplicate exit, new Start, load, resolve, and edits cannot overwrite one another.
+</section>
+<section id="merged-serialization-dismissal-pr-224">
+Comment 4980856802 calls reconnect, re-roll, and damage gaps pre-existing instead of fixing the new direct mutation. PR #224 merged head 006d4507 as main 98d269ee with no client state-path change. Forfeit remains outside the shared queue with no exact identity, latch, acknowledgement, or response-order proof, so F-146 remains a production release gate.
+</section>
+<section id="pre-dispatch-cancellation-boundary-pr-223-review">
+Cancellation applies only to local animation, input, or queued intent that has not been dispatched. Start runs through the same write queue behind every earlier queued or dispatched mutation. Once a request is dispatched, keep it ordered until its authoritative success or conflict response is adopted; never drop that response or retry outside the same stable request identity. An accepted Start cancels only later pre-dispatch edit intent and local animation. Cover pre-dispatch cancellation with no request, an attempted post-dispatch cancellation that leaves the request ordered through response adoption, a delayed dispatched edit followed by Start that proves edit then Start server order, accepted Start canceling only later undispatched edit intent, conflict replacement, and one identity-preserving retry with no duplicate write or stale overwrite.
+</section>
+<section id="cancel-in-flight-phrase-superseded-pr-223-full-review">
+The historical phrase cancel in-flight edits in the local player wiring section is superseded and must not be read as permission to abort a dispatched request. It means only pre-dispatch local animation, input, or queued intent. A request is dispatched once transport may have delivered it, and from that point its queue position, stable identity, and authoritative response adoption remain mandatory even if the local UI stops showing the action.
+</section>
+<section id="touch-abandon-queue-violation-pr-225">
+PR #225 exact heads 90b9fa66 and 734aeeba exit first person immediately and rely on canvas-unmount cleanup to fire-and-forget forfeit outside the shared queue. They have no stable exact-raid identity, pending latch, acknowledgement gate, or response-order protection. Require one queue with freshest execution state and complete authoritative adoption across load, edit, Start, resolve, duplicate exit, re-entry, and Strict Effects replay.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose the touch trigger while forfeit remains outside the shared queue. Green CI does not cover delayed load, edit, Start, resolve, duplicate exit, immediate re-entry, or Strict Effects ordering. Keep the additive current-main correction open.
+</section>
+<section id="pr-226-sequencing-evidence">
+Main d722ae8e retains the admitted race: load, start, resolve, and forfeit run outside shared serialization, while equal revisions are adopted. A load begun before Start can return later at the same revision and clear activeLiveRaid. The retirement does not fix that ordering or add exact lifecycle identity. Do not let F-118 compound the state-shape change before all lifecycle operations and loads share one authoritative sequencing contract.
+</section>
+</article>
+</body>
+</html>

@@ -17,6 +17,15 @@
 <section id="description">
 F-118: Remove core state and visuals, free its cell, retarget live raids to the player, and reconcile persistence and raid snapshots.
 </section>
+<section id="live-loop-gate-2026-07-15">
+The unpublished loop still mounts FpCore and requires core in its browser fixture. Remove the render and remaining state, schema, targeting, raycast, collision, and fixture dependencies before the player-facing loop ships, then prove the freed cell is ordinary space.
+</section>
+<section id="production-exposure-pr-221">
+Main c84a4403 deployed the first-person live loop while FpCore and core-backed fixtures remain. Remove the core through an additive implementation slice and prove the freed cell is ordinary diggable and buildable space with player-targeted Clankers.
+</section>
+<section id="pr-226-prerequisite-correction">
+Removing the interim resolver does not by itself unblock F-118. Current main requires bunkers.core in storage, parses and writes it through claim and reset, and preserves it in existing live snapshots. Define the old-client and stored-state boundary before changing the wire shape. Prefer one clear fail-fast explanation plus confirmed Start fresh for unsupported state, not a permanent migration chain. A bounded nullable compatibility step may preserve legacy data, but physical column deletion or stored-row rewrites require explicit destructive approval. Keep F-106, F-107, and F-146 ahead of any lifecycle-sensitive state change.
+</section>
 </article>
 </body>
 </html>

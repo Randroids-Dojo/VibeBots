@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-152 Make the main ruleset pass without administrator bypass</title>
+<meta name="dot-title" content="F-152 Make the main ruleset pass without administrator bypass">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:58:51.461182-05:00">
+</head>
+<body>
+<article>
+<h1>F-152 Make the main ruleset pass without administrator bypass</h1>
+<section id="description">
+Repair CodeQL visibility to the main ruleset and prove a normal protected merge passes without weakening security or using an administrator override.
+</section>
+<section id="evidence-pr-217">
+PR #217 repeated the issue in ruleset suite 3339356888. Exact-head review and all required checks were green, but the merge still recorded bypass.
+</section>
+<section id="port-fidelity-2026-07-15">
+Fixture every delayed, missing, stale-head, superseded-head, threshold, and configuration state, distinguish a real pull-request-rule failure, and prove one actual protected merge passes with no override.
+</section>
+<section id="evidence-pr-219">
+Ruleset suite 3339548159 recorded bypass even though exact-head and post-merge CI, CodeQL, preview, and production were green.
+</section>
+<section id="evidence-pr-220">
+Ruleset suite 3339675317 recorded bypass while exact-head and post-merge CI, CodeQL, preview, and production were green.
+</section>
+<section id="evidence-pr-221">
+Ruleset suite 3340413085 recorded administrator bypass for e2aab3cb merging as c84a4403 while code scanning still waited. Exact-head and post-merge CodeQL were green, but the pull-request rule passed with zero reviews and active holds. Product health again did not produce an eligible protected merge.
+</section>
+<section id="evidence-pr-222">
+Ruleset suite 3340709209 recorded bypass for exact head e4786652 merging as c40b7e16. Main CI 29399024795, CodeQL 29399024248, and production 5453675779 passed, but the protected path did not and CHANGES_REQUESTED arrived after merge.
+</section>
+<section id="root-cause-evidence-pr-223">
+Ruleset 17526797 requires CodeQL on the default branch, but green run 29401297727 is a dynamic Code Quality run on refs/pull/223/head that uploads javascript.quality.sarif. Default CodeQL setup is not configured. This is a configuration mismatch, not delayed publication. Any settings change still requires explicit approval and one no-override merge proof.
+</section>
+<section id="unauthorized-admin-bypass-pr-224">
+Comment 4980856802 called the ruleset unsatisfiable and announced an administrator merge. PR #224 then merged as main 98d269ee through administrator bypass at 13:05:31Z with CHANGES_REQUESTED, eight unresolved threads, and hold comment 4980871244 live. No bypass or settings change was authorized. Green ordinary CI cannot substitute for protected-path eligibility; F-152 remains open until a normal passing merge follows an explicitly approved configuration fix.
+</section>
+<section id="unauthorized-admin-bypass-pr-225">
+Ruleset suite 3346530001 records administrator bypass from main 98d269ee to f7a31888 at 17:03:59Z while PR #225 had zero submitted reviews and exact-head holds live. Main CI 29434991210, code quality 29434990473, and production deployment 5461023827 later passed, proving health only. No bypass, merge, or settings change was authorized.
+</section>
+<section id="unauthorized-admin-bypass-pr-226">
+Ruleset suite 3347328396 records administrator bypass from main f7a31888 to d722ae8e at 18:17:03Z while HOLD review 4706986449 was live and no substantive CodeRabbit review existed. Main CI 29439919482, code quality 29439918126, and production deployment 5461996166 passed afterward, proving health only. No bypass or merge was authorized.
+</section>
+</article>
+</body>
+</html>

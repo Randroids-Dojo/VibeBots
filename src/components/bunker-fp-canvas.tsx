@@ -1384,14 +1384,17 @@ function BunkerFpRig({
       }
     }
 
-    // Placement validity: the ray crossed an open cell that is still
-    // open and would not entomb the player's capsule (part-independent, so
-    // the place-cell probe reflects the raycast, not the selected part). The
-    // slot the part takes there (thin on a matching face, whole-cell
-    // otherwise) is carried separately in `placement`.
+    // Placement validity: the ray crossed an open cell that is still open,
+    // would not entomb the player's capsule, and the selected part actually
+    // has a legal placement there. A sealing part needs the aimed face to be
+    // one of its slots (F-117 full-cell retirement, Q-026): aiming a wall at
+    // a floor is now rejected outright instead of dropping in a whole-cell
+    // block. A mount (turret, spikes, staircase) is always valid whole-cell,
+    // so `placement.valid` stays true for it.
     const placeOk =
       rayHit.hit &&
       rayHit.placeX >= 0 &&
+      placement.valid &&
       solid[fpCellIndex(rayHit.placeX, rayHit.placeY, rayHit.placeZ)] ===
         FP_OPEN &&
       !fpCellIntersectsCapsule(
@@ -1431,10 +1434,12 @@ function BunkerFpRig({
       }
     }
 
-    // Ghost preview at the place cell (build mode only). A thin part (F-117)
-    // previews as the oriented panel on its aimed face; a whole-cell fallback
-    // or a mount previews as the full model at cell center, so the preview
-    // always matches what a tap would place.
+    // Ghost preview at the place cell (build mode only). A sealing part
+    // (F-117) previews as the oriented thin panel on its aimed face; a mount
+    // previews as the full model at cell center. A sealing part aimed where
+    // it has no slot is not a legal placement (placeOk is false since the
+    // full-cell retirement), so the ghost hides rather than showing a
+    // fallback block. The preview always matches what a tap would place.
     const ghost = ghostRef.current;
     if (ghost) {
       const ghostVisible = !raidActive && tool === "build" && placeOk;

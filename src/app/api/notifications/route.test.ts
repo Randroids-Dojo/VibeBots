@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-19-0.1.277-multi-level-floors",
+      releaseNoticeId: "2026-07-19-0.1.278-walkable-decks",
       releaseSummary:
-        "Build floors at any level: Floor decks now build wherever you aim them, so the top of a staircase can lead onto a real second story.",
+        "Walk onto the floors you place: Placed floors are now thin decks you actually walk on, so stepping off a stair top onto your new floor works instead of hitting an invisible wall.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-19-0.1.277-multi-level-floors",
+      releaseNoticeId: "2026-07-19-0.1.278-walkable-decks",
       attempted: 2,
       sent: 1,
       expired: 1,

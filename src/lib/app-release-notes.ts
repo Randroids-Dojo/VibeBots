@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-19-0.1.277-multi-level-floors";
+export const RELEASE_NOTICE_ID = "2026-07-19-0.1.278-walkable-decks";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.278",
+      date: "2026-07-19",
+      title: "Walk onto the floors you place",
+      intro:
+        "Placed floors are now thin decks you actually walk on, so stepping off a stair top onto your new floor works instead of hitting an invisible wall.",
+      changes: [
+        {
+          build,
+          text: "A floor panel used to block its whole cell even though it drew as a thin slab, which is why the deck past your stair top felt like glass. Now the slab is the surface: walk straight from the stair onto it, and stand exactly on what you see.",
+        },
+        {
+          build,
+          text: "Decks are one-way from below: jump up through a floor and you pop out standing on it, so climbing your own tower never wedges you under a ceiling you built.",
+        },
+      ],
+    },
     {
       version: "0.1.277",
       date: "2026-07-19",

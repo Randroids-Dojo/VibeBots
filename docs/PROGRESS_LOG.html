@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="walkable-floor-decks" data-date="2026-07-19">
+    <h3>Floor slabs collide as thin walkable decks</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/multi-level-floor-placement-dpndmm</code></dd>
+      <dt>PR</dt><dd>(pending). Package 0.1.278. Closes F-208 (live report right after 0.1.277: cannot walk from a stair top onto placed floors, <q>something invisible blocking me</q>).</dd>
+      <dt>Changed</dt><dd>A slotted floor no longer closes its whole cell in the first-person collision grid. <code>buildFpSolidGrid</code> stamps it as a new <code>FP_FLOOR_SLAB</code> value: <code>fpCellBlocks</code> passes the cell body, and <code>stepFpMovement</code> gains a slab ride beside the stair-ramp ride: <code>fpSlabLanding</code> scans the capsule's XZ footprint for slab cells (allocation-free scalar scan) and lands the feet on the slab's 0.08-high top when it is within a small step up (<code>FP_SLAB_STEP_UP</code> 0.12, the lip from a stair top or the ground) and the feet reached it this step (a before/after crossing check, so a dt-clamped fast fall cannot tunnel through the thin top). The landing is capped by <code>stairCeilingCap</code> so a deck under solid rock cannot jitter the head into it, and it only applies while descending (<code>vy &lt;= 0</code>), which makes decks one-way platforms: a rising jump passes through from below and lands on top. The crosshair ray still stops on a slab cell (target, pry, and build-against unchanged), and a legacy whole-cell floor (no slot) keeps block collision. Release 0.1.278, notice id <code>2026-07-19-0.1.278-walkable-decks</code>.</dd>
+      <dt>Verification</dt><dd>Dash and whitespace checks clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok; full unit suite green locally, including six new movement tests (stair-top-to-deck walk, ground lip step-up, fast-fall landing without tunneling, one-way pass from below, walking beneath a deck unaffected, falling off the deck edge), a grid stamping test (slotted floor to <code>FP_FLOOR_SLAB</code>, legacy floor stays <code>FP_SOLID_PART</code>), and a raycast slab-stop test. New fp e2e reproduces the live-report layout (stair up from the room floor, two deck slabs at the stair-top level) and walks from the spawn across the stair onto the deck, asserting the eye height on the slab top and grounded state. Frame-loop rule: the touched per-frame path was scanned against the known allocation patterns; <code>fpSlabLanding</code> is a bounded scalar scan over the existing solidity Uint8Array with an out-free numeric return, so it adds no allocation site (no heap-churn A/B was run in this remote environment; the addition is allocation-free by construction).</dd>
+      <dt>Assumptions</dt><dd>Decks are one-way from below rather than head-bonking: with only 5 cm of standing clearance beneath a first-level deck, a hard underside would wedge jumps in any room with decking, and popping up through your own floor is the friendlier consistent rule (Rule 7). Wall and door cells stay cell-granular; this slice fixes the surface players walk on, not the divider model. Roof slabs also stay cell-granular (they sit only in the volume's top row, where nobody walks on top).</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry; the F-117 bullet's <q>floors are thin slabs you walk over</q> is now literally true in collision, not just in rendering. Rule 13: tip review done, one deck-behavior tip added. Rule 14: stamp review done, none added (bug fix). No <code>MINE_VERSION</code>/<code>SIM_VERSION</code>/<code>BUNKER_LAYOUT_VERSION</code> bump.</dd>
+      <dt>Followups</dt><dd>F-208 created for the live report and resolved by this slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="multi-level-floor-placement" data-date="2026-07-19">
     <h3>Multi-level floor placement</h3>
     <dl>

@@ -336,6 +336,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Aim a wall or roof at a surface to build it as a thin panel on that exact face. Corner a cell with two walls, or line a room without filling it.",
   "Tip: Place a Staircase and press R (or Rotate) to face it, then walk up it to climb one floor. Stack a couple to reach a room you dug out above.",
   "Tip: Floors build off whatever you aim at, any level: a stair top's side, a deck edge, or bare rock. Bridge outward cell by cell to lay a second story.",
+  "Tip: Placed floors are thin decks: walk their tops, and a jump from below pops you up through one onto it.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",

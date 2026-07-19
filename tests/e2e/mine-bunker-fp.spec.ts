@@ -1065,6 +1065,103 @@ test("first-person rotates and places a staircase carrying its facing (F-117)", 
   ).toBeGreaterThan(0.00005);
 });
 
+test("first-person walks from a stair top onto a floor deck (multi-level)", async ({
+  page,
+}) => {
+  // Software-GL runners compile the fp scene slowly.
+  test.setTimeout(180_000);
+  // The exact live-report layout: a staircase up from the room floor with
+  // floor slabs continuing at the stair-top level. The deck must be
+  // walkable ground, not an invisible cell-sized block (floor slabs
+  // collide as thin decks).
+  const deckView = {
+    ...FP_BUNKER_VIEW,
+    bunker: {
+      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+      layoutVersion: 1,
+      dug: FP_PLANE_DUG,
+      parts: [
+        {
+          partId: "stair-panel",
+          col: START_COL + 1,
+          row: 5,
+          depth: 0,
+          durability: 70,
+          orientation: 0,
+        },
+        {
+          partId: "floor-panel",
+          col: START_COL + 2,
+          row: 4,
+          depth: 0,
+          durability: 70,
+          slot: "floor",
+        },
+        {
+          partId: "floor-panel",
+          col: START_COL + 3,
+          row: 4,
+          depth: 0,
+          durability: 70,
+          slot: "floor",
+        },
+      ],
+    },
+  };
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(deckView),
+    });
+  });
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await digTo(page, 1);
+  await page.getByTestId("bunker-fp-enter").click();
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  // Spawn maps the miner's column to local x 3, feet on the room floor.
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")))
+    .toBeCloseTo(3, 1);
+
+  // Strafe right: up the stair in cell x 4 and straight across the deck
+  // slabs in cells x 5 and x 6 without stopping.
+  await page.keyboard.down("d");
+  try {
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-fp-eye-x")), {
+        timeout: 20_000,
+        intervals: [60],
+      })
+      .toBeGreaterThan(5.4);
+  } finally {
+    await page.keyboard.up("d");
+  }
+  // Standing on the deck: feet on the slab top (0.58), eye at 1.30. Under
+  // the old whole-cell collision the walk wedged at the stair top edge
+  // (eye x never passed ~4.2) with the eye still at the stair-top height.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-grounded"), {
+      timeout: 10_000,
+    })
+    .toBe("1");
+  await expect
+    .poll(async () => Number(await canvas.getAttribute("data-fp-eye-y")))
+    .toBeCloseTo(1.3, 1);
+  expect(Number(await canvas.getAttribute("data-fp-eye-x"))).toBeGreaterThan(
+    5.4,
+  );
+});
+
 test("first-person places a floor deck cell against a vertical face (multi-level)", async ({
   page,
 }) => {

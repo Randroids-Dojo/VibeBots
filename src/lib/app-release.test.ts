@@ -24,20 +24,20 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest multi-level-floors note complete", () => {
+  it("keeps the latest walkable-decks note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-19-0.1.277-multi-level-floors");
+    expect(release.noticeId).toBe("2026-07-19-0.1.278-walkable-decks");
     expect(latestNote).toMatchObject({
-      version: "0.1.277",
-      title: "Build floors at any level",
+      version: "0.1.278",
+      title: "Walk onto the floors you place",
       intro:
-        "Floor decks now build wherever you aim them, so the top of a staircase can lead onto a real second story.",
+        "Placed floors are now thin decks you actually walk on, so stepping off a stair top onto your new floor works instead of hitting an invisible wall.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Aim a floor at any surface, not just the ground: the side of a stair top, the edge of the deck you stand on, or a bare rock face all take the slab at that level. Bridge outward cell by cell to lay a whole upper deck.",
-      "Floors no longer demand walls underneath. Anything solid they touch holds them up: rock, a wall or door, a staircase, or another placed part. A slab that loses its every attachment still falls.",
+      "A floor panel used to block its whole cell even though it drew as a thin slab, which is why the deck past your stair top felt like glass. Now the slab is the surface: walk straight from the stair onto it, and stand exactly on what you see.",
+      "Decks are one-way from below: jump up through a floor and you pop out standing on it, so climbing your own tower never wedges you under a ceiling you built.",
     ]);
   });
 

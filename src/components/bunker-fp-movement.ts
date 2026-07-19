@@ -1,7 +1,9 @@
 import {
   FP_COLS,
   FP_DEPTH,
+  FP_FLOOR_SLAB,
   FP_ROWS,
+  FP_SLAB_HEIGHT,
   FP_STAIR_NX,
   FP_STAIR_PX,
   FP_STAIR_PZ,
@@ -285,6 +287,48 @@ function stairRampFloor(
   return best;
 }
 
+/** Highest step a mover takes onto a slab's top without jumping: covers the
+ * 0.08 lip when walking onto a deck from a stair top or the ground, while a
+ * deck a full level up stays out of reach. */
+export const FP_SLAB_STEP_UP = 0.12;
+
+/**
+ * The walkable slab top the mover lands on this step, or null. Scans every
+ * FP_FLOOR_SLAB cell the capsule's XZ footprint overlaps (all rows, bounded
+ * scalar scan, allocation-free) and takes the highest top that is (a) not
+ * more than a small step above the feet BEFORE the vertical move, so a deck
+ * overhead is never magnetic, and (b) at or above the feet AFTER it, so a
+ * fast fall that crosses the thin top in one step still catches. The caller
+ * gates on vy <= 0, which is what makes the slab a one-way platform: a
+ * rising jump passes through from below and lands on the way down.
+ */
+function fpSlabLanding(
+  solid: FpSolidGrid,
+  px: number,
+  feetBefore: number,
+  py: number,
+  pz: number,
+): number | null {
+  const r = FP_CAPSULE_RADIUS;
+  const x0 = Math.max(0, Math.ceil(px - r - 0.5 + 1e-6));
+  const x1 = Math.min(FP_COLS - 1, Math.floor(px + r + 0.5 - 1e-6));
+  const gz0 = Math.max(0, Math.ceil(-(pz + r) - 0.5 + 1e-6));
+  const gz1 = Math.min(FP_DEPTH - 1, Math.floor(-(pz - r) + 0.5 - 1e-6));
+  let best: number | null = null;
+  for (let gz = gz0; gz <= gz1; gz++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      for (let gy = 0; gy < FP_ROWS; gy++) {
+        if (solid[fpCellIndex(gx, gy, gz)] !== FP_FLOOR_SLAB) continue;
+        const top = gy - 0.5 + FP_SLAB_HEIGHT;
+        if (top > feetBefore + FP_SLAB_STEP_UP) continue;
+        if (py > top) continue;
+        if (best === null || top > best) best = top;
+      }
+    }
+  }
+  return best;
+}
+
 /** Cap the feet so the head does not ride a ramp up into a solid ceiling
  * (a mis-built stair with no clearance blocks the climb instead of clipping
  * through). Scans every cell the capsule's XZ footprint overlaps at the head
@@ -370,6 +414,9 @@ export function stepFpMovement(
   }
 
   state.grounded = false;
+  // Feet height before the vertical move: the slab ride below needs it to
+  // catch a fast fall that crosses a deck's thin top in one step.
+  const feetBefore = state.py;
   state.py += state.vy * clamped;
   if (state.py <= FLOOR_Y) {
     state.py = FLOOR_Y;
@@ -393,5 +440,25 @@ export function stepFpMovement(
     state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
     if (state.vy < 0) state.vy = 0;
     state.grounded = true;
+  }
+
+  // Ride a floor slab (thin deck at the bottom of its cell): a falling or
+  // walking mover whose feet reach the slab's top lands on it, including a
+  // small step up onto the 0.08 lip from a stair top or the ground. Rising
+  // movers pass through from below (one-way platform), then land on the
+  // way down, so a jump in the room under a deck cannot wedge on it.
+  if (state.vy <= 0) {
+    const slabTop = fpSlabLanding(
+      solid,
+      state.px,
+      feetBefore,
+      state.py,
+      state.pz,
+    );
+    if (slabTop !== null) {
+      state.py = stairCeilingCap(solid, state.px, slabTop, state.pz);
+      state.vy = 0;
+      state.grounded = true;
+    }
   }
 }

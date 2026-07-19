@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-208" data-f="F-208" data-priority="blocks-release">
+    <h3>F-208: Make placed floors walkable thin decks, not invisible blocks</h3>
+    <dl>
+      <dt>Context</dt><dd>Live phone playtest 2026-07-19, ~two hours after 0.1.277 shipped multi-level floor placement (three 1008x2244 screenshots, 12:47-12:49): the player chained staircases up and laid floor panels at the stair-top level, then reported <q>I can't walk from the top of stairs to a floor pieces. it's like there is something invisible blocking me.</q> Root cause: <code>buildFpSolidGrid</code> stamped every placed part's whole cell as <code>FP_SOLID_PART</code>, so a slotted floor collided as a full 1x1x1 block while rendering as a 0.08 slab at the cell's bottom. A deck cell at the player's own level was therefore a full-height invisible wall (its visible slab sat at their feet), and auto-jump could not hop it wherever the shaft left only one cell of headroom.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Follow-through on the F-206 direction: the deck the player lays must be the deck they walk on.</dd>
+      <dt>Unblock condition</dt><dd>A slotted floor's cell is passable with a walkable slab top at its bottom (ride like the stair ramp: step-up lip, no fall tunneling, ceiling cap, one-way from below), the crosshair still targets and pries the slab, and legacy whole-cell floors keep block collision.</dd>
+      <dt>Resolved</dt><dd>Walkable-decks slice (package 0.1.278, branch <code>claude/multi-level-floor-placement-dpndmm</code>): <code>FP_FLOOR_SLAB</code> grid value plus the slab ride in <code>stepFpMovement</code>, pinned by six movement unit tests, a slab raycast test, a grid stamping test, and a stair-to-deck walking e2e in the live-report layout.</dd>
+    </dl>
+  </section>
+
   <section id="F-207" data-f="F-207" data-priority="blocks-release">
     <h3>F-207: Re-aim the boxed-in e2e's re-enclosure wall onto a legal face</h3>
     <dl>

@@ -3,6 +3,7 @@ import {
   createFpSolidGrid,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FLOOR_SLAB,
   FP_ROCK_UNDUG,
   FP_SOLID_PART,
   FP_SPIKES,
@@ -90,6 +91,17 @@ describe("fp crosshair raycast", () => {
     expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("door");
     grid[fpCellIndex(4, 0, 0)] = FP_SPIKES;
     expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("spikes");
+  });
+
+  it("stops on a floor-slab cell as a targetable part", () => {
+    // A thin deck is passable to the mover, but the crosshair still stops
+    // on it so it can be pried and built against.
+    const grid = corridorGrid();
+    grid[fpCellIndex(4, 0, 0)] = FP_FLOOR_SLAB;
+    const hit = cast(grid, [2, 0.22, 0], [1, 0, 0]);
+    expect([hit.x, hit.y, hit.z]).toEqual([4, 0, 0]);
+    expect(hit.kind).toBe("part");
+    expect([hit.placeX, hit.placeY, hit.placeZ]).toEqual([3, 0, 0]);
   });
 
   it("misses beyond the reach cutoff", () => {

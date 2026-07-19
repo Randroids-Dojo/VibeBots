@@ -15,6 +15,7 @@ import {
   FP_COLS,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FLOOR_SLAB,
   FP_OPEN,
   FP_ROCK_UNDUG,
   FP_ROWS,
@@ -197,12 +198,46 @@ describe("fp grid mapping", () => {
 });
 
 describe("fp solidity", () => {
-  it("blocks parts and rock; passes air, spikes, and doors", () => {
+  it("blocks parts and rock; passes air, spikes, doors, and slab cells", () => {
     expect(fpCellBlocks(FP_OPEN)).toBe(false);
     expect(fpCellBlocks(FP_SPIKES)).toBe(false);
     expect(fpCellBlocks(FP_DOOR_OWNED)).toBe(false);
     expect(fpCellBlocks(FP_SOLID_PART)).toBe(true);
     expect(fpCellBlocks(FP_ROCK_UNDUG)).toBe(true);
+    // A thin deck's cell body is passable; the movement resolver rides the
+    // slab surface itself instead of blocking the whole cell.
+    expect(fpCellBlocks(FP_FLOOR_SLAB)).toBe(false);
+  });
+
+  it("stamps a slotted floor as a thin slab and a legacy floor as a block", () => {
+    const base = corridorBunker();
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...base,
+      parts: [
+        {
+          partId: "floor-panel",
+          col: footprint.col + 2,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+          slot: "floor",
+        },
+        // A pre-retirement whole-cell floor (no slot) was built as a block
+        // and stays one.
+        {
+          partId: "floor-panel",
+          col: footprint.col + 4,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+        },
+      ],
+    };
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(bunker, grid);
+    expect(grid[fpCellIndex(2, 0, 0)]).toBe(FP_FLOOR_SLAB);
+    expect(grid[fpCellIndex(4, 0, 0)]).toBe(FP_SOLID_PART);
   });
 
   it("stamps a staircase as a walkable ramp keyed to its orientation", () => {

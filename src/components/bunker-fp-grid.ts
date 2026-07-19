@@ -44,6 +44,20 @@ export const FP_STAIR_PX = 6;
 export const FP_STAIR_PZ = 7;
 export const FP_STAIR_NX = 8;
 export const FP_STAIR_NZ = 9;
+/**
+ * A thin floor slab (slot "floor"): a walkable deck at the BOTTOM of its
+ * cell, not a full block. The cell body above the slab is passable, so the
+ * mover walks across a deck placed at their own level instead of hitting an
+ * invisible cell-sized wall; the movement resolver rides the slab's top the
+ * way it rides a stair ramp. Legacy whole-cell floor parts (no slot) still
+ * stamp FP_SOLID_PART: they were built as blocks and stay blocks.
+ */
+export const FP_FLOOR_SLAB = 10;
+
+/** World height of a slab's walkable top above its cell's bottom plane,
+ * matching the rendered 0.08-thick panel at the FP_SLAB_OFFSET transform
+ * (slab spans [bottom, bottom + 0.08]). */
+export const FP_SLAB_HEIGHT = 0.08;
 
 /** The stair grid value for a staircase facing `orientation` (0-3). */
 export function fpStairValue(orientation: number): number {
@@ -292,6 +306,8 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
           ? FP_SPIKES
           : part.partId === "stair-panel"
             ? fpStairValue(part.orientation ?? 0)
-            : FP_SOLID_PART;
+            : part.slot === "floor"
+              ? FP_FLOOR_SLAB
+              : FP_SOLID_PART;
   }
 }

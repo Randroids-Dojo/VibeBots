@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Floor decks now build wherever you aim them, so the top of a staircase can lead onto a real second story.",
+    "Placed floors are now thin decks you actually walk on",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "Aim a floor at any surface, not just the ground",
+    "Now the slab is the surface",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "Floors no longer demand walls underneath.",
+    "Decks are one-way from below",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.278", "Walk onto the floors you place"],
     ["0.1.277", "Build floors at any level"],
     ["0.1.276", "Build a staircase and climb between floors"],
     ["0.1.275", "Bunker panels look built, not flat"],

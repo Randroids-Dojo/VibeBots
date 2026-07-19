@@ -3,7 +3,9 @@ import {
   createFpSolidGrid,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FLOOR_SLAB,
   FP_ROCK_UNDUG,
+  FP_SLAB_HEIGHT,
   FP_SOLID_PART,
   FP_SPIKES,
   FP_STAIR_NX,
@@ -386,6 +388,87 @@ describe("fp movement", () => {
       const s = state();
       stepMany(s, walkPX(), grid, 120, 1 / 60);
       expect(s.py).toBeCloseTo(-0.5, 5); // no stair, no lift
+    });
+  });
+
+  describe("floor slab decks", () => {
+    const walkPX = () => input({ forward: 1, yaw: -Math.PI / 2 });
+    // A slab in cell y=1 spans [0.5, 0.58]; its walkable top:
+    const upperTop = 1 - 0.5 + FP_SLAB_HEIGHT;
+    // A slab in a ground cell (y=0) tops out just above the rock floor:
+    const groundTop = 0 - 0.5 + FP_SLAB_HEIGHT;
+
+    it("walks from a stair top onto a deck slab at the same level", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX; // ascend +x across cell 4
+      // The deck: slabs at the stair-top level, NOT solid blocks. The mover
+      // must cross onto them instead of hitting an invisible cell wall.
+      grid[fpCellIndex(5, 1, 0)] = FP_FLOOR_SLAB;
+      grid[fpCellIndex(6, 1, 0)] = FP_FLOOR_SLAB;
+      const s = state({ px: 3.2 });
+      stepMany(s, walkPX(), grid, 300, 1 / 60);
+      // Crossed the stair AND the first deck cell, feet on the slab top.
+      expect(s.px).toBeGreaterThan(5);
+      expect(s.py).toBeCloseTo(upperTop, 3);
+      expect(s.grounded).toBe(true);
+    });
+
+    it("steps the small lip onto a ground slab and stands on its top", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_FLOOR_SLAB;
+      const s = state();
+      // 30 sixtieths carries the walk into the slab's column (px ~4.3)
+      // without crossing its far edge.
+      stepMany(s, walkPX(), grid, 30, 1 / 60);
+      expect(s.px).toBeGreaterThan(3.9);
+      expect(s.px).toBeLessThan(4.5);
+      expect(s.py).toBeCloseTo(groundTop, 3);
+      expect(s.grounded).toBe(true);
+    });
+
+    it("lands on a deck from a fast fall without tunneling through", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(3, 1, 0)] = FP_FLOOR_SLAB;
+      const s = state({ py: 3.4, grounded: false });
+      stepMany(s, input(), grid, 60, 0.05); // dt-clamped fast fall
+      expect(s.py).toBeCloseTo(upperTop, 5);
+      expect(s.grounded).toBe(true);
+    });
+
+    it("passes a deck from below on the way up and lands on top (one-way)", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(3, 1, 0)] = FP_FLOOR_SLAB;
+      const s = state();
+      stepFpMovement(s, input({ jump: true }), grid, 1 / 60);
+      let apex = s.py;
+      const idle = input();
+      for (let n = 0; n < 240; n++) {
+        stepFpMovement(s, idle, grid, 1 / 60);
+        apex = Math.max(apex, s.py);
+        if (s.grounded) break;
+      }
+      // Rose through the slab, then settled on its top instead of the floor.
+      expect(apex).toBeGreaterThan(upperTop);
+      expect(s.grounded).toBe(true);
+      expect(s.py).toBeCloseTo(upperTop, 5);
+    });
+
+    it("walks beneath a deck a level up without snagging on it", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(4, 1, 0)] = FP_FLOOR_SLAB;
+      const s = state();
+      stepMany(s, walkPX(), grid, 120, 1 / 60);
+      expect(s.px).toBeGreaterThan(4.5); // crossed under it
+      expect(s.py).toBeCloseTo(-0.5, 5); // never lifted onto it
+    });
+
+    it("falls off the deck edge instead of floating past it", () => {
+      const grid = corridorGrid();
+      grid[fpCellIndex(3, 1, 0)] = FP_FLOOR_SLAB;
+      const s = state({ py: upperTop });
+      stepMany(s, walkPX(), grid, 180, 1 / 60);
+      expect(s.px).toBeGreaterThan(4);
+      expect(s.py).toBeCloseTo(-0.5, 5); // back on the room floor
     });
   });
 });

@@ -5,9 +5,10 @@ import {
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   BUNKER_SLOTS,
-  type BunkerOrientation,
   type BunkerSkinId,
   type BunkerSlot,
+  bunkerOrientationSchema,
+  isBunkerOrientation,
   isBunkerSkinId,
 } from "@/sim/bunker";
 import { withSpawnPocket } from "@/sim/bunker-blocks";
@@ -121,13 +122,8 @@ const legacyPartSlot = z.preprocess(
 // orientation, or a malformed value, coerces to undefined, mirroring
 // `legacyPartSlot`.
 const legacyPartOrientation = z.preprocess(
-  (value) =>
-    value === 0 || value === 1 || value === 2 || value === 3
-      ? value
-      : undefined,
-  z
-    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
-    .optional() as z.ZodType<BunkerOrientation | undefined>,
+  (value) => (isBunkerOrientation(value) ? value : undefined),
+  bunkerOrientationSchema.optional(),
 );
 
 const basePartIdSchema = z.enum(BASE_PART_IDS);

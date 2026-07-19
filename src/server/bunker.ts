@@ -34,6 +34,7 @@ import {
   EMPTY_BASE_PART_INVENTORY,
   excavateBunkerCell,
   isBunkerLayoutIncompatible,
+  isBunkerOrientation,
   isBunkerSkinId,
   maxBunkerRaidTier,
   moveBasePart,
@@ -171,9 +172,7 @@ function normalizedBunkerSlot(value: unknown): BunkerSlot | undefined {
 function normalizedBunkerOrientation(
   value: unknown,
 ): BunkerOrientation | undefined {
-  return value === 0 || value === 1 || value === 2 || value === 3
-    ? value
-    : undefined;
+  return isBunkerOrientation(value) ? value : undefined;
 }
 
 function normalizedDugCells(value: unknown): DugBunkerCell[] {

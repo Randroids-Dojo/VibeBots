@@ -273,7 +273,6 @@ function stairRampFloor(
   const gx = Math.round(px);
   const gz = Math.round(-pz);
   if (gx < 0 || gx >= FP_COLS || gz < 0 || gz >= FP_DEPTH) return null;
-  if (Math.abs(px - gx) > 0.5 || Math.abs(-pz - gz) > 0.5) return null;
   let best: number | null = null;
   for (let gy = 0; gy < FP_ROWS; gy++) {
     const value = solid[fpCellIndex(gx, gy, gz)];
@@ -386,18 +385,13 @@ export function stepFpMovement(
 
   // Ride a staircase ramp: within a stair cell the sloped surface is the
   // floor, so clamp the feet onto it (up while climbing, down while
-  // descending), leaving a jump off the stair intact. A ceiling cap keeps
-  // the head from riding into a solid cell above.
+  // descending), leaving a jump off the stair intact. Clamp when the feet
+  // are at or below the ramp (climbing) or settling onto it (vy <= 0); a
+  // ceiling cap keeps the head from riding into a solid cell above.
   const rampFloor = stairRampFloor(solid, state.px, state.py, state.pz);
-  if (rampFloor !== null) {
-    if (state.py <= rampFloor) {
-      state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
-      if (state.vy < 0) state.vy = 0;
-      state.grounded = true;
-    } else if (state.vy <= 0) {
-      state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
-      state.vy = 0;
-      state.grounded = true;
-    }
+  if (rampFloor !== null && (state.py <= rampFloor || state.vy <= 0)) {
+    state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
+    if (state.vy < 0) state.vy = 0;
+    state.grounded = true;
   }
 }

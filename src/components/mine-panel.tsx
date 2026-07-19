@@ -4391,8 +4391,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           first-person builder while the miner stands inside an editable
           claim. It takes the collapsed status trigger's slot (the
           trigger hides via entryButtonVisible), so exactly one bunker
-          pill is on screen at a time. */}
-      {!fpBunkerActive && fpEnterTriggerVisible && (
+          pill is on screen at a time; while the status sheet is open
+          (e.g. right after the fp Bunker doorway) it yields entirely. */}
+      {!fpBunkerActive && !bunkerPanelOpen && fpEnterTriggerVisible && (
         <button
           type="button"
           className="bunker-fp-enter-trigger"

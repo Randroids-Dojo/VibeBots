@@ -97,8 +97,8 @@ function FpBoxedInHint() {
       onClick={() => setDismissed(true)}
     >
       <span>
-        Boxed in? Hold a touch on a part to pry it loose, or tap Bunker (top
-        right) then Reset.
+        Boxed in? Press and hold (or right-click) a part to pry it loose, or
+        open Bunker (top right) then Reset.
       </span>
       <strong aria-hidden="true">&#10005;</strong>
     </button>

@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-203 Prove first-person diagnostics in a real trace payload</title>
+<meta name="dot-title" content="F-203 Prove first-person diagnostics in a real trace payload">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-17T08:35:48.632326-05:00">
+</head>
+<body>
+<article>
+<h1>F-203 Prove first-person diagnostics in a real trace payload</h1>
+<section id="description">
+PR 253 merged e83bd1c0 as 8e4da70f and archived F-101 after source-aware allowlist code plus unit coverage. Its claimed end-to-end test only passes a static idle object through collectCanvasDiagnostics and clampProbeSample. It never boots the app, reads the registered bunker-fp probe, intercepts /api/performance/trace, or exercises held mining, and the only fpSwinging value tested is 0. Extend tests/e2e/mine-bunker-fp.spec.ts to intercept real deep batches. After entering bunker-fp, assert finite fpEyeY, nonnegative integer fpOpenCells, binary fpGrounded, idle fpSwinging=0, and omission of target, place, cell-key, eye-X/Z, and other unapproved diagnostics. Hold real primary input until the canvas reports swinging and a later payload carries fpSwinging=1, then release in finally and prove it settles. Run the focused browser test with retries disabled and record exact head, command, runtime, and result. Rename the synthetic unit test and docs so they do not call it end-to-end. Correct the frozen-as-const claim: as const is compile-time readonly, while module-scoped reuse is the allocation-safe property. Append F-101 and progress corrections without rewriting history. Preserve the archived F-101 Dot as historical closure evidence.
+</section>
+</article>
+</body>
+</html>

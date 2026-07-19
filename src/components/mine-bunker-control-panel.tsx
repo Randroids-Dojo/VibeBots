@@ -40,6 +40,7 @@ export function BunkerControlPanel({
   onReset,
   onStartFresh,
   onSelectSkin,
+  entryButtonVisible = false,
 }: {
   minerRow: number;
   claimMode: boolean;
@@ -63,6 +64,12 @@ export function BunkerControlPanel({
    * building is allowed again. */
   onStartFresh?: () => void;
   onSelectSkin?: (skinId: BunkerSkinId) => void;
+  /** True while the floating Enter bunker pill is on screen (the miner
+   * stands inside an editable claim). The collapsed status trigger
+   * yields its slot so exactly one bunker button shows at a time
+   * (F-119 fold); the sheet itself still renders when opened, e.g.
+   * from the first-person Bunker button. */
+  entryButtonVisible?: boolean;
 }) {
   const status = useBunkerStore((s) => s.status);
   const player = useBunkerStore((s) => s.player);
@@ -168,6 +175,7 @@ export function BunkerControlPanel({
 
   if (minerRow <= 0) return null;
   if ((!hasBunker && !claimMode) || (hasBunker && !panelOpen)) {
+    if (entryButtonVisible) return null;
     return (
       <button
         type="button"

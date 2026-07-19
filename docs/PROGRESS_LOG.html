@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="followups-marker-repair" data-date="2026-07-18">
+    <h3>Repair conflict markers committed into the followups ledger</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/followups-marker-repair</code></dd>
+      <dt>PR</dt><dd>pending; priority repair.</dd>
+      <dt>Changed</dt><dd>The PR #228 branch-sync merge accidentally committed seven unresolved git conflict hunks (21 marker lines) into <code>docs/FOLLOWUPS.html</code>: the sync surfaced a FOLLOWUPS conflict whose report line scrolled out of the reviewed output, and a blanket <code>git add -A</code> staged the marker-laden file. This repair resolves each committed hunk by keeping both sides (then-main content first, the PR #228 branch content second), restores the three section closers lost where a sandwiched side had relied on shared trailing lines, and verifies the result: no marker lines, balanced section/dl tags, 139 unique followup ids, and every id from both merge parents present. Process fix for the batch in flight: conflict output is no longer tail-truncated, and every ledger file is scanned for marker lines before each sync commit.</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean; marker scan zero across all ledgers; id-uniqueness and both-parent completeness checks pass (script in the PR description).</dd>
+      <dt>Assumptions</dt><dd>Keep-both ordering (then-main first) matches the append-only rule; no content was rewritten or dropped from either parent.</dd>
+      <dt>GDD coverage</dt><dd>No row change (ledger integrity repair).</dd>
+      <dt>Followups</dt><dd>None new; the incident is recorded here.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-e2e-layout-version-fixtures" data-date="2026-07-18">
     <h3>Stamp the bunker e2e fixtures with the current layout version</h3>
     <dl>

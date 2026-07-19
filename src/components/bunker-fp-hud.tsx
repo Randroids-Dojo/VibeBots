@@ -17,8 +17,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import {
+  AVAILABLE_BASE_PART_IDS,
   BASE_PART_CATALOG,
-  BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
 } from "@/sim/bunker";
@@ -325,7 +325,7 @@ export function BunkerFpHud({
   // the machine the total at prop cadence, never per frame.
   useEffect(() => {
     let total = 0;
-    for (const partId of BASE_PART_IDS) total += inventory[partId];
+    for (const partId of AVAILABLE_BASE_PART_IDS) total += inventory[partId];
     setFpTutorialStock(total);
   }, [inventory]);
 
@@ -581,7 +581,7 @@ export function BunkerFpHud({
               <small>Pick</small>
             </button>
             <span className="bunker-fp-hotbar-divider" aria-hidden="true" />
-            {BASE_PART_IDS.map((partId, index) => {
+            {AVAILABLE_BASE_PART_IDS.map((partId, index) => {
               const count = inventory[partId];
               const active = tool === "build" && selectedPartId === partId;
               return (

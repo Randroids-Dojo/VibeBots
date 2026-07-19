@@ -8,6 +8,7 @@ import type {
 import {
   type BasePartId,
   type BasePartInventory,
+  type BunkerOrientation,
   type BunkerRaidRewardReport,
   type BunkerSkinId,
   type BunkerSlot,
@@ -66,6 +67,7 @@ export interface BunkerStoreState {
     row: number,
     depth?: number,
     slot?: BunkerSlot,
+    orientation?: BunkerOrientation,
   ) => Promise<BunkerMutationResult>;
   removePart: (
     col: number,
@@ -241,7 +243,7 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
   // The four banked edits run through the serialization chain so a held
   // strike burst never overlaps writes; each reads the freshest revision
   // inside the queued task and echoes it as expectedRevision (F-122).
-  placePart: (partId, col, row, depth = 0, slot) =>
+  placePart: (partId, col, row, depth = 0, slot, orientation) =>
     serializeEdit(async () =>
       applyMutationResult(
         set,
@@ -252,6 +254,7 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
           row,
           depth,
           slot,
+          orientation,
           get().revision,
         ),
         "bunker action failed",

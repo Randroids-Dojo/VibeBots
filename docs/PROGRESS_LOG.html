@@ -70,6 +70,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-stair-reveal" data-date="2026-07-18">
+    <h3>Ship the buildable, rotatable, climbable staircase</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-stair-reveal</code></dd>
+      <dt>PR</dt><dd>(pending). First player-facing staircase slice, package bumped to 0.1.276.</dd>
+      <dt>Changed</dt><dd>The staircase is now fully playable end to end: start with two (or buy more), pick it from the build hotbar, rotate it to face any of four directions, place it, and walk up it to climb a floor. This is placement part 2 plus the reveal. Client emit: threaded the optional <code>orientation</code> through the last mile the part-1 server wire was waiting on (<code>FpEditIntent</code>, <code>applyFpBunkerEdit</code>, api-client, bunker-store, mine-store). The canvas emits orientation only for a rotatable part (a new <code>isRotatableBasePart</code> predicate off a <code>rotatable</code> catalog flag). A stair is a mount and first person places mounts whole-cell, so <code>placeBasePart</code>'s whole-cell branch now records orientation too, and the raycast treats the walkable stair value as a targetable/pryable part. Rotate control: a <code>selectedFpOrientation</code> state cycles 0-3 via the <code>r</code> key and a new <code>bunker-fp-rotate</code> HUD button (shown only for a rotatable part); the ghost and every placed stair rotate <code>orientation * 90 deg</code> so the render matches the collision ramp. Reveal: dropped the <code>comingSoon</code> flag and granted two in the starter kit.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. The two obsolete comingSoon-gate tests were flipped to assert the reveal; a new sim test covers the whole-cell orientation write; the starter-backfill test expects the stair; full unit suite green (1736). A new fp e2e selects the stair, asserts the Rotate control appears, rotates to facing 1, places, and asserts the persisted whole-cell part carries <code>orientation: 1</code> with a screenshot-diff render proof; it and the release-note e2e pass locally against a production build.</dd>
+      <dt>Assumptions</dt><dd>The stair places whole-cell like the other mounts (turret, spikes), not as a thin sub-cell slot; matching that to the sub-cell model is part of the retirement slice. The two-stair starter grant lets a player climb one floor on day one without a free tower.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. REQ-046 stays <code>partial</code>: the rotatable modular staircase is delivered, but the stair is whole-cell (not a thin sub-cell slot) and the whole-cell fallback still stands, so the sub-cell and strict-placement clauses close with the retirement slice. Release chain: package 0.1.276, new release note and <code>RELEASE_NOTICE_ID</code>, app-release/notifications tests renumbered, release-notifications spec updated (both the fresh-browser assertions and the recent-notes list). Rule 13: added a staircase mine tip. Rule 14: stamp reviewed and deferred (a first-staircase stamp needs a durable ever-placed counter, its own slice). No <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump.</dd>
+      <dt>Followups</dt><dd>The last F-117 item is full-cell retirement (make fp sealing-part placement strict, closing Q-026), tracked in the <a href="FOLLOWUPS.html#F-117">F-117</a> slice log.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-stair-placement" data-date="2026-07-18">
     <h3>Wire the staircase geometry and orientation persistence</h3>
     <dl>

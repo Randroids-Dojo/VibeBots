@@ -29,10 +29,12 @@ import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
   AVAILABLE_BASE_PART_IDS,
   type BasePartId,
+  type BunkerOrientation,
   bunkerCells,
   containsBunkerCell,
   isBasePartDamaged,
   isBunkerLayoutIncompatible,
+  isRotatableBasePart,
   maxBunkerRaidTier,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -332,6 +334,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person, hold the pick and drag your aim to mine claim rock cell after cell. Parts place at the crosshair; pry returns them to your pack.",
   "Tip: Aim a wall, floor, or roof at a surface to build it as a thin panel on that exact face. Corner a cell with two walls, or line a room without filling it.",
+  "Tip: Place a Staircase and press R (or Rotate) to face it, then walk up it to climb one floor. Stack a couple to reach a room you dug out above.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
@@ -2937,10 +2940,27 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return;
       }
       // The slot the canvas aimed at (F-117); absent for a mount or a legacy
-      // whole-cell placement.
+      // whole-cell placement. Orientation rides along for a rotatable part
+      // (the staircase) and is absent otherwise.
       commit(
-        () => placePendingBunkerPart(partId, col, row, depth, intent.slot),
-        () => placeBunkerPart(partId, col, row, depth, intent.slot),
+        () =>
+          placePendingBunkerPart(
+            partId,
+            col,
+            row,
+            depth,
+            intent.slot,
+            intent.orientation,
+          ),
+        () =>
+          placeBunkerPart(
+            partId,
+            col,
+            row,
+            depth,
+            intent.slot,
+            intent.orientation,
+          ),
         "plank",
       );
     },
@@ -2962,6 +2982,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
 
   // First-person hotbar selection: direct state writes; fp mode never
   // issues move-log actions.
+  // Facing for a rotatable build part (the staircase). The rotate control
+  // cycles it through the four quarter turns; fixed parts ignore it.
+  const [selectedFpOrientation, setSelectedFpOrientation] =
+    useState<BunkerOrientation>(0);
+  const rotateFpPart = useCallback(() => {
+    setSelectedFpOrientation((prev) => ((prev + 1) % 4) as BunkerOrientation);
+  }, []);
   const selectFpPart = useCallback((partId: BasePartId) => {
     setBunkerToolSelection(partId);
   }, []);
@@ -2989,6 +3016,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         toggleFpPry();
         return;
       }
+      // Rotate a rotatable build part (the staircase) through its four
+      // facings; a no-op for every fixed part.
+      if (event.key === "r" || event.key === "R") {
+        if (!isRotatableBasePart(selectedBasePart)) return;
+        event.preventDefault();
+        rotateFpPart();
+        return;
+      }
       const slot = Number(event.key) - 1;
       const partId = AVAILABLE_BASE_PART_IDS[slot];
       if (!partId) return;
@@ -3002,9 +3037,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     activeBunkerInventory,
     fpBunkerActive,
     bagPanelOpen,
+    selectedBasePart,
     selectFpPart,
     selectFpPick,
     toggleFpPry,
+    rotateFpPart,
   ]);
 
   // First-person keyboard: WASD/arrows plus Space live in the shared
@@ -3631,6 +3668,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               entry={{ col: miner.col, row: miner.row }}
               tool={bunkerToolAction}
               selectedPartId={selectedBasePart}
+              selectedOrientation={selectedFpOrientation}
               onEdit={applyFpBunkerEdit}
               onExit={exitFpBunker}
               onFirstFrame={handleMineFirstFrame}
@@ -3662,6 +3700,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           inventory={activeBunkerInventory}
           tool={bunkerToolAction}
           selectedPartId={selectedBasePart}
+          selectedOrientation={selectedFpOrientation}
+          onRotate={rotateFpPart}
           denyNotice={fpDenyNotice}
           bagOreCount={carriedOreCount}
           bagStackCount={carriedOreStackCount}

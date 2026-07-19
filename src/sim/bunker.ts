@@ -66,6 +66,10 @@ export interface BasePartDef {
    * BASE_PART_IDS (so schemas, geometry, and the type stay complete) while
    * keeping it out of every player-facing enumeration. */
   comingSoon?: boolean;
+  /** Carries a placement facing (BunkerOrientation). Unlike a wall, whose
+   * facing is the aimed face, a rotatable mount needs an explicit rotate
+   * control; the build UI offers one only for these. */
+  rotatable?: boolean;
 }
 
 export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
@@ -126,12 +130,17 @@ export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
     price: 12,
     durability: 70,
     blocksClankers: false,
-    // Hidden until the climb ships (F-117 staircase arc). A placeable but
-    // unclimbable stair reads as broken, so it stays out of the shop and
-    // hotbar even though it is fully modeled.
-    comingSoon: true,
+    // Rotatable: the build UI offers a rotate control so the player picks
+    // which of the four horizontal directions the stair climbs toward.
+    rotatable: true,
   },
 };
+
+/** True for a part whose placement carries a facing (BunkerOrientation) and
+ * so needs a rotate control in the build UI. Only the staircase, today. */
+export function isRotatableBasePart(id: BasePartId): boolean {
+  return BASE_PART_CATALOG[id].rotatable === true;
+}
 
 /** The parts a player can currently obtain and use: BASE_PART_IDS minus the
  * ones still flagged comingSoon. Every player-facing enumeration (the shop
@@ -166,10 +175,10 @@ export const STARTER_BASE_PART_INVENTORY: BasePartInventory = {
   "roof-panel": 4,
   "door-panel": 1,
   "basic-turret": 0,
-  // Staircase is granted once the climb ships; kept at 0 until then so it is
-  // not placeable before it does anything (F-117 stair slice A).
   "floor-spikes": 0,
-  "stair-panel": 0,
+  // Two staircases to start: enough to climb up to a second-story room the
+  // player digs out, without handing over a whole tower for free (F-117).
+  "stair-panel": 2,
 };
 
 export interface BunkerFootprint {
@@ -1202,7 +1211,16 @@ export function placeBasePart(
         ...bunker,
         parts: [
           ...bunker.parts,
-          { partId, col, row, depth, durability: def.durability },
+          {
+            partId,
+            col,
+            row,
+            depth,
+            durability: def.durability,
+            // A rotatable mount (the staircase) places whole-cell in first
+            // person yet still carries its facing (F-117).
+            ...(orientation !== undefined ? { orientation } : {}),
+          },
         ],
       },
       inventory: addBasePartInventory(inventory, partId, -1),

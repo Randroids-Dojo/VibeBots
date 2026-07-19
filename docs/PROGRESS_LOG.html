@@ -43,6 +43,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-telemetry-monitoring-precision-correction" data-date="2026-07-19">
+    <h3>Pin the bunker telemetry evidence to exact windows and revisions</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/record-bunker-telemetry-gap</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/282">#282</a>. Additive review correction.</dd>
+      <dt>Changed</dt><dd>Preserved the already committed telemetry article and F-109 evidence row, then added separate correction records with reproducible timestamps and immutable revisions. The production request-log window was <code>2026-07-19T21:17:48.342Z</code> through <code>2026-07-19T23:17:48.342Z</code>. The deep <code>bunker-fp</code> query covered <code>2026-07-18T23:17:37.982Z</code> through <code>2026-07-19T23:17:37.982Z</code>; its newest bunker sample was <code>2026-07-19T06:17:27.315Z</code> on build <code>286930</code>. The observed live bunker requests were served by production deployment <code>dpl_Amsto86yDjVyfdiabwn9o7YfH4hY</code> at repository revision <code>0e32e4e515197418206f6f2bd62e3216dbfd9c97</code>. At that same immutable revision, <code>src/server/bunker.ts</code> emitted <code>bunker.live_raid_reward</code> with <code>raidId</code> and <code>clankersKilled</code>, while <code>README.md</code> named only <code>bunker.raid_reward</code>. Those two files are byte-identical between <code>0e32e4e5</code> and monitoring base <code>8558431c</code>.</dd>
+      <dt>Verification</dt><dd>Re-ran the Vercel request-path, 409, and runtime-error queries; queried the deep insights endpoint with <code>source=bunker-fp</code> and <code>device=real</code>; inspected deployment metadata for <code>dpl_Amsto86yDjVyfdiabwn9o7YfH4hY</code>; used <code>git show</code> at <code>0e32e4e5</code> for the server and README evidence; and compared both files through <code>8558431c</code>. Local checks: <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, HTML structure checks, and <code>dot-html show</code> for F-109.</dd>
+      <dt>Assumptions</dt><dd>This correction changes only evidence precision. The prior lifecycle and performance ownership, nonblocking merge posture, and no-duplicate decision remain unchanged.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Rule 13 tips and Rule 14 stamps remain unchanged because this is tracking-only.</dd>
+      <dt>Followups</dt><dd>Added precision evidence to existing F-109 and its existing Dot. No new F-ID or Dot was created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-telemetry-monitoring-refresh" data-date="2026-07-19">
     <h3>Record live bunker telemetry coverage without creating another owner</h3>
     <dl>

@@ -187,6 +187,32 @@
     </dl>
   </article>
 
+  <article data-slice="mine-readiness-proof-closure-correction" data-date="2026-07-17">
+    <h3>Correct the F-127 closure evidence after PR #248</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-readiness-input-race</code></dd>
+      <dt>PR</dt><dd>#248, final head <code>973ce490</code>, merge <code>397037b5</code>; closure PR #250, merge <code>6f1963bb</code>.</dd>
+      <dt>Changed</dt><dd>Append-only correction to the earlier closure: the acceptance-first store signal landed, but the required smoke still contains current proof defects in its timing observer, motion baseline, load budgets, screenshot timeouts, numeric readiness, and evidence wording. F-201 now owns the repair.</dd>
+      <dt>Verification</dt><dd>The recorded focused and critical runs exercised the published smoke. They do not prove a later corrected final head until F-201 applies the fixes and reruns the complete acceptance bar on that one head.</dd>
+      <dt>Assumptions</dt><dd>None. Green execution and trustworthy assertion semantics are separate requirements.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-201">F-201</a> remains open.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="mine-roundtrip-polls-closure-correction" data-date="2026-07-17">
+    <h3>Correct the F-196 closure evidence after PR #251</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/mine-roundtrip-polls</code></dd>
+      <dt>PR</dt><dd>#251, head <code>afbc2134</code>, merge <code>94f86754</code>.</dd>
+      <dt>Changed</dt><dd>Append-only correction to the earlier article: the four poll replacements landed, but F-196 was closed before its explicit CPU-throttle acceptance was verified. F-200 now owns the missing proof.</dd>
+      <dt>Verification</dt><dd>Exact-main CI run <code>29581946277</code> and production deployment <code>5489446093</code> succeeded. Those gates did not select the three changed tests, and Full E2E was skipped, so they are not CPU-throttle or changed-test evidence.</dd>
+      <dt>Assumptions</dt><dd>None. This correction separates landed code from unmet acceptance.</dd>
+      <dt>GDD coverage</dt><dd>No row change: verification tooling only.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-200">F-200</a> remains open for the required throttled focused runs and assertion hardening.</dd>
+    </dl>
+  </article>
+
   <article data-slice="perf-fp-diagnostics" data-date="2026-07-17">
     <h3>Preserve first-person diagnostics in performance traces</h3>
     <dl>

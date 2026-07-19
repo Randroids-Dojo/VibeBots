@@ -376,7 +376,7 @@ test("one bunker button at a time: Enter replaces the trigger and the fp Bunker 
   const enter = page.getByTestId("bunker-fp-enter");
   await expect(enter).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Open bunker status" }),
+    page.getByRole("button", { name: "Open bunker upkeep" }),
   ).toHaveCount(0);
   await enter.click();
 
@@ -394,9 +394,9 @@ test("one bunker button at a time: Enter replaces the trigger and the fp Bunker 
   await page.getByTestId("bunker-fp-status").click();
   await expect(status).toHaveAttribute("data-fp-mode", "0");
   await expect(
-    page.getByRole("region", { name: "Bunker status" }),
+    page.getByRole("region", { name: "Bunker upkeep" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Dismiss bunker status" }).click();
+  await page.getByRole("button", { name: "Dismiss bunker upkeep" }).click();
   await expect(enter).toBeVisible();
   await awaitMineSceneReady(page);
 });
@@ -544,7 +544,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
   // Claim locally (the pending branch): the trip owns the bunker until
   // it banks at the surface.
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  const claimSheet = page.getByRole("region", { name: "Bunker upkeep" });
   await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await claimSheet.getByRole("button", { name: "Close" }).click();
 
@@ -875,7 +875,7 @@ test("first-person building places a thin wall on the aimed face (F-117)", async
   await expect(status).toHaveAttribute("data-depth", "5");
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  const claimSheet = page.getByRole("region", { name: "Bunker upkeep" });
   await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await claimSheet.getByRole("button", { name: "Close" }).click();
 
@@ -998,7 +998,7 @@ test("first-person rotates and places a staircase carrying its facing (F-117)", 
   await expect(status).toHaveAttribute("data-depth", "5");
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  const claimSheet = page.getByRole("region", { name: "Bunker upkeep" });
   await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await claimSheet.getByRole("button", { name: "Close" }).click();
 
@@ -1114,7 +1114,7 @@ test("first-person hold-to-mine swings the pickaxe and digs cell after cell", as
   await expect(status).toHaveAttribute("data-depth", "5");
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  const claimSheet = page.getByRole("region", { name: "Bunker upkeep" });
   await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await claimSheet.getByRole("button", { name: "Close" }).click();
 
@@ -1676,7 +1676,7 @@ test("the progressive tutorial chains look, walk, dig, place, and pry, and compl
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "5");
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  const claimSheet = page.getByRole("region", { name: "Bunker upkeep" });
   await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await claimSheet.getByRole("button", { name: "Close" }).click();
 
@@ -2189,7 +2189,7 @@ async function enterFreshClaimFp(page: Page, seed: number): Promise<void> {
   const status = page.getByLabel("Mine status");
   await expect(status).toHaveAttribute("data-depth", "5");
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  const claimSheet = page.getByRole("region", { name: "Bunker upkeep" });
   await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await claimSheet.getByRole("button", { name: "Close" }).click();
   await page.getByTestId("bunker-fp-enter").click();

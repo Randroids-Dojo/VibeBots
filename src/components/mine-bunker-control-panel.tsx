@@ -163,10 +163,6 @@ export function BunkerControlPanel({
     player?.nextLevelXp === null
       ? DEFENSE_XP_PER_LEVEL
       : (player?.progressXp ?? 0);
-  const levelProgressPercent =
-    levelProgressMax > 0
-      ? Math.min(100, (levelProgressValue / levelProgressMax) * 100)
-      : 0;
 
   useDismissControls(
     minerRow > 0 && (claimMode || (hasBunker && panelOpen)),
@@ -180,10 +176,10 @@ export function BunkerControlPanel({
       <button
         type="button"
         className="bunker-status-trigger"
-        aria-label={hasBunker ? "Open bunker status" : "Start bunker claim"}
+        aria-label={hasBunker ? "Open bunker upkeep" : "Start bunker claim"}
         onClick={hasBunker ? onOpenPanel : onStartClaim}
       >
-        {hasBunker ? "Bunker" : "Claim bunker"}
+        {hasBunker ? "Upkeep" : "Claim bunker"}
       </button>
     );
   }
@@ -193,12 +189,12 @@ export function BunkerControlPanel({
       <button
         type="button"
         className="bunker-status-backdrop"
-        aria-label="Dismiss bunker status"
+        aria-label="Dismiss bunker upkeep"
         onClick={hasBunker ? onDismissPanel : onCancelClaim}
       />
       <section
         className="bunker-status-sheet"
-        aria-label="Bunker status"
+        aria-label="Bunker upkeep"
         onPointerDownCapture={(event) => {
           // Any interaction other than the Reset button disarms an
           // armed reset confirm.
@@ -214,10 +210,8 @@ export function BunkerControlPanel({
       >
         <header className="bunker-status-heading">
           <div>
-            <span className="bunker-status-kicker">Underground claim</span>
-            <strong>Bunker</strong>
+            <strong>{hasBunker ? "Bunker upkeep" : "Claim a bunker"}</strong>
           </div>
-          <span>Lv {player?.overallLevel ?? 1}</span>
           <button
             type="button"
             className="bunker-status-close"
@@ -227,42 +221,28 @@ export function BunkerControlPanel({
           </button>
         </header>
 
-        <p className="bunker-status-copy">
-          {hasBunker
-            ? layoutIncompatible
+        {(!hasBunker || layoutIncompatible) && (
+          <p className="bunker-status-copy">
+            {hasBunker
               ? "This bunker was built under the old layout and can't be edited. Start fresh to rebuild."
-              : "Enter the bunker to build inside: place, pry, and dig in first person."
-            : !preview
-              ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
-              : localBlockerCount > 0
-                ? `Clear ${localBlockerCount} red cell${localBlockerCount === 1 ? "" : "s"}. The miner's row counts.`
-                : bankedBlockedCells.length > 0
-                  ? "Ready to claim. Build now, then bank at surface to save."
+              : !preview
+                ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
+                : localBlockerCount > 0
+                  ? `Clear ${localBlockerCount} red cell${localBlockerCount === 1 ? "" : "s"}. The miner's row counts.`
                   : "Ready to claim. Build now, then bank at surface to save."}
-        </p>
+          </p>
+        )}
 
         {player && (
-          <fieldset
-            className="bunker-level-card"
+          <p
+            className="bunker-level-line"
+            role="status"
             aria-label="Player level progress"
           >
-            <div className="bunker-level-label-row">
-              <strong>
-                Level {player.overallLevel}/{player.levelCap}
-              </strong>
-              <span className="bunker-level-beacon">
-                Beacon cap {player.beaconLimit}
-              </span>
-            </div>
-            <div className="bunker-level-track" aria-hidden="true">
-              <span style={{ width: `${levelProgressPercent}%` }} />
-            </div>
-            <small>
-              {player.nextLevelXp === null
-                ? `Defense XP ${player.defenseXp}. Level cap reached.`
-                : `Defense XP ${levelProgressValue}/${levelProgressMax}. ${player.neededXp} XP to level ${player.overallLevel + 1}.`}
-            </small>
-          </fieldset>
+            {player.nextLevelXp === null
+              ? `Level ${player.overallLevel}/${player.levelCap} \u00b7 Defense XP capped \u00b7 Beacon cap ${player.beaconLimit}`
+              : `Level ${player.overallLevel}/${player.levelCap} \u00b7 Defense XP ${levelProgressValue}/${levelProgressMax} \u00b7 Beacon cap ${player.beaconLimit}`}
+          </p>
         )}
 
         {layoutIncompatible && (

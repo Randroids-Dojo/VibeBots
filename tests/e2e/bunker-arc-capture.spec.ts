@@ -145,7 +145,7 @@ test("bunker arc capture run", async ({ page }) => {
     );
   };
   await openSheetFromClaim();
-  const builder = page.getByRole("region", { name: "Bunker status" });
+  const builder = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(builder).toBeVisible();
   await page.waitForTimeout(400);
   await shot("03-sheet-damaged");

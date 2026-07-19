@@ -100,7 +100,7 @@ function FpBoxedInHint() {
     >
       <span>
         Boxed in? Press and hold (or right-click) a part to pry it loose, or
-        open Bunker (top right) then Reset.
+        open Upkeep (top right) then Reset.
       </span>
       <strong aria-hidden="true">&#10005;</strong>
     </button>
@@ -145,9 +145,9 @@ const FP_TUTORIAL_COPY: Record<
   },
   done: {
     touch:
-      "That is the whole kit. The Bunker button (top right) opens repair, skins, and Reset; Exit is above it.",
+      "That is the whole kit. The Upkeep button (top right) opens repair, skins, and Reset; Exit is above it.",
     desktop:
-      "That is the whole kit. The Bunker button (top right) opens repair, skins, and Reset; Exit is above it.",
+      "That is the whole kit. The Upkeep button (top right) opens repair, skins, and Reset; Exit is above it.",
   },
 };
 
@@ -718,10 +718,10 @@ export function BunkerFpHud({
             type="button"
             className="bunker-fp-status"
             data-testid="bunker-fp-status"
-            aria-label="Open bunker status"
+            aria-label="Open bunker upkeep"
             onClick={onOpenStatus}
           >
-            Bunker
+            Upkeep
           </button>
         </>
       )}

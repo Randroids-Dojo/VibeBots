@@ -97,7 +97,7 @@ test("mine requires an explicit bunker claim mode before showing the claim panel
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  const builder = page.getByRole("region", { name: "Bunker status" });
+  const builder = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(builder).not.toBeVisible();
   const claimButton = page.getByRole("button", { name: "Start bunker claim" });
   await expect(claimButton).toBeVisible();
@@ -210,7 +210,7 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
   );
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const builder = page.getByRole("region", { name: "Bunker status" });
+  const builder = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(builder).toContainText(/Clear \d+ red cells/);
   await expect(
     builder.getByRole("button", { name: "Claim 7x5 bunker" }),
@@ -339,7 +339,7 @@ test("an old-layout banked bunker fails fast and Start fresh clears it", async (
 
   // The old layout fails fast: the sheet shows the incompatible alert and a
   // Start fresh action, and the first-person Enter affordance is withheld.
-  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await page.getByRole("button", { name: "Open bunker upkeep" }).click();
   await expect(page.getByTestId("bunker-layout-incompatible")).toBeVisible();
   const startFresh = page.getByTestId("bunker-start-fresh");
   await expect(startFresh).toHaveText("Start fresh");
@@ -365,7 +365,7 @@ test("an old-layout banked bunker fails fast and Start fresh clears it", async (
   await page.getByRole("button", { name: "Close" }).click();
   await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Open bunker status" }),
+    page.getByRole("button", { name: "Open bunker upkeep" }),
   ).toHaveCount(0);
   // The recovery went through one POST to the dedicated route, and the
   // returned inventory carried no refund (the pre-reset stock, unchanged).
@@ -453,12 +453,17 @@ test("bunker claims can be edited before banking", async ({ page }) => {
   );
 
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const status = page.getByRole("region", { name: "Bunker status" });
+  const status = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(status).toContainText(
     "Ready to claim. Build now, then bank at surface to save.",
   );
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
-  await expect(status).toContainText("Enter the bunker to build inside");
+  // The claimed sheet swaps to the trimmed upkeep view: no instructional
+  // copy, just the one-line level readout under the upkeep title.
+  await expect(status).toContainText("Bunker upkeep");
+  await expect(status.getByLabel("Player level progress")).toContainText(
+    "Level 1/",
+  );
   await status.getByRole("button", { name: "Close" }).click();
 
   // The 2D hammer flow retired: no toolbelt region, no part slots or
@@ -545,10 +550,10 @@ test("bunker claims can be edited before banking", async ({ page }) => {
     depth: 0,
   });
   await expect(
-    page.getByRole("button", { name: "Open bunker status" }),
+    page.getByRole("button", { name: "Open bunker upkeep" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  const reopenedStatus = page.getByRole("region", { name: "Bunker status" });
+  await page.getByRole("button", { name: "Open bunker upkeep" }).click();
+  const reopenedStatus = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(reopenedStatus).toBeVisible();
   await expect(reopenedStatus).toContainText(
     "Raids unlock after the bunker saves at the surface.",
@@ -640,7 +645,7 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
   // first-person builder (the only build flow since the hammer
   // retired).
   await page.getByRole("button", { name: "Start bunker claim" }).click();
-  const status = page.getByRole("region", { name: "Bunker status" });
+  const status = page.getByRole("region", { name: "Bunker upkeep" });
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await status.getByRole("button", { name: "Close" }).click();
   await placeWallInFp(page);
@@ -846,7 +851,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
     "data-fp-mode",
     "0",
   );
-  const builder = page.getByRole("region", { name: "Bunker status" });
+  const builder = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(builder).toBeVisible();
 
   const picker = builder.getByRole("group", { name: "Bunker skins" });

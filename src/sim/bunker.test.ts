@@ -1233,11 +1233,11 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ).toEqual({ ok: false, reason: "roof-top" });
   });
 
-  it("requires two supporting walls under an overhead floor", () => {
+  it("builds a floor at any level once it attaches to something", () => {
     const bunker = allDugBunker(4, 5);
     const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
     const overheadRow = bottomRow - 1;
-    // A floor on the bottom row rests on the ground: no walls needed.
+    // A floor on the bottom row rests on the ground.
     expect(
       placeBasePart(
         bunker,
@@ -1249,7 +1249,28 @@ describe("bunker thin sub-cell slots (F-117)", () => {
         "floor",
       ).ok,
     ).toBe(true);
-    // One row up is overhead (open cell below) and unsupported.
+    // A fully interior mid-air cell (every face open and empty) has nothing
+    // to attach to.
+    expect(
+      placeBasePart(bunker, inventory(), "floor-panel", 4, 3, 2, "floor"),
+    ).toEqual({ ok: false, reason: "unsupported" });
+    // A single wall divider rising to meet the underside is enough, even
+    // when the slab is stored in the neighboring cell (canonical wall-nx).
+    let state = { bunker, inventory: inventory() };
+    state = place(state, "wall-panel", 4, bottomRow, 2, "wall-nx");
+    expect(
+      placeBasePart(
+        state.bunker,
+        state.inventory,
+        "floor-panel",
+        4,
+        overheadRow,
+        2,
+        "floor",
+      ).ok,
+    ).toBe(true);
+    // An overhead cell on the tunnel plane touches the front boundary shell
+    // through its shallow face, so a second-story floor builds there bare.
     expect(
       placeBasePart(
         bunker,
@@ -1259,42 +1280,84 @@ describe("bunker thin sub-cell slots (F-117)", () => {
         overheadRow,
         0,
         "floor",
-      ),
-    ).toEqual({ ok: false, reason: "unsupported" });
-    // Two walls in the cell below let the overhead floor stand.
-    let state = { bunker, inventory: inventory() };
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("stacks decks: a floor rests on a slab, and a deck grows off a stair", () => {
+    const bunker = allDugBunker(4, 5);
+    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
+    const overheadRow = bottomRow - 1;
+    // A ground slab is a solid block; the next floor stacks straight onto it.
+    let stack = { bunker, inventory: inventory() };
+    stack = place(stack, "floor-panel", 4, bottomRow, 2, "floor");
     expect(
       placeBasePart(
-        state.bunker,
-        state.inventory,
+        stack.bunker,
+        stack.inventory,
         "floor-panel",
         4,
         overheadRow,
-        0,
+        2,
+        "floor",
+      ).ok,
+    ).toBe(true);
+    // A stair anchors the landing beside its top, and each placed slab lets
+    // the deck grow one more cell outward at that level.
+    let deck = { bunker, inventory: inventory() };
+    deck = place(deck, "stair-panel", 3, overheadRow, 2, "mount");
+    deck = place(deck, "floor-panel", 4, overheadRow, 2, "floor");
+    expect(
+      placeBasePart(
+        deck.bunker,
+        deck.inventory,
+        "floor-panel",
+        5,
+        overheadRow,
+        2,
         "floor",
       ).ok,
     ).toBe(true);
   });
 
-  it("drops an overhead floor when its support is pried away", () => {
+  it("attaches a floor to undug rock through a lateral face", () => {
+    // An interior cell whose only non-open neighbor is the rock face beside
+    // it: the ledge leans on that rock alone (below, the other laterals, and
+    // above are all dug and empty).
+    const base = createBunker(proposedBunkerFootprint(4, 5));
+    const bunker: BunkerState = {
+      ...base,
+      dug: [
+        { col: 4, row: 3, depth: 2 },
+        { col: 4, row: 4, depth: 2 },
+        { col: 3, row: 3, depth: 2 },
+        { col: 4, row: 3, depth: 1 },
+        { col: 4, row: 3, depth: 3 },
+        { col: 4, row: 2, depth: 2 },
+      ],
+    };
+    expect(
+      placeBasePart(bunker, inventory(), "floor-panel", 4, 3, 2, "floor").ok,
+    ).toBe(true);
+  });
+
+  it("drops a floor when its last attachment is pried away", () => {
     const bunker = allDugBunker(4, 5);
-    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
-    const overheadRow = bottomRow - 1;
+    // An interior deck cell (4, 3, 2) whose only attachment is the single
+    // wall divider under it; a second wall two cells over is untouched.
     let state = { bunker, inventory: inventory() };
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
-    state = place(state, "floor-panel", 4, overheadRow, 0, "floor");
+    state = place(state, "wall-panel", 4, 4, 2, "wall-px");
+    state = place(state, "wall-panel", 1, 4, 2, "wall-px");
+    state = place(state, "floor-panel", 4, 3, 2, "floor");
     expect(state.bunker.parts).toHaveLength(3);
     const wallsBefore = state.inventory["wall-panel"];
-    // Pry one supporting wall: the overhead floor loses support and falls.
+    // Pry the supporting wall: the floor loses its last attachment and falls.
     const pried = removeBasePart(
       state.bunker,
       state.inventory,
       4,
-      bottomRow,
-      0,
+      4,
+      2,
       "wall-px",
     );
     expect(pried.ok).toBe(true);
@@ -1303,7 +1366,7 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     expect(pried.inventory["wall-panel"]).toBe(wallsBefore + 1);
     expect(pried.fallen?.map((part) => part.slot)).toEqual(["floor"]);
     expect(pried.bunker.parts).toHaveLength(1);
-    expect(pried.bunker.parts[0].slot).toBe("wall-pz");
+    expect(pried.bunker.parts[0].col).toBe(1);
   });
 
   it("removes only the addressed slot", () => {
@@ -1649,67 +1712,44 @@ describe("bunker thin sub-cell slots (F-117)", () => {
 
   it("does not count a chewed-out wall as floor support", () => {
     const bunker = allDugBunker(4, 5);
-    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
-    const overheadRow = bottomRow - 1;
-    // Two walls under the cell, but both worn to rubble by raid damage.
+    // A wall under the interior deck cell (4, 3, 2), worn to rubble by raid
+    // damage. Every other neighbor is dug and empty.
     let state = { bunker, inventory: inventory() };
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
+    state = place(state, "wall-panel", 4, 4, 2, "wall-px");
     const worn: BunkerState = {
       ...state.bunker,
       parts: state.bunker.parts.map((part) => ({ ...part, durability: 0 })),
     };
-    // Rubble holds nothing up, so the overhead floor cannot be placed.
+    // Rubble holds nothing up, so the floor cannot be placed.
     expect(
-      placeBasePart(
-        worn,
-        state.inventory,
-        "floor-panel",
-        4,
-        overheadRow,
-        0,
-        "floor",
-      ),
+      placeBasePart(worn, state.inventory, "floor-panel", 4, 3, 2, "floor"),
     ).toEqual({ ok: false, reason: "unsupported" });
   });
 
   it("ignores a rubble wall when a pry cascade recounts support", () => {
-    // A pry-triggered cascade must not count a zero-durability wall toward the
-    // two-wall threshold. (This is the settlement pass; wiring the cascade
-    // into live-raid wear resolution itself is deferred to the raid slice.)
+    // A pry-triggered cascade must not count a zero-durability wall as an
+    // attachment. (This is the settlement pass; wiring the cascade into
+    // live-raid wear resolution itself is deferred to the raid slice.)
     const bunker = allDugBunker(4, 5);
-    const bottomRow = bunker.footprint.row + bunker.footprint.height - 1;
-    const overheadRow = bottomRow - 1;
-    // Three supporting walls, one already chewed to zero: two live supports
-    // still hold the overhead floor.
+    // Two walls under the interior deck cell (4, 3, 2), one already chewed
+    // to zero: the live one still holds the floor.
     let state = { bunker, inventory: inventory() };
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-px");
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-pz");
-    state = place(state, "wall-panel", 4, bottomRow, 0, "wall-nz");
-    state = place(state, "floor-panel", 4, overheadRow, 0, "floor");
+    state = place(state, "wall-panel", 4, 4, 2, "wall-px");
+    state = place(state, "wall-panel", 4, 4, 2, "wall-pz");
+    state = place(state, "floor-panel", 4, 3, 2, "floor");
     const worn: BunkerState = {
       ...state.bunker,
       parts: state.bunker.parts.map((part) =>
-        part.slot === "wall-nz" ? { ...part, durability: 0 } : part,
+        part.slot === "wall-pz" ? { ...part, durability: 0 } : part,
       ),
     };
-    // Prying one live wall leaves a single live support plus the rubble
-    // wall, which no longer counts, so the floor falls.
-    const pried = removeBasePart(
-      worn,
-      state.inventory,
-      4,
-      bottomRow,
-      0,
-      "wall-px",
-    );
+    // Prying the live wall leaves only the rubble wall, which no longer
+    // counts, so the floor falls.
+    const pried = removeBasePart(worn, state.inventory, 4, 4, 2, "wall-px");
     expect(pried.ok).toBe(true);
     if (!pried.ok) return;
     expect(pried.fallen?.map((part) => part.slot)).toEqual(["floor"]);
-    expect(pried.bunker.parts.map((part) => part.slot).sort()).toEqual([
-      "wall-nz",
-      "wall-pz",
-    ]);
+    expect(pried.bunker.parts.map((part) => part.slot)).toEqual(["wall-pz"]);
   });
 
   it("rejects a roof on an interior cell that tops out against rock", () => {
@@ -1780,12 +1820,49 @@ describe("bunker thin sub-cell slots (F-117)", () => {
 
   it("drops a grounded floor when its ground is dug out from the side", () => {
     const base = createBunker(proposedBunkerFootprint(4, 5));
+    // An interior floor cell (4, 3, 2) with every other face already dug
+    // open and empty, grounded on the still-solid cell below it. A side
+    // pocket at (3, 4, 2) gives the dig a clear lateral face into that
+    // ground.
+    const bunker: BunkerState = {
+      ...base,
+      dug: [
+        { col: 4, row: 3, depth: 2 },
+        { col: 3, row: 3, depth: 2 },
+        { col: 5, row: 3, depth: 2 },
+        { col: 4, row: 3, depth: 1 },
+        { col: 4, row: 3, depth: 3 },
+        { col: 4, row: 2, depth: 2 },
+        { col: 3, row: 4, depth: 2 },
+      ],
+    };
+    const placed = place(
+      { bunker, inventory: inventory() },
+      "floor-panel",
+      4,
+      3,
+      2,
+      "floor",
+    );
+    // The floor above seals a straight-down dig into the ground, but the open
+    // lateral neighbor's face is clear, so the dig lands through it. Digging
+    // that ground out pulls the floor's last attachment away and the floor
+    // cascades (F-117).
+    const dug = excavateBunkerCell(placed.bunker, 4, 4, 2);
+    expect(dug.ok).toBe(true);
+    if (!dug.ok) return;
+    expect(dug.fallen?.map((part) => part.slot)).toEqual(["floor"]);
+    expect(dug.bunker.parts).toHaveLength(0);
+  });
+
+  it("keeps a floor as a ledge when rock still flanks its dug-out ground", () => {
+    const base = createBunker(proposedBunkerFootprint(4, 5));
     const fp = base.footprint;
     const col = fp.col + Math.floor(fp.width / 2);
     const bottomRow = fp.row + fp.height - 1;
     const row = bottomRow - 1;
-    // The floor's cell and a lateral neighbor of the cell below it are dug.
-    // The cell below is still rock, so the floor is grounded when placed.
+    // Only the floor's cell and a side pocket into the ground are dug, so
+    // after the ground goes the ledge still touches the rock beside it.
     const bunker: BunkerState = {
       ...base,
       dug: [
@@ -1801,44 +1878,29 @@ describe("bunker thin sub-cell slots (F-117)", () => {
       0,
       "floor",
     );
-    // The floor above seals a straight-down dig into the ground, but the open
-    // lateral neighbor's face is clear, so the dig lands through it. Digging
-    // that ground out pulls the floor's support away and the now overhead,
-    // wall-less floor cascades (F-117).
     const dug = excavateBunkerCell(placed.bunker, col, bottomRow, 0);
     expect(dug.ok).toBe(true);
     if (!dug.ok) return;
-    expect(dug.fallen?.map((part) => part.slot)).toEqual(["floor"]);
-    expect(dug.bunker.parts).toHaveLength(0);
+    expect(dug.fallen).toBeUndefined();
+    expect(dug.bunker.parts.map((part) => part.slot)).toEqual(["floor"]);
   });
 
-  it("drops a mount when the overhead floor it stood on falls (F-117)", () => {
-    const base = createBunker(proposedBunkerFootprint(4, 5));
-    const col = 4;
-    const lowerRow = 3;
-    const upperRow = lowerRow - 1;
-    const bunker: BunkerState = {
-      ...base,
-      dug: [
-        { col, row: lowerRow, depth: 0 },
-        { col, row: upperRow, depth: 0 },
-      ],
-    };
+  it("drops a mount when the floor it stood on falls (F-117)", () => {
+    const bunker = allDugBunker(4, 5);
     let state = { bunker, inventory: inventory() };
-    // Two walls in the lower cell hold up the overhead floor above, and a
-    // turret stands on that floor.
-    state = place(state, "wall-panel", col, lowerRow, 0, "wall-px");
-    state = place(state, "wall-panel", col, lowerRow, 0, "wall-pz");
-    state = place(state, "floor-panel", col, upperRow, 0, "floor");
-    state = place(state, "basic-turret", col, upperRow, 0, "mount");
-    // Prying a supporting wall drops the floor below the minimum, and the
-    // mount standing on it falls with it in the same settlement pass.
+    // A single wall under the interior deck cell (4, 3, 2) holds up the
+    // floor, and a turret stands on that floor.
+    state = place(state, "wall-panel", 4, 4, 2, "wall-px");
+    state = place(state, "floor-panel", 4, 3, 2, "floor");
+    state = place(state, "basic-turret", 4, 3, 2, "mount");
+    // Prying the wall drops the floor's last attachment, and the mount
+    // standing on it falls with it in the same settlement pass.
     const pried = removeBasePart(
       state.bunker,
       state.inventory,
-      col,
-      lowerRow,
-      0,
+      4,
+      4,
+      2,
       "wall-px",
     );
     expect(pried.ok).toBe(true);
@@ -1847,8 +1909,8 @@ describe("bunker thin sub-cell slots (F-117)", () => {
       "floor",
       "mount",
     ]);
-    // Only the second live wall remains; the floor and turret are destroyed.
-    expect(pried.bunker.parts.map((part) => part.slot)).toEqual(["wall-pz"]);
+    // The floor and turret are destroyed; nothing else stood there.
+    expect(pried.bunker.parts).toHaveLength(0);
   });
 
   it("keeps a grounded mount standing when floors settle (F-117)", () => {

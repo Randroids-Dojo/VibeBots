@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-18-0.1.276-bunker-staircase";
+export const RELEASE_NOTICE_ID = "2026-07-19-0.1.277-multi-level-floors";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.277",
+      date: "2026-07-19",
+      title: "Build floors at any level",
+      intro:
+        "Floor decks now build wherever you aim them, so the top of a staircase can lead onto a real second story.",
+      changes: [
+        {
+          build,
+          text: "Aim a floor at any surface, not just the ground: the side of a stair top, the edge of the deck you stand on, or a bare rock face all take the slab at that level. Bridge outward cell by cell to lay a whole upper deck.",
+        },
+        {
+          build,
+          text: "Floors no longer demand walls underneath. Anything solid they touch holds them up: rock, a wall or door, a staircase, or another placed part. A slab that loses its every attachment still falls.",
+        },
+      ],
+    },
     {
       version: "0.1.276",
       date: "2026-07-18",

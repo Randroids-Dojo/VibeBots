@@ -988,22 +988,33 @@ describe("bunker excavation wrapper", () => {
   });
 
   it("persists cascaded parts atomically with the dug cell (F-117)", async () => {
-    // A grounded slotted floor whose cell below is still rock. Digging that
-    // cell out drops the floor (F-117 cascade). The guarded write must bind
-    // both the new dug cell and the emptied parts array in one statement, and
-    // a subsequent load must read the settled state, so the drop is durable.
+    // A grounded slotted floor in a fully interior cell (every other face
+    // already dug open and empty, so no rock, shell, or part attachment
+    // remains). Digging the cell below out drops the floor (F-117 cascade).
+    // The guarded write must bind both the new dug cell and the emptied
+    // parts array in one statement, and a subsequent load must read the
+    // settled state, so the drop is durable.
     const footprint: BunkerFootprint = { col: 1, row: 4, width: 7, height: 5 };
     // Stateful store: the SELECT returns whatever the last winning UPDATE
     // wrote, so a reload models real persistence rather than a fixed row.
+    // The floor sits at depth 3, just behind the auto-seeded spawn pocket
+    // (cols 3-5, rows 6-8, depths 0-2): the pocket cell in front of the
+    // ground gives the dig its clear face, and the dug cells around the
+    // floor leave it no rock, shell, or part to attach to once the ground
+    // below it opens.
     let storedDug: Array<{ col: number; row: number; depth: number }> = [
-      { col: 2, row: 7, depth: 0 },
+      { col: 3, row: 6, depth: 3 },
+      { col: 2, row: 6, depth: 3 },
+      { col: 4, row: 6, depth: 3 },
+      { col: 3, row: 6, depth: 4 },
+      { col: 3, row: 5, depth: 3 },
     ];
     let storedParts: unknown[] = [
       {
         partId: "floor-panel",
-        col: 2,
-        row: 7,
-        depth: 0,
+        col: 3,
+        row: 6,
+        depth: 3,
         slot: "floor",
         durability: 70,
       },
@@ -1038,15 +1049,19 @@ describe("bunker excavation wrapper", () => {
         return [];
       },
     );
-    // Dig the cell below the floor. It is reachable from the open floor cell
-    // and pulls the floor's ground away.
-    const result = await excavateBunker(sql as never, "player-1", 2, 8, 0);
+    // Dig the cell below the floor through the pocket's clear depth face:
+    // it pulls the floor's last attachment away.
+    const result = await excavateBunker(sql as never, "player-1", 3, 7, 3);
     expect(result.ok).toBe(true);
     // The success result carries a fresh post-write reload; it must show the
     // cascaded floor gone, proving the guarded write did not resurrect it.
     if (result.ok) {
       expect(result.view.bunker?.parts ?? []).toEqual([]);
-      expect(result.view.bunker?.dug.some((cell) => cell.row === 8)).toBe(true);
+      expect(
+        result.view.bunker?.dug.some(
+          (cell) => cell.row === 7 && cell.depth === 3,
+        ),
+      ).toBe(true);
     }
     // One statement carried the dug write, the parts write, the revision
     // guard, and the ore-pay CTE, so dug and parts settle under one revision.

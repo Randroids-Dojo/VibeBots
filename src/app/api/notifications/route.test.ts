@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-18-0.1.276-bunker-staircase",
+      releaseNoticeId: "2026-07-19-0.1.277-multi-level-floors",
       releaseSummary:
-        "Build a staircase and climb between floors: Bunkers get a staircase you can walk up. Dig out a room above, place a stair, and stroll up to it in first person.",
+        "Build floors at any level: Floor decks now build wherever you aim them, so the top of a staircase can lead onto a real second story.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-18-0.1.276-bunker-staircase",
+      releaseNoticeId: "2026-07-19-0.1.277-multi-level-floors",
       attempted: 2,
       sent: 1,
       expired: 1,

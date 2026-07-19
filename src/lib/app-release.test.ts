@@ -24,20 +24,20 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest panel-detail note complete", () => {
+  it("keeps the latest multi-level-floors note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-18-0.1.276-bunker-staircase");
+    expect(release.noticeId).toBe("2026-07-19-0.1.277-multi-level-floors");
     expect(latestNote).toMatchObject({
-      version: "0.1.276",
-      title: "Build a staircase and climb between floors",
+      version: "0.1.277",
+      title: "Build floors at any level",
       intro:
-        "Bunkers get a staircase you can walk up. Dig out a room above, place a stair, and stroll up to it in first person.",
+        "Floor decks now build wherever you aim them, so the top of a staircase can lead onto a real second story.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Staircase is a new build part (you start with two). Pick it from the hotbar, aim where you want it, and press R (or tap Rotate) to face it whichever of the four directions you want to climb. Place it and walk up: crossing it in its facing direction carries you smoothly up one floor.",
-      "Stack a couple in a diagonal to reach a second-story room you have dug out, or buy more from the Hardware Store on the surface.",
+      "Aim a floor at any surface, not just the ground: the side of a stair top, the edge of the deck you stand on, or a bare rock face all take the slab at that level. Bridge outward cell by cell to lay a whole upper deck.",
+      "Floors no longer demand walls underneath. Anything solid they touch holds them up: rock, a wall or door, a staircase, or another placed part. A slab that loses its every attachment still falls.",
     ]);
   });
 

@@ -212,15 +212,23 @@ describe("fpPlacementSlot (F-117)", () => {
     });
   });
 
-  it("accepts a floor only on the floor face and a roof only on the roof face", () => {
-    expect(fpPlacementSlot(FP_FACE_POS_Y, "floor-panel")).toEqual({
-      slot: "floor",
-      valid: true,
-    });
-    expect(fpPlacementSlot(FP_FACE_NEG_X, "floor-panel")).toEqual({
-      slot: undefined,
-      valid: false,
-    });
+  it("accepts a floor on every face (multi-level decks) and a roof only on the roof face", () => {
+    // The slab always lands in the place cell's floor slot, whatever face
+    // the ray entered: aiming at the ground, a stair's side, a deck edge,
+    // or a rock face all start or extend a deck at that level.
+    for (const face of [
+      FP_FACE_POS_Y,
+      FP_FACE_NEG_Y,
+      FP_FACE_NEG_X,
+      FP_FACE_POS_X,
+      FP_FACE_NEG_Z,
+      FP_FACE_POS_Z,
+    ]) {
+      expect(fpPlacementSlot(face, "floor-panel")).toEqual({
+        slot: "floor",
+        valid: true,
+      });
+    }
     expect(fpPlacementSlot(FP_FACE_NEG_Y, "roof-panel")).toEqual({
       slot: "roof",
       valid: true,

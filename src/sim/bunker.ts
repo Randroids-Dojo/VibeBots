@@ -808,35 +808,38 @@ function bunkerCellBlockedByWall(
   return false;
 }
 
-/** Minimum walls an overhead floor needs beneath it to stand (F-117). */
-export const BUNKER_OVERHEAD_FLOOR_MIN_WALLS = 2;
-
-/** A floor slab rests on solid ground when the cell directly below it is
- * not open. Room-local y counts up as `row` decreases (see the fp grid),
- * so the cell below is `row + 1`. A grounded floor needs no walls; an
- * overhead floor (open space below) must be held up. */
-function isGroundedBunkerFloor(
+/** True when the cell can hold up a floor slab or mount touching it:
+ * solid rock (an undug cell, or any cell outside the volume: the boundary
+ * shell the raycast also treats as a build surface), or any intact placed
+ * part other than a spike plate (a trap surface, not structure). A part
+ * chewed to zero durability is rubble, not support, so support is
+ * recomputed on each settlement pass. Today a settlement pass runs only on
+ * a pry or an excavation. Live raids are already active, so before any
+ * further wear-model change the live-raid wear resolution must run this
+ * settlement itself, with exact slot identity, at the moment a support is
+ * destroyed; leaning on a later unrelated mutation to settle is not
+ * acceptable. That integration is tracked as deferred in the F-117 slice
+ * log. */
+function bunkerCellOffersSupport(
   bunker: BunkerState,
   col: number,
   row: number,
   depth: number,
 ): boolean {
-  return !isOpenBunkerCell(bunker, col, row + 1, depth);
+  if (!isOpenBunkerCell(bunker, col, row, depth)) return true;
+  return bunker.parts.some(
+    (part) =>
+      part.col === col &&
+      part.row === row &&
+      part.depth === depth &&
+      part.partId !== "floor-spikes" &&
+      part.durability > 0,
+  );
 }
 
-/** Walls holding up a floor slab: the wall faces of the cell directly
- * below it, which rise to meet the floor's underside. Counts the canonical
- * wall slots that carry a load-bearing part (only walls and doors can sit
- * in a wall slot, and both are structural dividers). A part chewed down to
- * zero durability is rubble, not support, so the support count is recomputed
- * on each settlement pass. Today a settlement pass runs only on a pry or an
- * excavation. Live raids are already active, so before any thin-part
- * persistence or activation the live-raid wear resolution must run this
- * settlement itself, with exact slot identity, at the moment a support is
- * destroyed; leaning on a later unrelated mutation to settle is not
- * acceptable. That integration is tracked as deferred in the F-117 slice
- * log. */
-function bunkerFloorSupportWalls(
+/** Intact wall or door dividers on a cell's four faces (canonical slots,
+ * so a divider stored in the neighboring cell still counts). */
+function bunkerIntactWallCount(
   bunker: BunkerState,
   col: number,
   row: number,
@@ -844,52 +847,70 @@ function bunkerFloorSupportWalls(
 ): number {
   let count = 0;
   for (const face of WALL_SLOTS) {
-    const ref = canonicalWallSlot(bunker.footprint, col, row + 1, depth, face);
+    const ref = canonicalWallSlot(bunker.footprint, col, row, depth, face);
     const part = bunkerPartAtSlot(bunker, ref);
     if (part && part.durability > 0) count++;
   }
   return count;
 }
 
-/** True when a floor slab at the cell may stand: grounded, or overhead
- * with at least the minimum supporting walls beneath it (F-117). */
+/** True when a floor slab at the cell may stand. Floors build at any level
+ * as long as they attach to something (multi-level placement, user
+ * direction 2026-07-19): resting on the cell below (rock, the shell, or an
+ * intact part), held by a wall divider rising to meet the underside or
+ * bolted to one on its own faces, or touching rock, the shell, or an
+ * intact part through any other face (a deck extends sideways off a stair
+ * top or an existing deck edge). Room-local y counts up as `row` decreases
+ * (see the fp grid), so the cell below is `row + 1`. Attachment is
+ * single-hop, not transitive: each slab needs its own neighbor, but two
+ * intact slabs side by side do keep each other standing after the anchor
+ * that let them be placed is destroyed. */
 function isBunkerFloorSupported(
   bunker: BunkerState,
   col: number,
   row: number,
   depth: number,
 ): boolean {
-  if (isGroundedBunkerFloor(bunker, col, row, depth)) return true;
+  if (bunkerCellOffersSupport(bunker, col, row + 1, depth)) return true;
+  if (bunkerIntactWallCount(bunker, col, row + 1, depth) > 0) return true;
+  if (bunkerIntactWallCount(bunker, col, row, depth) > 0) return true;
   return (
-    bunkerFloorSupportWalls(bunker, col, row, depth) >=
-    BUNKER_OVERHEAD_FLOOR_MIN_WALLS
+    bunkerCellOffersSupport(bunker, col - 1, row, depth) ||
+    bunkerCellOffersSupport(bunker, col + 1, row, depth) ||
+    bunkerCellOffersSupport(bunker, col, row, depth - 1) ||
+    bunkerCellOffersSupport(bunker, col, row, depth + 1) ||
+    bunkerCellOffersSupport(bunker, col, row - 1, depth)
   );
 }
 
-/** A mount (turret, floor spikes, and later a stair) stands on the floor of
- * its cell (F-117): it is held up either by solid ground below the cell or by
- * a floor slab in the cell. When that footing is gone the mount falls with
- * it. Checked after floors settle, so a floor slab that just fell no longer
- * counts. */
+/** A mount (turret, floor spikes, stair) stands on the floor of its cell
+ * (F-117): it is held up by the cell below (solid ground or an intact part
+ * whose cell it rests on, so a stair chained on top of a floor block
+ * survives a settlement pass) or by a floor slab in its own cell. When
+ * that footing is gone the mount falls with it. Checked after floors
+ * settle, so a floor slab that just fell no longer counts. */
 function isBunkerMountSupported(
   bunker: BunkerState,
   col: number,
   row: number,
   depth: number,
 ): boolean {
-  if (isGroundedBunkerFloor(bunker, col, row, depth)) return true;
+  if (bunkerCellOffersSupport(bunker, col, row + 1, depth)) return true;
   return (
     bunkerPartAtSlot(bunker, { col, row, depth, slot: "floor" }) !== undefined
   );
 }
 
 /**
- * Settle a layout after a support changes (F-117): first drop every overhead
- * floor that has lost its support (open space below and fewer than the
- * minimum supporting walls), then drop every dependent mount (turret, floor
- * spikes, future stair) that lost the floor it stood on. Floors do not
- * support other floors and mounts support nothing, so a single floors-then-
- * mounts pass settles it. A caller runs this after a wall is pried, a cell is
+ * Settle a layout after a support changes (F-117): first drop every floor
+ * that has lost every attachment (nothing solid on any face and no wall
+ * divider), then drop every dependent mount (turret, floor
+ * spikes, stair) that lost the footing it stood on. One floors-then-mounts
+ * pass settles it. Floors are checked against the pre-fall layout, so a
+ * slab attached only to another slab that falls in the same pass survives
+ * until the next settlement; under single-hop attachment that is the same
+ * mutual-support allowance the placement rule already accepts. A caller
+ * runs this after a wall is pried, a cell is
  * dug, or raid wear destroys a support. Pure; returns the culled bunker and
  * the fallen parts (destroyed, so callers do not refund them).
  */
@@ -1267,8 +1288,8 @@ export function placeBasePart(
   if (slot === "roof" && row !== bunker.footprint.row) {
     return { ok: false, reason: "roof-top" };
   }
-  // An overhead floor must already have the walls that hold it up beneath
-  // it; a grounded floor stands on its own.
+  // A floor builds at any level, but it must attach to something: the cell
+  // below, a wall divider, or any face-adjacent rock, shell, or intact part.
   if (
     slot === "floor" &&
     !isBunkerFloorSupported(bunker, ref.col, ref.row, ref.depth)

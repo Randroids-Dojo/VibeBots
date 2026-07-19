@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-206" data-f="F-206" data-priority="blocks-release">
+    <h3>F-206: Let floors place at any level, including past a stair top</h3>
+    <dl>
+      <dt>Context</dt><dd>Live phone playtest 2026-07-19 (two 1008x2244 screenshots, 10:05 and 10:11): a player spent 13 floor panels and both staircases building upward, then hit a wall at the top of the second staircase with <q>There's currently no way to place second level floors. I should be able to place floors at any level. I should be able to place a floor after the top of the staircase.</q> Two shipped rules combined into the dead end: <code>fpPlacementSlot</code> offered the floor slot only when aiming at the top of something solid (no such surface exists at an upper level over open room), and <code>isBunkerFloorSupported</code> counted only walls under an overhead floor, so a slab stacked on a floor block or hung off a stair top was rejected as <code>unsupported</code> with nothing but a deny clang. The staircase feature shipped in 0.1.276 effectively led nowhere.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Direct dev direction: floors place at any level.</dd>
+      <dt>Unblock condition</dt><dd>A floor panel targets every aimed face (slab lands in the place cell's floor slot), and the sim accepts a floor wherever any face touches rock, the boundary shell, an intact wall or door divider, a stair, or another intact non-spike part. Rubble still supports nothing; a slab that loses every attachment still cascades. Mounts also rest on intact parts below so chained stairs survive settlement.</dd>
+      <dt>Resolved</dt><dd>Multi-level floor placement slice (package 0.1.277, branch <code>claude/multi-level-floor-placement-dpndmm</code>): targeting opened in <code>fpPlacementSlot</code>, the attachment support model in <code>src/sim/bunker.ts</code>, mount stacking in <code>isBunkerMountSupported</code>, tips and release note updated, pinned by sim unit tests, a six-face raycast test, and an fp e2e that places a floor against a vertical rock face.</dd>
+    </dl>
+  </section>
+
   <section id="F-204" data-f="F-204" data-priority="blocks-release">
     <h3>F-204: Enforce diagnostic privacy at the trace boundary</h3>
     <dl>

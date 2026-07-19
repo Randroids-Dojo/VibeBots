@@ -53,8 +53,10 @@ export const FP_FACE_NEG_Z = 5;
  * The place cell's slot on the shared divider with the hit cell, by the face
  * the ray entered the hit cell through (F-117). The hit cell sits one step
  * past the place cell; the divider between them is the place cell's face on
- * that axis. A wall lands on that boundary; a floor/roof on the horizontal
- * plane. (Ray stepped +x -> hit's NEG_X face -> divider is place's +x face.)
+ * that axis. A wall lands on that boundary; a roof on the horizontal plane.
+ * (Ray stepped +x -> hit's NEG_X face -> divider is place's +x face.) A
+ * floor is not face-keyed: fpPlacementSlot short-circuits it to the place
+ * cell's floor slot for every face.
  */
 const FP_FACE_SLOT: Record<number, BunkerSlot> = {
   [FP_FACE_NEG_X]: "wall-px",
@@ -62,7 +64,6 @@ const FP_FACE_SLOT: Record<number, BunkerSlot> = {
   [FP_FACE_NEG_Z]: "wall-pz",
   [FP_FACE_POS_Z]: "wall-nz",
   [FP_FACE_NEG_Y]: "roof",
-  [FP_FACE_POS_Y]: "floor",
 };
 
 export interface FpPlacementSlot {
@@ -79,8 +80,10 @@ export function createFpPlacementSlot(): FpPlacementSlot {
 /**
  * Resolve which sub-cell slot the selected part occupies if placed against
  * the ray's entered face (F-117). A wall or door snaps to the wall slot on
- * the aimed face; a floor or roof panel accepts only its matching horizontal
- * face; a mount part (turret, spikes) ignores the face and places whole-cell.
+ * the aimed face; a floor accepts every face (the slab lands in the place
+ * cell's floor slot, so decks build at any level); a roof panel accepts only
+ * its underside face; a mount part (turret, spikes) ignores the face and
+ * places whole-cell.
  * `valid` is false when the part cannot go on the aimed face, so the caller
  * suppresses the ghost and the place action. Writes into `out` (default: a
  * fresh record) so the frame loop can reuse one scratch and stay allocation
@@ -95,6 +98,15 @@ export function fpPlacementSlot(
   const allowed = allowedBunkerSlots(partId);
   if (allowed.length === 1 && allowed[0] === "mount") {
     out.slot = undefined;
+    out.valid = true;
+    return out;
+  }
+  if (partId === "floor-panel") {
+    // A floor deck builds off any aimed face (multi-level placement): the
+    // slab always lands in the place cell's floor slot, so a deck extends
+    // sideways off a stair top, a deck edge, or a rock face the same way
+    // aiming at the ground starts one.
+    out.slot = "floor";
     out.valid = true;
     return out;
   }

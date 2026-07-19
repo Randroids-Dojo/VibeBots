@@ -660,17 +660,17 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
       timeout: 10_000,
     })
     .not.toBe("locked");
-  // The fp Bunker button drops back to the flat view with the status
-  // sheet already open (the sheet's only doorway while the miner stands
-  // in the claim, F-119 fold). The Reset row is a two-step confirm: the
-  // first tap arms it without resetting anything.
+  // The fp Upkeep button opens the sheet as an overlay over the live fp
+  // canvas (no mode switch). The Reset row is a two-step confirm: the
+  // first tap arms it without resetting anything and the view stays in
+  // first person.
   await page.getByTestId("bunker-fp-status").click();
-  await expect(page.getByLabel("Mine status")).toHaveAttribute(
-    "data-fp-mode",
-    "0",
-  );
   const reset = page.getByTestId("bunker-reset");
   await expect(reset).toHaveText("Reset bunker");
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "1",
+  );
   await reset.click();
   await expect(reset).toHaveText("Really reset? Parts return to inventory");
   expect(
@@ -681,9 +681,14 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
     ),
   ).toBe(1);
 
-  // The second tap fires: the wall refunds and the row disappears
-  // because nothing is left to reset.
+  // The second tap fires: the confirmed reset exits first person (the
+  // live canvas cannot keep walking invalidated geometry), the wall
+  // refunds, and the row disappears because nothing is left to reset.
   await reset.click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "0",
+  );
   await expect(page.getByTestId("bunker-reset")).toHaveCount(0);
   await expect
     .poll(() =>
@@ -847,9 +852,11 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
     })
     .not.toBeNull();
   await page.getByTestId("bunker-fp-status").click();
+  // The Upkeep sheet overlays the live fp canvas; the view stays in
+  // first person and the skin repaint is measured on the fp walls.
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-fp-mode",
-    "0",
+    "1",
   );
   const builder = page.getByRole("region", { name: "Bunker upkeep" });
   await expect(builder).toBeVisible();
@@ -868,8 +875,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   await expect(gilded).toBeDisabled();
   await expect(gilded).toHaveAttribute("title", /needs 20 more vibes/);
 
-  // The flat canvas remounted behind the sheet on the way out of first
-  // person; wait for its first painted frame so the veil never lands in
+  // Wait for the fp canvas's painted signal so the veil never lands in
   // the baseline screenshot.
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-scene-painted",

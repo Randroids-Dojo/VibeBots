@@ -30,7 +30,6 @@ export function BunkerControlPanel({
   pendingClaim,
   preview,
   localBlockedCells,
-  bankedBlockedCells,
   onStartClaim,
   onCancelClaim,
   onOpenPanel,
@@ -49,7 +48,6 @@ export function BunkerControlPanel({
   bunker: BunkerState | null;
   pendingClaim: boolean;
   localBlockedCells: readonly MineCoord[];
-  bankedBlockedCells: readonly MineCoord[];
   onStartClaim: () => void;
   onCancelClaim: () => void;
   onOpenPanel: () => void;

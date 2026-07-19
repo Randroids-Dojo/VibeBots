@@ -353,7 +353,7 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   ).toBeVisible();
 });
 
-test("one bunker button at a time: Enter replaces the trigger and the fp Bunker button reopens the sheet", async ({
+test("one bunker button at a time: Enter replaces the trigger and Upkeep overlays first person", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly.
@@ -389,15 +389,29 @@ test("one bunker button at a time: Enter replaces the trigger and the fp Bunker 
     })
     .not.toBeNull();
 
-  // The sheet's doorway from inside: the fp Bunker button drops back to
-  // the flat view with the status sheet already open.
+  // The Upkeep button opens the sheet as an overlay over the live fp
+  // canvas: the view never leaves first person, and the passive status
+  // chips (vibes, level) sit on the HUD outside the sheet.
+  await expect(page.getByLabel("Bunker player status")).toBeVisible();
   await page.getByTestId("bunker-fp-status").click();
-  await expect(status).toHaveAttribute("data-fp-mode", "0");
   await expect(
     page.getByRole("region", { name: "Bunker upkeep" }),
   ).toBeVisible();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
   await page.getByRole("button", { name: "Dismiss bunker upkeep" }).click();
+  await expect(page.getByRole("region", { name: "Bunker upkeep" })).toHaveCount(
+    0,
+  );
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+
+  // Exit returns to the flat view, where the Enter pill is still the
+  // only bunker button.
+  await page.getByRole("button", { name: "Exit bunker" }).click();
+  await expect(status).toHaveAttribute("data-fp-mode", "0");
   await expect(enter).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open bunker upkeep" }),
+  ).toHaveCount(0);
   await awaitMineSceneReady(page);
 });
 

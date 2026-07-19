@@ -2656,10 +2656,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           return footprint.row >= 1 ? footprint : null;
         })()
       : null;
-  const bankedMineForClaim = useMemo(
-    () => createMine(seed, DEFAULT_GEAR, NO_CONSUMABLES, tripBaseDiff),
-    [seed, tripBaseDiff],
-  );
   const localBlockedBunkerCells = useMemo(() => {
     void tick;
     return bunkerPreview
@@ -2668,17 +2664,6 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         )
       : [];
   }, [bunkerPreview, mine, tick]);
-  const bankedBlockedBunkerCells = useMemo(
-    () =>
-      bunkerPreview
-        ? bunkerCells(bunkerPreview).filter(
-            ({ col, row }) =>
-              cellAt(bankedMineForClaim, col, row)?.kind !== "empty",
-          )
-        : [],
-    [bankedMineForClaim, bunkerPreview],
-  );
-
   const handleBaseReturn = async () => {
     if (!baseReturn || baseReturnDisabled) return;
     if (!baseReturnConfirm) {
@@ -2813,14 +2798,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineCanvasPainted(false);
   }, []);
 
-  // The fp HUD's Bunker button: one tap out of first person straight
-  // into the status sheet (repair, skins, reset). The flat view no
-  // longer shows the collapsed trigger while the miner stands in the
-  // claim, so this is the sheet's only doorway from inside.
+  // The fp HUD's Upkeep button opens the sheet as an overlay over the
+  // live first-person canvas (no mode switch). Releasing the pointer
+  // lock frees the cursor; the fp keyboard/tool/Escape effects pause
+  // while the sheet is open (they gate on bunkerPanelOpen like the bag).
   const openStatusFromFp = useCallback(() => {
-    exitFpBunker();
+    if (typeof document !== "undefined") document.exitPointerLock?.();
     setBunkerPanelOpen(true);
-  }, [exitFpBunker]);
+  }, []);
 
   // Open the cargo bag from inside first person. Releasing the pointer
   // lock frees the cursor for the panel; the keyboard and tool-key
@@ -3003,7 +2988,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // q = pry toggle. Movement keys live in attachFpKeyboard. Both pause
   // while the bag panel is open so typing does not reselect a tool.
   useEffect(() => {
-    if (!fpBunkerActive || bagPanelOpen) return;
+    if (!fpBunkerActive || bagPanelOpen || bunkerPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (bunkerToolKeyIgnored(event)) return;
       if (event.key === "0" || event.code === "Backquote") {
@@ -3037,6 +3022,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     activeBunkerInventory,
     fpBunkerActive,
     bagPanelOpen,
+    bunkerPanelOpen,
     selectedBasePart,
     selectFpPart,
     selectFpPick,
@@ -3047,22 +3033,24 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   // First-person keyboard: WASD/arrows plus Space live in the shared
   // fp input singleton while the mode is on; detach zeroes everything.
   useEffect(() => {
-    // Detached while the bag panel is open so WASD and dig do not drive
-    // the miner behind the modal; resetFpInput zeroes any held input.
-    if (!fpBunkerActive || bagPanelOpen) return;
+    // Detached while the bag or upkeep panel is open so WASD and dig do
+    // not drive the miner behind the modal; resetFpInput zeroes any held
+    // input.
+    if (!fpBunkerActive || bagPanelOpen || bunkerPanelOpen) return;
     const detach = attachFpKeyboard();
     return () => {
       detach();
       resetFpInput();
     };
-  }, [fpBunkerActive, bagPanelOpen]);
+  }, [fpBunkerActive, bagPanelOpen, bunkerPanelOpen]);
 
   // Second-Escape exit: while pointer lock is held the browser consumes
   // the first Escape to leave the lock, so any Escape that reaches this
-  // handler means "leave the bunker view". Paused while the bag is open so
-  // Escape closes the bag (its own handler) instead of exiting the view.
+  // handler means "leave the bunker view". Paused while the bag or the
+  // upkeep sheet is open so Escape closes that overlay (their own
+  // handlers) instead of exiting the view.
   useEffect(() => {
-    if (!fpBunkerActive || bagPanelOpen) return;
+    if (!fpBunkerActive || bagPanelOpen || bunkerPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (document.pointerLockElement) return;
@@ -3071,7 +3059,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [exitFpBunker, fpBunkerActive, bagPanelOpen]);
+  }, [exitFpBunker, fpBunkerActive, bagPanelOpen, bunkerPanelOpen]);
 
   // The flat view's only bunker key: "f" enters first person. The old
   // 2D part-selection digits and Escape-stow retired with the hammer,
@@ -3712,6 +3700,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onTogglePry={toggleFpPry}
           onOpenBag={openBagFromFp}
           onOpenStatus={openStatusFromFp}
+          player={bunkerPlayer}
           onExit={exitFpBunker}
           onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
           raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
@@ -4385,48 +4374,50 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           ))}
         </section>
       )}
-      {!fpBunkerActive && (
-        <BunkerControlPanel
-          minerRow={miner.row}
-          claimMode={bunkerClaimMode}
-          panelOpen={bunkerPanelOpen}
-          bunker={activeBunker}
-          pendingClaim={pendingBunkerActive}
-          preview={bunkerPreview}
-          localBlockedCells={localBlockedBunkerCells}
-          bankedBlockedCells={bankedBlockedBunkerCells}
-          onStartClaim={() => {
+      <BunkerControlPanel
+        minerRow={miner.row}
+        claimMode={bunkerClaimMode}
+        panelOpen={bunkerPanelOpen}
+        bunker={activeBunker}
+        pendingClaim={pendingBunkerActive}
+        preview={bunkerPreview}
+        localBlockedCells={localBlockedBunkerCells}
+        onStartClaim={() => {
+          setBunkerPanelOpen(true);
+          setBunkerClaimMode(true);
+        }}
+        onCancelClaim={() => setBunkerClaimMode(false)}
+        onOpenPanel={() => setBunkerPanelOpen(true)}
+        onDismissPanel={() => setBunkerPanelOpen(false)}
+        onClaim={() => {
+          if (claimPendingBunker(miner.col, miner.row)) {
+            setBunkerClaimMode(false);
             setBunkerPanelOpen(true);
-            setBunkerClaimMode(true);
-          }}
-          onCancelClaim={() => setBunkerClaimMode(false)}
-          onOpenPanel={() => setBunkerPanelOpen(true)}
-          onDismissPanel={() => setBunkerPanelOpen(false)}
-          onClaim={() => {
-            if (claimPendingBunker(miner.col, miner.row)) {
-              setBunkerClaimMode(false);
-              setBunkerPanelOpen(true);
-            }
-          }}
-          onRepair={() => void repairBunker()}
-          onReset={() => {
-            // The same pending/banked branch as every other bunker
-            // edit: a mid-trip claim resets locally, a banked bunker
-            // resets through the server route.
-            if (pendingBunkerActive) {
-              resetPendingBunker();
-            } else {
-              void resetBankedBunker();
-            }
-          }}
-          // Only a banked bunker is ever layout-incompatible (F-117): a
-          // pending claim is born current, so Start fresh always runs the
-          // server hard-reset route.
-          onStartFresh={() => void startFreshBankedBunker()}
-          onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
-          entryButtonVisible={fpEnterTriggerVisible}
-        />
-      )}
+          }
+        }}
+        onRepair={() => void repairBunker()}
+        onReset={() => {
+          // A confirmed reset invalidates the geometry under the live
+          // first-person canvas, so it exits the view first (F-119
+          // monitoring note); repair and skins are paint/durability
+          // only and run over the live canvas.
+          if (fpBunkerActive) exitFpBunker();
+          // The same pending/banked branch as every other bunker
+          // edit: a mid-trip claim resets locally, a banked bunker
+          // resets through the server route.
+          if (pendingBunkerActive) {
+            resetPendingBunker();
+          } else {
+            void resetBankedBunker();
+          }
+        }}
+        // Only a banked bunker is ever layout-incompatible (F-117): a
+        // pending claim is born current, so Start fresh always runs the
+        // server hard-reset route.
+        onStartFresh={() => void startFreshBankedBunker()}
+        onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
+        entryButtonVisible={fpEnterTriggerVisible || fpBunkerActive}
+      />
       {/* THE build entry point: a single floating button enters the
           first-person builder while the miner stands inside an editable
           claim. It takes the collapsed status trigger's slot (the

@@ -43,6 +43,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-telemetry-monitoring-refresh" data-date="2026-07-19">
+    <h3>Record live bunker telemetry coverage without creating another owner</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/record-bunker-telemetry-gap</code>, based on current <code>origin/main</code> <code>8558431c</code>.</dd>
+      <dt>PR</dt><dd>Pending. Tracking-only update from production monitoring.</dd>
+      <dt>Changed</dt><dd>Appended current production evidence to existing F-109 and its matching HTML Dot instead of creating a duplicate followup. In the two-hour monitoring window, live bunker traffic included 15 successful excavations, two successful placements, one successful removal, one successful Start fresh, one accepted raid start, one accepted raid resolve, and nine raid-start conflicts. Vercel showed no runtime error clusters, no error or fatal logs, and no 5xx responses. Compact performance uploads during live testing returned 200. The 24-hour deep-trace window contained 106 <code>bunker-fp</code> snapshots across four real-device sessions, but its newest bunker sample was build <code>286930</code> at 06:17 UTC, not current production build <code>287937</code>; do not treat it as current-build proof. The accepted and rejected raid lifecycle denominator remains missing: runtime request logs expose only HTTP 409 and cannot distinguish active raid, cooldown, incompatible state, or another fixed reason. F-109 already owns that bounded lifecycle event, idempotency, privacy, and non-fatal sink contract. Existing F-101, F-102, F-203, and F-204 retain deep-diagnostic completeness, short-visit and source attribution, real-payload proof, and diagnostic-boundary safety.</dd>
+      <dt>Verification</dt><dd>Queried Vercel production runtime errors and logs for the last two hours, grouped production requests by path and status, inspected <code>/api/performance/insights?device=real</code>, and checked current <code>startLiveRaid</code>, <code>resolveLiveRaid</code>, balance-event, README, F-109, and Dot behavior. Main CI run <code>29707064373</code>, CodeQL run <code>29707064143</code>, and the exact-main production deployment for <code>8558431c</code> succeeded. Scheduled Full E2E run <code>29682444566</code> was already triaged under F-131, F-132, and F-207, so no duplicate owner was added here. Local checks: <code>pnpm check:dashes</code>, <code>git diff --check</code>, <code>pnpm typecheck</code>, HTML structure checks, and <code>dot-html show</code> for F-109.</dd>
+      <dt>Assumptions</dt><dd>The nine raid-start 409 responses are not classified as a gameplay defect from status-only logs. This update records the missing reason telemetry and does not block the shipped bunker flow, PR #279, or unrelated merges.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Rule 13 tip review: no package or player-facing rule change, so tips stay unchanged. Rule 14 stamp review: no feature change, so no stamp.</dd>
+      <dt>Followups</dt><dd>Reconciled existing <a href="FOLLOWUPS.html#F-109">F-109</a> and Dot <code>VibeBots-f-109-pin-6a12d11e</code>. Confirmed that F-101, F-102, F-203, and F-204 retain the separate performance-proof and safety work. No new F-ID or Dot was created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="canonical-host-redirect" data-date="2026-07-19">
     <h3>Redirect *.vercel.app alias traffic to the canonical domain</h3>
     <dl>

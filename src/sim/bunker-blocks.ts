@@ -170,21 +170,34 @@ export function bunkerCellDigHits(
   }
   if (!block.ore) return 1;
   const genCol = bunkerCellGenCoords(footprint, x, y, depth).col;
-  let remaining = oreReserveAt(block.ore, row);
+  return walkOreSwings(blockSeed, gear, block.ore, row, genCol);
+}
+
+/**
+ * Walk the seeded surface swing sequence for a bunker ore block, the one
+ * shared source for its pacing. Returns the swing count when `hitIndex`
+ * is omitted, otherwise the units the hitIndex-th (0-based) swing
+ * yields, or -1 when hitIndex is past the sequence end. Every swing
+ * spends at least one unit of reserve, so the walk is bounded by the
+ * reserve. Integer math only, no allocation.
+ */
+function walkOreSwings(
+  blockSeed: number,
+  gear: Pick<MineGear, "pickaxe">,
+  ore: OreId,
+  row: number,
+  genCol: number,
+  hitIndex?: number,
+): number {
+  let remaining = oreReserveAt(ore, row);
   let hits = 0;
   while (remaining > 0) {
-    const units = oreSwingYield(
-      blockSeed,
-      gear,
-      block.ore,
-      row,
-      genCol,
-      remaining,
-    );
+    const units = oreSwingYield(blockSeed, gear, ore, row, genCol, remaining);
+    if (hits === hitIndex) return units;
     remaining -= Math.max(1, units);
     hits++;
   }
-  return Math.max(1, hits);
+  return hitIndex === undefined ? Math.max(1, hits) : -1;
 }
 
 /**
@@ -211,20 +224,15 @@ export function bunkerCellSwingOre(
   const block = bunkerCellBlock(blockSeed, footprint, x, y, depth);
   if (block.kind !== "ore" || !block.ore) return null;
   const genCol = bunkerCellGenCoords(footprint, x, y, depth).col;
-  let remaining = oreReserveAt(block.ore, row);
-  for (let i = 0; remaining > 0; i++) {
-    const units = oreSwingYield(
-      blockSeed,
-      gear,
-      block.ore,
-      row,
-      genCol,
-      remaining,
-    );
-    if (i === hitIndex) return { ore: block.ore, units };
-    remaining -= Math.max(1, units);
-  }
-  return null;
+  const units = walkOreSwings(
+    blockSeed,
+    gear,
+    block.ore,
+    row,
+    genCol,
+    hitIndex,
+  );
+  return units < 0 ? null : { ore: block.ore, units };
 }
 
 /** Reduce a raw mine cell to a bunker block: keep ore and plain rock,

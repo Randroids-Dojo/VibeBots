@@ -1235,12 +1235,17 @@ function BunkerFpRig({
   const lastDigAtRef = useRef(-1);
   const lastCollectCellRef = useRef(-1);
   // Multi-hit dig progress by cell index (surface parity, REQ-013):
-  // strikes landed on each still-solid block this fp session. The
-  // excavate intent fires only when a cell's count reaches its
-  // bunkerCellDigHits requirement; opened cells drop their entry in the
+  // strikes landed on each still-solid block this fp session, plus the
+  // block's cached hit requirement (invariant per cell/seed/gear, so it
+  // is computed once on the first strike instead of re-walking the ore
+  // sequence every swing). The excavate intent fires only when a cell's
+  // count reaches its requirement; opened cells drop their entry in the
   // rebuild effect. Ephemeral by design: leaving first person forgives
   // partial cracks, mirroring how the pending trip never persists them.
-  const digHitsRef = useRef<Map<number, number> | null>(null);
+  const digHitsRef = useRef<Map<
+    number,
+    { hits: number; required: number }
+  > | null>(null);
   if (!digHitsRef.current) digHitsRef.current = new Map();
   // Last struck cell's progress, for the data-fp-dig-* diagnostics.
   const digReadoutRef = useRef({ hits: 0, required: 0 });
@@ -1621,20 +1626,32 @@ function BunkerFpRig({
           rayHit.y,
           rayHit.z,
         );
-        const required = bunkerCellDigHits(
-          bunker.blockSeed,
-          bunker.footprint,
-          gear,
-          cell.col,
-          cell.row,
-          cell.depth,
-        );
+        // The hit requirement is invariant per cell, seed, and gear, so
+        // it is computed once on the first strike and cached alongside
+        // the count (the entry object is the per-cell allocation; later
+        // strikes mutate it in place).
         const digHits = digHitsRef.current;
+        let progress = digHits?.get(digCell);
+        if (!progress) {
+          progress = {
+            hits: 0,
+            required: bunkerCellDigHits(
+              bunker.blockSeed,
+              bunker.footprint,
+              gear,
+              cell.col,
+              cell.row,
+              cell.depth,
+            ),
+          };
+          digHits?.set(digCell, progress);
+        }
+        const required = progress.required;
         // Clamp at the requirement: extra strikes while a banked
         // round-trip is settling stay in the excavate branch below,
         // where the same-cell time guard rate-limits the retries.
-        const hits = Math.min(required, (digHits?.get(digCell) ?? 0) + 1);
-        digHits?.set(digCell, hits);
+        const hits = Math.min(required, progress.hits + 1);
+        progress.hits = hits;
         digReadoutRef.current.hits = hits;
         digReadoutRef.current.required = required;
         const burstCell = burstCellRef.current;

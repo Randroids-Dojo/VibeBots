@@ -48,6 +48,7 @@ export const BASE_PART_IDS = [
   "door-panel",
   "basic-turret",
   "floor-spikes",
+  "stair-panel",
 ] as const;
 export type BasePartId = (typeof BASE_PART_IDS)[number];
 
@@ -60,6 +61,11 @@ export interface BasePartDef {
   blocksClankers: boolean;
   ammo?: number;
   stepDamage?: number;
+  /** Fully modeled but not yet offered: hidden from the shop, the build
+   * hotbar, and the buy path until its mechanic ships. Keeps the part in
+   * BASE_PART_IDS (so schemas, geometry, and the type stay complete) while
+   * keeping it out of every player-facing enumeration. */
+  comingSoon?: boolean;
 }
 
 export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
@@ -113,7 +119,27 @@ export const BASE_PART_CATALOG: Record<BasePartId, BasePartDef> = {
     blocksClankers: false,
     stepDamage: FLOOR_SPIKES_DAMAGE,
   },
+  "stair-panel": {
+    id: "stair-panel",
+    name: "Staircase",
+    blurb: "climb between bunker layers, facing the way you rotate it",
+    price: 12,
+    durability: 70,
+    blocksClankers: false,
+    // Hidden until the climb ships (F-117 staircase arc). A placeable but
+    // unclimbable stair reads as broken, so it stays out of the shop and
+    // hotbar even though it is fully modeled.
+    comingSoon: true,
+  },
 };
+
+/** The parts a player can currently obtain and use: BASE_PART_IDS minus the
+ * ones still flagged comingSoon. Every player-facing enumeration (the shop
+ * list, the build hotbar, the number-key selection) iterates this, so a
+ * modeled-but-unshipped part never appears as a buyable or selectable slot.
+ * Schemas, geometry, and persistence keep using the complete BASE_PART_IDS. */
+export const AVAILABLE_BASE_PART_IDS: readonly BasePartId[] =
+  BASE_PART_IDS.filter((id) => !BASE_PART_CATALOG[id].comingSoon);
 
 export type BasePartInventory = Record<BasePartId, number>;
 
@@ -124,6 +150,7 @@ export const EMPTY_BASE_PART_INVENTORY: BasePartInventory = {
   "door-panel": 0,
   "basic-turret": 0,
   "floor-spikes": 0,
+  "stair-panel": 0,
 };
 
 /**
@@ -139,7 +166,10 @@ export const STARTER_BASE_PART_INVENTORY: BasePartInventory = {
   "roof-panel": 4,
   "door-panel": 1,
   "basic-turret": 0,
+  // Staircase is granted once the climb ships; kept at 0 until then so it is
+  // not placeable before it does anything (F-117 stair slice A).
   "floor-spikes": 0,
+  "stair-panel": 0,
 };
 
 export interface BunkerFootprint {
@@ -203,9 +233,15 @@ export function allowedBunkerSlots(partId: BasePartId): readonly BunkerSlot[] {
       return ["roof"];
     case "basic-turret":
     case "floor-spikes":
+    case "stair-panel":
       return ["mount"];
   }
 }
+
+/** A staircase's facing: which of the four horizontal directions its low end
+ * points toward, as quarter turns (0 = +x, 1 = +z, 2 = -x, 3 = -z). Only a
+ * stair carries one; every other part's orientation is fixed by its slot. */
+export type BunkerOrientation = 0 | 1 | 2 | 3;
 
 export interface PlacedBasePart {
   partId: BasePartId;
@@ -223,6 +259,9 @@ export interface PlacedBasePart {
    * the vocabulary. Stair orientation lands with the stair part.
    */
   slot?: BunkerSlot;
+  /** Facing of a rotatable part (only the staircase uses it), as quarter
+   * turns; absent on every fixed-orientation part. */
+  orientation?: BunkerOrientation;
 }
 
 /** Cosmetic bunker skins (F-087, REQ-034/REQ-038): palette variants for
@@ -557,10 +596,13 @@ export function canBuyBasePart(
   | { ok: true }
   | {
       ok: false;
-      reason: "level" | "limit";
+      reason: "level" | "limit" | "unreleased";
       minLevel?: number;
       limit?: number;
     } {
+  if (BASE_PART_CATALOG[partId].comingSoon) {
+    return { ok: false, reason: "unreleased" };
+  }
   const minLevel = basePartMinimumLevel(partId);
   if (playerLevel < minLevel) {
     return { ok: false, reason: "level", minLevel };
@@ -1117,6 +1159,7 @@ export function placeBasePart(
   row: number,
   depth = 0,
   slot?: BunkerSlot,
+  orientation?: BunkerOrientation,
 ):
   | { ok: true; bunker: BunkerState; inventory: BasePartInventory }
   | {
@@ -1206,6 +1249,7 @@ export function placeBasePart(
           depth: ref.depth,
           durability: def.durability,
           slot: ref.slot,
+          ...(orientation !== undefined ? { orientation } : {}),
         },
       ],
     },

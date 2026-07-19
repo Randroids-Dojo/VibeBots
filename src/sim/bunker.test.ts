@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  AVAILABLE_BASE_PART_IDS,
   allowedBunkerSlots,
   applyBunkerRepairs,
   applyBunkerReset,
   applyBunkerStartFresh,
   BASE_PART_CATALOG,
+  BASE_PART_IDS,
   type BasePartId,
   type BasePartInventory,
   BUNKER_CLAIM_DEPTH,
@@ -241,6 +243,23 @@ describe("bunker vertical slice sim", () => {
         1,
       ),
     ).toEqual({ ok: true });
+  });
+
+  it("hides a comingSoon part from every obtainable-part path (F-117 stair)", () => {
+    // The staircase is fully modeled but flagged comingSoon until the climb
+    // ships, so it must not appear anywhere a player picks a part.
+    expect(BASE_PART_CATALOG["stair-panel"].comingSoon).toBe(true);
+    expect(AVAILABLE_BASE_PART_IDS).not.toContain("stair-panel");
+    expect(AVAILABLE_BASE_PART_IDS).toEqual(
+      BASE_PART_IDS.filter((id) => !BASE_PART_CATALOG[id].comingSoon),
+    );
+    for (const id of AVAILABLE_BASE_PART_IDS) {
+      expect(BASE_PART_CATALOG[id].comingSoon).toBeFalsy();
+    }
+    // The buy gate rejects it regardless of level or stock.
+    expect(
+      canBuyBasePart("stair-panel", 99, null, STARTER_BASE_PART_INVENTORY, 1),
+    ).toEqual({ ok: false, reason: "unreleased" });
   });
 
   it("uses only collected defense XP for overall player level", () => {
@@ -866,6 +885,7 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     expect(allowedBunkerSlots("roof-panel")).toEqual(["roof"]);
     expect(allowedBunkerSlots("basic-turret")).toEqual(["mount"]);
     expect(allowedBunkerSlots("floor-spikes")).toEqual(["mount"]);
+    expect(allowedBunkerSlots("stair-panel")).toEqual(["mount"]);
     expect(BUNKER_SLOTS).toContain("floor");
     expect(
       ["wall-px", "wall-nx", "wall-pz", "wall-nz"].every((slot) =>
@@ -1057,6 +1077,50 @@ describe("bunker thin sub-cell slots (F-117)", () => {
         c.col,
         c.row,
         0,
+        "wall-px",
+      ),
+    ).toEqual({ ok: false, reason: "slot" });
+  });
+
+  it("mounts a staircase and remembers the way it faces (F-117)", () => {
+    // The catalog and slot rule ship before the climb does.
+    expect(BASE_PART_CATALOG["stair-panel"]).toBeDefined();
+    expect(allowedBunkerSlots("stair-panel")).toEqual(["mount"]);
+
+    const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
+    let state = {
+      bunker: oneCellBunker(c.col, c.row, c.depth),
+      inventory: { ...inventory(), "stair-panel": 1 },
+    };
+    // A floor slab gives the mount its footing.
+    state = place(state, "floor-panel", c.col, c.row, c.depth, "floor");
+
+    const placed = placeBasePart(
+      state.bunker,
+      state.inventory,
+      "stair-panel",
+      c.col,
+      c.row,
+      c.depth,
+      "mount",
+      2,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    expect(placed.bunker.parts.at(-1)).toMatchObject({
+      partId: "stair-panel",
+      slot: "mount",
+      orientation: 2,
+    });
+    // A staircase is a mount part; a wall slot rejects it.
+    expect(
+      placeBasePart(
+        state.bunker,
+        state.inventory,
+        "stair-panel",
+        c.col,
+        c.row,
+        c.depth,
         "wall-px",
       ),
     ).toEqual({ ok: false, reason: "slot" });

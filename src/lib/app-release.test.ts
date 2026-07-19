@@ -24,21 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest thin-walls note complete", () => {
+  it("keeps the latest panel-detail note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-17-0.1.274-bunker-thin-walls");
+    expect(release.noticeId).toBe("2026-07-18-0.1.275-bunker-panel-detail");
     expect(latestNote).toMatchObject({
+      version: "0.1.275",
+      title: "Bunker panels look built, not flat",
+      intro:
+        "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe; floors get a walkway grate over a dark pit; roofs hang a warm work lamp underneath; doors get a framed hatch with a spin-wheel leaf and ready lights. Same panels in the same spots, just detailed to match the rest of the bunker.",
+      "This is a look-only change: nothing about placing, prying, or how your bunker plays is different, and your saved bunker is untouched.",
+    ]);
+  });
+
+  it("keeps the archived thin-walls note complete", () => {
+    const release = getAppRelease();
+    const wallsNote = release.notes.find((note) => note.version === "0.1.274");
+
+    expect(wallsNote).toMatchObject({
       version: "0.1.274",
       title: "Build thin walls on the face you aim at",
       intro:
         "Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Point a wall at a side of the cell you are standing in and it goes up as a thin panel on that face, so you can wall off a corner with two panels or line a room without packing it solid. Floors build as a deck on the floor you aim at, roofs as a ceiling overhead.",
-      "Aim a wall at the floor or a spot with no matching face and it still drops in as the old full-cell block, so nothing you already built or the way you used to build changes. Turrets and spikes still fill their cell as before.",
-    ]);
   });
 
   it("keeps the archived fp-spawn note complete", () => {

@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-17-0.1.274-bunker-thin-walls";
+export const RELEASE_NOTICE_ID = "2026-07-18-0.1.275-bunker-panel-detail";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.275",
+      date: "2026-07-18",
+      title: "Bunker panels look built, not flat",
+      intro:
+        "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
+      changes: [
+        {
+          build,
+          text: "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe; floors get a walkway grate over a dark pit; roofs hang a warm work lamp underneath; doors get a framed hatch with a spin-wheel leaf and ready lights. Same panels in the same spots, just detailed to match the rest of the bunker.",
+        },
+        {
+          build,
+          text: "This is a look-only change: nothing about placing, prying, or how your bunker plays is different, and your saved bunker is untouched.",
+        },
+      ],
+    },
     {
       version: "0.1.274",
       date: "2026-07-17",

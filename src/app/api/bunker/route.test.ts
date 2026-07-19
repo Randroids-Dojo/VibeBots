@@ -79,6 +79,7 @@ const view = {
     "door-panel": 1,
     "basic-turret": 0,
     "floor-spikes": 0,
+    "stair-panel": 0,
   },
   player: {
     balance: 12,

@@ -692,6 +692,13 @@ export async function buyBasePart(
     count,
   );
   if (!allowed.ok) {
+    if (allowed.reason === "unreleased") {
+      return {
+        ok: false,
+        status: 409,
+        error: "part not available yet",
+      };
+    }
     if (allowed.reason === "level") {
       return {
         ok: false,

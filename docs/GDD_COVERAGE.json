@@ -768,7 +768,9 @@
         "src/state/mine-store.test.ts",
         "tests/e2e/mine-save-slots.spec.ts"
       ],
-      "followupRefs": []
+      "followupRefs": [
+        "F-176"
+      ]
     },
     {
       "id": "REQ-034",
@@ -901,9 +903,9 @@
     },
     {
       "id": "REQ-038",
-      "requirement": "Surviving bunker attacks drops deterministic defense XP pickups toward overall player level; collected defense XP gates bot parts, base parts, skins, stamps, consumables, and upgrades.",
+      "requirement": "Surviving bunker attacks drops deterministic defense XP pickups toward overall player level; overall player level gates the raid tier a player may trigger, the owned beacon cap, and base-part owned limits (Q-017 option C: other catalogs stay vibes-priced, new top-tier entries may opt into level floors).",
       "gddRef": "docs/gdd/08-base-building.html#rewards-and-level",
-      "status": "partial",
+      "status": "done",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
@@ -1149,7 +1151,10 @@
       "followupRefs": [
         "F-115",
         "F-120",
-        "F-133"
+        "F-133",
+        "F-168",
+        "F-174",
+        "F-175"
       ]
     },
     {

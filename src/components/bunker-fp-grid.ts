@@ -3,6 +3,7 @@ import {
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   type BunkerFootprint,
+  type BunkerSlot,
   type BunkerState,
 } from "@/sim/bunker";
 
@@ -31,6 +32,27 @@ export const FP_SPIKES = 3;
 export const FP_ROCK_UNDUG = 4;
 /** The owner's door: renders closed but the owner passes through. */
 export const FP_DOOR_OWNED = 5;
+/**
+ * A staircase ramp (F-117): walkable, and it raises the mover one layer as
+ * they cross it in its ascent direction. Four values encode that direction
+ * so the mover slopes the feet without a side table, matching
+ * BunkerOrientation (0 +x, 1 +z, 2 -x, 3 -z). Grid +z is world -z (deeper),
+ * so FP_STAIR_PZ rises as the player heads into the rock.
+ */
+export const FP_STAIR_PX = 6;
+export const FP_STAIR_PZ = 7;
+export const FP_STAIR_NX = 8;
+export const FP_STAIR_NZ = 9;
+
+/** The stair grid value for a staircase facing `orientation` (0-3). */
+export function fpStairValue(orientation: number): number {
+  return FP_STAIR_PX + orientation;
+}
+
+/** True for any of the four staircase ramp values. */
+export function fpCellIsStair(value: number): boolean {
+  return value >= FP_STAIR_PX && value <= FP_STAIR_NZ;
+}
 
 export type FpSolidGrid = Uint8Array;
 
@@ -54,6 +76,49 @@ export interface FpEditCell {
 export interface FpEditIntent {
   kind: "place" | "pry" | "dig" | "collect";
   cell: FpEditCell;
+  /** Thin sub-cell slot the action targets (F-117). Absent for a legacy
+   * whole-cell part, a dig, or a collect. On a place it is the face the
+   * player aimed at; the sim canonicalizes a wall to one boundary. */
+  slot?: BunkerSlot;
+}
+
+/** How a thin part renders inside its cell: a small offset toward the target
+ * face plus a Y rotation to swing the canonical panel (built thin in z for
+ * walls/doors, thin in y for floors/roofs) onto that face. Room-local space
+ * is world-aligned at the cell center, and grid depth grows into world -z, so
+ * a +depth wall sits at negative local z. */
+export interface FpSlotRenderTransform {
+  x: number;
+  y: number;
+  z: number;
+  rotY: number;
+}
+
+// Half the cell minus half the 0.08 slab, so the panel's outer face lands on
+// the cell boundary (+-0.5) and two neighbors' panels meet without a gap.
+const FP_SLAB_OFFSET = 0.46;
+
+export function fpSlotRenderTransform(
+  slot: BunkerSlot | undefined,
+): FpSlotRenderTransform {
+  const o = FP_SLAB_OFFSET;
+  switch (slot) {
+    case "wall-px":
+      return { x: o, y: 0, z: 0, rotY: Math.PI / 2 };
+    case "wall-nx":
+      return { x: -o, y: 0, z: 0, rotY: Math.PI / 2 };
+    case "wall-pz":
+      return { x: 0, y: 0, z: -o, rotY: 0 };
+    case "wall-nz":
+      return { x: 0, y: 0, z: o, rotY: 0 };
+    case "floor":
+      return { x: 0, y: -o, z: 0, rotY: 0 };
+    case "roof":
+      return { x: 0, y: o, z: 0, rotY: 0 };
+    default:
+      // mount or legacy whole-cell: dead center, no rotation.
+      return { x: 0, y: 0, z: 0, rotY: 0 };
+  }
 }
 
 /** Maps a room-local cell back to mine-grid coordinates (the inverse
@@ -221,6 +286,8 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
         ? FP_DOOR_OWNED
         : part.partId === "floor-spikes"
           ? FP_SPIKES
-          : FP_SOLID_PART;
+          : part.partId === "stair-panel"
+            ? fpStairValue(part.orientation ?? 0)
+            : FP_SOLID_PART;
   }
 }

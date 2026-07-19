@@ -13,7 +13,43 @@
 <article>
 <h1>F-106 Fail live raid conflicts and resync state</h1>
 <section id="description">
-F-106: Allow only one concurrent mutation to win, return a stable conflict response to the loser, and replace local state with the latest server view.
+F-106: Allow only one concurrent mutation to win, return a stable conflict response to the loser, and replace local state with the latest server view. Main 9983bffa exposes the exact PR #231 settlement race: resolve claims the raid row, a same-generation bunker edit can win before the separate parts write, and the resolver still pays and reports success when that guarded write matches zero rows; snapshots without a frozen revision bypass the guard. Make the raid claim and bunker wear one atomic winner, pay and record nothing on a loser, return a stable 409 with the authoritative bunker and raid view, fail fast on a missing snapshot revision, and test a true overlapping edit plus the legacy-snapshot path.
+</section>
+<section id="evidence-prs-215-216">
+The raid-row compare-and-set currently precedes separate wear, reward, achievement, telemetry, and reload statements. Make full settlement atomic or resumable and keep edits blocked through the authoritative result. F-109 owns lifecycle telemetry.
+</section>
+<section id="client-resolve-ack-2026-07-15">
+The unpublished client marks resolve done before an optional callback and discards the request promise, while Start has no pending latch. Keep both mutations pending until acknowledgement, retry ambiguous resolve failures by raid identity, replace state from authoritative conflicts, and cover rapid taps, lost responses, reload, concurrent start or settle, and exactly one reward.
+</section>
+<section id="production-concurrency-exploit-pr-221">
+Main c84a4403 has no unique unresolved-row invariant, so two concurrent starts can insert separate raids and settle twice as the older row resurfaces. Resolve also claims the row before separate wear, reward, achievement, telemetry, and view writes, making later failure partial and unretryable. Add one atomic or resumable settlement, unique active-row constraint, stable authoritative conflict body, pending latch, acknowledged completion, and exact concurrent-start plus injected-failure coverage.
+</section>
+<section id="forfeit-wip-review-2026-07-15">
+The draft endpoint targets every unresolved current-version row without raid identity, compare token, affected-row check, unique-active invariant, atomic wear, or same-origin request validation. It returns success when nothing matched. Require exact identity, atomicity, stable conflict plus authoritative view, and overlap coverage.
+</section>
+<section id="cleanup-acknowledgement-race-2026-07-15">
+The draft marks resolve complete before server acknowledgement, then skips fallback recovery after a failed request. Otherwise it exposes flat play while fire-and-forget forfeit remains pending. Keep recovery locked until an exact authoritative result is adopted and retry ambiguous failures by stable raid identity.
+</section>
+<section id="forfeit-verification-correction-2026-07-15">
+The draft test checks SQL tokens but not one exact selected row, affected count, or atomic wear. Add route and smoke coverage plus no row, multiple rows, exact identity, duplicate, concurrency, post-grace, failures, same-origin rejection, telemetry failure, and authoritative response cases.
+</section>
+<section id="mutation-origin-correction-2026-07-15">
+The bodyless POST takes no Request and cannot call sameOriginMutationRequired. With the embedded save cookie using SameSite=None, require stable same_origin_required rejection before mutation and route tests for hostile Origin, hostile Sec-Fetch-Site, missing evidence policy, and same-origin success.
+</section>
+<section id="exact-head-review-evidence-pr-224">
+Review 4703051386 confirms missing route and smoke coverage, a mock that cannot model zero or multiple affected rows, a player-wide multi-row update, and duplicate settlement SQL. Fix them only inside the clean successor's exact-identity, row-count, transaction, wear, conflict, telemetry, and same-origin contract.
+</section>
+<section id="merged-all-row-dismissal-pr-224">
+Comment 4980856802 claims forfeiting every unresolved current-version row is correct and a no-match update is intentional idempotency. PR #224 then merged head 006d4507 as main 98d269ee without changing runtime or tests. That does not satisfy exact raid identity, one-active-row enforcement, affected-row proof, atomic wear, stable conflicts, same-origin validation, or authoritative replacement. Every F-106 gate remains open on production main.
+</section>
+<section id="touch-abandon-acknowledgement-gap-pr-225">
+PR #225 exact heads 90b9fa66 and 734aeeba reuse the bodyless player-wide route, send no raid identity, exit before acknowledgement, and test one mocked success. Require exact row identity, one-active-row enforcement, affected-row proof, atomic policy-compliant settlement, stable conflict plus authoritative view, and client replacement before mine actions or re-entry unlock. Cover delay, rejection, duplicate, no match, multiple rows, concurrent resolve, reload, re-entry, and response ordering.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose the control over the same player-wide no-identity route. CI proves the mocked success path only. Exact identity, one-active-row enforcement, affected-row proof, atomic settlement, stable conflict and authoritative replacement, and delayed or failed response recovery remain open.
+</section>
+<section id="pr-226-active-row-invariant-evidence">
+Main d722ae8e selects one unresolved row with newest-first LIMIT 1, then startLiveRaid performs a plain insert after a separate read. The schema is unique only on player plus raid ID. Concurrent starts can both pass, and a hidden legacy or malformed row can remain unresolved beside a later live row. Add a database-backed one-active-row invariant or equivalent transaction, exact affected-row proof, and deterministic authoritative conflict replacement.
 </section>
 </article>
 </body>

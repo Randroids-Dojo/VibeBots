@@ -63,6 +63,7 @@ import {
   fpCellIndex,
   fpCellInGrid,
   fpGridCellFromLocal,
+  fpSlotRenderTransform,
   fpSpawnCell,
 } from "./bunker-fp-grid";
 import { fpInput } from "./bunker-fp-input";
@@ -85,9 +86,12 @@ import {
 } from "./bunker-fp-raid";
 import { resetFpRaidHud, setFpRaidHud } from "./bunker-fp-raid-hud";
 import {
+  createFpPlacementSlot,
   createFpRayHit,
   FP_MAX_REACH,
+  type FpPlacementSlot,
   type FpRayHit,
+  fpPlacementSlot,
   raycastFpGrid,
 } from "./bunker-fp-raycast";
 import {
@@ -749,15 +753,19 @@ function FpPartVisual({
   durability,
   tier,
   detail,
+  thin = false,
   skin = DEFAULT_BUNKER_SKIN,
 }: {
   partId: BasePartId;
   durability: number;
   tier: SurfaceGeometryTier;
   detail: boolean;
+  /** Render the thin sub-cell panel (F-117); the parent group orients and
+   * offsets it onto the target face. */
+  thin?: boolean;
   skin?: BunkerSkinId;
 }) {
-  const model = bunkerPartFpGeometry(partId, tier);
+  const model = bunkerPartFpGeometry(partId, tier, thin);
   const emissiveHex = BASE_PART_EMISSIVES[partId];
   return (
     <group>
@@ -799,15 +807,26 @@ function FpPlacedParts({
         const y = bottomRow - part.row;
         const z = part.depth ?? 0;
         if (!fpCellInGrid(x, y, z)) return null;
+        // Thin parts (F-117) render as a panel offset and rotated onto their
+        // slot's face; legacy whole-cell parts and mounts sit dead-center.
+        const slot = part.slot;
+        const thin = slot !== undefined && slot !== "mount";
+        const t = fpSlotRenderTransform(slot);
         return (
-          <group key={`fp-part:${x}:${y}:${z}`} position={[x, y, -z]}>
-            <FpPartVisual
-              detail={detail}
-              durability={part.durability}
-              partId={part.partId}
-              skin={bunker.skin}
-              tier={tier}
-            />
+          <group
+            key={`fp-part:${x}:${y}:${z}:${slot ?? "full"}`}
+            position={[x, y, -z]}
+          >
+            <group position={[t.x, t.y, t.z]} rotation={[0, t.rotY, 0]}>
+              <FpPartVisual
+                detail={detail}
+                durability={part.durability}
+                partId={part.partId}
+                skin={bunker.skin}
+                thin={thin}
+                tier={tier}
+              />
+            </group>
           </group>
         );
       })}
@@ -859,9 +878,12 @@ function BunkerFpRig({
   bunker,
   entry,
   tool,
+  selectedPartId,
   onEdit,
   outlineRef,
   ghostRef,
+  ghostSlotRef,
+  ghostFullRef,
   detail,
   liveRaid,
   onResolveRaid,
@@ -870,9 +892,12 @@ function BunkerFpRig({
   bunker: BunkerState;
   entry: FpEntryCell;
   tool: BunkerToolAction;
+  selectedPartId: BasePartId;
   onEdit: (intent: FpEditIntent) => void;
   outlineRef: RefObject<LineSegments | null>;
   ghostRef: RefObject<Group | null>;
+  ghostSlotRef: RefObject<Group | null>;
+  ghostFullRef: RefObject<Group | null>;
   detail: boolean;
   liveRaid: LiveRaidActiveView | null;
   onResolveRaid?: (report: LiveRaidOutcomeReport) => void;
@@ -1119,6 +1144,11 @@ function BunkerFpRig({
   const targetSigRef = useRef(Number.NaN);
   const placeSigRef = useRef(Number.NaN);
   const outlineKindRef = useRef(-1);
+  // Thin-slot placement (F-117): recomputed only when the aimed face or the
+  // selected part changes (fpPlacementSlot allocates), stored in a scratch.
+  const placementSigRef = useRef(Number.NaN);
+  const placementRef = useRef<FpPlacementSlot>(createFpPlacementSlot());
+  const slotSigRef = useRef<string>("");
 
   // Dig crumble burst: one pooled InstancedMesh over the shared dirt
   // block geometry and rock material (both compiled by the warm pass),
@@ -1315,8 +1345,35 @@ function BunkerFpRig({
       rayHit,
     );
 
+    // Which sub-cell slot the selected part would take at the aimed face
+    // (F-117), recomputed only on an aimed-face or selected-part change so no
+    // allocation lands in a steady-state frame; the same change re-aims the
+    // ghost panel onto that face.
+    const placement = placementRef.current;
+    const placementSig = rayHit.hit
+      ? rayHit.face * 8 + BASE_PART_IDS.indexOf(selectedPartId)
+      : -1;
+    if (placementSigRef.current !== placementSig) {
+      placementSigRef.current = placementSig;
+      if (rayHit.hit) {
+        fpPlacementSlot(rayHit.face, selectedPartId, placement);
+      } else {
+        placement.slot = undefined;
+        placement.valid = false;
+      }
+      const ghostSlot = ghostSlotRef.current;
+      if (ghostSlot) {
+        const t = fpSlotRenderTransform(placement.slot);
+        ghostSlot.position.set(t.x, t.y, t.z);
+        ghostSlot.rotation.y = t.rotY;
+      }
+    }
+
     // Placement validity: the ray crossed an open cell that is still
-    // open and would not entomb the player's capsule.
+    // open and would not entomb the player's capsule (part-independent, so
+    // the place-cell probe reflects the raycast, not the selected part). The
+    // slot the part takes there (thin on a matching face, whole-cell
+    // otherwise) is carried separately in `placement`.
     const placeOk =
       rayHit.hit &&
       rayHit.placeX >= 0 &&
@@ -1359,7 +1416,10 @@ function BunkerFpRig({
       }
     }
 
-    // Ghost preview at the place cell (build mode only).
+    // Ghost preview at the place cell (build mode only). A thin part (F-117)
+    // previews as the oriented panel on its aimed face; a whole-cell fallback
+    // or a mount previews as the full model at cell center, so the preview
+    // always matches what a tap would place.
     const ghost = ghostRef.current;
     if (ghost) {
       const ghostVisible = !raidActive && tool === "build" && placeOk;
@@ -1367,6 +1427,10 @@ function BunkerFpRig({
       if (ghostVisible) {
         ghost.position.set(rayHit.placeX, rayHit.placeY, -rayHit.placeZ);
       }
+      const thinGhost = ghostSlotRef.current;
+      if (thinGhost) thinGhost.visible = placement.slot !== undefined;
+      const fullGhost = ghostFullRef.current;
+      if (fullGhost) fullGhost.visible = placement.slot === undefined;
     }
 
     const cache = datasetCacheRef.current;
@@ -1430,6 +1494,13 @@ function BunkerFpRig({
           : "none",
       );
     }
+    // The slot a build tap would target (F-117): a thin slot, "cell" for a
+    // whole-cell mount placement, or "none" when the aim offers no placement.
+    const slotText = placeOk ? (placement.slot ?? "cell") : "none";
+    if (slotSigRef.current !== slotText) {
+      slotSigRef.current = slotText;
+      setDatasetText(cache, dataset, "fpSlot", slotText);
+    }
 
     // Edit intents (input cadence; the intent object is the only
     // allocation and only on an accepted act). Quick pry (right-click or
@@ -1455,6 +1526,7 @@ function BunkerFpRig({
             rayHit.placeY,
             rayHit.placeZ,
           ),
+          slot: placement.slot,
         });
       }
     }
@@ -1681,6 +1753,8 @@ function BunkerFpScene({
   const tier = tierRef.current;
   const outlineRef = useRef<LineSegments | null>(null);
   const ghostRef = useRef<Group | null>(null);
+  const ghostSlotRef = useRef<Group | null>(null);
+  const ghostFullRef = useRef<Group | null>(null);
   // The live-raid runtime, shared: the rig steps it against the player
   // cell, the Clanker layer reads it to render. Null when no raid runs.
   const raidRuntimeRef = useRef<FpRaidRuntime | null>(null);
@@ -1732,21 +1806,36 @@ function BunkerFpScene({
         dispose={null}
       />
       <group ref={ghostRef} visible={false} scale={0.92}>
-        <FpPartVisual
-          detail={detail}
-          durability={BASE_PART_CATALOG[selectedPartId].durability}
-          partId={selectedPartId}
-          skin={bunker.skin}
-          tier={tier}
-        />
+        <group ref={ghostSlotRef}>
+          <FpPartVisual
+            detail={detail}
+            durability={BASE_PART_CATALOG[selectedPartId].durability}
+            partId={selectedPartId}
+            skin={bunker.skin}
+            thin={true}
+            tier={tier}
+          />
+        </group>
+        <group ref={ghostFullRef}>
+          <FpPartVisual
+            detail={detail}
+            durability={BASE_PART_CATALOG[selectedPartId].durability}
+            partId={selectedPartId}
+            skin={bunker.skin}
+            tier={tier}
+          />
+        </group>
       </group>
       <BunkerFpRig
         bunker={bunker}
         entry={entry}
         tool={tool}
+        selectedPartId={selectedPartId}
         onEdit={onEdit}
         outlineRef={outlineRef}
         ghostRef={ghostRef}
+        ghostSlotRef={ghostSlotRef}
+        ghostFullRef={ghostFullRef}
         detail={detail}
         liveRaid={liveRaid}
         onResolveRaid={onResolveRaid}

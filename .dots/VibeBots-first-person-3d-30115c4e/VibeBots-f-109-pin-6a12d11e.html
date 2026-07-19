@@ -15,6 +15,45 @@
 <section id="description">
 F-109: Define turret ammo and wear, spike wear, the exact 3D sealed rule, and any resulting Buttoned Up stamp copy or progress changes.
 </section>
+<section id="telemetry-scope">
+Live testing also needs one bounded server-owned lifecycle event for start, resolve, loss, expiry, conflict, invalid report, and incompatible-state recovery. Keep reward telemetry success-only and make sink failure non-fatal.
+</section>
+<section id="zero-durability-projection-2026-07-15">
+Treat persisted zero-durability defenses as destroyed and nonblocking in live render and player collision while retaining server repair ownership. Pin exact-tick wall, door, and spike transitions plus settle, reload, repair, and shared Clanker and player traversal.
+</section>
+<section id="production-telemetry-pr-221">
+The deployed reward event includes a unique raid ID and client-reported kill count that can disagree with XP or terminal state. Remove those fields, keep success balance telemetry server-derived and exactly once, and add a separate fixed-reason lifecycle event for accepted and rejected start, resolve, loss, expiry, conflict, recovery, retry, and sink failure without reports, wear, snapshots, coordinates, seeds, or human text.
+</section>
+<section id="forfeit-telemetry-review-2026-07-15">
+The draft emits no lifecycle event. Add bounded server-derived accepted or rejected forfeit and expiry outcomes with fixed reasons, no raid ID or payload, exactly once, and non-fatal sink failure. Emit no reward balance event for a forfeit.
+</section>
+<section id="telemetry-idempotency-contract-pr-223-review">
+Use the shared tuple (operation_family, logical_request_id, event_kind) as the internal event key. The logical request ID is the authoritative settlement or mutation identity when one exists; otherwise require a bounded idempotency token. Persist the request-to-result mapping and uniquely keyed outbox row atomically with the gameplay transition, or with the fixed rejection record when no transition commits. A retry looks up the same tuple, returns the recorded result, and never enqueues a second event. Keep the tuple out of analytics fields and use it only for sink idempotency or durable delivery deduplication. Do not claim exactly-once delivery when a crash after send cannot be deduplicated. Cover retries around commit, rejection, crash after send, sink recovery, conflict, expiry, and no-op. F-150 shares this tuple and replay rule.
+</section>
+<section id="merged-telemetry-out-of-scope-rejection-pr-224">
+Comment 4980856802 dismisses raid lifecycle telemetry as out of scope. The existing F-109 contract separately owns bounded start, resolve, loss, expiry, conflict, recovery, rejection, retry, and sink-failure outcomes. F-101 maps the user's new in-base telemetry request to missing bounded performance context. PR #224 merged as main 98d269ee with neither gap fixed, so both production gates remain open.
+</section>
+<section id="fallback-token-context-pr-223-exact-review">
+Bind every fallback server-scoped idempotency token to the actor, operation family, event kind, canonical digest of the server-relevant lifecycle inputs, expiry, and recorded outcome or conflict state. Store the digest rather than raw sensitive payload. Validate every binding before reusing a request-to-result mapping. An unexpired identical context returns the stored result without a second event; mismatched or expired reuse returns a stable rejection and never suppresses a legitimate later event. Cover cross-actor reuse, same-token different-digest reuse, conflicting state, and expired replay, and prove each emits no second event and cannot suppress a legitimate fresh-token operation. F-150 shares this binding and replay rule.
+</section>
+<section id="telemetry-exactly-once-scope-pr-223-full-review">
+The older exactly-once wording applies only to the committed gameplay transition or fixed rejection result and its uniquely keyed outbox enqueue. One logical request creates at most one recorded result and one outbox row, and replay returns that result without another transition or enqueue. Sink delivery is at least once unless the sink deduplicates the stable internal key. Never claim exactly-once network delivery across a crash after send and before acknowledgement.
+</section>
+<section id="telemetry-sink-health-path-pr-223-full-review">
+Keep lifecycle delivery failures outside the lifecycle sink that failed. Persist bounded delivery attempt state on the uniquely keyed outbox row and report one fixed-reason telemetry_sink_failed health record through the independent server monitoring logger or an equivalent health channel. Include only operation family, event kind, attempt state, and a fixed error class. Omit actor, request, raid, report, snapshot, and human text. Never enqueue the health record into the failed sink, never create another lifecycle outbox row for it, swallow failure of the health channel, and prove outage, retry, recovery, terminal failure, no recursion, and unchanged gameplay settlement.
+</section>
+<section id="touch-abandon-telemetry-gap-pr-225">
+PR #225 exact heads 90b9fa66 and 734aeeba add a visible forfeit action with no bounded lifecycle event. Record accepted and rejected outcomes under the existing fixed-value, privacy-bounded, idempotent request-result and outbox contract. Distinguish no active row, unsupported version, conflict, concurrent resolve, duplicate, network failure, and sink failure. Emit no reward event for forfeit and use the independent non-recursive sink-health path.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose the visible forfeit action with no lifecycle event. Live testing still lacks accepted and rejected outcomes plus the independent sink-health path. Keep the telemetry contract open.
+</section>
+<section id="request-result-sink-boundary-review-4706659004">
+Every older phrase that lists sink failure among lifecycle or touch-abandon outcomes is historical and superseded for request-result semantics. One logical forfeit request records at most one accepted or rejected gameplay result and one uniquely keyed lifecycle outbox row. A lifecycle sink outage never becomes a gameplay result reason, never creates an additional request-result or lifecycle outbox row, and never changes the replayed result. Persist delivery-attempt state on the existing outbox row and report at most one bounded telemetry_sink_failed delivery-health record through the independent non-recursive monitoring channel. Cover accepted and rejected gameplay outcomes, duplicate replay, sink outage, retry, recovery, terminal delivery failure, no second result row, no recursive outbox row, and unchanged settlement.
+</section>
+<section id="pr-226-lifecycle-visibility-evidence">
+Main d722ae8e adds no bounded accepted or rejected lifecycle records for start, resolve, forfeit, expiry, incompatible state, or duplicate requests. It removes the client's activeBunkerRaid diagnostic value while retaining the dead server field. A balance reward event is not a lifecycle result. Keep the fixed-value request-result, unique outbox, privacy, replay, and independent non-recursive sink-health contracts open.
+</section>
 </article>
 </body>
 </html>

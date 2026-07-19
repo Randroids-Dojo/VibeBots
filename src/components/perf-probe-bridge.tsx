@@ -77,7 +77,7 @@ export function PerfProbeBridge({ source }: { source: PerfSource }) {
         ...stats,
         particleCount: Number.isFinite(particleCount) ? particleCount : null,
         gpuFrameMs: gpuFrameMs.current,
-        canvasDiagnostics: collectCanvasDiagnostics(dataset),
+        canvasDiagnostics: collectCanvasDiagnostics(dataset, source),
       };
     });
     return () => unregisterPerfProbe(source);

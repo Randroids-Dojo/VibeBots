@@ -79,6 +79,7 @@ const view = {
     "door-panel": 1,
     "basic-turret": 0,
     "floor-spikes": 0,
+    "stair-panel": 0,
   },
   player: {
     balance: 12,
@@ -420,6 +421,8 @@ describe("bunker API routes", () => {
       4,
       0,
       undefined,
+      undefined,
+      undefined,
     );
   });
 
@@ -442,6 +445,58 @@ describe("bunker API routes", () => {
       4,
       3,
       undefined,
+      undefined,
+      undefined,
+    );
+  });
+
+  it("forwards a thin part's slot to the placement (F-117)", async () => {
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "wall-panel",
+        col: 7,
+        row: 4,
+        depth: 2,
+        slot: "wall-px",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedPlace).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "wall-panel",
+      7,
+      4,
+      2,
+      "wall-px",
+      undefined,
+      undefined,
+    );
+  });
+
+  it("forwards a stair's orientation to the placement (F-117)", async () => {
+    const res = await placePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/place", {
+        partId: "stair-panel",
+        col: 7,
+        row: 4,
+        slot: "mount",
+        orientation: 2,
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedPlace).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      "stair-panel",
+      7,
+      4,
+      0,
+      "mount",
+      2,
+      undefined,
     );
   });
 
@@ -463,6 +518,8 @@ describe("bunker API routes", () => {
       7,
       4,
       0,
+      undefined,
+      undefined,
       9,
     );
   });
@@ -580,6 +637,7 @@ describe("bunker API routes", () => {
       4,
       0,
       undefined,
+      undefined,
     );
   });
 
@@ -678,6 +736,29 @@ describe("bunker API routes", () => {
       7,
       4,
       2,
+      undefined,
+      undefined,
+    );
+  });
+
+  it("forwards a thin part's slot to the removal (F-117)", async () => {
+    const res = await removePartPost(
+      jsonRequest("http://localhost/api/bunker/parts/remove", {
+        col: 7,
+        row: 4,
+        depth: 2,
+        slot: "wall-px",
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockedRemove).toHaveBeenCalledWith(
+      expect.any(Function),
+      "player-1",
+      7,
+      4,
+      2,
+      "wall-px",
       undefined,
     );
   });

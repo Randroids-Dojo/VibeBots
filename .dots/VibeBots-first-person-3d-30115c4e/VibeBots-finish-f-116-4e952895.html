@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Finish F-116 mine-equivalent bunker digging</title>
+<meta name="dot-title" content="Finish F-116 mine-equivalent bunker digging">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T17:42:37.047998-05:00">
+</head>
+<body>
+<article>
+<h1>Finish F-116 mine-equivalent bunker digging</h1>
+<section id="description">
+Finish F-116 by matching mine break cadence and visible 3D drops, reconciling pending and banked ore with one canonical cargo contract, testing the collect route, and failing fast through F-165 when stored block generation state cannot be proven. Keep REQ-045 partial until runtime and tests match the GDD or an explicitly approved GDD change narrows it.
+The shipped POST /api/bunker/collect clears one persisted overflow pile and credits its ore value. If the canonical shared-cargo flow retains overflow piles, add route-handler auth, schema, no-loot, conflict, lost-response retry, and exactly-once credit coverage. If shared cargo removes the need for piles, retire the route, API client, store action, glint render, and related copy together.
+Reproduce the live no-visible-ore report against the authoritative bunker seed and footprint. Count only undug ore cells adjacent to open space, not every hidden ore cell in the volume. Deterministic sampling proves valid fresh claims can expose zero veins. Before closing, either guarantee a legible exposed vein while preserving bounded deterministic payout or record explicit user approval for no exposure guarantee. Also prove every depth uses the intended mine biome and stratum mapping. A depth column stride must not silently switch deeper bunker layers to a different biome.
+Before tuning density or rendering, classify the live row as a valid seed with zero exposed veins or the seedless legacy state now proven on main 9983bffa. F-165 owns fail-fast recovery. After recovery, prove the replacement seed and authored pocket agree across client and server, stale dug and loot state was discarded, old cells cannot pay, and reload preserves block kinds and yields. Keep hidden ore hidden and never add crystals that are not backed by bunkerCellBlock.
+Make ore visibility an exact-cell invariant: the rendered face, raycast target, broken cell, bunkerCellBlock result, client preview, server excavation input, and bunkerCellOreYield payout must identify the same cell. A deterministic test breaks a decorated cell and receives its matching ore exactly once, while an ore neighbor behind an unopened non-ore wall remains hidden until its own face opens. The external one-cell-behind hint fails this contract and must not ship.
+For the user-approved current-layout missing-seed repair, preserve existing dug cells and loot. Prove dug cells remain open and depleted, loot stays unchanged and collectible exactly once, and only previously undug cells use the newly stored deterministic seed for block kind and payout. Client and server must adopt the authoritative seed and bumped revision, reload must preserve the same remaining cells and yields, and a lost repair race must expose the winner rather than pay against a locally guessed seed. Hidden ore remains hidden until its own face opens.
+</section>
+</article>
+</body>
+</html>

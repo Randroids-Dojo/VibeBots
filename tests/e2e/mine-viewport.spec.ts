@@ -189,6 +189,7 @@ test.describe("phone viewport", () => {
         body: JSON.stringify({
           bunker: {
             footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+            layoutVersion: 1,
             parts: [
               {
                 partId: "wall-panel",

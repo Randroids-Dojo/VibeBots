@@ -15,6 +15,48 @@
 <section id="description">
 F-104: Replace the rounded trace proposal with physically valid server replay, a canonical start, elapsed-time validation, and trace-derived v2 pickups. Keep collect v1-only.
 </section>
+<section id="live-loop-review-2026-07-15">
+Published head d7f6a5f5 calls allocation-heavy stepLiveRaid from the future frame path and lets an active tick-zero state serialize as won. Require reusable bounded pathfinding buffers, targeted allocation evidence, terminal-only reports, and a post-combat pickup phase. Extend the frame-loop rule to cover src/components/bunker-fp-*.ts and src/components/bunker-fp-*.tsx, including logic helpers, the canvas, and raid render callers.
+</section>
+<section id="local-render-review-2026-07-15">
+The unpublished renderer after d7f6a5f5 paints every Clanker as standard, turns horizontal headings 90 degrees from the authored +X axis, and can burst at the prior interpolated cell. Render each recorded kind, cover four cardinal headings, pin the terminal cell before death animation, cover specialists and moving energy deaths, and upload XP transforms only when they change. Disable Exit and all bunker edit tools in both DOM and rig input during combat, with desktop and touch coverage.
+</section>
+<section id="local-frame-wiring-2026-07-15">
+The unpublished canvas polls allocating pickup and alive scans from useFrame and resolves in the final-death frame, making final and missed XP unreachable. Use indexed reusable state and a distinct post-combat collection phase, then allow a terminal report only when it is resolve-ready.
+</section>
+<section id="live-durability-projection-2026-07-15">
+Raid wear currently opens cells only in sim state while render and player collision retain the original parts. Project live durability into both at the exact action tick without frame allocations, and cover wall, door, spike, and player traversal transitions.
+</section>
+<section id="presentation-and-e2e-gate-2026-07-15">
+Add pooled turret shot feedback plus the miner contact death animation, input lock, loss dialogue, acknowledged resolve, and surface return. Drive Clanker deaths from a monotonic event rather than a callback-order-dependent one-frame pulse. Prove motion with a fixed player and camera plus a visible Clanker, use controlled current and expired clocks, and assert exactly one valid resolve after presentation and pickup phases. Align the visible exterior approach with sim spawn so Clankers never clip through shell rock.
+</section>
+<section id="stable-rendered-frame-proof-2026-07-15">
+Reject black or incomplete WebGPU readbacks, hold player and camera diagnostics fixed, place a known Clanker in frame, and require pixel motion in its region. Scene visibility flags and whole-canvas differences are insufficient.
+</section>
+<section id="player-facing-closeout-2026-07-15">
+Before the live first-person raid ships, require truthful package and release copy, full Rule 13 tip review, Rule 14 stamp review, progress record, GDD coverage, and newest-first build log. Code and E2E alone are not completion.
+</section>
+<section id="vertical-movement-presentation-2026-07-15">
+The six-axis sim can move between world-Y rows, but yaw-only rendering leaves vertical hops floating at the prior heading. Give upward and downward traversal an explicit climb presentation and cover all six directions.
+</section>
+<section id="terminal-report-allocation-2026-07-15">
+Do not build the allocating outcome and part-wear report inside useFrame on the terminal tick. Snapshot it outside the render callback after presentation and pickup settlement, and include that path in the allocation profile.
+</section>
+<section id="exact-head-release-blocker-pr-221">
+At PR #221 heads c27a0f65 and e2aab3cb, the driver can derive a won report at tick zero and the public resolve route accepts it, allowing settlement rewards before a real fight. The frame path also publishes a newly allocated HUD snapshot whenever values change. Reject every nonterminal report in derivation and server validation, move HUD publication allocation out of useFrame, and prove the exact route cannot reward tick zero or settle before presentation and pickup completion.
+</section>
+<section id="production-release-blocker-pr-221">
+Main c84a4403 deployed the exact e2aab3cb tree without fixing tick-zero reward, final-frame pickup loss, report and HUD allocations, acknowledged resolve, retry, loss recovery, fixed-camera rendered proof, or specialist and approach presentation. Treat these as live gameplay and economy blockers and add direct-route plus integrated-browser regression coverage.
+</section>
+<section id="exact-head-release-evidence-pr-222">
+Head 0b034750 publishes a 0.1.266 specialist-visibility claim while its browser proof observes only runtime kind strings and keeps startedAtMs 1000. Require stable rendered material or pixel evidence for visible breachers and tanks, plus the full Rule 13 tip and Rule 14 stamp reviews, before release copy claims success.
+</section>
+<section id="replacement-head-release-evidence-pr-222">
+Head e4786652 keeps the visibility claim, expired happy fixture, and explicit deferral of on-screen pixels to F-158. Flat-raid materials do not prove the first-person prop, camera, occlusion, or timing path. Hold release copy until first-person rendered evidence exists.
+</section>
+<section id="production-exposure-pr-222">
+Main c40b7e16 deployed exact head e4786652 through production deployment 5453675779. CI and CodeQL are green, but the expired happy fixture and missing applied-material or stable pixel proof remain. CodeRabbit review 4702070384 requested the same changes after merge.
+</section>
 </article>
 </body>
 </html>

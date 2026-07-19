@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { refreshPlayerAchievements } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
+import { logElevatorOutcomeEvent } from "@/server/monitoring";
 import { getMinePlayerProfile, getOrCreatePlayerId } from "@/server/player";
 import type { WorldDiff } from "@/sim/mine";
 import { POST } from "./route";
@@ -15,6 +16,10 @@ vi.mock("@/server/achievements", () => ({
 
 vi.mock("@/server/balance-telemetry", () => ({
   recordBalanceEvent: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/server/monitoring", () => ({
+  logElevatorOutcomeEvent: vi.fn(),
 }));
 
 vi.mock("@/server/db", () => ({
@@ -42,6 +47,7 @@ const mockedProfile = vi.mocked(getMinePlayerProfile);
 const mockedPlayer = vi.mocked(getOrCreatePlayerId);
 const mockedRefresh = vi.mocked(refreshPlayerAchievements);
 const mockedRecord = vi.mocked(recordBalanceEvent);
+const mockedOutcome = vi.mocked(logElevatorOutcomeEvent);
 
 function profile(
   elevator_depth: number,
@@ -130,10 +136,12 @@ type ReloadRow = InventoryOverrides & {
 
 function mockSql({
   diff = [],
+  tripCount = 2,
   updated,
   reloaded,
 }: {
   diff?: WorldDiff;
+  tripCount?: number;
   updated?:
     | (InventoryOverrides & {
         emeralds: number;
@@ -156,7 +164,7 @@ function mockSql({
         : [{ ...INVENTORY_COLUMNS, ...reloaded }];
     }
     if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
-      return [{ diff, trip_count: 2 }];
+      return [{ diff, trip_count: tripCount }];
     }
     if (query.includes("UPDATE players")) {
       return updated === null
@@ -185,6 +193,9 @@ function mockSql({
 describe("POST /api/elevator/upgrade", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks clears calls but not implementations: reset the outcome mock
+    // so the throwing-sink test below cannot poison a later or reordered test.
+    mockedOutcome.mockReset();
     mockedStorage.mockReturnValue(true);
     mockedPlayer.mockResolvedValue("player-1");
     mockedProfile.mockResolvedValue(profile(0, null));
@@ -230,13 +241,15 @@ describe("POST /api/elevator/upgrade", () => {
 
   it("rejects a request that omits expectedDepth fail-fast", async () => {
     // A stale cached client without expectedDepth would bypass the stale-rail
-    // guard; the route rejects it before any read or charge.
+    // guard; the route rejects it before any read or charge. The error text is
+    // player-facing (the stale client copies it into a shop note), so it is
+    // reload guidance, not the internal field name.
     const response = await POST(request(37, null));
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
       code: "elevator-expected-depth-required",
-      error: "expectedDepth is required",
+      error: "reload the game to update, then try again",
     });
     expect(mockedPlayer).not.toHaveBeenCalled();
     expect(mockedDb).not.toHaveBeenCalled();
@@ -1023,5 +1036,709 @@ describe("POST /api/elevator/upgrade", () => {
       consumables: expect.objectContaining({ rope: 7, ladder: 8 }),
     });
     expect(mockedRecord).not.toHaveBeenCalled();
+  });
+
+  describe("mutation-outcome telemetry (F-121)", () => {
+    it("logs an accepted place outcome when anchoring the first rail", async () => {
+      mockSql({
+        updated: {
+          emeralds: 75,
+          elevator_depth: 1,
+          elevator_col: 37,
+          ladder_count: 9,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(37, 0));
+
+      expect(response.status).toBe(200);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      // An accepted outcome is delivered from the durable outbox, so it carries
+      // the request id (the server-minted one when the client sent none).
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "place",
+        result: "accepted",
+        reason: null,
+        requestId: expect.any(String),
+      });
+    });
+
+    it("logs an accepted extend outcome when adding a row", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      mockSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(undefined, 4));
+
+      expect(response.status).toBe(200);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: expect.any(String),
+      });
+    });
+
+    it("logs an accepted relocate outcome on a free placement", async () => {
+      mockedProfile.mockResolvedValue(
+        profile(4, -5, { elevator_placement_chosen_at: null }),
+      );
+      mockSql({
+        updated: {
+          emeralds: 100,
+          elevator_depth: 4,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(37, 4));
+
+      expect(response.status).toBe(200);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "relocate",
+        result: "accepted",
+        reason: null,
+        requestId: expect.any(String),
+      });
+    });
+
+    it("logs a rejected extend outcome and no balance event on a conflict", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      mockSql({
+        updated: null,
+        reloaded: {
+          emeralds: 10,
+          elevator_depth: 4,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+          elevator_placement_chosen_at: "now",
+          trip_count: 2,
+        },
+      });
+
+      const response = await POST(request(undefined, 4));
+
+      expect(response.status).toBe(409);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "rejected",
+        reason: "elevator-insufficient-balance",
+      });
+      // A rejected write emits the outcome log but never a balance event.
+      expect(mockedRecord).not.toHaveBeenCalled();
+    });
+
+    it("logs a rejected outcome for the stale-rail guard before any write", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = mockSql();
+
+      const response = await POST(request(undefined, 3));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-stale-rail-state",
+      });
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "rejected",
+        reason: "elevator-stale-rail-state",
+      });
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE players"),
+        ),
+      ).toBe(false);
+      expect(mockedRecord).not.toHaveBeenCalled();
+    });
+
+    it("logs no outcome for a generic pre-auth validation reject", async () => {
+      // An out-of-range column is rejected before the player and profile load,
+      // so there is no mutation operation to attribute an outcome to, and this
+      // generic validation failure is not a stale-client signal Q-027 tracks.
+      const response = await POST(request(100_001, 0));
+
+      expect(response.status).toBe(400);
+      expect(mockedOutcome).not.toHaveBeenCalled();
+    });
+
+    it("logs a bounded reason-only outcome for a missing expectedDepth", async () => {
+      // Q-027 revisits requiring expectedDepth on stale-client traffic volume,
+      // so the pre-auth reject emits one bounded signal: reason only, with no
+      // operation guess, player, coordinate, or raw payload.
+      const response = await POST(request(37, null));
+
+      expect(response.status).toBe(400);
+      // The exact player-facing response is reload guidance (the stale client
+      // shows body.error), never the internal field name.
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-expected-depth-required",
+        error: "reload the game to update, then try again",
+      });
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        result: "rejected",
+        reason: "elevator-expected-depth-required",
+      });
+      // No player lookup or DB read happened, so no id could leak into it.
+      expect(mockedPlayer).not.toHaveBeenCalled();
+    });
+
+    // Count UPDATE-players executions on one mocked sql (a committed write).
+    function writeCount(sql: ReturnType<typeof mockSql>): number {
+      return sql.mock.calls.filter(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ).length;
+    }
+
+    // The complete gear/consumables the route surfaces for the suite's default
+    // level-1 columns (blast level 1 maps to dynamite tier 1). Full literals so
+    // an omitted field fails exact equality below.
+    function fullGear(elevator: number, elevatorColumn: number) {
+      return {
+        pickaxe: 1,
+        battery: 1,
+        cargo: 1,
+        lantern: 1,
+        elevator,
+        elevatorColumn,
+        warpcoil: 1,
+        blast: 1,
+        elevatorSpeed: 1,
+        fall: 1,
+        recall: 1,
+      };
+    }
+    function fullConsumables(ladder: number, plank: number) {
+      return { dynamite: 0, rope: 0, ladder, plank, beacon: 0 };
+    }
+
+    // Assert the retry reject bundle equals the accepted response's authoritative
+    // state exactly (scalars and nested gear/consumables), so an accept-vs-retry
+    // divergence cannot slip through.
+    function expectRetryMatchesAccepted(
+      rejected: Record<string, unknown>,
+      accepted: Record<string, unknown>,
+    ): void {
+      expect(rejected.code).toBe("elevator-stale-rail-state");
+      expect(rejected.balance).toBe(accepted.balance);
+      expect(rejected.elevator).toBe(accepted.elevator);
+      expect(rejected.elevatorColumn).toBe(accepted.elevatorColumn);
+      expect(rejected.ladders).toBe(accepted.ladders);
+      expect(rejected.planks).toBe(accepted.planks);
+      expect(rejected.tripIndex).toBe(accepted.tripIndex);
+      expect(rejected.elevatorPlacementRequired).toBe(false);
+      expect(rejected.gear).toEqual(accepted.gear);
+      expect(rejected.consumables).toEqual(accepted.consumables);
+    }
+
+    it("first-placement lost-success pair: accept then identical retry rejects with no second write", async () => {
+      // POST 1: the first rail is placed and charged.
+      mockedProfile.mockResolvedValue(profile(0, null));
+      const accept = mockSql({
+        updated: {
+          emeralds: 75,
+          elevator_depth: 1,
+          elevator_col: 37,
+          ladder_count: 9,
+          plank_count: 4,
+        },
+      });
+      const first = await POST(request(37, 0));
+
+      expect(first.status).toBe(200);
+      // Assert the complete accepted authoritative state, with exact nested gear
+      // and consumables (not partial), so it is the source of truth for call 2.
+      const accepted = (await first.json()) as Record<string, unknown>;
+      expect(accepted).toMatchObject({
+        elevator: 1,
+        elevatorColumn: 37,
+        tripIndex: 3,
+        balance: 75,
+        ladders: 9,
+        planks: 4,
+      });
+      expect(accepted.gear).toEqual(fullGear(1, 37));
+      expect(accepted.consumables).toEqual(fullConsumables(9, 4));
+      expect(writeCount(accept)).toBe(1);
+      expect(mockedRecord).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
+        playerId: "player-1",
+        operation: "place",
+        result: "accepted",
+        reason: null,
+        requestId: expect.any(String),
+      });
+
+      // Derive call 2's authority FROM the accepted response, not duplicated
+      // literals: the client never saw the response and retries request(37, 0).
+      mockedProfile.mockResolvedValue(
+        profile(
+          accepted.elevator as number,
+          accepted.elevatorColumn as number,
+          {
+            emeralds: accepted.balance as number,
+            ladder_count: accepted.ladders as number,
+            plank_count: accepted.planks as number,
+          },
+        ),
+      );
+      const retry = mockSql({ tripCount: accepted.tripIndex as number });
+      const second = await POST(request(37, 0));
+
+      expect(second.status).toBe(409);
+      const rejected = (await second.json()) as Record<string, unknown>;
+      expectRetryMatchesAccepted(rejected, accepted);
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
+        playerId: "player-1",
+        operation: "place",
+        result: "rejected",
+        reason: "elevator-stale-rail-state",
+      });
+      // One UPDATE in the accepted first request and zero in the retry; one
+      // balance event across the pair (the retry adds neither); outcome intent
+      // is accepted then rejected.
+      expect(writeCount(retry)).toBe(0);
+      expect(mockedRecord).toHaveBeenCalledTimes(1);
+      expect(mockedOutcome).toHaveBeenCalledTimes(2);
+    });
+
+    it("relocation lost-success pair: free placement then identical retry cannot become a paid extension", async () => {
+      // POST 1: an existing owner places the full shaft for free (no charge).
+      mockedProfile.mockResolvedValue(
+        profile(4, -5, { elevator_placement_chosen_at: null }),
+      );
+      const accept = mockSql({
+        updated: {
+          emeralds: 100,
+          elevator_depth: 4,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+      const first = await POST(request(37, 4));
+
+      expect(first.status).toBe(200);
+      // Assert the complete accepted authoritative state, with exact nested gear
+      // and consumables, as the source of truth for call 2.
+      const accepted = (await first.json()) as Record<string, unknown>;
+      expect(accepted).toMatchObject({
+        relocated: true,
+        elevatorPlacementRequired: false,
+        elevator: 4,
+        elevatorColumn: 37,
+        tripIndex: 3,
+        balance: 100,
+        ladders: 8,
+        planks: 4,
+      });
+      expect(accepted.gear).toEqual(fullGear(4, 37));
+      expect(accepted.consumables).toEqual(fullConsumables(8, 4));
+      expect(writeCount(accept)).toBe(1);
+      expect(mockedRecord).not.toHaveBeenCalled(); // relocation is free
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
+        playerId: "player-1",
+        operation: "relocate",
+        result: "accepted",
+        reason: null,
+        requestId: expect.any(String),
+      });
+
+      // Derive call 2's authority FROM the accepted response: the placement
+      // marker and column are committed, the depth is unchanged, and the client
+      // retries the identical request(37, 4).
+      mockedProfile.mockResolvedValue(
+        profile(
+          accepted.elevator as number,
+          accepted.elevatorColumn as number,
+          {
+            emeralds: accepted.balance as number,
+            ladder_count: accepted.ladders as number,
+            plank_count: accepted.planks as number,
+          },
+        ),
+      );
+      const retry = mockSql({ tripCount: accepted.tripIndex as number });
+      const second = await POST(request(37, 4));
+
+      expect(second.status).toBe(409);
+      const rejected = (await second.json()) as Record<string, unknown>;
+      expect(rejected.error).toBe("elevator placement was already confirmed");
+      expectRetryMatchesAccepted(rejected, accepted);
+      expect(mockedOutcome).toHaveBeenLastCalledWith({
+        playerId: "player-1",
+        operation: "relocate",
+        result: "rejected",
+        reason: "elevator-stale-rail-state",
+      });
+      // One UPDATE in the accepted first request and zero in the retry: it did
+      // NOT become a paid extension, and no balance event ever fired across the
+      // free-relocation pair.
+      expect(writeCount(retry)).toBe(0);
+      expect(mockedRecord).not.toHaveBeenCalled();
+      expect(mockedOutcome).toHaveBeenCalledTimes(2);
+    });
+
+    it("still completes the buy when outcome telemetry throws", async () => {
+      mockedOutcome.mockImplementation(() => {
+        throw new Error("monitoring sink unavailable");
+      });
+      mockSql({
+        updated: {
+          emeralds: 75,
+          elevator_depth: 1,
+          elevator_col: 37,
+          ladder_count: 9,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(request(37, 0));
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ elevator: 1 });
+    });
+  });
+
+  describe("durable outbox and dedup (F-121)", () => {
+    const UUID = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+
+    function requestWithId(
+      column: number | undefined,
+      expectedDepth: number,
+      requestId: string,
+    ): Request {
+      const payload: Record<string, unknown> = { expectedDepth, requestId };
+      if (column !== undefined) payload.column = column;
+      return new Request("http://localhost/api/elevator/upgrade", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    }
+
+    type StrandedRow = {
+      request_id: string;
+      player_id: string;
+      operation: string;
+      result: string;
+      reason: string | null;
+    };
+
+    // A sql mock that also answers the outbox queries the route now issues:
+    // the recovery drain, the duplicate pre-check, and the delivery mark.
+    function outboxSql({
+      drainRows = [],
+      duplicate = false,
+      duplicateOnConflict = false,
+      updated,
+      tripCount = 2,
+      reloaded = null,
+      throwOnDeliveryMark = false,
+    }: {
+      drainRows?: StrandedRow[];
+      duplicate?: boolean;
+      // The outbox pre-check is empty, but the post-conflict re-check finds the
+      // id: a concurrent same-id winner committed between the two lookups.
+      duplicateOnConflict?: boolean;
+      updated?: {
+        emeralds: number;
+        elevator_depth: number;
+        elevator_col: number;
+        ladder_count: number;
+        plank_count: number;
+      } | null;
+      tripCount?: number;
+      reloaded?: {
+        emeralds: number;
+        elevator_depth: number;
+        elevator_col: number | null;
+        ladder_count: number;
+        plank_count: number;
+        elevator_placement_chosen_at: string | null;
+        trip_count: number | null;
+      } | null;
+      throwOnDeliveryMark?: boolean;
+    } = {}) {
+      let outboxChecks = 0;
+      const sql = vi.fn(async (strings: TemplateStringsArray) => {
+        const query = strings.join(" ");
+        if (query.includes("SELECT request_id, player_id, operation, result")) {
+          return drainRows; // recovery drain
+        }
+        if (query.includes("SELECT 1 FROM elevator_upgrade_outcomes")) {
+          outboxChecks += 1;
+          // The pre-check is the first lookup; the conflict re-check is later.
+          if (duplicateOnConflict) {
+            return outboxChecks >= 2 ? [{ "?column?": 1 }] : [];
+          }
+          return duplicate ? [{ "?column?": 1 }] : []; // duplicate pre-check
+        }
+        if (query.includes("UPDATE elevator_upgrade_outcomes")) {
+          if (throwOnDeliveryMark) throw new Error("mark failed");
+          return []; // delivery mark or drain batch mark
+        }
+        if (query.includes("LEFT JOIN mine_worlds")) {
+          return reloaded === null
+            ? []
+            : [{ ...INVENTORY_COLUMNS, ...reloaded }];
+        }
+        if (query.includes("SELECT diff, trip_count FROM mine_worlds")) {
+          return [{ diff: [], trip_count: tripCount }];
+        }
+        if (query.includes("UPDATE players")) {
+          return updated === null
+            ? []
+            : [
+                {
+                  ...INVENTORY_COLUMNS,
+                  refund_legacy_supports: true,
+                  trip_index: 3,
+                  ...(updated ?? {
+                    emeralds: 75,
+                    elevator_depth: 1,
+                    elevator_col: 37,
+                    ladder_count: 8,
+                    plank_count: 4,
+                  }),
+                },
+              ];
+        }
+        return [];
+      });
+      mockedDb.mockResolvedValue(sql as never);
+      return sql;
+    }
+
+    it("commits the outcome inside the guarded write and delivers it", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(200);
+      // The pre-check ran for the client-supplied id (no duplicate found).
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("SELECT 1 FROM elevator_upgrade_outcomes"),
+        ),
+      ).toBe(true);
+      // The outbox INSERT rides inside the same statement as the player write
+      // (transactional outbox), carrying the client's request id.
+      const committed = sql.mock.calls.find(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      );
+      expect(committed?.[0].join(" ")).toContain(
+        "INSERT INTO elevator_upgrade_outcomes",
+      );
+      expect(committed?.slice(1)).toContain(UUID);
+      // Delivery marked the row and emitted the accepted outcome with the id.
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE elevator_upgrade_outcomes"),
+        ),
+      ).toBe(true);
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: UUID,
+      });
+    });
+
+    it("dedups a replayed request id without recharging or re-emitting", async () => {
+      // The rail already advanced to depth 5 (the committed first buy), and the
+      // outbox already holds this id, so the retry is a duplicate replay.
+      mockedProfile.mockResolvedValue(profile(5, 37));
+      const sql = outboxSql({ duplicate: true, tripCount: 3 });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-duplicate-request",
+        elevator: 5,
+      });
+      // No second charge, no balance event, and no new outcome: exactly one
+      // outcome per request (the original's, delivered when it committed).
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("UPDATE players"),
+        ),
+      ).toBe(false);
+      expect(mockedRecord).not.toHaveBeenCalled();
+      expect(mockedOutcome).not.toHaveBeenCalled();
+    });
+
+    it("redelivers a stranded outcome via the recovery drain", async () => {
+      const stranded: StrandedRow = {
+        request_id: "12341234-1234-4234-8234-123412341234",
+        player_id: "player-9",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+      };
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        drainRows: [stranded],
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(200);
+      // The crash-stranded outcome (committed but never delivered) is redelivered
+      // by this request's traffic, carrying its own id.
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-9",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: stranded.request_id,
+      });
+      // The drain marked the stranded batch delivered by id array.
+      expect(
+        sql.mock.calls.some(([strings]) => strings.join(" ").includes("ANY(")),
+      ).toBe(true);
+      // This request's own outcome delivered too.
+      expect(mockedOutcome).toHaveBeenCalledWith({
+        playerId: "player-1",
+        operation: "extend",
+        result: "accepted",
+        reason: null,
+        requestId: UUID,
+      });
+    });
+
+    it("still returns the committed buy when the delivery mark fails", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      outboxSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+        throwOnDeliveryMark: true,
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(200);
+      await expect(response.json()).resolves.toMatchObject({ elevator: 5 });
+      // The emit still happened before the mark; the undelivered row is left for
+      // the drain, and the buy is unaffected.
+      expect(mockedOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({ result: "accepted", requestId: UUID }),
+      );
+    });
+
+    it("mints a server-side id and skips the pre-check for a legacy client", async () => {
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        updated: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+        },
+      });
+
+      // No requestId in the body (a client from before this slice).
+      const response = await POST(request(undefined, 4));
+
+      expect(response.status).toBe(200);
+      // A legacy client cannot replay an id it never sent, so no pre-check runs.
+      expect(
+        sql.mock.calls.some(([strings]) =>
+          strings.join(" ").includes("SELECT 1 FROM elevator_upgrade_outcomes"),
+        ),
+      ).toBe(false);
+      // The outcome is still durable: a server-minted id is delivered.
+      expect(mockedOutcome).toHaveBeenCalledWith(
+        expect.objectContaining({
+          result: "accepted",
+          requestId: expect.any(String),
+        }),
+      );
+    });
+
+    it("reports a concurrent same-id loser as a duplicate and emits no reject", async () => {
+      // The pre-check finds no row (the loser slipped past before the winner
+      // committed), the guarded write matches zero rows (the winner advanced the
+      // rail under FOR UPDATE), and the post-conflict re-check now finds the
+      // winner's outbox row. The loser must be reported as a duplicate with no
+      // new outcome, so the id keeps exactly one outcome (the winner's).
+      mockedProfile.mockResolvedValue(profile(4, 37));
+      const sql = outboxSql({
+        updated: null, // the guarded write lost the race
+        duplicateOnConflict: true,
+        reloaded: {
+          emeralds: 70,
+          elevator_depth: 5,
+          elevator_col: 37,
+          ladder_count: 8,
+          plank_count: 4,
+          elevator_placement_chosen_at: "now",
+          trip_count: 3,
+        },
+      });
+
+      const response = await POST(requestWithId(undefined, 4, UUID));
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toMatchObject({
+        code: "elevator-duplicate-request",
+        elevator: 5,
+      });
+      // No new outcome for the loser (the winner's accepted outcome is the one
+      // durable outcome for the id), and no balance event.
+      expect(mockedOutcome).not.toHaveBeenCalled();
+      expect(mockedRecord).not.toHaveBeenCalled();
+      // The re-check ran (two outbox lookups: the pre-check and the conflict).
+      expect(
+        sql.mock.calls.filter(([strings]) =>
+          strings.join(" ").includes("SELECT 1 FROM elevator_upgrade_outcomes"),
+        ),
+      ).toHaveLength(2);
+    });
   });
 });

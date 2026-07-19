@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-150 Make bunker ore payout balance and telemetry agree</title>
+<meta name="dot-title" content="F-150 Make bunker ore payout balance and telemetry agree">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:58:51.456443-05:00">
+</head>
+<body>
+<article>
+<h1>F-150 Make bunker ore payout balance and telemetry agree</h1>
+<section id="description">
+Use one server-authoritative bunker payout total across wallet, response, HUD, trip report, balance synchronization, and success-only telemetry.
+</section>
+<section id="port-fidelity-2026-07-15">
+Carry identical ordinary, bunker, and total deltas through response, success monitoring, mine.cash_out, achievements, and trip report. Use one fixed bounded event for banked excavation and collection, never roll gameplay back for telemetry failure, deduplicate retries, and pin exact bunker-only and mixed selling copy despite the missing pending preview value.
+</section>
+<section id="telemetry-idempotency-contract-pr-223-review">
+Use the shared tuple (operation_family, logical_request_id, event_kind) as the internal event key. The logical request ID is the authoritative settlement or mutation identity when one exists; otherwise require a bounded idempotency token. Persist the request-to-result mapping and uniquely keyed outbox row atomically with the gameplay transition, or with the fixed rejection record when no transition commits. A retry looks up the same tuple, returns the recorded result, and never enqueues a second event. Keep the tuple out of analytics fields and use it only for sink idempotency or durable delivery deduplication. Do not claim exactly-once delivery when a crash after send cannot be deduplicated. Cover retries around commit, rejection, crash after send, sink recovery, conflict, and no-op. F-109 shares this tuple and replay rule.
+</section>
+<section id="fallback-token-context-pr-223-exact-review">
+Bind every fallback server-scoped idempotency token to the actor, operation family, event kind, canonical digest of the server-relevant mutation inputs, expiry, and recorded outcome or conflict state. Store the digest rather than raw sensitive payload. Validate every binding before reusing a request-to-result mapping. An unexpired identical context returns the stored result without a second event; mismatched or expired reuse returns a stable rejection and never suppresses a legitimate later event. Cover cross-actor reuse, same-token different-digest reuse, conflicting state, and expired replay, and prove each emits no second event and cannot suppress a legitimate fresh-token operation. F-109 shares this binding and replay rule.
+</section>
+</article>
+</body>
+</html>

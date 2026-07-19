@@ -1,0 +1,62 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-156 Reject dangling followup and Dot references before merge</title>
+<meta name="dot-title" content="F-156 Reject dangling followup and Dot references before merge">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T23:58:51.469957-05:00">
+</head>
+<body>
+<article>
+<h1>F-156 Reject dangling followup and Dot references before merge</h1>
+<section id="description">
+Require every referenced followup and matching HTML Dot to exist on the target base or same exact head, with global open-PR ID collision detection.
+</section>
+<section id="port-fidelity-2026-07-15">
+Reject identical duplicate authority across open PRs, require an explicit merge dependency when another PR owns the record, move authority exactly once, and recheck for dangling references after conflict resolution.
+</section>
+<section id="evidence-pr-219">
+Current main 4d2d1caa references F-146 in the progress log and bunker store, but F-146 and its matching Dot exist only on unmerged PR #218.
+</section>
+<section id="evidence-pr-220">
+PR #220 introduced main's raid-burst F-144 while held PR #190 carried a different F-144 and the new main record had no Dot. PR #218 adds VibeBots-f-144-add-9e42a451 while retaining the old meaning under F-155.
+</section>
+<section id="evidence-pr-221">
+PR #221 commit c27a0f65 published F-145 through F-148 with no matching Dots, colliding with held PR #190 and PR #218 authorities. Commit e2aab3cb then rewrote those committed IDs in place to F-158 through F-161 and still added no Dots. Final-tree renumbering cannot erase a pushed collision. Keep the PR held and move corrected code plus collision-free records to a clean branch, or obtain separate explicit history-rewrite approval.
+</section>
+<section id="current-main-authority-gap-pr-221">
+Main c84a4403 contains F-158 through F-161 with no matching Dots, while pull-request history retains the earlier F-145 through F-148 collisions and main still references absent F-146. Move first-published F-146 through F-157 from held PR #218 to one clean successor exactly once, mark PR #218 superseded for merge authority, and add matching Dots plus append-only disposition for F-158 through F-161.
+</section>
+<section id="exact-head-evidence-pr-222">
+Head 0b034750 closes F-159 while target base c84a4403 and the head have no matching Dot. The clean audit successor supplies VibeBots-f-159-tint-3fd7606b. Require PR #222 to rebase after that authority lands or declare the exact dependency, without a duplicate Dot.
+</section>
+<section id="supersession-evidence-pr-222">
+Head e4786652 still has no matching Dot and cannot gain the clean successor identity through another in-place repair. Keep PR #222 held and move final work to a fresh current-main successor after this Dot lands, with an exact dependency and no duplicate authority.
+</section>
+<section id="merged-dangling-reference-pr-222">
+PR #222 merged as c40b7e16 with F-159 marked Resolved but no matching Dot on main. This clean audit supplies VibeBots-f-159-tint-3fd7606b as the first matching identity while preserving the merged record. The prevention gate remains open.
+</section>
+<section id="draft-f-160-dangling-closeout-2026-07-15">
+The forfeit branch closes F-160 while c40 has no matching Dot. PR #223 supplies the first identity and closes it as duplicate authority, but is unmerged. Require the dependency and do not create a second Dot or merge a dangling closeout.
+</section>
+<section id="published-f-162-authority-collision-pr-224">
+PR #224 head 3584937c first-published F-162 with no Dot, duplicated F-119, and reopened the decided no-active-exit policy. Do not edit the published record or create a duplicate Dot. Hold and supersede PR #224, preserve its history, and route valid work through F-105, F-106, F-109, F-119, and F-146 on a clean successor.
+</section>
+<section id="merged-collision-revival-pr-224">
+PR #224 merged head 006d4507 as main 98d269ee after rewriting Q-019 to cite closed duplicate F-160 and unsupported no-Dot F-162 as current authority. A merge cannot repair either collision. Keep F-160 closed, create no F-162 Dot, preserve the deleted branch through pull-request history, and route valid controls to F-119 on a clean successor.
+</section>
+<section id="self-audit-f-071-reference-pr-223">
+PR #223's new F-144 Dot references existing primary F-071 as the written real-device baseline owner, but target base 98d269ee has no matching F-071 Dot. VibeBots-mine-real-time-d58bf6e5 is the broader F-054 task and cannot satisfy that identity. Exact head now adds VibeBots-f-071-collect-c52979ea with matching F-071 identity and task wording under the Dot naming convention, open status, and priority 2. No new primary was created. Keep F-156 open until the exact-diff reference and collision gate is implemented.
+</section>
+<section id="unsupported-f-162-closeout-pr-225">
+PR #225 heads 90b9fa66 and 734aeeba cite and close F-162 although target main 98d269ee has no matching Dot and the primary duplicates F-119. Do not create an F-162 Dot, treat the closeout as approval, or merge a dangling reference. Preserve PR #225 and route valid controls to F-119, with lifecycle and ordering under F-105, F-106, F-109, and F-146.
+</section>
+<section id="merged-dangling-authority-pr-225">
+PR #225 exact head 734aeeba squash-merged as main f7a31888 with F-162 marked Resolved and no matching Dot. A merge cannot create the missing identity or resolve its collision with F-119. Keep F-162 unsupported and add no Dot.
+</section>
+</article>
+</body>
+</html>

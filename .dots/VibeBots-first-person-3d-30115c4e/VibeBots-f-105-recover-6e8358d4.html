@@ -15,6 +15,48 @@
 <section id="description">
 F-105: Add idempotent server expiry and recovery so close-tab, reload, disconnect, and repeated finalization cannot wedge the bunker.
 </section>
+<section id="live-loop-clock-review-2026-07-15">
+Published head d7f6a5f5 ignores startedAtMs, drops elapsed time after eight catch-up ticks, and restarts tick zero on reload. Pin one server-clock resume or forfeit contract across backgrounding, reload, expiry, and concurrent finalization.
+</section>
+<section id="canvas-clock-wiring-2026-07-15">
+The unpublished canvas clamps every frame delta to 0.05 before the raid driver, so low frame rate and stalls slow the fight and bypass catch-up while the server clock keeps running. It also recreates the runtime when a same-raid response replaces the view object. Use startedAtMs plus stable raid ID and test the exact caller under stalls, backgrounding, same-ID refresh, reload, and expiry.
+</section>
+<section id="e2e-clock-and-resume-2026-07-15">
+Use a controlled current startedAtMs for the happy path and a separate expired fixture. On reload with an unresolved raid, force same-raid first-person resume from server time or immediate forfeit before normal mine input. Cover reload, navigation back, expiry, and no mine action while unresolved.
+</section>
+<section id="production-abandonment-exploit-pr-221">
+Main c84a4403 lets reload, navigation, or Escape abandon a fight and recreate it at tick zero. Lazy expiry records no wear, while direct resolve after grace can still win. Choose one server-clock resume or fail-fast forfeit policy and prove no replayed losing fight, no no-wear damage escape, no post-grace reward, and one outcome across reload, exit, same-raid replacement, and expiry races.
+</section>
+<section id="forfeit-wip-review-2026-07-15">
+The forfeit branch adds voluntary no-wear exit even though Q-019 chooses no voluntary exit and requires defense damage to stand on disconnect expiry. Main expiry also writes no wear. Implement the settled server-owned expiry policy exactly once, or obtain an explicit design correction before changing it.
+</section>
+<section id="cleanup-trigger-correction-2026-07-15">
+Do not settle through a React effect cleanup. Strict Effects or an incidental remount can trigger an immediate accidental forfeit, while a normal fetch can be aborted on real tab close. Block voluntary exit and let database-clock expiry own disconnect recovery.
+</section>
+<section id="forfeit-browser-test-correction-2026-07-15">
+The draft e2e uses startedAtMs 1000 as active, waits for an immediate mock, and uses a scene-count proxy. It cannot catch pending, failed, or aborted requests, Strict remount, unload, reload, same-raid replacement, expiry, or post-grace resolve. Use controlled time and authoritative lifecycle assertions.
+</section>
+<section id="voluntary-forfeit-release-blocker-2026-07-15">
+The draft 0.1.267 release promises immediate final forfeit before the policy or request path is reliable. Failed cleanup, unload cancellation, unacknowledged resolve, immediate re-entry, and same-revision races can leave or recreate the row, while no-wear contradicts the selected contract. Hold the release copy and tip.
+</section>
+<section id="exact-head-review-evidence-pr-224">
+CHANGES_REQUESTED review 4703051386 confirms discarded-render ref values can leak into cleanup and the browser test omits Strict Effects, rejection, reload or tab close, and the resolve race. Effect-backed refs do not make cleanup settlement authoritative. Move the no-exit and database-clock recovery contract to a clean successor.
+</section>
+<section id="current-disconnect-authority-pr-223-review">
+Q-019 and the current GDD supersede historical choose-one notes. F-105 owns the no-voluntary-exit rule, database-clock disconnect expiry, loss with zero survival reward, and damage-stands wear policy. Keep it open until bounded disconnect wear is persisted or derived from the frozen snapshot. F-106 owns exact raid identity, the one-active-row invariant, atomic result and wear, stable conflict responses, authoritative client replacement, and exactly one finalization. F-119 owns only the cross-platform control lock and menu.
+</section>
+<section id="merged-unapproved-q019-rewrite-pr-224">
+PR #224 merged head 006d4507 as main 98d269ee after rewriting Q-019 in place to call voluntary Escape an approved middle ground and explicitly permit no-wear forfeit, without user approval or a matching GDD decision. A merge does not choose product policy. Preserve the no-voluntary-exit, database-clock expiry, zero-reward, damage-stands contract until an explicit decision says otherwise.
+</section>
+<section id="touch-abandon-policy-trigger-hold-pr-225">
+PR #225 exact head 90b9fa66 turns the unapproved voluntary forfeit into a visible control and still uses component-unmount cleanup as the network trigger. Local exit precedes settlement, Strict Effects or incidental remount can trigger cleanup, and unload can drop the fetch. Preserve no voluntary exit until explicit approval. Involuntary absence remains server-clock recovery with zero survival reward and policy-compliant defense damage.
+</section>
+<section id="touch-abandon-replacement-head-pr-225">
+Replacement head 734aeeba changes touch proof and target size only. It leaves the unapproved policy and cleanup trigger unchanged, so this hold remains open.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose voluntary touch exit through the unchanged component-cleanup trigger. Merge and green CI do not provide explicit policy approval or make a React lifecycle effect reliable settlement authority. Keep server-clock recovery and policy correction open.
+</section>
 </article>
 </body>
 </html>

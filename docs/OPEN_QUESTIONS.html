@@ -38,6 +38,40 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-029" data-status="resolved">
+    <h3>Q-029: How much of the Full E2E job budget should the internal deadline reserve?</h3>
+    <dl>
+      <dt>Context</dt><dd>F-131's internal Playwright deadline is computed as (20-minute job budget) minus (elapsed setup/build) minus a fixed reserve, so a timed-out shard fails with a written report and artifact upload before the GitHub job is cancelled. Too small a reserve risks the job being cancelled during teardown/upload (losing the evidence the deadline exists to preserve); too large wastes test time.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Reserve 150 seconds (teardown + HTML/JSON report generation + <code>upload-artifact</code>), floored at a 60s minimum test window.</li>
+          <li>Reserve a smaller 90 seconds to give the tests more time.</li>
+          <li>Reserve a larger 210 seconds for a bigger safety margin on slow runners.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. 150s comfortably covers report generation plus a bounded artifact upload on the standard GitHub runner while leaving the bulk of the budget for tests. B risks a cancel during a slow upload, defeating the purpose. C needlessly shortens the test window when uploads rarely approach that long. Revisit if a forced-timeout dispatch or a real timeout shows the upload step itself getting cancelled (raise the reserve) or consistently finishing with large idle margin (lower it).</dd>
+      <dt>Resolution</dt><dd>Shipped under recommended default A (150s reserve) per Rule 7 (documented default, no risky ambiguity requiring a blocking decision). Forced-timeout dispatch run 29532206397 concluded <code>failure</code> with all four Full E2E artifacts retained, so 150s left ample room for report generation and the upload on the standard runner. Revisit only on the trigger above: raise the reserve if a real timeout shows the upload itself getting cancelled, or lower it if uploads consistently finish with a large idle margin. The deadline floor is a 1s guard against <code>globalTimeout: 0</code> (unlimited), not part of the reserve budget.</dd>
+      <dt>Status</dt><dd>resolved (2026-07-16, shipped under default A)</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-028" data-status="open">
+    <h3>Q-028: How should the elevator outcome outbox be drained without a cron?</h3>
+    <dl>
+      <dt>Context</dt><dd>The durable elevator outbox (F-121) records one <code>elevator_upgrade_outcomes</code> row per buy, committed atomically with the charge, and delivers the structured monitoring event separately (emit-then-mark, at-least-once). A crash between commit and delivery, or a sink outage, leaves rows with <code>delivered_at IS NULL</code> that must be redelivered. The project has no cron or scheduled-job infrastructure (no <code>vercel.json</code> crons, no cron routes).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Drain opportunistically on request traffic: each elevator request first delivers a bounded batch (20) of stranded rows older than a 30s grace, best-effort.</li>
+          <li>Add a Vercel cron hitting a new maintenance route that calls the drain on a schedule.</li>
+          <li>Deliver inline only, no recovery drain (accept that a crash-stranded outcome is lost).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It needs no new infrastructure, is trivially testable, and delivers every stranded outcome as long as elevator traffic continues (buys are the only thing that creates rows, so traffic that creates a stranded row is exactly the traffic that later drains it). The added cost is one bounded indexed query per buy, on an infrequent action. C loses outcomes on a crash, defeating the durability the item requires. B is the cleanest at scale but adds cron infrastructure this project does not yet have; the drain function (<code>drainPendingElevatorOutcomes</code>) is already factored so a future cron can call it verbatim without changing the contract. Revisit and adopt B if elevator traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>Shipped under default A (the loop convention: ship under the recommended default and leave the question open for override). The durable-outbox slice drains the outbox opportunistically on elevator request traffic; the <code>drainPendingElevatorOutcomes</code> function is factored so option B (a cron) can call it verbatim later without any contract change. Left open so the cron option can be adopted if traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-027" data-status="resolved">
     <h3>Q-027: Should the elevator buy require the client's expectedDepth?</h3>
     <dl>
@@ -46,6 +80,9 @@
       <dt>Recommended default</dt><dd>A. All current clients send it, so no legitimate live request is rejected; a stale cached client from before the field existed now gets a clear 400 and reloads to the current client rather than silently buying a second row against a bypassed guard, which is strictly safer than the prior silent bypass. B leaves a permanent hole in the guard the whole item exists to close. C adds accept-and-warn plumbing for a cohort (pre-field cached clients) that a single reload eliminates, for no safety gain over A. Revisit only if telemetry shows a meaningful volume of legitimate no-<code>expectedDepth</code> traffic after release.</dd>
       <dt>Resolution</dt><dd>Shipped under default A (branch <code>fix/elevator-expected-depth-required</code>): the route rejects a missing <code>expectedDepth</code> fail-fast with the stable code <code>elevator-expected-depth-required</code> (400), and <code>buyRemoteElevator</code>'s signature makes it required and always sends it (including 0). See <a href="FOLLOWUPS.html#F-121">F-121</a> and the progress log.</dd>
       <dt>Correction (2026-07-16)</dt><dd>The Context and Recommended default above say a stale client "reloads to the current client". The protection is entirely SERVER-SIDE; that phrase overstated a UX outcome this change does not control. The current client cannot omit <code>expectedDepth</code> (its request builder requires it), so it never receives this 400; only a stale cached client on old JS can omit it, and its error display is the old build's, unchanged by this PR. The accurate property is only that the guard rejects the stale request fail-fast so it cannot silently buy a second row, which is still strictly safer than the prior bypass and does not change the default choice (A).</dd>
+      <dt>Update (2026-07-16, revisit criterion now observable)</dt><dd>The Recommended default says to revisit "only if telemetry shows a meaningful volume of legitimate no-<code>expectedDepth</code> traffic". That traffic is now observable: the elevator route emits one bounded reason-only outcome log (<code>elevator.upgrade.rejected</code>, <code>reason: elevator-expected-depth-required</code>, no player/operation/coordinate/payload) on the pre-auth missing-field reject, at <code>info</code>/<code>alert:false</code>. An operator can aggregate that reason to gauge stale-client volume without any per-player data. Shipped with the structured mutation-outcome telemetry slice (branch <code>fix/elevator-mutation-outcome-telemetry</code>); see <a href="FOLLOWUPS.html#F-121">F-121</a>.</dd>
+      <dt>Update (2026-07-16, player-facing reject copy)</dt><dd>Same slice: the missing-<code>expectedDepth</code> reject's <code>body.error</code> changed from the internal "expectedDepth is required" to "reload the game to update, then try again". The stale cached client that omits the field copies <code>body.error</code> into a visible shop note, so the server response copy is reachable player UI even though that client's JavaScript is old and unchangeable here; reload guidance is the actionable message for that cohort. This does not change the default choice (A); it only corrects the earlier note that dismissed this copy as unreachable dead code.</dd>
+      <dt>Post-merge correction (2026-07-16)</dt><dd>The old client display is controlled by this response contract even though its JavaScript is unchanged. At <code>0d8acac4^</code>, the affected client omits <code>expectedDepth</code> and copies <code>body.error</code> directly into <code>shopNote</code>. Replace the internal field-name error with concise reload or update guidance and pin the exact response in the missing-field route test. The Recommended default also says to revisit from no-<code>expectedDepth</code> telemetry, but the shipped route rejects before <code>recordBalanceEvent</code> and emits no implemented code-specific signal. Remove that criterion or back it with one bounded reason-only operational signal. Do not retain raw request values or coordinates.</dd>
       <dt>Post-merge correction (2026-07-16)</dt><dd>The affected old display is controlled by this response after all: the pre-PR #234 client at <code>0d8acac4^</code> omits <code>expectedDepth</code> and copies <code>body.error</code> directly into the shop note. The shipped technical text <code>expectedDepth is required</code> therefore needs an additive F-121 cleanup to provide visible reload guidance while preserving the fail-fast 400 and stable code. The Recommended default's telemetry revisit is also unavailable today because this branch rejects before player, database, and balance-telemetry work and emits no code-specific operational signal. Revisit only after F-121 adds a bounded missing-field outcome, or remove that criterion; do not infer traffic from absent telemetry.</dd>
     </dl>
   </section>
@@ -123,6 +160,13 @@
 
       <br><br>Revised 2026-07-15 (F-118, package 0.1.270): the bunker core is removed, so the original option A's "Clankers targeting the core" fallback no longer has any target and is fully obsolete. Player absence, disconnect, and expiry all resolve the same way with no core involved: a voluntary leave forfeits on demand (F-160), and an abandoned tab or dead phone forfeits at server-owned expiry. There is no player-absent core-hunt path left in the sim; the live resolver only ever targeted the live player cell. The "damage stands" wear refinement stays the only open item.</dd>
       <dt>Status</dt><dd>open (voluntary exit forfeits, with desktop Escape and a touch Leave raid control shipped, F-160/F-162; the core-fallback question is closed by F-118; only the "damage stands" wear refinement remains open)</dd>
+      <br><br>Revised 2026-07-15 (F-160, PR #224): voluntary exit is now allowed but always forfeits, a middle ground between A and B. Leaving first person during a raid (Escape, a forced exit, or navigation) immediately settles the raid as a forfeit loss with no survival reward, the same outcome as the disconnect/expiry fallback, so the client no longer leaves the raid row open for a re-entry to re-roll. Walking away is therefore never advantageous (it is always a loss), which preserves the commitment intent while sparing the player a trapped screen when they truly want out. The dedicated in-fight Exit control stays hidden per B (no inviting bail button), so the leave path is deliberate (a key or a disconnect), not a one-tap escape. Consistent with the disconnect fallback, this on-demand forfeit does not yet apply the base damage the Clankers would have dealt: the "damage stands" refinement remains open for both the on-demand and expiry paths. Touch has no Escape key, so the touch abandon affordance is tracked as F-162.</dd>
+      <dt>Status</dt><dd>open (voluntary exit now forfeits per the 2026-07-15 revision, F-160/PR #224; "damage stands" wear and a touch abandon affordance remain open, F-162)</dd>
+      <dt>Implementation revision</dt><dd>
+      <br><br>Revised 2026-07-15 (F-162, package 0.1.268): the touch abandon affordance now exists. The first-person raid HUD carries a confirm-guarded Leave raid control (a two-step Forfeit / Stay confirm), so a phone player has a discoverable way out that runs the same forfeit path as the desktop Escape. This keeps the leave path deliberate (a confirm, not a one-tap bail) while giving touch parity; the always-visible in-fight Exit button is still not offered. Only the "damage stands" wear refinement (both on-demand and expiry paths) remains open under this question.</dd>
+      <dt>Status</dt><dd>open (voluntary exit forfeits, with desktop Escape and a touch Leave raid control shipped, F-160/F-162; only the "damage stands" wear refinement remains open)</dd>
+      <dt>Authority correction (2026-07-15, PR #224 audit)</dt><dd>Preserve the merged Revised paragraph and Status above as historical implementation claims. They do not record explicit user product approval and do not supersede the original recommendation or the current GDD. Until the user explicitly chooses otherwise, the active contract remains no voluntary exit during combat, database-clock expiry for involuntary disconnect, a forfeit loss with zero survival reward, and defense damage standing under an approved bounded-wear rule. F-105 owns disconnect policy and wear, F-106 owns exact settlement identity and atomicity, and F-119 owns one desktop and touch control rule. F-160 stays closed as duplicate authority, and first-published F-162 remains an unsupported duplicate with no Dot. PR #224 and its runtime stay preserved in history; any rollback or other destructive recovery requires explicit user approval.</dd>
+      <dt>Authority correction (2026-07-15, PR #225 audit)</dt><dd>Preserve the F-162 implementation revision and later Status above as merged history. They still do not record explicit user product approval or supersede the original recommendation and current GDD requirement that the player stays inside for the whole raid with no exit affordance until it ends. Current truth therefore remains the PR #224 authority correction above. F-105 owns disconnect policy and wear, F-106 owns exact settlement identity and atomicity, F-119 owns one desktop and touch control rule, and F-113 owns release truth. F-162 remains unsupported duplicate authority with no Dot. PR #225 and its runtime stay preserved in history; any rollback or other destructive recovery requires explicit user approval.</dd>
     </dl>
   </section>
 
@@ -142,7 +186,7 @@
     </dl>
   </section>
 
-  <section data-q="Q-017" data-status="open">
+  <section data-q="Q-017" data-status="resolved">
     <h3>Q-017: Which purchases should the overall player level actually gate?</h3>
     <dl>
       <dt>Context</dt><dd>REQ-038's last clause makes overall player level "a global progression gate for robot parts, base parts, skins, stamps, consumables, and upgrades." Audit (2026-07-13, F-089): today the level gates raid tiers, the beacon cap, and base-part owned limits; robot parts (/api/shop/buy), consumables, gear upgrades, and bunker skins are purely vibes-priced with no level check. Adding floors invents pacing numbers the GDD does not specify, and retroactively locking items players could buy yesterday is a player-hostile regression.</dd>
@@ -154,7 +198,8 @@
         </ol>
       </dd>
       <dt>Recommended default</dt><dd>C, with B as the follow-on convention: the shipped level gates are the ones that proved fun (harder raids, more beacons, bigger bunkers), vibes prices already pace the shops, and a blanket retrofit would take purchases away from existing players. If C is approved the GDD clause text changes and F-089 closes; new top-tier catalog entries can still opt into floors per B.</dd>
-      <dt>Status</dt><dd>open (needs dev decision: GDD amendments require explicit approval)</dd>
+      <dt>Resolution</dt><dd>Option C (dev decision 2026-07-17): the GDD clause is narrowed to the level gates that already shipped and proved fun (the raid tier a player may trigger, the owned beacon cap, and base-part owned limits); robot parts, consumables, gear upgrades, and bunker skins stay vibes-priced, and new top-tier catalog entries may opt into a level floor as they are added (the option B follow-on convention). No code change: the shipped behavior already matches. The <code>docs/gdd/08-base-building.html#rewards-and-level</code> clause and the REQ-038 coverage row are amended, REQ-038 flips to done, and <a href="FOLLOWUPS.html#F-089">F-089</a> closes.</dd>
+      <dt>Status</dt><dd>resolved</dd>
     </dl>
   </section>
 

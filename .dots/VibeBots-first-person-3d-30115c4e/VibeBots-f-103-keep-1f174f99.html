@@ -4,16 +4,21 @@
 <meta charset="utf-8">
 <title>F-103 Keep real-device bunker rollups honest</title>
 <meta name="dot-title" content="F-103 Keep real-device bunker rollups honest">
-<meta name="dot-status" content="open">
+<meta name="dot-status" content="closed">
 <meta name="dot-priority" content="2">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-13T23:00:33.847555-05:00">
+<meta name="dot-closed-at" content="2026-07-17T08:08:54.502730-05:00">
+<meta name="dot-close-reason" content="Insights endpoint made honest: null-GPU=unknown, homogeneous-surface byBuild, stall/worst-frame/heap-span in summaries; 18 tests pass">
 </head>
 <body>
 <article>
 <h1>F-103 Keep real-device bunker rollups honest</h1>
 <section id="description">
 F-103: Treat unknown GPUs as unknown, prevent build comparisons from mixing surfaces, and expose stall, worst-frame, and heap-span data.
+Session-drilldown correction: the current 4-to-32-character hex prefix and starts_with query can match multiple session IDs, while sessionDetail omits sessionId and can mix their snapshots. Determine distinct-session cardinality before the row limit. Return detail only for exactly one matching session, with bounded source, app-build, and non-null hardware-GPU context. Return null detail plus an explicit none or ambiguous signal otherwise. Tests seed colliding prefixes and interleaved sequences, prove no mixed detail even at the row limit, and prove a unique match returns only its ordered snapshots.
+Canonical-token correction: trace ingestion accepts arbitrary 8-to-40-character session IDs while insights accepts only a lowercased 4-to-32-character hex prefix before a case-sensitive lookup. Define one shared client, ingestion, and query contract. Prefer one exact 16-character lowercase-hex token for normal and fallback generation, derive any prefix rule from it, reject rather than lowercase noncanonical input before SQL, and fail fast on incompatible early-alpha rows. Tests force both generator paths and cover uppercase, non-hex, too short, too long, ambiguous prefix, and canonical unique lookup.
+Canonical-token requirement: supersede Prefer above. Normal and forced fallback generation, trace ingestion, and full-token insights lookup require exactly 16 lowercase hex characters without normalization. Any shorter discovery prefix is a separate rule derived from that contract and can return detail only after the unique-session gate. Reject noncanonical full tokens before SQL and test both generators plus full-token and prefix boundaries.
 </section>
 </article>
 </body>

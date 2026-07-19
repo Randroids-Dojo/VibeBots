@@ -14,6 +14,53 @@
 <h1>F-119 Put bunker controls inside first person</h1>
 <section id="description">
 F-119: Keep one post-claim Enter bunker affordance and add an in-bunker menu with safe raid, repair, skin, and confirmed reset flows.
+A 390x760 trace proved the ordinary pre-claim bunker sheet emits an alerting touch_surface_not_topmost false positive because movement controls remain logically enabled behind the intentional overlay. Give claim and status sheets modal semantics, make the background inert, disable or unmount touch and TV movement while open, release held movement, restore it on close, and test both expected-overlay silence and one real unexpected blocker warning. Remove the unused movement_disabled_by_bunker_panel event or give it one precise non-alerting purpose.
+Apply that modal gate to every 2D movement source, including touch, keyboard, TV remote, and gamepad. Release every held cadence when the sheet opens, block all direction actions while open, and use input-family-appropriate tests to prove each source resumes once after close.
+</section>
+<section id="evidence-pr-217">
+PR #217 safely removed the looser sheet entry. The surviving floating entry also requires the shared bunker edit gate and a non-terminal mine state. The in-bunker controls remain open.
+</section>
+<section id="live-loop-menu-review-2026-07-15">
+Do not add a standalone raid control. Put Raid, Repair, Skins, and confirmed Reset in the one in-bunker menu. Apply one combat lock across touch and desktop, block Escape and edit tools, use dodge-accurate copy, resolve a loss into the authored surface return instead of another in-room Start, reflow below corner actions at 390 px portrait, and keep the one-second timer out of a continuous live announcement.
+</section>
+<section id="accepted-state-combat-gate-2026-07-15">
+Pending and accepted raid state must lock Start, Exit, Bag, Pick, Build, and Pry before any renderer frame. Derive the gate from the request latch and authoritative bunker store, not only the frame HUD snapshot, and cover compile delay plus renderer stall.
+</section>
+<section id="production-exposure-pr-221">
+Main c84a4403 deployed a standalone Start control and frame-delayed combat gate without the one Raid, Repair, Skins, and confirmed Reset menu. Apply one consistent accepted-state lock across desktop Escape, touch Exit, tools, narrow layout, and the first paused renderer frame.
+</section>
+<section id="forfeit-control-review-2026-07-15">
+Do not turn voluntary Escape or touch Exit into an ordinary forfeit. Q-019 chooses no voluntary exit during combat. Block those controls from authoritative pending or active state, keep mine actions locked on reload, and leave involuntary disconnect recovery to F-105.
+</section>
+<section id="pending-forfeit-ui-correction-2026-07-15">
+The draft exposes flat play before recovery settles, and Enter ignores activeLiveRaid, so the player can immediately remount a tick-zero raid. Lock movement, tools, actions, and re-entry until authoritative recovery is acknowledged across touch, desktop, reload, remount, failed resolve, and retry.
+</section>
+<section id="forfeit-e2e-reachability-correction-2026-07-15">
+The active raid panel hides the only Exit button, which returns only after resolve. Do not add a voluntary raid Exit to make the test reachable. Prove Escape and touch Exit stay unavailable during pending or active combat, then test involuntary recovery under F-105.
+</section>
+<section id="cross-platform-release-copy-correction-2026-07-15">
+The draft says players can step out, but the active raid HUD removes Exit, so touch has no such action. Do not claim or add the rejected voluntary exit. Keep one no-exit combat lock unless the product decision is explicitly reopened.
+</section>
+<section id="writer-e2e-failure-evidence-2026-07-15">
+The branch's first targeted Chromium test naturally resolved before Exit returned. Its sealed-bunker rewrite still clicked the hidden Exit and again received zero forfeit requests. Neither run proves mid-fight abandonment, so the draft closeout and release claim remain rejected.
+</section>
+<section id="desktop-escape-policy-proof-2026-07-15">
+PR #224 head 3584937c publishes desktop Escape as an active-raid exit. Eleven Chromium variants failed or timed out. The twelfth and a selected 28-test run pass under the repaired test-only frame shim, proving the rejected voluntary contract and harness mechanics only. Hold PR #224 and move policy-aligned lock and recovery work to a clean successor under F-105 and F-119.
+</section>
+<section id="review-target-correction-pr-224">
+Thread 3586314024 correctly requires Strict Effects, rejection, reload or tab-close, and resolve-race coverage, but the successor must test one desktop and touch no-exit combat lock plus acknowledged server recovery, not the rejected voluntary abandonment scenario.
+</section>
+<section id="current-authority-boundary-pr-223-review">
+F-119 owns the one in-bunker menu and identical touch and desktop control lock. Pending or active combat has no voluntary Exit or Escape path and exposes no normal mine action before authoritative recovery. F-105 owns database-clock disconnect expiry plus the no-reward and damage-stands policy. F-106 owns exact row identity, the one-active-row invariant, atomic result and wear, stable conflicts, and authoritative client replacement. React cleanup, a hidden button, or a route-specific exception cannot become a second settlement authority.
+</section>
+<section id="merged-desktop-touch-policy-split-pr-224">
+PR #224 merged head 006d4507 as main 98d269ee after calling desktop Escape a deliberate voluntary forfeit while keeping the touch Exit hidden and assigning touch parity to unsupported F-162. F-119 already owns one consistent desktop and touch control contract. Do not legitimize the key-only production rule or duplicate followup; keep this gate open until an approved cross-platform contract and authoritative F-105 and F-106 recovery land.
+</section>
+<section id="touch-abandon-evidence-accessibility-hold-pr-225">
+PR #225 head 90b9fa66 published desktop click evidence and 36px targets. Replacement 734aeeba adds valid 390x760 touch input and 44px proof, resolving those two narrow points. It still creates no F-119 policy approval, keeps confirmation inside a timer-updated role=status region without focus or announcement proof, and cites duplicate F-162. Require explicit approval or existing no-exit parity, a phase-only live region, deterministic focus, and identical desktop and touch rules.
+</section>
+<section id="production-exposure-pr-225">
+Main f7a31888 and production deployment 5461023827 expose the disputed touch-abandon control. Emulated touch and target-size proof is valid, but merge does not approve policy or resolve duplicate F-162 authority, timer-live-region isolation, focus, confirmation bounds, failure recovery, or identical cross-platform state rules.
 </section>
 </article>
 </body>

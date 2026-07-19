@@ -109,6 +109,7 @@ for (const scene of SCENES) {
 const FP_BASELINE_VIEW = {
   bunker: {
     footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+    layoutVersion: 1,
     parts: [
       { partId: "wall-panel", col: START_COL - 3, row: 1, durability: 90 },
     ],

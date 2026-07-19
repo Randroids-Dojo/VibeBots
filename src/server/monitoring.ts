@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type {
+  ElevatorReasonCode,
   MINE_VERSION_MISMATCH_CODE,
   TRIP_ALREADY_CASHED_OUT_CODE,
 } from "@/lib/api-codes";
@@ -112,6 +113,30 @@ export interface AccountLinkMonitoringEvent {
   result?: string;
 }
 
+/** Which elevator rail mutation a request attempted (F-121 telemetry). */
+export type ElevatorMutation = "extend" | "place" | "relocate";
+
+export interface ElevatorMutationOutcomeEvent {
+  /**
+   * The attempted rail mutation. Omitted for a pre-auth reject (bad or missing
+   * `expectedDepth`) that is rejected before the profile loads, so there is no
+   * loaded rail state to classify.
+   */
+  operation?: ElevatorMutation;
+  result: "accepted" | "rejected";
+  /** The rejection reason code, or null when the mutation was accepted. */
+  reason: ElevatorReasonCode | null;
+  playerId?: string | null;
+  /**
+   * The durable outbox request id (F-121), present for a committed accepted
+   * outcome delivered from the outbox. Delivery is at-least-once, so an operator
+   * (or a downstream aggregator) dedups repeated deliveries by this id; the
+   * durable row itself is exactly-once (unique request id). Omitted for
+   * best-effort rejects, which commit nothing and are not tied to a request id.
+   */
+  requestId?: string;
+}
+
 function hashIdentifier(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
@@ -145,6 +170,38 @@ export function logMineCashOutEvent(event: MineCashOutMonitoringEvent): void {
     event: `mine.cash_out.${event.code}`,
     player: playerId ? hashIdentifier(playerId) : undefined,
     ...rest,
+  });
+}
+
+/**
+ * Records whether an elevator rail buy was accepted or rejected and, on a
+ * reject, the stable reason code (F-121). This is the observability counterpart
+ * to the success-only `elevator.upgrade` balance event: it fires on every
+ * instrumented outcome, so an operator can aggregate rejects by reason. A
+ * rejected write emits no balance event, only this log.
+ *
+ * Every current outcome (accepts and every expected reject: insufficient
+ * balance, rail maxed, missing column, stale or concurrent guards, a stale
+ * client omitting `expectedDepth`) is a routine product outcome, so it logs at
+ * `info` with `alert: false`. Severity is reserved for a genuinely unexpected
+ * persistence or invariant fault, which today surfaces as a thrown 500 rather
+ * than a reason-coded outcome; if a future reason represents such a fault it can
+ * map to `warn`/`error` here.
+ */
+export function logElevatorOutcomeEvent(
+  event: ElevatorMutationOutcomeEvent,
+): void {
+  const { playerId, operation, result, reason, requestId } = event;
+  const severity: MonitoringSeverity = "info";
+  writeMonitoringLog(severity, "elevator.upgrade", {
+    event: `elevator.upgrade.${result}`,
+    operation,
+    result,
+    reason: reason ?? undefined,
+    // The request id is an opaque idempotency key, not sensitive data (no shaft
+    // coordinate or payload), and is the dedup key for at-least-once delivery.
+    requestId,
+    player: playerId ? hashIdentifier(playerId) : undefined,
   });
 }
 

@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
+    "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "You now always spawn on the floor of the open starter room",
+    "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
+    "This is a look-only change",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,8 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.275", "Bunker panels look built, not flat"],
+    ["0.1.274", "Build thin walls on the face you aim at"],
     ["0.1.273", "Spawn in the room, not inside the wall"],
     ["0.1.272", "Old bunkers show their ore again"],
     ["0.1.271", "Old bunkers need a fresh start"],

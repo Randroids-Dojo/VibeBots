@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-171 Make bunker part and inventory writes atomic</title>
+<meta name="dot-title" content="F-171 Make bunker part and inventory writes atomic">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="0">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T20:05:06.452482-05:00">
+</head>
+<body>
+<article>
+<h1>F-171 Make bunker part and inventory writes atomic</h1>
+<section id="description">
+Replace saveBunkerAndInventory&#39;s successful bunker revision write plus later inventory snapshot upserts with one atomic database operation. A winning placement or removal must commit the revision, parts, and exact inventory delta together, or commit none of them. Preserve F-122 conflict behavior: a stale loser changes neither bunker nor inventory and receives the authoritative bunker and inventory. Avoid blind absolute-count upserts that can overwrite a concurrent purchase. Cover injected failure after guard evaluation, concurrent purchase plus placement or removal, a stale revision loser, and successful place, remove, and move paths with authoritative reload assertions.
+</section>
+</article>
+</body>
+</html>

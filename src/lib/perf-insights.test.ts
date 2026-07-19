@@ -138,6 +138,39 @@ describe("summarizePerfInsights", () => {
     ).toBe(12);
   });
 
+  it("carries total stalls, worst max frame, and heap span in rollups (F-103)", () => {
+    const insights = summarizePerfInsights([
+      row({ stallCount: 2, maxFrameMs: 40, heapMinMb: 170, heapMaxMb: 210 }),
+      row({ stallCount: 3, maxFrameMs: 90, heapMinMb: 150, heapMaxMb: 260 }),
+    ]);
+    const segment = insights.segments.find(
+      (candidate) => candidate.segment === "mine/webgpu-auto/high",
+    );
+    expect(segment?.stallCount).toBe(5);
+    expect(segment?.worstMaxFrameMs).toBe(90);
+    expect(segment?.heapMinMb).toBe(150);
+    expect(segment?.heapMaxMb).toBe(260);
+  });
+
+  it("omits the per-build rollup for a mixed surface (F-103)", () => {
+    const mixed = summarizePerfInsights([
+      row({ appBuild: 900 }),
+      row({
+        source: "bunker-fp",
+        appBuild: 900,
+        sessionId: "1111222233334444",
+      }),
+    ]);
+    expect(mixed.byBuild).toEqual([]);
+    const homogeneous = summarizePerfInsights([
+      row({ appBuild: 900, p95FrameMs: 30 }),
+      row({ appBuild: 901, p95FrameMs: 18 }),
+    ]);
+    expect(
+      homogeneous.byBuild.map((segment) => segment.segment).sort(),
+    ).toEqual(["build 900", "build 901"]);
+  });
+
   it("rolls up sessions with totals and a software-renderer flag", () => {
     const insights = summarizePerfInsights([
       row({ stallCount: 1, hiddenMs: 500, createdAt: "2026-07-06T12:00:00Z" }),

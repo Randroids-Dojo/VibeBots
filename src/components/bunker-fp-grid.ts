@@ -3,6 +3,7 @@ import {
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   type BunkerFootprint,
+  type BunkerOrientation,
   type BunkerSlot,
   type BunkerState,
 } from "@/sim/bunker";
@@ -80,6 +81,9 @@ export interface FpEditIntent {
    * whole-cell part, a dig, or a collect. On a place it is the face the
    * player aimed at; the sim canonicalizes a wall to one boundary. */
   slot?: BunkerSlot;
+  /** Facing for a rotatable part (F-117 stair) on a place intent; absent for
+   * every fixed-orientation part and non-place intent. */
+  orientation?: BunkerOrientation;
 }
 
 /** How a thin part renders inside its cell: a small offset toward the target

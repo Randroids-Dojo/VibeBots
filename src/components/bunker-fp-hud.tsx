@@ -21,6 +21,8 @@ import {
   BASE_PART_CATALOG,
   type BasePartId,
   type BasePartInventory,
+  type BunkerOrientation,
+  isRotatableBasePart,
 } from "@/sim/bunker";
 import { fpInput } from "./bunker-fp-input";
 import {
@@ -243,6 +245,8 @@ export function BunkerFpHud({
   inventory,
   tool,
   selectedPartId,
+  selectedOrientation,
+  onRotate,
   denyNotice,
   bagOreCount,
   bagStackCount,
@@ -261,6 +265,11 @@ export function BunkerFpHud({
   inventory: BasePartInventory;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
+  /** Facing of the selected rotatable part (the staircase); shown on the
+   * rotate control. */
+  selectedOrientation: BunkerOrientation;
+  /** Cycle the selected rotatable part's facing (the rotate control). */
+  onRotate: () => void;
   denyNotice: string | null;
   bagOreCount: number;
   bagStackCount: number;
@@ -618,6 +627,19 @@ export function BunkerFpHud({
               <strong>Pry</strong>
               <small>Q</small>
             </button>
+            {tool === "build" && isRotatableBasePart(selectedPartId) && (
+              <button
+                type="button"
+                className="bunker-fp-slot bunker-fp-slot-rotate"
+                data-testid="bunker-fp-rotate"
+                data-orientation={selectedOrientation}
+                aria-label={`Rotate staircase, facing ${selectedOrientation + 1} of 4`}
+                onClick={onRotate}
+              >
+                <strong aria-hidden="true">&#8635;</strong>
+                <small>R</small>
+              </button>
+            )}
           </div>
           {denyNotice && (
             <div

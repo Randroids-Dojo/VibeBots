@@ -28,16 +28,16 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-18-0.1.275-bunker-panel-detail");
+    expect(release.noticeId).toBe("2026-07-18-0.1.276-bunker-staircase");
     expect(latestNote).toMatchObject({
-      version: "0.1.275",
-      title: "Bunker panels look built, not flat",
+      version: "0.1.276",
+      title: "Build a staircase and climb between floors",
       intro:
-        "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
+        "Bunkers get a staircase you can walk up. Dig out a room above, place a stair, and stroll up to it in first person.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe; floors get a walkway grate over a dark pit; roofs hang a warm work lamp underneath; doors get a framed hatch with a spin-wheel leaf and ready lights. Same panels in the same spots, just detailed to match the rest of the bunker.",
-      "This is a look-only change: nothing about placing, prying, or how your bunker plays is different, and your saved bunker is untouched.",
+      "The Staircase is a new build part (you start with two). Pick it from the hotbar, aim where you want it, and press R (or tap Rotate) to face it whichever of the four directions you want to climb. Place it and walk up: crossing it in its facing direction carries you smoothly up one floor.",
+      "Stack a couple in a diagonal to reach a second-story room you have dug out, or buy more from the Hardware Store on the surface.",
     ]);
   });
 

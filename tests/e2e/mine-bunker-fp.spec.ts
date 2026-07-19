@@ -914,6 +914,128 @@ test("first-person building places a thin wall on the aimed face (F-117)", async
   ).toBeGreaterThan(0.00005);
 });
 
+test("first-person rotates and places a staircase carrying its facing (F-117)", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6061,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: null,
+        inventory: {
+          "wall-panel": 0,
+          "floor-panel": 0,
+          "roof-panel": 0,
+          "door-panel": 0,
+          "basic-turret": 0,
+          "floor-spikes": 0,
+          "stair-panel": 2,
+        },
+        player: FP_BUNKER_VIEW.player,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6061,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  const status = page.getByLabel("Mine status");
+  await expect(status).toHaveAttribute("data-depth", "5");
+
+  await page.getByRole("button", { name: "Start bunker claim" }).click();
+  const claimSheet = page.getByRole("region", { name: "Bunker status" });
+  await claimSheet.getByRole("button", { name: "Claim 7x5 bunker" }).click();
+  await claimSheet.getByRole("button", { name: "Close" }).click();
+
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(status).toHaveAttribute("data-fp-mode", "1");
+  const canvas = page.locator("canvas");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
+    .not.toBeNull();
+
+  // Select the staircase: a rotatable mount, so a Rotate control appears
+  // beside the hotbar and starts at the first facing.
+  const stairSlot = page.getByTestId("bunker-fp-slot-stair-panel");
+  await stairSlot.click();
+  await expect(stairSlot).toHaveAttribute("aria-pressed", "true");
+  const rotate = page.getByTestId("bunker-fp-rotate");
+  await expect(rotate).toBeVisible();
+  await expect(rotate).toHaveAttribute("data-orientation", "0");
+  await rotate.click();
+  await expect(rotate).toHaveAttribute("data-orientation", "1");
+
+  // Aim forward at the pocket: the deepest crossed open cell is the place
+  // cell for the whole-cell mount.
+  await expect(canvas).toHaveAttribute("data-fp-place", "3:0:2");
+
+  await armFpPointer(page);
+  const beforePlace = await canvas.screenshot();
+  await canvas.click();
+
+  // The stair lands as a walkable ramp cell the crosshair now targets, and
+  // the persisted part carries the rotated facing with no thin slot.
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-target"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:2:part");
+  const placedPart = await page.evaluate(() =>
+    JSON.parse(
+      localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
+    ).pendingBunker?.bunker.parts.at(-1),
+  );
+  expect(placedPart).toMatchObject({
+    partId: "stair-panel",
+    orientation: 1,
+  });
+  expect(placedPart.slot).toBeUndefined();
+  const afterPlace = await canvas.screenshot();
+  expect(
+    await imagePixelDifferenceRatio(page, beforePlace, afterPlace),
+  ).toBeGreaterThan(0.00005);
+});
+
 test("first-person hold-to-mine swings the pickaxe and digs cell after cell", async ({
   page,
 }) => {

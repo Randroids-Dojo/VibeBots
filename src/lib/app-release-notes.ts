@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-18-0.1.275-bunker-panel-detail";
+export const RELEASE_NOTICE_ID = "2026-07-18-0.1.276-bunker-staircase";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.276",
+      date: "2026-07-18",
+      title: "Build a staircase and climb between floors",
+      intro:
+        "Bunkers get a staircase you can walk up. Dig out a room above, place a stair, and stroll up to it in first person.",
+      changes: [
+        {
+          build,
+          text: "The Staircase is a new build part (you start with two). Pick it from the hotbar, aim where you want it, and press R (or tap Rotate) to face it whichever of the four directions you want to climb. Place it and walk up: crossing it in its facing direction carries you smoothly up one floor.",
+        },
+        {
+          build,
+          text: "Stack a couple in a diagonal to reach a second-story room you have dug out, or buy more from the Hardware Store on the surface.",
+        },
+      ],
+    },
     {
       version: "0.1.275",
       date: "2026-07-18",

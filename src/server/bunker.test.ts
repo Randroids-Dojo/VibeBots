@@ -135,13 +135,14 @@ describe("bunker server helpers", () => {
       "door-panel": 1,
       "basic-turret": 0,
       "floor-spikes": 0,
+      "stair-panel": 2,
     });
     const insertedParts = sql.mock.calls
       .filter(([strings]) =>
         strings.join(" ").includes("INSERT INTO player_base_parts"),
       )
       .map((call) => call[2]);
-    expect(insertedParts).toEqual(["floor-panel", "roof-panel"]);
+    expect(insertedParts).toEqual(["floor-panel", "roof-panel", "stair-panel"]);
   });
 
   it("requires the full footprint, including side cells on the miner row", async () => {
@@ -487,7 +488,9 @@ describe("bunker server helpers", () => {
     ).toBe(false);
   });
 
-  it("rejects a comingSoon part buy even at high level, spending nothing (F-117 stair)", async () => {
+  it("sells the revealed staircase like any other part (F-117)", async () => {
+    // The stair is no longer comingSoon, so the buy path treats it normally
+    // (funds and stock permitting) instead of the unreleased 409.
     const sql = makeBuySql({ defenseXp: 100_000 });
 
     const result = await buyBasePart(
@@ -497,16 +500,12 @@ describe("bunker server helpers", () => {
       1,
     );
 
-    expect(result).toEqual({
-      ok: false,
-      status: 409,
-      error: "part not available yet",
-    });
+    expect(result.ok).toBe(true);
     expect(
       sql.mock.calls.some(([strings]) =>
         strings.join(" ").includes("UPDATE players"),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 

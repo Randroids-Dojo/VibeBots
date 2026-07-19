@@ -33,11 +33,13 @@ import {
   createBunker,
   creditBunkerDig,
   DEFAULT_BUNKER_SKIN,
+  EMPTY_BASE_PART_INVENTORY,
   excavateBunkerCell,
   isBunkerLayoutIncompatible,
   isBunkerSkinId,
   isBunkerWallSlot,
   isOpenBunkerCell,
+  isRotatableBasePart,
   maxBunkerRaidTier,
   moveBasePart,
   overallPlayerLevel,
@@ -245,21 +247,26 @@ describe("bunker vertical slice sim", () => {
     ).toEqual({ ok: true });
   });
 
-  it("hides a comingSoon part from every obtainable-part path (F-117 stair)", () => {
-    // The staircase is fully modeled but flagged comingSoon until the climb
-    // ships, so it must not appear anywhere a player picks a part.
-    expect(BASE_PART_CATALOG["stair-panel"].comingSoon).toBe(true);
-    expect(AVAILABLE_BASE_PART_IDS).not.toContain("stair-panel");
+  it("offers the revealed staircase as a rotatable, obtainable part (F-117)", () => {
+    // The climb has shipped, so the staircase is no longer comingSoon: it
+    // appears in every obtainable-part path and carries a facing.
+    expect(BASE_PART_CATALOG["stair-panel"].comingSoon).toBeFalsy();
+    expect(AVAILABLE_BASE_PART_IDS).toContain("stair-panel");
+    expect(isRotatableBasePart("stair-panel")).toBe(true);
+    // Only the staircase rotates; the fixed parts do not.
+    for (const id of BASE_PART_IDS) {
+      if (id !== "stair-panel") expect(isRotatableBasePart(id)).toBe(false);
+    }
+    // The available list is still exactly the non-comingSoon parts.
     expect(AVAILABLE_BASE_PART_IDS).toEqual(
       BASE_PART_IDS.filter((id) => !BASE_PART_CATALOG[id].comingSoon),
     );
-    for (const id of AVAILABLE_BASE_PART_IDS) {
-      expect(BASE_PART_CATALOG[id].comingSoon).toBeFalsy();
-    }
-    // The buy gate rejects it regardless of level or stock.
+    // The starter kit grants a couple so a player can climb on day one.
+    expect(STARTER_BASE_PART_INVENTORY["stair-panel"]).toBe(2);
+    // The buy path no longer rejects it as unreleased.
     expect(
-      canBuyBasePart("stair-panel", 99, null, STARTER_BASE_PART_INVENTORY, 1),
-    ).toEqual({ ok: false, reason: "unreleased" });
+      canBuyBasePart("stair-panel", 1, null, EMPTY_BASE_PART_INVENTORY, 1),
+    ).toEqual({ ok: true });
   });
 
   it("uses only collected defense XP for overall player level", () => {
@@ -1124,6 +1131,27 @@ describe("bunker thin sub-cell slots (F-117)", () => {
         "wall-px",
       ),
     ).toEqual({ ok: false, reason: "slot" });
+  });
+
+  it("records a staircase facing on a whole-cell placement (F-117)", () => {
+    // First person places a mount whole-cell (no slot), yet the stair still
+    // records its facing so the ramp and the render match.
+    const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
+    const placed = placeBasePart(
+      oneCellBunker(c.col, c.row, c.depth),
+      { ...inventory(), "stair-panel": 1 },
+      "stair-panel",
+      c.col,
+      c.row,
+      c.depth,
+      undefined,
+      3,
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const stair = placed.bunker.parts.at(-1);
+    expect(stair).toMatchObject({ partId: "stair-panel", orientation: 3 });
+    expect(stair?.slot).toBeUndefined();
   });
 
   it("treats a legacy full-cell part as filling every slot in its cell", () => {

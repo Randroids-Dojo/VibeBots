@@ -4,6 +4,7 @@ import {
   applyBunkerReset,
   type BasePartId,
   type BunkerFootprint,
+  type BunkerOrientation,
   type BunkerSlot,
   bunkerCells,
   createBunker,
@@ -428,6 +429,7 @@ export interface MineSessionState {
     row: number,
     depth?: number,
     slot?: BunkerSlot,
+    orientation?: BunkerOrientation,
   ) => boolean;
   removePendingBunkerPart: (
     col: number,
@@ -1542,7 +1544,14 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       return true;
     },
 
-    placePendingBunkerPart: (partId, col, row, depth = 0, slot) => {
+    placePendingBunkerPart: (
+      partId,
+      col,
+      row,
+      depth = 0,
+      slot,
+      orientation,
+    ) => {
       const pending = get().pendingBunker;
       if (!pending || get().cashOut.state === "pending") return false;
       const placed = placeBasePart(
@@ -1553,6 +1562,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         row,
         depth,
         slot,
+        orientation,
       );
       if (!placed.ok) return false;
       set({

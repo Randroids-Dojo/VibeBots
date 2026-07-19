@@ -37,9 +37,11 @@ import {
   BASE_PART_CATALOG,
   BASE_PART_IDS,
   type BasePartId,
+  type BunkerOrientation,
   type BunkerSkinId,
   type BunkerState,
   DEFAULT_BUNKER_SKIN,
+  isRotatableBasePart,
 } from "@/sim/bunker";
 import { bunkerCellBlock, bunkerCellGenCoords } from "@/sim/bunker-blocks";
 import {
@@ -219,6 +221,8 @@ export interface BunkerFpCanvasProps {
   tool: BunkerToolAction;
   /** The part the build ghost previews (and a click places). */
   selectedPartId: BasePartId;
+  /** Facing the ghost of a rotatable part previews and a place records. */
+  selectedOrientation: BunkerOrientation;
   onEdit: (intent: FpEditIntent) => void;
   onExit: () => void;
   onFirstFrame?: () => void;
@@ -817,7 +821,16 @@ function FpPlacedParts({
             key={`fp-part:${x}:${y}:${z}:${slot ?? "full"}`}
             position={[x, y, -z]}
           >
-            <group position={[t.x, t.y, t.z]} rotation={[0, t.rotY, 0]}>
+            <group
+              position={[t.x, t.y, t.z]}
+              // A rotatable part (the staircase) faces its stored
+              // orientation; every other part has none, so this is 0.
+              rotation={[
+                0,
+                t.rotY + (part.orientation ?? 0) * (Math.PI / 2),
+                0,
+              ]}
+            >
               <FpPartVisual
                 detail={detail}
                 durability={part.durability}
@@ -879,6 +892,7 @@ function BunkerFpRig({
   entry,
   tool,
   selectedPartId,
+  selectedOrientation,
   onEdit,
   outlineRef,
   ghostRef,
@@ -893,6 +907,7 @@ function BunkerFpRig({
   entry: FpEntryCell;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
+  selectedOrientation: BunkerOrientation;
   onEdit: (intent: FpEditIntent) => void;
   outlineRef: RefObject<LineSegments | null>;
   ghostRef: RefObject<Group | null>;
@@ -1430,7 +1445,15 @@ function BunkerFpRig({
       const thinGhost = ghostSlotRef.current;
       if (thinGhost) thinGhost.visible = placement.slot !== undefined;
       const fullGhost = ghostFullRef.current;
-      if (fullGhost) fullGhost.visible = placement.slot === undefined;
+      if (fullGhost) {
+        fullGhost.visible = placement.slot === undefined;
+        // A rotatable part (the staircase) previews facing the selected
+        // direction; every other whole-cell part sits unrotated. Scalar
+        // write, safe per frame.
+        fullGhost.rotation.y = isRotatableBasePart(selectedPartId)
+          ? selectedOrientation * (Math.PI / 2)
+          : 0;
+      }
     }
 
     const cache = datasetCacheRef.current;
@@ -1527,6 +1550,11 @@ function BunkerFpRig({
             rayHit.placeZ,
           ),
           slot: placement.slot,
+          // A rotatable part (the staircase) carries the chosen facing; a
+          // fixed part omits it. This runs only on an accepted place.
+          ...(isRotatableBasePart(selectedPartId)
+            ? { orientation: selectedOrientation }
+            : {}),
         });
       }
     }
@@ -1721,6 +1749,7 @@ function BunkerFpScene({
   entry,
   tool,
   selectedPartId,
+  selectedOrientation,
   onEdit,
   onWarmed,
   liveRaid,
@@ -1730,6 +1759,7 @@ function BunkerFpScene({
   entry: FpEntryCell;
   tool: BunkerToolAction;
   selectedPartId: BasePartId;
+  selectedOrientation: BunkerOrientation;
   onEdit: (intent: FpEditIntent) => void;
   onWarmed: () => void;
   liveRaid: LiveRaidActiveView | null;
@@ -1831,6 +1861,7 @@ function BunkerFpScene({
         entry={entry}
         tool={tool}
         selectedPartId={selectedPartId}
+        selectedOrientation={selectedOrientation}
         onEdit={onEdit}
         outlineRef={outlineRef}
         ghostRef={ghostRef}
@@ -1850,6 +1881,7 @@ export default function BunkerFpCanvas({
   entry,
   tool,
   selectedPartId,
+  selectedOrientation,
   onEdit,
   onFirstFrame,
   liveRaid,
@@ -1913,6 +1945,7 @@ export default function BunkerFpCanvas({
         entry={entry}
         tool={tool}
         selectedPartId={selectedPartId}
+        selectedOrientation={selectedOrientation}
         onEdit={onEdit}
         onWarmed={startFrames}
         liveRaid={liveRaid ?? null}

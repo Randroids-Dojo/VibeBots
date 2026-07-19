@@ -152,7 +152,8 @@ function kindForSolidity(value: number): FpRayHitKind {
     case FP_ROCK_UNDUG:
       return "rock-diggable";
     default:
-      // FP_SOLID_PART: walls, floors, roofs, and turrets alike.
+      // FP_SOLID_PART and the walkable stair ramp (FP_STAIR_*) alike: walls,
+      // floors, roofs, turrets, and staircases all target and pry as parts.
       return "part";
   }
 }

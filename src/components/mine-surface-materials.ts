@@ -185,6 +185,7 @@ export const BASE_PART_EMISSIVES: Record<BasePartId, string> = {
   "door-panel": SURFACE_PALETTE.energyCyan,
   "floor-spikes": SURFACE_PALETTE.energyCyan,
   "basic-turret": SURFACE_PALETTE.energyCyan,
+  "stair-panel": SURFACE_PALETTE.warmWorkLight,
 };
 
 export function bunkerPartMaterial(

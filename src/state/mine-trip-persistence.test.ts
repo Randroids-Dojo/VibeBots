@@ -361,6 +361,47 @@ describe("pending bunker depth normalization", () => {
     // (F-115), which is exactly what a fresh createBunker ships.
     expect(loaded?.pendingBunker?.bunker.dug).toEqual(bunker.dug);
   });
+
+  it("keeps a valid part slot and drops a malformed one (F-117)", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const pending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        parts: [
+          {
+            partId: "wall-panel",
+            col: 2,
+            row: 5,
+            depth: 0,
+            slot: "wall-px",
+            durability: 90,
+          },
+          {
+            partId: "wall-panel",
+            col: 3,
+            row: 5,
+            depth: 0,
+            slot: "bogus",
+            durability: 90,
+          },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(pending)),
+    );
+
+    const parts = loadLocalTrip(1)?.pendingBunker?.bunker.parts;
+    // The known slot survives the persistence round-trip; a malformed one
+    // coerces to a legacy whole-cell part rather than rejecting the trip.
+    expect(parts?.[0].slot).toBe("wall-px");
+    expect(parts?.[1].slot).toBeUndefined();
+  });
 });
 
 function savedTripWithPending(pending: PendingBunkerBuild): SavedTrip {

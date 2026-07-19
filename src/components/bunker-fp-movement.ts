@@ -2,9 +2,13 @@ import {
   FP_COLS,
   FP_DEPTH,
   FP_ROWS,
+  FP_STAIR_NX,
+  FP_STAIR_PX,
+  FP_STAIR_PZ,
   type FpSolidGrid,
   fpCellBlocks,
   fpCellIndex,
+  fpCellIsStair,
 } from "./bunker-fp-grid";
 
 /**
@@ -27,6 +31,17 @@ export const FP_GRAVITY = 22;
 export const FP_JUMP_VELOCITY = 7.1;
 export const FP_VEL_SMOOTHING = 12;
 export const FP_DT_CLAMP = 0.05;
+/** Vertical reach of a staircase ramp: the feet ride the sloped surface
+ * when they are within this of it, so walking into a stair from the floor
+ * climbs smoothly, yet walking off the top edge into open air falls
+ * (nothing within reach) and a jump off a stair is not squashed. Half a
+ * cell keeps it under the one-cell rise a single stair spans. */
+export const FP_STAIR_REACH = 0.55;
+/** Horizontal run over which a stair reaches full height; the remaining
+ * (1 - run) is a flat top landing. The shelf must be wider than the
+ * capsule radius so the mover's body tops out and clears an adjacent
+ * solid landing cell before the feet would bump its face. */
+export const FP_STAIR_RUN = 0.6;
 
 /** Interior AABB: cell centers span 0..6 in x, 0..4 in y, 0..-4 in
  * world z; the walls sit half a cell beyond the outermost centers. */
@@ -217,6 +232,91 @@ function maybeAutoJump(state: FpMoveState, solid: FpSolidGrid): void {
   state.vy = FP_JUMP_VELOCITY;
 }
 
+/**
+ * Sloped surface height (world y) of a stair cell at the given world XZ.
+ * `t` runs 0 at the ramp's low edge to 1 at its high edge along the ascent
+ * axis; the surface spans the cell bottom (gy - 0.5) to top (gy + 0.5).
+ * Grid +z is world -z, so the +z stair rises as world z decreases. Scalar
+ * math only.
+ */
+function stairSurface(
+  value: number,
+  gx: number,
+  gy: number,
+  gz: number,
+  px: number,
+  pz: number,
+): number {
+  let t: number;
+  if (value === FP_STAIR_PX) t = px - gx + 0.5;
+  else if (value === FP_STAIR_NX) t = gx - px + 0.5;
+  else if (value === FP_STAIR_PZ) t = -gz - pz + 0.5;
+  else t = pz + gz + 0.5;
+  // Rise over the first FP_STAIR_RUN of the cell, then a flat top landing.
+  const height = t <= 0 ? 0 : t >= FP_STAIR_RUN ? 1 : t / FP_STAIR_RUN;
+  return gy - 0.5 + height;
+}
+
+/**
+ * The highest stair-ramp surface within reach of the feet in the capsule's
+ * own column, or null when the mover is not over a stair. Uses the capsule
+ * center for the footprint test; a diagonal flight's cells meet at equal
+ * height on their shared edge, so the surface stays continuous as the
+ * center crosses between columns. Bounded scalar scan, safe per frame.
+ */
+function stairRampFloor(
+  solid: FpSolidGrid,
+  px: number,
+  py: number,
+  pz: number,
+): number | null {
+  const gx = Math.round(px);
+  const gz = Math.round(-pz);
+  if (gx < 0 || gx >= FP_COLS || gz < 0 || gz >= FP_DEPTH) return null;
+  if (Math.abs(px - gx) > 0.5 || Math.abs(-pz - gz) > 0.5) return null;
+  let best: number | null = null;
+  for (let gy = 0; gy < FP_ROWS; gy++) {
+    const value = solid[fpCellIndex(gx, gy, gz)];
+    if (!fpCellIsStair(value)) continue;
+    const surface = stairSurface(value, gx, gy, gz, px, pz);
+    if (surface < py - FP_STAIR_REACH || surface > py + FP_STAIR_REACH)
+      continue;
+    if (best === null || surface > best) best = surface;
+  }
+  return best;
+}
+
+/** Cap the feet so the head does not ride a ramp up into a solid ceiling
+ * (a mis-built stair with no clearance blocks the climb instead of clipping
+ * through). Scans every cell the capsule's XZ footprint overlaps at the head
+ * row, not just its center column, so a blocker at a cell boundary still
+ * stops it. Returns the capped feet height. */
+function stairCeilingCap(
+  solid: FpSolidGrid,
+  px: number,
+  py: number,
+  pz: number,
+): number {
+  const headCellY = Math.floor(py + FP_CAPSULE_HEIGHT + 0.5 - 1e-6);
+  if (headCellY < 0 || headCellY >= FP_ROWS) return py;
+  const r = FP_CAPSULE_RADIUS;
+  // The 1e-6 nudge drops cells the capsule only grazes at an exact
+  // boundary (matching resolveAxis's overlap-greater-than-zero skip), so a
+  // ceiling column the body merely touches does not falsely cap the climb.
+  const x0 = Math.max(0, Math.ceil(px - r - 0.5 + 1e-6));
+  const x1 = Math.min(FP_COLS - 1, Math.floor(px + r + 0.5 - 1e-6));
+  const gz0 = Math.max(0, Math.ceil(-(pz + r) - 0.5 + 1e-6));
+  const gz1 = Math.min(FP_DEPTH - 1, Math.floor(-(pz - r) + 0.5 - 1e-6));
+  for (let gz = gz0; gz <= gz1; gz++) {
+    for (let gx = x0; gx <= x1; gx++) {
+      if (fpCellBlocks(solid[fpCellIndex(gx, headCellY, gz)])) {
+        return Math.min(py, headCellY - 0.5 - FP_CAPSULE_HEIGHT);
+      }
+    }
+  }
+  return py;
+}
+
 export function stepFpMovement(
   state: FpMoveState,
   input: FpMoveInput,
@@ -283,4 +383,21 @@ export function stepFpMovement(
     state.vy = Math.min(0, state.vy);
   }
   if (resolveAxis(state, solid, Axis.Y)) state.grounded = true;
+
+  // Ride a staircase ramp: within a stair cell the sloped surface is the
+  // floor, so clamp the feet onto it (up while climbing, down while
+  // descending), leaving a jump off the stair intact. A ceiling cap keeps
+  // the head from riding into a solid cell above.
+  const rampFloor = stairRampFloor(solid, state.px, state.py, state.pz);
+  if (rampFloor !== null) {
+    if (state.py <= rampFloor) {
+      state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
+      if (state.vy < 0) state.vy = 0;
+      state.grounded = true;
+    } else if (state.vy <= 0) {
+      state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
+      state.vy = 0;
+      state.grounded = true;
+    }
+  }
 }

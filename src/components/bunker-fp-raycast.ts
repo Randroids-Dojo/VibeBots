@@ -1,4 +1,9 @@
 import {
+  allowedBunkerSlots,
+  type BasePartId,
+  type BunkerSlot,
+} from "@/sim/bunker";
+import {
   FP_DOOR_OWNED,
   FP_OPEN,
   FP_ROCK_UNDUG,
@@ -43,6 +48,66 @@ export const FP_FACE_POS_Y = 2;
 export const FP_FACE_NEG_Y = 3;
 export const FP_FACE_POS_Z = 4;
 export const FP_FACE_NEG_Z = 5;
+
+/**
+ * The place cell's slot on the shared divider with the hit cell, by the face
+ * the ray entered the hit cell through (F-117). The hit cell sits one step
+ * past the place cell; the divider between them is the place cell's face on
+ * that axis. A wall lands on that boundary; a floor/roof on the horizontal
+ * plane. (Ray stepped +x -> hit's NEG_X face -> divider is place's +x face.)
+ */
+const FP_FACE_SLOT: Record<number, BunkerSlot> = {
+  [FP_FACE_NEG_X]: "wall-px",
+  [FP_FACE_POS_X]: "wall-nx",
+  [FP_FACE_NEG_Z]: "wall-pz",
+  [FP_FACE_POS_Z]: "wall-nz",
+  [FP_FACE_NEG_Y]: "roof",
+  [FP_FACE_POS_Y]: "floor",
+};
+
+export interface FpPlacementSlot {
+  /** The slot to place on, or undefined for a whole-cell mount part. */
+  slot: BunkerSlot | undefined;
+  /** Whether the selected part may be placed against the aimed face at all. */
+  valid: boolean;
+}
+
+export function createFpPlacementSlot(): FpPlacementSlot {
+  return { slot: undefined, valid: false };
+}
+
+/**
+ * Resolve which sub-cell slot the selected part occupies if placed against
+ * the ray's entered face (F-117). A wall or door snaps to the wall slot on
+ * the aimed face; a floor or roof panel accepts only its matching horizontal
+ * face; a mount part (turret, spikes) ignores the face and places whole-cell.
+ * `valid` is false when the part cannot go on the aimed face, so the caller
+ * suppresses the ghost and the place action. Writes into `out` (default: a
+ * fresh record) so the frame loop can reuse one scratch and stay allocation
+ * free; `allowedBunkerSlots` itself allocates, so the caller should gate this
+ * on an (aimed-face, part) change rather than call it every frame.
+ */
+export function fpPlacementSlot(
+  face: number,
+  partId: BasePartId,
+  out: FpPlacementSlot = createFpPlacementSlot(),
+): FpPlacementSlot {
+  const allowed = allowedBunkerSlots(partId);
+  if (allowed.length === 1 && allowed[0] === "mount") {
+    out.slot = undefined;
+    out.valid = true;
+    return out;
+  }
+  const candidate = FP_FACE_SLOT[face];
+  if (candidate !== undefined && allowed.includes(candidate)) {
+    out.slot = candidate;
+    out.valid = true;
+    return out;
+  }
+  out.slot = undefined;
+  out.valid = false;
+  return out;
+}
 
 export interface FpRayHit {
   hit: boolean;

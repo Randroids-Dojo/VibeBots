@@ -1,5 +1,5 @@
 import type { BunkerRouteResponse } from "@/lib/bunker-api-types";
-import type { BasePartId, BunkerSkinId } from "@/sim/bunker";
+import type { BasePartId, BunkerSkinId, BunkerSlot } from "@/sim/bunker";
 import type { LiveRaidOutcomeReport } from "@/sim/bunker-raid-live";
 
 export type BunkerApiResult =
@@ -60,11 +60,12 @@ export function placeRemoteBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
   expectedRevision?: number,
 ) {
   return bunkerApi(
     "/api/bunker/parts/place",
-    jsonPost({ partId, col, row, depth, expectedRevision }),
+    jsonPost({ partId, col, row, depth, slot, expectedRevision }),
   );
 }
 
@@ -72,11 +73,12 @@ export function removeRemoteBunkerPart(
   col: number,
   row: number,
   depth = 0,
+  slot?: BunkerSlot,
   expectedRevision?: number,
 ) {
   return bunkerApi(
     "/api/bunker/parts/remove",
-    jsonPost({ col, row, depth, expectedRevision }),
+    jsonPost({ col, row, depth, slot, expectedRevision }),
   );
 }
 

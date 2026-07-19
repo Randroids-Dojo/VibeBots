@@ -4,7 +4,7 @@ import {
   withPlayerJsonRoute,
 } from "@/server/api-boundary";
 import { removeBunkerPart } from "@/server/bunker";
-import { BUNKER_CLAIM_DEPTH } from "@/sim/bunker";
+import { BUNKER_CLAIM_DEPTH, BUNKER_SLOTS } from "@/sim/bunker";
 
 export const runtime = "nodejs";
 
@@ -17,6 +17,9 @@ const bodySchema = z.object({
     .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1)
     .default(0),
+  // Thin sub-cell slot (F-117) to pry exactly; absent removes a legacy
+  // whole-cell part. The sim resolves the canonical wall face and cascades.
+  slot: z.enum(BUNKER_SLOTS).optional(),
   expectedRevision: z.number().int().nonnegative().optional(),
 });
 
@@ -32,6 +35,7 @@ export async function POST(request: Request): Promise<Response> {
           body.col,
           body.row,
           body.depth,
+          body.slot,
           body.expectedRevision,
         ),
         (result) => result.view,

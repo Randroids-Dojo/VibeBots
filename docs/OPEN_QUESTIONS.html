@@ -38,6 +38,23 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-029" data-status="resolved">
+    <h3>Q-029: How much of the Full E2E job budget should the internal deadline reserve?</h3>
+    <dl>
+      <dt>Context</dt><dd>F-131's internal Playwright deadline is computed as (20-minute job budget) minus (elapsed setup/build) minus a fixed reserve, so a timed-out shard fails with a written report and artifact upload before the GitHub job is cancelled. Too small a reserve risks the job being cancelled during teardown/upload (losing the evidence the deadline exists to preserve); too large wastes test time.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Reserve 150 seconds (teardown + HTML/JSON report generation + <code>upload-artifact</code>), floored at a 60s minimum test window.</li>
+          <li>Reserve a smaller 90 seconds to give the tests more time.</li>
+          <li>Reserve a larger 210 seconds for a bigger safety margin on slow runners.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. 150s comfortably covers report generation plus a bounded artifact upload on the standard GitHub runner while leaving the bulk of the budget for tests. B risks a cancel during a slow upload, defeating the purpose. C needlessly shortens the test window when uploads rarely approach that long. Revisit if a forced-timeout dispatch or a real timeout shows the upload step itself getting cancelled (raise the reserve) or consistently finishing with large idle margin (lower it).</dd>
+      <dt>Resolution</dt><dd>Shipped under recommended default A (150s reserve) per Rule 7 (documented default, no risky ambiguity requiring a blocking decision). Forced-timeout dispatch run 29532206397 concluded <code>failure</code> with all four Full E2E artifacts retained, so 150s left ample room for report generation and the upload on the standard runner. Revisit only on the trigger above: raise the reserve if a real timeout shows the upload itself getting cancelled, or lower it if uploads consistently finish with a large idle margin. The deadline floor is a 1s guard against <code>globalTimeout: 0</code> (unlimited), not part of the reserve budget.</dd>
+      <dt>Status</dt><dd>resolved (2026-07-16, shipped under default A)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-028" data-status="open">
     <h3>Q-028: How should the elevator outcome outbox be drained without a cron?</h3>
     <dl>

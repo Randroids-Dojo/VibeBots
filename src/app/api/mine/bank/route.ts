@@ -32,6 +32,7 @@ import {
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
   BUNKER_LAYOUT_VERSION,
+  BUNKER_SLOTS,
   type BunkerFootprint,
   type BunkerState,
   createBunker,
@@ -80,6 +81,10 @@ const placedBasePartSchema = z.object({
     .min(0)
     .max(BUNKER_CLAIM_DEPTH - 1)
     .default(0),
+  // Thin sub-cell slot (F-117); absent for a legacy whole-cell part. The
+  // claim replay re-places each part through the sim, which enforces the
+  // slot rules, then samePlacedParts confirms the layout round-trips.
+  slot: z.enum(BUNKER_SLOTS).optional(),
   durability: z.number().int().min(1).max(1000),
 });
 const dugBunkerCellSchema = z.object({
@@ -361,6 +366,7 @@ function samePlacedParts(
         part.col === other.col &&
         part.row === other.row &&
         part.depth === other.depth &&
+        part.slot === other.slot &&
         part.durability === other.durability
       );
     })
@@ -438,6 +444,7 @@ export function validatePendingBunkerClaim(
       part.col,
       part.row,
       part.depth,
+      part.slot,
     );
     if (!placed.ok) {
       return { ok: false, error: `cannot place bunker part: ${placed.reason}` };

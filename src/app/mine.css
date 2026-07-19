@@ -248,13 +248,15 @@
 }
 
 /* THE build entry point since the hammer toolbelt retired: a single
- * floating pill under the Bunker status trigger while the miner
- * stands inside an editable claim. */
+ * floating pill while the miner stands inside an editable claim. It
+ * takes the Bunker status trigger's slot (the trigger hides in that
+ * state, F-119 fold), which also keeps it clear of the consumable
+ * cluster when that row wraps on narrow phones. */
 .bunker-fp-enter-trigger {
   position: absolute;
   z-index: 10;
   left: 12px;
-  bottom: 104px;
+  bottom: 154px;
   min-height: 42px;
   padding: 0 16px;
   border: 1px solid #54e0c7;
@@ -1484,6 +1486,27 @@ button[data-bag-full-flash="true"] {
   position: absolute;
   z-index: 12;
   top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #54e0c7;
+  border-radius: 999px;
+  background: rgba(14, 20, 28, 0.92);
+  color: #8ef3df;
+  font-weight: 900;
+  font-size: 0.82rem;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Doorway to the status sheet from inside (F-119 fold): a pill under
+ * Exit, same chrome, since the flat view hides its collapsed Bunker
+ * trigger while the miner stands in the claim. */
+.bunker-fp-status {
+  position: absolute;
+  z-index: 12;
+  top: calc(62px + env(safe-area-inset-top));
   right: calc(12px + env(safe-area-inset-right));
   min-width: 44px;
   min-height: 44px;

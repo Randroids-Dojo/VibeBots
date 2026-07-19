@@ -36,6 +36,7 @@ import {
   BUNKER_CLAIM_DEPTH,
   BUNKER_RAID_DURATION_SECONDS,
   type BunkerFootprint,
+  type BunkerSlot,
   type BunkerState,
   CLANKER_BASE_BITE_DAMAGE,
   CLANKER_BITE_DAMAGE_PER_TIER,
@@ -124,13 +125,17 @@ export interface LiveRaidTurret {
 }
 
 /** Working copy of a part whose durability the raid mutates. Spikes carry
- * their remaining uses in `durability` too. */
+ * their remaining uses in `durability` too. `slot` is the thin sub-cell slot
+ * the part occupies (F-117): a cell can hold more than one wall (one per
+ * face), so wear and validation key on the exact slot, not the cell alone.
+ * Absent on legacy full-cell parts (at most one per cell). */
 export interface LiveRaidPart {
   partId: BasePartId;
   col: number;
   row: number;
   depth: number;
   durability: number;
+  slot?: BunkerSlot;
 }
 
 export interface LiveRaidXpPickup {
@@ -167,6 +172,20 @@ export interface LiveRaidState {
 
 function cellKey(col: number, row: number, depth: number): string {
   return `${col},${row},${depth}`;
+}
+
+/** Identity key for a single placed part. Unlike `cellKey`, this keeps two
+ * thin parts in the same cell (e.g. walls on two faces) distinct, so wear and
+ * validation never collapse them. Legacy full-cell parts carry no slot and
+ * are unique per cell already, so a stable "-" placeholder keeps their key
+ * unchanged from the old cell-keyed behavior. */
+function partKey(
+  col: number,
+  row: number,
+  depth: number,
+  slot: BunkerSlot | undefined,
+): string {
+  return `${col},${row},${depth},${slot ?? "-"}`;
 }
 
 function clankerBiteDamage(tier: number, kind: ClankerKind): number {
@@ -231,6 +250,7 @@ export function createLiveRaid(
       row: part.row,
       depth: part.depth,
       durability: part.durability,
+      slot: part.slot,
     }));
   const turrets: LiveRaidTurret[] = bunker.parts
     .filter((part) => part.partId === "basic-turret" && part.durability > 0)
@@ -795,22 +815,26 @@ export function validateLiveRaidOutcome(
     return { ok: false, reason: "reward-range" };
   }
   // The report must account for exactly the snapshot's blocking and spike
-  // parts, each mapped to a distinct cell with durability only ever reduced,
+  // parts, each mapped to a distinct slot with durability only ever reduced,
   // so a client cannot fabricate a defense, claim it took no damage where it
-  // did, or omit a damaged part to keep it pristine. Turrets are not
+  // did, or omit a damaged part to keep it pristine. Keyed by slot, not cell,
+  // so two thin walls sharing a cell stay distinct (F-117). Turrets are not
   // durability-tracked and are absent by design.
   const snapshotParts = new Map<string, number>();
   for (const part of bunker.parts) {
     const def = BASE_PART_CATALOG[part.partId];
     if (!def.blocksClankers && part.partId !== "floor-spikes") continue;
-    snapshotParts.set(cellKey(part.col, part.row, part.depth), part.durability);
+    snapshotParts.set(
+      partKey(part.col, part.row, part.depth, part.slot),
+      part.durability,
+    );
   }
   if (report.partWear.length !== snapshotParts.size) {
     return { ok: false, reason: "part-wear" };
   }
   const seen = new Set<string>();
   for (const worn of report.partWear) {
-    const key = cellKey(worn.col, worn.row, worn.depth);
+    const key = partKey(worn.col, worn.row, worn.depth, worn.slot);
     const original = snapshotParts.get(key);
     if (original === undefined || seen.has(key)) {
       return { ok: false, reason: "part-wear" };
@@ -856,12 +880,17 @@ export function settleLiveRaidOutcome(
   | { ok: false; reason: LiveRaidOutcomeRejection } {
   const valid = validateLiveRaidOutcome(bunker, tier, report);
   if (!valid.ok) return valid;
-  const wearByCell = new Map<string, number>();
+  const wearByPart = new Map<string, number>();
   for (const worn of report.partWear) {
-    wearByCell.set(cellKey(worn.col, worn.row, worn.depth), worn.durability);
+    wearByPart.set(
+      partKey(worn.col, worn.row, worn.depth, worn.slot),
+      worn.durability,
+    );
   }
   const parts = bunker.parts.map((part) => {
-    const worn = wearByCell.get(cellKey(part.col, part.row, part.depth));
+    const worn = wearByPart.get(
+      partKey(part.col, part.row, part.depth, part.slot),
+    );
     return worn === undefined ? part : { ...part, durability: worn };
   });
   const survived = report.outcome === "won";

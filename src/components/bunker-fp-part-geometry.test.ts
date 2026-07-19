@@ -21,6 +21,14 @@ const FULL_CELL_IDS = [
   "door-panel",
 ] as const;
 
+/** Thin sub-cell variants and the axis each is thin on (F-117). */
+const THIN_SPECS = [
+  { id: "wall-panel", thinAxis: "z" },
+  { id: "door-panel", thinAxis: "z" },
+  { id: "floor-panel", thinAxis: "y" },
+  { id: "roof-panel", thinAxis: "y" },
+] as const;
+
 /** Sealing edges must reach the cell boundary so neighbors tile. */
 const EDGE = 0.5 - 0.001;
 /** Nothing may poke past its own cell (plus float slack). */
@@ -99,6 +107,59 @@ describe("bunker fp part geometry", () => {
             expect(Number.isFinite(positions.getZ(i))).toBe(true);
           }
         }
+      }
+    });
+
+    // Thin sub-cell panels (F-117): a slab on one face/plane, built centered
+    // in a canonical axis (wall/door thin in z, floor/roof thin in y).
+    it(`${tier} tier thin panels are a slab within +-0.5, thin on one axis`, () => {
+      for (const { id, thinAxis } of THIN_SPECS) {
+        const { bounds } = bunkerPartFpGeometry(id, tier, true);
+        for (const axis of ["x", "y", "z"] as const) {
+          expect(bounds.min[axis], `${id}:min.${axis}`).toBeGreaterThanOrEqual(
+            -LIMIT,
+          );
+          expect(bounds.max[axis], `${id}:max.${axis}`).toBeLessThanOrEqual(
+            LIMIT,
+          );
+        }
+        const extent = {
+          x: bounds.max.x - bounds.min.x,
+          y: bounds.max.y - bounds.min.y,
+          z: bounds.max.z - bounds.min.z,
+        };
+        // Thin on its own axis, spanning the cell on the other two.
+        expect(extent[thinAxis], `${id}:thin`).toBeLessThan(0.3);
+        for (const axis of ["x", "y", "z"] as const) {
+          if (axis === thinAxis) continue;
+          expect(extent[axis], `${id}:span.${axis}`).toBeGreaterThan(0.8);
+        }
+      }
+    });
+
+    it(`${tier} tier thin panels stay under the triangle cap and are finite`, () => {
+      const cap = tier === "low" ? 1200 : 2400;
+      for (const { id } of THIN_SPECS) {
+        const model = bunkerPartFpGeometry(id, tier, true);
+        expect(model.triangleCount, `${tier}:${id}`).toBeGreaterThan(0);
+        expect(model.triangleCount, `${tier}:${id}`).toBeLessThanOrEqual(cap);
+        expect(model.motionLayers).toHaveLength(0);
+        for (const layer of model.layers) {
+          const positions = layer.geometry.getAttribute("position");
+          for (let i = 0; i < positions.count; i++) {
+            expect(Number.isFinite(positions.getX(i))).toBe(true);
+            expect(Number.isFinite(positions.getY(i))).toBe(true);
+            expect(Number.isFinite(positions.getZ(i))).toBe(true);
+          }
+        }
+      }
+    });
+
+    it(`${tier} tier caches the thin variant apart from the full-cell one`, () => {
+      for (const { id } of THIN_SPECS) {
+        const thin = bunkerPartFpGeometry(id, tier, true);
+        expect(thin).toBe(bunkerPartFpGeometry(id, tier, true));
+        expect(thin).not.toBe(bunkerPartFpGeometry(id, tier, false));
       }
     });
   }

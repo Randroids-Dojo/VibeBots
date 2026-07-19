@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="canonical-host-redirect" data-date="2026-07-19">
+    <h3>Redirect *.vercel.app alias traffic to the canonical domain</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>canonical-host-redirect</code>, created from current <code>origin/main</code> (<code>0e32e4e5</code>).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Production visits through a Vercel alias host (<code>vibe-bots.vercel.app</code>, the git-main alias, raw deployment URLs) broke sign-in: the production Clerk instance is domain-locked to <code>vibebots.randroid.dev</code>, so clerk-js failed with <q>unable to attribute this request</q> and <code>/sign-in</code> rendered blank. Reproduced live on <code>vibe-bots.vercel.app/sign-in</code> while the canonical domain worked. Added <code>src/server/canonical-redirects.ts</code>: a build-time Next redirect, included only when <code>VERCEL_ENV</code> is <code>production</code>, that 308s every <code>*.vercel.app</code> host to the canonical domain with path and query preserved. Preview deployments and local builds are unaffected because the rule is absent from their builds. Playtest driver defaults (<code>scripts/playtest-mine*.mjs</code>) now point at <code>vibebots.randroid.dev</code> so they no longer depend on redirect-following through the alias.</dd>
+      <dt>Verification</dt><dd>New Vitest coverage for the env gate, redirect shape, and host pattern (matches all four observed alias shapes, rejects the canonical host and localhost). <code>pnpm typecheck</code>; <code>pnpm exec biome check</code> on touched files; dash grep clean; <code>git diff --check</code>. End to end: <code>VERCEL_ENV=production pnpm build</code> plus <code>next start</code> on an isolated port returned 308 to <code>https://vibebots.randroid.dev/sign-in?foo=1</code> for an alias Host header with the query preserved, 308 for the git-main alias on <code>/mine</code>, and normal app responses for the canonical host and localhost.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: one host rule for every route rather than a per-page login-button disable, per the working agreement's consistent-flow preference. Guests who had progress on an alias origin land on the canonical origin's guest cookie; treated as acceptable canonicalization fallout.</dd>
+      <dt>GDD coverage</dt><dd>No coverage statuses changed.</dd>
+      <dt>Followups</dt><dd>None added. Stamp review: no stamp, infrastructure fix. Tip review: no version bump, tips unchanged.</dd>
+    </dl>
+  </article>
+
   <article data-slice="atomic-bunker-part-inventory-writes" data-date="2026-07-19">
     <h3>Bunker part edits persist their inventory change atomically (F-171)</h3>
     <dl>

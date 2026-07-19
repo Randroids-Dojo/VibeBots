@@ -3,7 +3,7 @@
 // juice slices deploy. Also proves moving pixels per AGENTS Rule 10.
 import { chromium } from "@playwright/test";
 
-const BASE = process.env.PLAYTEST_BASE ?? "https://vibe-bots.vercel.app";
+const BASE = process.env.PLAYTEST_BASE ?? "https://vibebots.randroid.dev";
 const OUT = process.argv[2];
 if (!OUT) {
   console.error("usage: node scripts/playtest-mine-full.mjs <captures-dir>");

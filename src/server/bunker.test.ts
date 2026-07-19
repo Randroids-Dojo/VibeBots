@@ -1437,6 +1437,262 @@ describe("banked edit revision guard (F-122)", () => {
   });
 });
 
+describe("atomic bunker part and inventory writes (F-171)", () => {
+  // The query-string mock cannot execute the CTE, so these prove the
+  // app-level contract that closes the winner-side partial-write and the
+  // blind-snapshot clobber: exactly one data-modifying inventory statement is
+  // issued, it carries the change as a DELTA (count + EXCLUDED.count) with the
+  // non-negative guard, and a losing guard resyncs with no separate write. The
+  // all-or-nothing commit itself is a property of the single Postgres
+  // statement, which a mock cannot run.
+  type Call = { query: string; values: unknown[] };
+  function atomicSql(opts: {
+    parts?: unknown[];
+    dug?: unknown[];
+    inventory?: Array<{ part_id: string; count: number }>;
+    revision?: number;
+    writeWins?: boolean;
+  }) {
+    const calls: Call[] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        calls.push({ query, values });
+        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+          return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+        }
+        if (query.includes("SELECT footprint, parts")) {
+          return [
+            {
+              footprint: { col: 1, row: 4, width: 7, height: 5 },
+              parts: opts.parts ?? [],
+              dug: opts.dug ?? [],
+              block_seed: 123,
+              loot: [],
+              skin: null,
+              skins_owned: [],
+              revision: opts.revision ?? 3,
+              layout_version: BUNKER_LAYOUT_VERSION,
+            },
+          ];
+        }
+        if (query.includes("SELECT snapshot")) return [];
+        if (query.includes("SELECT part_id, count")) {
+          return opts.inventory ?? [{ part_id: "wall-panel", count: 5 }];
+        }
+        // The single atomic combined write is the only statement that carries
+        // jsonb_to_recordset. A row means the guarded write won.
+        if (query.includes("jsonb_to_recordset")) {
+          return opts.writeWins === false ? [] : [{ player_id: "player-1" }];
+        }
+        return [];
+      },
+    );
+    return { sql, calls };
+  }
+
+  // The starter backfill inserts with VALUES (no ON CONFLICT), so filtering on
+  // the conflict clause isolates the one atomic delta upsert.
+  const conflictWrites = (calls: Call[]) =>
+    calls.filter((c) => c.query.includes("ON CONFLICT (player_id, part_id)"));
+
+  it("places by debiting one part as a delta in a single atomic statement", async () => {
+    const { sql, calls } = atomicSql({
+      dug: [
+        { col: 2, row: 5, depth: 1 },
+        { col: 2, row: 5, depth: 2 },
+        { col: 2, row: 5, depth: 3 },
+      ],
+      inventory: [{ part_id: "wall-panel", count: 5 }],
+      revision: 3,
+    });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      2,
+      5,
+      3,
+      undefined,
+      undefined,
+      3,
+    );
+    expect(result.ok).toBe(true);
+
+    const conflicts = conflictWrites(calls);
+    expect(conflicts).toHaveLength(1);
+    const write = conflicts[0];
+    // One statement holds both the guarded parts write and the inventory
+    // change, so there is no window where parts land without their debit.
+    expect(write.query).toContain("jsonb_to_recordset");
+    expect(write.query).toContain("UPDATE bunkers");
+    // Inventory moves by delta, so a concurrent purchase is added to, never
+    // overwritten by a stale absolute snapshot.
+    expect(write.query).toContain(
+      "count = player_base_parts.count + EXCLUDED.count",
+    );
+    // A debit that would drop a stored count below zero is rejected in the
+    // same statement.
+    expect(write.query).toContain("COALESCE(p.count, 0) + i.delta < 0");
+    // The bound delta is exactly the one-part debit.
+    expect(JSON.parse(String(write.values[0]))).toEqual([
+      { part_id: "wall-panel", delta: -1 },
+    ]);
+  });
+
+  it("removes by refunding one part as a +1 delta in the same statement", async () => {
+    const { sql, calls } = atomicSql({
+      parts: [
+        { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
+      ],
+      inventory: [{ part_id: "wall-panel", count: 2 }],
+      revision: 3,
+    });
+    const result = await removeBunkerPart(
+      sql as never,
+      "player-1",
+      2,
+      5,
+      0,
+      undefined,
+      3,
+    );
+    expect(result.ok).toBe(true);
+    const conflicts = conflictWrites(calls);
+    expect(conflicts).toHaveLength(1);
+    expect(JSON.parse(String(conflicts[0].values[0]))).toEqual([
+      { part_id: "wall-panel", delta: 1 },
+    ]);
+  });
+
+  it("moves with zero inventory deltas in one atomic statement", async () => {
+    const { sql, calls } = atomicSql({
+      parts: [
+        { partId: "wall-panel", col: 2, row: 5, depth: 1, durability: 90 },
+      ],
+      // Both the source and the target cell are dug open so the whole-cell
+      // move lands.
+      dug: [
+        { col: 2, row: 5, depth: 1 },
+        { col: 3, row: 5, depth: 1 },
+      ],
+      inventory: [{ part_id: "wall-panel", count: 2 }],
+      revision: 3,
+    });
+    const result = await moveBunkerPart(
+      sql as never,
+      "player-1",
+      2,
+      5,
+      3,
+      5,
+      1,
+      1,
+      3,
+    );
+    expect(result.ok).toBe(true);
+    const conflicts = conflictWrites(calls);
+    expect(conflicts).toHaveLength(1);
+    // A move changes no inventory: the atomic write carries an empty delta set.
+    expect(JSON.parse(String(conflicts[0].values[0]))).toEqual([]);
+  });
+
+  it("409s a losing guard with no separate inventory write", async () => {
+    const { sql, calls } = atomicSql({
+      dug: [
+        { col: 2, row: 5, depth: 1 },
+        { col: 2, row: 5, depth: 2 },
+        { col: 2, row: 5, depth: 3 },
+      ],
+      inventory: [{ part_id: "wall-panel", count: 5 }],
+      revision: 3,
+      // The guarded combined write matches zero rows (a concurrent edit won,
+      // or the debit was impossible).
+      writeWins: false,
+    });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      2,
+      5,
+      3,
+      undefined,
+      undefined,
+      3,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-revision-conflict");
+    }
+    // The atomic statement is the only inventory write, and it changed nothing
+    // when it lost, so neither parts nor inventory can drift out of step.
+    expect(conflictWrites(calls)).toHaveLength(1);
+    expect(
+      calls.some(
+        (c) =>
+          c.query.includes("ON CONFLICT (player_id, part_id)") &&
+          !c.query.includes("jsonb_to_recordset"),
+      ),
+    ).toBe(false);
+  });
+
+  it("propagates an injected write failure with no partial second write", async () => {
+    const calls: Call[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      calls.push({ query, values: [] });
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 200, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint: { col: 1, row: 4, width: 7, height: 5 },
+            parts: [],
+            dug: [
+              { col: 2, row: 5, depth: 1 },
+              { col: 2, row: 5, depth: 2 },
+              { col: 2, row: 5, depth: 3 },
+            ],
+            block_seed: 123,
+            loot: [],
+            skin: null,
+            skins_owned: [],
+            revision: 3,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) {
+        return [{ part_id: "wall-panel", count: 5 }];
+      }
+      if (query.includes("jsonb_to_recordset")) {
+        throw new Error("db down mid-write");
+      }
+      return [];
+    });
+    await expect(
+      placeBunkerPart(
+        sql as never,
+        "player-1",
+        "wall-panel",
+        2,
+        5,
+        3,
+        undefined,
+        undefined,
+        3,
+      ),
+    ).rejects.toThrow("db down");
+    // Only the single combined write was attempted: there is no separate
+    // inventory statement that could have committed on its own.
+    expect(conflictWrites(calls)).toHaveLength(1);
+  });
+});
+
 describe("layout-incompatible bunker fail-fast (F-117)", () => {
   // A legacy bunker row: it carries built parts but no layout_version, so it
   // parses as version 0 and reads as incompatible with the current model.

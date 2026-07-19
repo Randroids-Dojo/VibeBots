@@ -828,6 +828,7 @@ export async function placeBunkerPart(
     sql,
     playerId,
     placed.bunker,
+    view.inventory,
     placed.inventory,
     expected,
   );
@@ -872,6 +873,7 @@ export async function removeBunkerPart(
     sql,
     playerId,
     removed.bunker,
+    view.inventory,
     removed.inventory,
     expected,
   );
@@ -911,10 +913,13 @@ export async function moveBunkerPart(
   if (!moved.ok) {
     return { ok: false, status: 409, error: `cannot move: ${moved.reason}` };
   }
+  // A move changes no inventory (previous equals next), so the atomic write
+  // carries zero deltas and only the guarded parts UPDATE lands.
   const won = await saveBunkerAndInventory(
     sql,
     playerId,
     moved.bunker,
+    view.inventory,
     view.inventory,
     expected,
   );
@@ -1065,30 +1070,86 @@ async function saveBasePartInventory(
 }
 
 /**
- * Persist a banked part edit under the optimistic-concurrency guard
- * (F-122). The parts write only lands when the stored revision still
- * equals `expectedRevision`; it bumps the revision so exactly one edit
- * from a given expected revision can win. Returns whether the write won,
- * so the caller can 409 a loser without touching inventory.
+ * Persist a banked part edit and its inventory change in ONE atomic
+ * database operation (F-171). The old two-step write (guarded parts
+ * UPDATE, then a separate loop of absolute-count inventory upserts) had a
+ * winner-side partial-write window: if an inventory statement failed after
+ * the parts write already committed, a placement could land with no debit
+ * or a removal with no refund. Absolute writes also clobbered a concurrent
+ * purchase with the stale loaded snapshot.
+ *
+ * This closes both. Neon runs a single SQL statement in one implicit
+ * transaction, so the guarded parts write and the inventory deltas commit
+ * together or not at all. The `guard` CTE checks, against the pre-write
+ * snapshot, that no debit would drive a stored count below zero; the parts
+ * UPDATE keeps the optimistic revision guard (F-122) and is additionally
+ * gated on that check; and the inventory upsert is gated on the parts write
+ * landing. So a lost revision or an impossible debit changes neither side.
+ *
+ * Inventory moves by DELTA (`count = count + delta`), not by a previously
+ * loaded absolute value, so a concurrent purchase that raised a count in
+ * between is added to rather than overwritten. `ensureStarterBaseParts`
+ * guarantees every owned part has a row; a fresh row (a first-time refund)
+ * inserts the delta directly, which the same non-negative guard keeps >= 0.
+ *
+ * Returns whether the guarded write won, so the caller can 409 a loser
+ * (revision conflict or rejected debit) with the reloaded authoritative
+ * view. `bunker.parts` is the only bunker column this path writes.
  */
 async function saveBunkerAndInventory(
   sql: Sql,
   playerId: string,
   bunker: BunkerState,
-  inventory: BasePartInventory,
+  previousInventory: BasePartInventory,
+  nextInventory: BasePartInventory,
   expectedRevision: number,
 ): Promise<boolean> {
+  // The exact per-part change this edit applies: a place debits one part
+  // (-1), a remove refunds one (+1), a move changes nothing. Only non-zero
+  // deltas are written.
+  const deltas: Array<{ part_id: string; delta: number }> = [];
+  const partIds = new Set<string>([
+    ...Object.keys(previousInventory),
+    ...Object.keys(nextInventory),
+  ]);
+  for (const partId of partIds) {
+    const delta =
+      (nextInventory[partId as BasePartId] ?? 0) -
+      (previousInventory[partId as BasePartId] ?? 0);
+    if (delta !== 0) deltas.push({ part_id: partId, delta });
+  }
   const won = (await sql`
-    UPDATE bunkers
-    SET parts = ${JSON.stringify(bunker.parts)}::jsonb,
-        revision = revision + 1,
-        updated_at = now()
-    WHERE player_id = ${playerId}
-      AND revision = ${expectedRevision}
-    RETURNING player_id`) as Array<{ player_id: string }>;
-  if (won.length === 0) return false;
-  await saveBasePartInventory(sql, playerId, inventory);
-  return true;
+    WITH input AS (
+      SELECT part_id, delta
+      FROM jsonb_to_recordset(${JSON.stringify(deltas)}::jsonb)
+        AS d(part_id text, delta int)
+    ), guard AS (
+      SELECT NOT EXISTS (
+        SELECT 1 FROM input i
+        LEFT JOIN player_base_parts p
+          ON p.player_id = ${playerId} AND p.part_id = i.part_id
+        WHERE COALESCE(p.count, 0) + i.delta < 0
+      ) AS inventory_ok
+    ), bunker_update AS (
+      UPDATE bunkers
+      SET parts = ${JSON.stringify(bunker.parts)}::jsonb,
+          revision = revision + 1,
+          updated_at = now()
+      WHERE player_id = ${playerId}
+        AND revision = ${expectedRevision}
+        AND (SELECT inventory_ok FROM guard)
+      RETURNING player_id
+    ), inventory_update AS (
+      INSERT INTO player_base_parts (player_id, part_id, count)
+      SELECT ${playerId}, i.part_id, i.delta
+      FROM input i
+      WHERE EXISTS (SELECT 1 FROM bunker_update)
+      ON CONFLICT (player_id, part_id)
+      DO UPDATE SET count = player_base_parts.count + EXCLUDED.count
+      RETURNING part_id
+    )
+    SELECT player_id FROM bunker_update`) as Array<{ player_id: string }>;
+  return won.length > 0;
 }
 
 /**

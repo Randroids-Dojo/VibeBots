@@ -226,6 +226,19 @@
     </dl>
   </article>
 
+  <article data-slice="perf-fp-trace-proof-correction" data-date="2026-07-17">
+    <h3>Keep the missing first-person trace proof visible</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f203-fp-trace-proof</code></dd>
+      <dt>PR</dt><dd>Successor correction for PR #253, final head <code>e83bd1c0</code>, merge <code>8e4da70f</code>.</dd>
+      <dt>Changed</dt><dd>Append-only correction to the F-101 closure: the source-aware diagnostic allowlist landed, but the retained test is synthetic and proves only an idle object. <a href="FOLLOWUPS.html#F-203">F-203</a> now owns real browser payload proof for bounded diagnostics, rejected keys, and idle-to-held <code>fpSwinging</code>.</dd>
+      <dt>Verification</dt><dd>Exact-main CI run <code>29583841663</code>, CodeQL run <code>29583840907</code>, and production deployment <code>DwqqceWybMSsyxTQhE2p3u9wghTy</code> succeeded for merge <code>8e4da70f</code>. Full E2E remained skipped, so those gates did not execute the browser proof required by F-101. The 15 targeted Vitest cases passed but cannot prove the registered probe or network payload.</dd>
+      <dt>Assumptions</dt><dd>None. This correction separates the landed allowlist from its missing end-to-end acceptance.</dd>
+      <dt>GDD coverage</dt><dd>No row change: telemetry tooling only.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-203">F-203</a> remains open. Preserve the archived F-101 Dot as historical closure evidence.</dd>
+    </dl>
+  </article>
+
   <article data-slice="perf-fp-diagnostics" data-date="2026-07-17">
     <h3>Preserve first-person diagnostics in performance traces</h3>
     <dl>

@@ -1263,13 +1263,20 @@
       "id": "REQ-048",
       "requirement": "A claimed bunker has one flat-view entry affordance and one in-bunker menu for raid, repair, skin, and safe confirmed reset actions on touch and desktop.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "not_started",
-      "implementationRefs": [],
-      "testRefs": [],
+      "status": "partial",
+      "implementationRefs": [
+        "src/components/mine-bunker-control-panel.tsx",
+        "src/components/bunker-fp-hud.tsx",
+        "src/components/mine-panel.tsx"
+      ],
+      "testRefs": [
+        "tests/e2e/mine-bunker-fp.spec.ts"
+      ],
       "followupRefs": [
         "F-119",
         "F-120"
-      ]
+      ],
+      "notes": "Reconciled 2026-07-19 from not_started to reflect shipped state: the flat-view Enter bunker pill (mine-bunker-control-panel) is the single entry affordance, and the in-bunker first-person HUD carries the raid-start control plus an Upkeep button (top right) that opens repair, skins, and a confirmed Reset. Held at partial because full first-person control parity across touch and desktop is still tracked by F-119."
     }
   ]
 }

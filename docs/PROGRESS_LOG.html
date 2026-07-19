@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-upkeep-rename-and-trim" data-date="2026-07-18">
+    <h3>Rename the in-bunker menu to Upkeep and trim it to its real actions</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/load-animation-hud-overlap-3sefcn</code> (restarted from main after PR #264 merged).</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>User design pass on the sheet the first-person Bunker button opens (F-119 continuation). The button said <q>Bunker</q> while standing in the bunker, and the sheet led with claim-era status theater. The menu is now <q>Upkeep</q> everywhere (fp button, flat collapsed trigger, sheet title, aria names <q>Open/Dismiss bunker upkeep</q> and region <q>Bunker upkeep</q>), and its content is trimmed to what a player acts on: vibes balance, Repair, Skins, and a demoted compact Reset (two-step confirm unchanged, armed state stays hot). Cut: the <q>Underground claim</q> kicker, the header Lv badge, the <q>Enter the bunker to build inside</q> instructional line for a current bunker (the Enter pill is the affordance; the line survives only for the old-layout fail-fast and the claim flow), and the large level card, replaced by a one-line <q>Level X/Y, Defense XP, Beacon cap</q> readout that keeps the <q>Player level progress</q> accessible name. Dead kicker/level-card CSS removed; boxed-in hint and tutorial closer copy repointed at Upkeep.</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean, full type-check, full unit suite green (1736). E2e name references updated across four specs; the claim-flow assertion now checks the trimmed upkeep view. Per the user's direction the e2e suites are deferred to the scheduled full matrix.</dd>
+      <dt>Assumptions</dt><dd>One name for the menu in every entry path (Rule 7); the claim-mode sheet keeps its own title (<q>Claim a bunker</q>) since claiming is a different journey. The in-fp overlay version of Upkeep (repair and skins over the live canvas, Reset keeping the exit) is the agreed next step, not this slice. No package bump (label and layout trim, same call as PR #217/#264); Rule 13: the sealed-in reset tip now names the Upkeep menu, rest of the rotation reviewed unchanged; Rule 14: no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No row change. Build-log entry appended to <code>docs/gdd/08-base-building.html</code>.</dd>
+      <dt>Followups</dt><dd>F-119 progress appended (naming and content pass on the fold's sheet). No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-fullcell-retirement" data-date="2026-07-18">
     <h3>Retire the legacy whole-cell fallback for sealing parts</h3>
     <dl>

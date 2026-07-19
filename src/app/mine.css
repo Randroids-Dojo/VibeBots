@@ -61,7 +61,6 @@
 .bunker-status-heading,
 .bunker-status-heading > div,
 .bunker-status-actions,
-.bunker-level-label-row,
 .bunker-result {
   display: flex;
 }
@@ -85,14 +84,6 @@
   font-size: 1rem;
 }
 
-.bunker-status-kicker {
-  color: #8b93a7;
-  font-size: 0.62rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .bunker-status-close {
   border: 1px solid #5b6680;
   border-radius: 8px;
@@ -111,40 +102,12 @@
   font-size: 0.76rem;
 }
 
-.bunker-level-card {
-  margin: 9px 0;
-  border: 1px solid rgba(84, 224, 199, 0.34);
-  border-radius: 10px;
-  background: rgba(84, 224, 199, 0.08);
-  padding: 8px;
-}
-
-.bunker-level-label-row {
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 0.74rem;
-}
-
-.bunker-level-beacon {
-  color: #f5c542;
-}
-
-.bunker-level-card small {
+/* One-line level readout: glance data only, no card, no bar. The
+ * actionable level surface is the raid tier stepper in first person. */
+.bunker-level-line {
+  margin: 8px 0;
   color: #aeb8ce;
-}
-
-.bunker-level-track {
-  height: 6px;
-  overflow: hidden;
-  margin: 7px 0 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.bunker-level-track span {
-  display: block;
-  height: 100%;
-  background: #54e0c7;
+  font-size: 0.74rem;
 }
 
 .bunker-result {
@@ -201,14 +164,15 @@
 /* Reset-bunker row (F-093): mirrors the repair button but reads as a
  * destructive action; the armed confirm state turns hot. */
 .bunker-reset-button {
-  width: 100%;
-  margin-top: 6px;
-  padding: 10px;
+  display: block;
+  margin: 10px 0 0 auto;
+  padding: 6px 10px;
   border-radius: 8px;
   border: 1px solid #4a2c2c;
-  background: rgba(33, 18, 18, 0.85);
-  color: #e0a99f;
+  background: transparent;
+  color: #c98d84;
   font-weight: 600;
+  font-size: 0.72rem;
 }
 
 .bunker-reset-button[aria-pressed="true"] {

@@ -35,6 +35,7 @@ import {
   BUNKER_SLOTS,
   type BunkerFootprint,
   type BunkerState,
+  bunkerOrientationSchema,
   createBunker,
   EMPTY_BASE_PART_INVENTORY,
   excavateBunkerCell,
@@ -87,9 +88,7 @@ const placedBasePartSchema = z.object({
   slot: z.enum(BUNKER_SLOTS).optional(),
   // Facing for a rotatable part (F-117 stair), quarter turns 0-3; absent on
   // fixed-orientation parts. Replayed through the sim and round-trip checked.
-  orientation: z
-    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
-    .optional(),
+  orientation: bunkerOrientationSchema.optional(),
   durability: z.number().int().min(1).max(1000),
 });
 const dugBunkerCellSchema = z.object({

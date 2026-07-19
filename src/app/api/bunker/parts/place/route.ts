@@ -4,7 +4,12 @@ import {
   withPlayerJsonRoute,
 } from "@/server/api-boundary";
 import { placeBunkerPart } from "@/server/bunker";
-import { BASE_PART_IDS, BUNKER_CLAIM_DEPTH, BUNKER_SLOTS } from "@/sim/bunker";
+import {
+  BASE_PART_IDS,
+  BUNKER_CLAIM_DEPTH,
+  BUNKER_SLOTS,
+  bunkerOrientationSchema,
+} from "@/sim/bunker";
 
 export const runtime = "nodejs";
 
@@ -23,9 +28,7 @@ const bodySchema = z.object({
   slot: z.enum(BUNKER_SLOTS).optional(),
   // Facing for a rotatable part (F-117 stair), as quarter turns 0-3. Absent
   // on every fixed-orientation part; the sim only records it where used.
-  orientation: z
-    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
-    .optional(),
+  orientation: bunkerOrientationSchema.optional(),
   expectedRevision: z.number().int().nonnegative().optional(),
 });
 

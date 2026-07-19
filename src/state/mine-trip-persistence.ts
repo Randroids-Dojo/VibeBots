@@ -151,6 +151,52 @@ export function removeLocalTrip(slot: SaveSlotId): void {
   }
 }
 
+const RAIL_RESYNC_BLOCK_PREFIX = "vibebots-rail-resync-blocked-slot-";
+
+function railResyncBlockKey(slot: SaveSlotId): string {
+  return `${RAIL_RESYNC_BLOCK_PREFIX}${slot}`;
+}
+
+/**
+ * Whether a slot's rail-buy block is persisted (F-121). The block means the
+ * local rail is known stale after a failed conflict resync; persisting it lets
+ * the gate survive a page reload so an offline reload does not silently re-enable
+ * a buy against the stale rail. It clears only when a full server-authority
+ * resync (Retry) or an accepted buy reconciles the rail (see the store).
+ */
+export function loadRailResyncBlock(slot: SaveSlotId): boolean {
+  try {
+    return localStorage.getItem(railResyncBlockKey(slot)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether ANY slot has a persisted rail-buy block. Used to fail closed on an
+ * offline load whose active slot is not yet confirmed: a failed resync deletes
+ * the local trip and can leave a marker on a slot the cold store has not
+ * resolved to yet (it defaults to slot 1 until the server slot list loads), so
+ * reading only the assumed slot would miss another slot's block and re-enable a
+ * buy. Two slots can share a rail depth, so the server depth guard is not a
+ * sufficient backstop (F-121).
+ */
+export function anyRailResyncBlock(): boolean {
+  return SAVE_SLOT_IDS.some((slot) => loadRailResyncBlock(slot));
+}
+
+export function saveRailResyncBlock(slot: SaveSlotId, blocked: boolean): void {
+  try {
+    if (blocked) {
+      localStorage.setItem(railResyncBlockKey(slot), "1");
+    } else {
+      localStorage.removeItem(railResyncBlockKey(slot));
+    }
+  } catch {
+    // Storage blocked: the block still holds in memory for this session.
+  }
+}
+
 export function replaySavedTrip(
   saved: SavedTrip,
   baseDiff: WorldDiff,

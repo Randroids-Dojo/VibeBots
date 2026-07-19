@@ -62,6 +62,13 @@ export const ELEVATOR_REASON_CODES = [
   "elevator-rail-at-bottom",
   /** A guarded write lost a race with no clearer cause; retryable (409). */
   "elevator-concurrent-loss",
+  /**
+   * The request id already produced a committed outcome, so this is a replay of
+   * an already-applied buy (a lost-success retry that reused its request id).
+   * The mutation is deduplicated (no second charge or row) and the client adopts
+   * the authoritative state (409). See F-121's durable outbox.
+   */
+  "elevator-duplicate-request",
 ] as const;
 
 export type ElevatorReasonCode = (typeof ELEVATOR_REASON_CODES)[number];

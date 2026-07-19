@@ -4,10 +4,12 @@
 <meta charset="utf-8">
 <title>F-101 Preserve first-person performance diagnostics</title>
 <meta name="dot-title" content="F-101 Preserve first-person performance diagnostics">
-<meta name="dot-status" content="open">
+<meta name="dot-status" content="closed">
 <meta name="dot-priority" content="2">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-13T23:00:33.677722-05:00">
+<meta name="dot-closed-at" content="2026-07-17T08:20:23.375434-05:00">
+<meta name="dot-close-reason" content="Source-aware diagnostic allowlist: bunker-fp traces retain fpEyeY/fpOpenCells/fpGrounded/fpSwinging, aim data rejected, allocation-free; tests pass">
 <meta name="dot-block" content="VibeBots-f-174-fail-5173ceb0">
 <meta name="dot-block" content="VibeBots-f-103-keep-1f174f99">
 </head>
@@ -15,6 +17,31 @@
 <article>
 <h1>F-101 Preserve first-person performance diagnostics</h1>
 <section id="description">
+Retain allocation-safe bunker context in performance snapshots: eye height, open cells, grounded state, held mining, live-raid activity, and visible Clanker count. Keep values bounded and low-cardinality, exclude coordinates and Clanker-kind strings, and prove idle, mining, and raid payloads with unit and trace coverage.
+</section>
+<section id="live-raid-telemetry-2026-07-15">
+Retain fpSwinging plus bounded fpRaidActive and fpClankersAlive through the bunker-fp dataset, source-aware allowlist, payload, persistence, and insights path. Keep raid IDs, positions, and cell keys out of telemetry.
+</section>
+<section id="render-probe-correction-2026-07-15">
+Do not treat fpClankersVisible or group.visible as player-visible proof. Retain authoritative bounded fpClankersAlive for bunker-fp telemetry and keep pixel render QA separate.
+</section>
+<section id="production-telemetry-gap-pr-221">
+Main c84a4403 deployed live first-person raids while the performance path still drops fpEyeY, fpOpenCells, fpGrounded, fpSwinging, fpRaidActive, and fpClankersAlive. Carry those bounded fields through the source-aware allowlist, payload, persistence, and insights rollup, then confirm production byBuild separates idle, building, combat, and terminal samples without high-cardinality data.
+</section>
+<section id="current-main-telemetry-confirmation-pr-224-audit">
+Exact main 98d269ee labels first-person samples bunker-fp, but perf-probe.ts still uses a mine-only CANVAS_DIAGNOSTIC_KEYS list. collectCanvasDiagnostics silently drops every bunker-specific field, including all six approved F-101 fields. Keep F-101 open for bounded performance context and F-109 open for server lifecycle outcomes until persistence and byBuild prove both paths.
+</section>
+<section id="telemetry-evidence-precision-correction-pr-223">
+The current-main confirmation above overstates the runtime inventory. Exact main publishes fpEyeY, fpOpenCells, fpGrounded, and fpSwinging, and the mine-only allowlist drops those four. fpRaidActive and fpClankersAlive are absent from the runtime dataset and still need to be added. Carry all six through the source-aware payload, persistence, insights, and byBuild proof.
+</section>
+<section id="trace-ingestion-allowlist-boundary-pr-223">
+The client collector is not the complete boundary. Exact main's performance trace route accepts and persists up to twenty arbitrary diagnostic keys per snapshot with arbitrary short-string values, so a stale or direct caller can bypass the helper allowlist. Enforce source-specific key and value schemas before persistence. Keep diagnostics optional. Pin booleans to canonical 0 or 1, open cells to canonical integers from 0 through 175, live Clankers to canonical integers from 0 through 14, and fpEyeY to a canonical two-decimal finite value from 0.22 through 4.27. Give approved mine keys their own bounded domains. Reject unknown, cross-source, malformed, out-of-range, known-but-unapproved fpClankersVisible, raw horizontal position or pose, target, raid-ID, and cell-key fields. Route tests must prove accepted values and no write on every rejection.
+</section>
+<section id="mine-diagnostic-schema-matrix-pr-223-review">
+For source mine, allow exactly frameMs, particleCount, renderedCellCount, crackSegmentCount, teeterCount, gasWispCount, renderBelow, litBelow, renderRadius, timeOfDay, camY, and camZoom. frameMs is a nonnegative canonical one-decimal finite value capped at 60000.0. The five count fields are canonical nonnegative integers capped at 360, 2340, 37440, 2340, and 2340. renderBelow and renderRadius are equal canonical integers from 6 through 22. litBelow is one of 3, 5, 7, 9, 11, 13, 15, or 17. timeOfDay is night, dawn, day, or dusk. camY is a canonical two-decimal value from -999.00 through 0.06, derived from MINE_BOTTOM_ROW and the surface camera lift. camZoom is a canonical two-decimal value from 0.72 through 3.56. When both particle projections are present, top-level probe.particleCount must equal canvasDiagnostics.particleCount. Derive caps from shared constants. Require empty canvasDiagnostics for arena, workshop, and holodeck until each has an approved schema. Reject every unapproved alternate alias and out-of-matrix key or value before any write.
+</section>
+<section id="pr-226-telemetry-regression-evidence">
+The PR #226 retirement removes activeBunkerRaid from the mine diagnostics payload while the diagnostic route and server monitoring type still accept it. No bounded live replacement was added, and the performance path still does not carry approved bunker-fp fields through ingestion, persistence, insights, and byBuild. Remove or repurpose the dead contract only with a proven schema update. Live tests must separate idle, building, combat, and terminal samples without high-cardinality state.
 F-101: Retain the six approved allocation-safe bunker fields fpEyeY, fpOpenCells, fpGrounded, fpSwinging, fpRaidActive, and fpClankersAlive, then add fpSpawnResult with only direct, relocated, or no-safe values, fpOreCells as the exposed rendered ore count from 0 through 175, and blockSeedPresent as 0 or 1. Carry them through allocation-safe dataset writes, the source-aware client allowlist, payload persistence, source-specific server ingestion validation, and insights output. Reject raw eye X or Z, yaw, pitch, seed, footprint, player or raid identifiers, targets, aim data, cell keys, unknown keys, and cross-source keys before any write. Add focused client and route tests plus post-deploy byBuild evidence for direct idle entry, relocated entry, building, combat, terminal, and no-safe recovery.
 Coordinate clarification: fpEyeY is the sole approved position-like field and means bounded bunker-local relative height, never a world, footprint, cell, or player coordinate. Clamp and validate it to the fixed interior movement range derived from FP_ROWS, FP_CAPSULE_HEIGHT, and FP_EYE_HEIGHT, round to documented bounded precision, and reject non-finite or out-of-range values. Tests cover both legal edges plus below-range, above-range, non-finite, cross-source, and extra-coordinate rejection.
 Owner correction: F-101 covers bounded client performance diagnostics only. F-105 through F-108 own server lifecycle integrity, and F-109 owns defense wear and sealed semantics.

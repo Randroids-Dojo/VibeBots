@@ -1,7 +1,19 @@
+import { randomUUID } from "node:crypto";
 import type { ElevatorReasonCode } from "@/lib/api-codes";
 import { refreshPlayerAchievements } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
 import { db, storageConfigured } from "@/server/db";
+import {
+  deliverElevatorOutcome,
+  drainPendingElevatorOutcomes,
+  elevatorOutcomeExists,
+  isValidRequestId,
+} from "@/server/elevator-outbox";
+import {
+  type ElevatorMutation,
+  type ElevatorMutationOutcomeEvent,
+  logElevatorOutcomeEvent,
+} from "@/server/monitoring";
 import {
   getMinePlayerProfile,
   getOrCreatePlayerId,
@@ -147,6 +159,21 @@ function elevatorReject(
 }
 
 /**
+ * Emit an outcome log, best-effort (F-121). Observability must never fail or
+ * roll back a committed rail buy, so any monitoring error is swallowed. This is
+ * a single best-effort attempt: it does not retry, and a thrown sink drops the
+ * event (the durable, deduplicated outbox variant is a separate open F-121
+ * item).
+ */
+function safeLogElevatorOutcome(event: ElevatorMutationOutcomeEvent): void {
+  try {
+    logElevatorOutcomeEvent(event);
+  } catch {
+    // Swallow: an outcome log can never break gameplay.
+  }
+}
+
+/**
  * Classify why a guarded rail write matched zero rows, given the freshly
  * re-read state and the pre-write expectations. Order is most-specific first:
  * a moved rail depth or column beats balance, which beats a moved checkpoint,
@@ -200,6 +227,7 @@ export async function POST(request: Request): Promise<Response> {
   const rawBody = await request.text();
   let requestedColumn: number | undefined;
   let expectedDepth: number | undefined;
+  let clientRequestId: string | undefined;
   if (rawBody) {
     let body: unknown;
     try {
@@ -243,6 +271,14 @@ export async function POST(request: Request): Promise<Response> {
       }
       expectedDepth = rawExpectedDepth;
     }
+    // The client's idempotency key (F-121). A well-formed UUID enables durable
+    // dedup and duplicate-request detection; anything malformed is ignored (a
+    // server-side id is minted below) rather than rejecting the buy, so a buggy
+    // or legacy client still buys safely under the expectedDepth guard.
+    const rawRequestId = (body as { requestId?: unknown }).requestId;
+    if (isValidRequestId(rawRequestId)) {
+      clientRequestId = rawRequestId;
+    }
   }
 
   // expectedDepth is required: it is the stale-rail guard, and every current
@@ -252,9 +288,19 @@ export async function POST(request: Request): Promise<Response> {
   // before any read or charge. See F-121; kept optional until every client
   // shipped it, now enforced.
   if (expectedDepth === undefined) {
+    // Bounded reason-only signal so the volume of stale no-expectedDepth
+    // traffic is observable (Q-027's revisit criterion). This is a pre-auth
+    // reject: no player, operation, coordinate, or raw payload is logged.
+    safeLogElevatorOutcome({
+      result: "rejected",
+      reason: "elevator-expected-depth-required",
+    });
+    // A stale cached client (old JS from before the field existed) copies this
+    // error text straight into a visible shop note, so return reload guidance
+    // rather than the internal field name.
     return elevatorReject(
       "elevator-expected-depth-required",
-      "expectedDepth is required",
+      "reload the game to update, then try again",
       400,
       null,
     );
@@ -262,6 +308,16 @@ export async function POST(request: Request): Promise<Response> {
 
   const playerId = await getOrCreatePlayerId();
   const sql = await db();
+  // Recovery drain (F-121): redeliver any outcome that committed but whose
+  // delivery was lost to a crash or sink outage. Best-effort and bounded; the
+  // project has no cron, so request traffic drains the outbox. It never blocks
+  // or fails this buy.
+  await drainPendingElevatorOutcomes(sql);
+  // The effective idempotency key: the client's UUID when valid (enables dedup
+  // and duplicate-request detection), otherwise a server-minted id so the
+  // outcome is still recorded durably (a legacy client cannot replay an id it
+  // never sent, so no dedup is lost).
+  const requestId = clientRequestId ?? randomUUID();
   const profile = await getMinePlayerProfile(sql, playerId);
   const rows = (await sql`
     SELECT diff, trip_count FROM mine_worlds
@@ -273,8 +329,70 @@ export async function POST(request: Request): Promise<Response> {
   const storedColumn = profile ? mineElevatorColumnFromProfile(profile) : null;
   const oldDiff = (rows[0]?.diff ?? []) as WorldDiff;
   const worldTripCount = rows[0]?.trip_count;
+  // Whether the loaded shaft still needs its one-time free placement (an
+  // existing owner who has not yet confirmed a surface column). Drives the
+  // placement branch below.
+  const placementRequired = Boolean(
+    profile && depth > 0 && !profile.elevator_placement_chosen_at,
+  );
+  // The mutation the REQUEST intends, derived from its own shape rather than the
+  // post-write profile: the first rail sends expectedDepth 0 (place); an owner
+  // confirming a column sends a positive depth with a column (relocate); a plain
+  // extend sends a positive depth and no column (extend). Deriving intent from
+  // the request keeps a lost-success retry legible: a retried first placement
+  // still reads as "place" even though the committed buy already advanced the
+  // stored depth, and a retried relocation reads as "relocate" (F-121). It is
+  // also the guard the relocate-retry check below relies on.
+  const operation: ElevatorMutation =
+    expectedDepth === 0
+      ? "place"
+      : requestedColumn !== undefined
+        ? "relocate"
+        : "extend";
+  // Mutation-level outcome telemetry (F-121): records every mutation-level
+  // accept and reject with the resolved operation. Best-effort (see
+  // safeLogElevatorOutcome); a rejected write emits this log and no balance
+  // event.
+  const emitOutcome = (
+    result: "accepted" | "rejected",
+    reason: ElevatorReasonCode | null,
+  ): void => {
+    safeLogElevatorOutcome({ playerId, operation, result, reason });
+  };
+  const rejectOutcome = (
+    code: ElevatorReasonCode,
+    error: string,
+    status: number,
+    state: ElevatorState | null,
+  ): Response => {
+    emitOutcome("rejected", code);
+    return elevatorReject(code, error, status, state);
+  };
+  // A guarded write that matched zero rows after a client-supplied id passed the
+  // pre-check can be a concurrent same-id loser: the winner committed and
+  // recorded this id in the outbox (its FOR UPDATE serializes the loser, so by
+  // now the winner's transaction, including the outbox row, is committed). Report
+  // that precisely as a duplicate and emit NO new outcome, so the id keeps
+  // exactly one outcome (the winner's durable accepted). Otherwise it is an
+  // ordinary conflict and emits its reject outcome. Only checked for a
+  // client-supplied id (a server-minted id cannot collide).
+  const resolveGuardedConflict = async (
+    code: ElevatorReasonCode,
+    error: string,
+    state: ElevatorState | null,
+  ): Promise<Response> => {
+    if (clientRequestId && (await elevatorOutcomeExists(sql, requestId))) {
+      return elevatorReject(
+        "elevator-duplicate-request",
+        "that purchase already went through; refresh and try again",
+        409,
+        state,
+      );
+    }
+    return rejectOutcome(code, error, 409, state);
+  };
   if (worldTripCount === undefined) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-mine-world-missing",
       "mine world not found",
       409,
@@ -284,24 +402,36 @@ export async function POST(request: Request): Promise<Response> {
   const currentState = profile
     ? elevatorStateFromProfile(profile, worldTripCount)
     : null;
+  // Duplicate-request dedup (F-121): a client-supplied id that already produced
+  // a committed outcome is a replay of an already-applied buy (a lost-success
+  // retry that reused its id). Reject it with the precise duplicate reason and
+  // the authoritative state, and emit NO new outcome, so exactly one outcome
+  // exists per request. This runs before the stale-depth check because a replay
+  // also fails that guard, but "duplicate" is the more honest cause. Skipped for
+  // a server-minted id (a legacy client cannot replay, so it never collides).
+  if (clientRequestId && (await elevatorOutcomeExists(sql, requestId))) {
+    return elevatorReject(
+      "elevator-duplicate-request",
+      "that purchase already went through; refresh and try again",
+      409,
+      currentState,
+    );
+  }
   // A stale or replayed buy (including a retry after a lost success response)
   // still shows the client's old rail depth. Reject before any charge so it
   // cannot silently advance a second row; the client adopts currentState.
   // expectedDepth is guaranteed present (required above).
   if (expectedDepth !== depth) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-stale-rail-state",
       "your saved rail depth is out of date; refresh and try again",
       409,
       currentState,
     );
   }
-  const placementRequired = Boolean(
-    profile && depth > 0 && !profile.elevator_placement_chosen_at,
-  );
   if (placementRequired) {
     if (requestedColumn === undefined) {
-      return elevatorReject(
+      return rejectOutcome(
         "elevator-column-required",
         "choose a surface column for the elevator shaft",
         400,
@@ -332,6 +462,13 @@ export async function POST(request: Request): Promise<Response> {
           AND elevator_placement_chosen_at IS NULL
           AND EXISTS (SELECT 1 FROM world_lock)
         FOR UPDATE
+      ), outcome_insert AS (
+        INSERT INTO elevator_upgrade_outcomes
+          (request_id, player_id, operation, result)
+        SELECT ${requestId}::uuid, ${playerId}, ${operation}, 'accepted'
+        WHERE EXISTS (SELECT 1 FROM player_lock)
+        ON CONFLICT (request_id) DO NOTHING
+        RETURNING request_id
       ), world_update AS (
         UPDATE mine_worlds
         SET diff = ${JSON.stringify(installation.diff)}::jsonb,
@@ -339,6 +476,7 @@ export async function POST(request: Request): Promise<Response> {
             updated_at = now()
         WHERE player_id = ${playerId}
           AND EXISTS (SELECT 1 FROM player_lock)
+          AND EXISTS (SELECT 1 FROM outcome_insert)
         RETURNING player_id, trip_count
       ), player_update AS (
         UPDATE players
@@ -381,7 +519,7 @@ export async function POST(request: Request): Promise<Response> {
           : code === "elevator-concurrent-loss"
             ? "another change landed first; refresh and retry"
             : "elevator placement was already confirmed";
-      return elevatorReject(code, message, 409, state);
+      return resolveGuardedConflict(code, message, state);
     }
     const refundedSupports: Partial<Record<"ladder" | "plank", number>> = {
       ...(refundedLadders > 0 ? { ladder: refundedLadders } : {}),
@@ -392,6 +530,10 @@ export async function POST(request: Request): Promise<Response> {
       playerId,
       excludeEndpointHash: pushEndpointHashFromRequest(request),
     });
+    // The outcome row committed inside the CTE above (transactional outbox).
+    // Deliver it now (emit + mark), best-effort; the drain redelivers if this
+    // process dies before the mark lands.
+    await deliverElevatorOutcome(sql, { requestId, playerId, operation });
     return Response.json({
       elevator: updated[0].elevator_depth,
       elevatorColumn: updated[0].elevator_col,
@@ -409,7 +551,7 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
   if (depth === 0 && requestedColumn === undefined) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-column-required",
       "choose a surface column for the elevator shaft",
       400,
@@ -421,16 +563,33 @@ export async function POST(request: Request): Promise<Response> {
     requestedColumn !== undefined &&
     requestedColumn !== storedColumn
   ) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-stale-rail-state",
       "elevator shaft is already placed",
       409,
       currentState,
     );
   }
+  // A relocate intent (a column supplied on an existing shaft, expectedDepth > 0)
+  // that reaches here has placementRequired already false, so the placement was
+  // already confirmed. This is a lost-success retry of an already committed free
+  // relocation: relocation sets the placement marker and column but leaves depth
+  // unchanged, so the identical retry passes the stale-depth guard, and without
+  // this check it would fall through to the paid extension, an unintended charge
+  // and a second mutation the user never asked for. Reject with authoritative
+  // state; a genuine extend omits the column and is unaffected. The
+  // different-column case is handled above; this catches the same-column retry.
+  if (operation === "relocate") {
+    return rejectOutcome(
+      "elevator-stale-rail-state",
+      "elevator placement was already confirmed",
+      409,
+      currentState,
+    );
+  }
   const column = storedColumn ?? requestedColumn;
   if (column === undefined) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-column-required",
       "choose a surface column for the elevator shaft",
       400,
@@ -438,7 +597,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
   if (depth >= MINE_BOTTOM_ROW - 1) {
-    return elevatorReject(
+    return rejectOutcome(
       "elevator-rail-at-bottom",
       "elevator rail has reached the mine bottom",
       409,
@@ -483,6 +642,13 @@ export async function POST(request: Request): Promise<Response> {
         AND (elevator_col IS NULL OR elevator_col = ${column})
         AND EXISTS (SELECT 1 FROM world_lock)
       FOR UPDATE
+    ), outcome_insert AS (
+      INSERT INTO elevator_upgrade_outcomes
+        (request_id, player_id, operation, result)
+      SELECT ${requestId}::uuid, ${playerId}, ${operation}, 'accepted'
+      WHERE EXISTS (SELECT 1 FROM player_lock)
+      ON CONFLICT (request_id) DO NOTHING
+      RETURNING request_id
     ), world_update AS (
       UPDATE mine_worlds
       SET diff = ${JSON.stringify(installation.diff)}::jsonb,
@@ -490,6 +656,7 @@ export async function POST(request: Request): Promise<Response> {
           updated_at = now()
       WHERE player_id = ${playerId}
         AND EXISTS (SELECT 1 FROM player_lock)
+        AND EXISTS (SELECT 1 FROM outcome_insert)
       RETURNING player_id, trip_count
     ), player_update AS (
       UPDATE players
@@ -551,7 +718,7 @@ export async function POST(request: Request): Promise<Response> {
           : code === "elevator-stale-rail-state"
             ? "your rail moved; refresh and retry"
             : "another change landed first; refresh and retry";
-    return elevatorReject(code, message, 409, state);
+    return resolveGuardedConflict(code, message, state);
   }
   const refundedLadders =
     purchasedLadders + (updated[0].refund_legacy_supports ? legacyLadders : 0);
@@ -590,6 +757,10 @@ export async function POST(request: Request): Promise<Response> {
     playerId,
     excludeEndpointHash: pushEndpointHashFromRequest(request),
   });
+  // The outcome row committed inside the CTE above (transactional outbox).
+  // Deliver it now (emit + mark), best-effort; the drain redelivers on a crash
+  // before the mark lands.
+  await deliverElevatorOutcome(sql, { requestId, playerId, operation });
   return Response.json({
     elevator: updated[0].elevator_depth,
     elevatorColumn: updated[0].elevator_col,

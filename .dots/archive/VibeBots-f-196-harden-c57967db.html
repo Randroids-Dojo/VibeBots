@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-196: Harden sibling mine tests tight animated-position polls against the round-trip hazard</title>
+<meta name="dot-title" content="F-196: Harden sibling mine tests tight animated-position polls against the round-trip hazard">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T23:26:29.748847-05:00">
+<meta name="dot-closed-at" content="2026-07-17T07:50:16.269389-05:00">
+<meta name="dot-close-reason" content="Fixed: all four sibling round-trip polls now use authoritative discrete signals + generous budgets; 4 affected tests pass">
+</head>
+<body>
+<article>
+<h1>F-196: Harden sibling mine tests tight animated-position polls against the round-trip hazard</h1>
+<section id="description">
+F-127 fixed the mine-actions smoke by proving input via the authoritative discrete data-horizontal-distance instead of tight polls on the animated data-miner-x. Audit found the same round-trip hazard in the thumbstick test (5s readiness poll + 3.5s move poll on data-miner-x in tests/e2e/mine-core.spec.ts) and two default-5s Math.abs(data-miner-x) polls in tests/e2e/mine-navigation.spec.ts. Apply the acceptance-first pattern (authoritative discrete signal + separately budgeted rendered-position proof); do NOT merely widen timeouts. Coordinate with F-132 (broader software-rendering matrix). Verify under CPU throttle.
+</section>
+</article>
+</body>
+</html>

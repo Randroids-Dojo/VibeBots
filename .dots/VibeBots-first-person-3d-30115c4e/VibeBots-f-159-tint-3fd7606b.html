@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-159 Tint specialist Clankers in the first-person raid</title>
+<meta name="dot-title" content="F-159 Tint specialist Clankers in the first-person raid">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-15T02:40:15.245362-05:00">
+</head>
+<body>
+<article>
+<h1>F-159 Tint specialist Clankers in the first-person raid</h1>
+<section id="description">
+Track specialist identity under F-104 with F-144 frame-loop constraints. Apply each runtime kind without allocation or React state scheduling from useFrame and prove rendered tint, not only dataset strings.
+</section>
+<section id="exact-head-review-pr-222">
+Head 0b034750 schedules the body kind through React state from useFrame. Its unit test proves only runtime kinds and its browser test checks a separate dataset copied from the same runtime views, so both can pass while the rendered prop or material is broken. Require material or stable visible specialist-color proof without frame-loop allocation.
+</section>
+<section id="replacement-head-review-pr-222">
+Head e4786652 writes the probe from local next before asynchronous setKinds renders. It can report specialists while bodies use old state, and a broken kind prop still passes. The branch defers visible pixels to F-158 while closing F-159. Keep this item open pending applied-material or stable pixel proof outside the frame-loop allocation path.
+</section>
+<section id="merged-state-correction-pr-222">
+Preserve the historical closeout. Main c40b7e16 retains the probe-before-render race, tests a dataset instead of applied material or visible pixels, and derives kinds through allocating React work in useFrame. CodeRabbit review 4702070384 confirmed the gaps after merge. Keep the Dot open.
+</section>
+<section id="probe-lifecycle-correction-pr-222">
+The kinds probe is not cleared when runtime becomes null and only updates when the kind array changes, so it can stay stale after a raid or across pool reuse. Clear or replace it at every lifecycle boundary and test tier 3 then tier 1 plus same-tier reuse. Material or pixel proof remains authoritative.
+</section>
+<section id="current-proof-ownership-pr-223-review">
+Preserve replacement-head-review-pr-222 as historical evidence. F-104 now owns stable applied-material or attacker-region rendered-pixel proof, and F-144 owns real-phone frame-budget evidence. F-158 is only the focused 390x760 orientation and size check, so it cannot close F-159. Keep this item open until additive runtime cleanup and the current F-104 and F-144 evidence land.
+</section>
+</article>
+</body>
+</html>

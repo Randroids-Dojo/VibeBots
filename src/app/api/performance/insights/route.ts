@@ -174,7 +174,10 @@ function toInsightRow(record: TraceRecord): PerfInsightRow {
  * Aggregates and factor buckets only: no player ids, no user agents.
  * `?hours=` widens the window (default 24, max 168); `?source=` filters
  * to one surface; `?device=real|software` splits real hardware from
- * headless harness GPUs; `?session=<hex prefix>` narrows to one session
+ * headless harness GPUs (a row with no GPU identity is unknown, counted
+ * as neither real nor software, so a null GPU can no longer masquerade as
+ * a real-device baseline, F-103); `?session=<hex prefix>` narrows to one
+ * session
  * and adds a per-snapshot drilldown with LoAF, long-task, network, heap
  * span, and hidden-time attribution.
  */
@@ -213,7 +216,7 @@ export async function GET(request: Request): Promise<Response> {
       AND (${source}::text IS NULL OR source = ${source})
       AND (${session}::text IS NULL OR starts_with(session_id, ${session}))
       AND (${realOnly}::boolean IS NOT true
-           OR gpu IS NULL OR gpu !~* ${SOFTWARE_GPU_PATTERN})
+           OR (gpu IS NOT NULL AND gpu !~* ${SOFTWARE_GPU_PATTERN}))
       AND (${softwareOnly}::boolean IS NOT true
            OR gpu ~* ${SOFTWARE_GPU_PATTERN})
     ORDER BY created_at DESC

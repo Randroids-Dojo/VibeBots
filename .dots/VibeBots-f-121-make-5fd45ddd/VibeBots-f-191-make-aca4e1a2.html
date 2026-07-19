@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-191 Make elevator balance telemetry crash safe</title>
+<meta name="dot-title" content="F-191 Make elevator balance telemetry crash safe">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T14:36:03.207868-05:00">
+</head>
+<body>
+<article>
+<h1>F-191 Make elevator balance telemetry crash safe</h1>
+<section id="description">
+Make the success-only elevator.upgrade economy event part of the same durable request contract as the committed rail purchase. Exactly one paid placement or extension event must survive a crash after the gameplay transaction, response loss, duplicate delivery, sink outage, and same-id replay; rejected requests and free legacy relocation must emit zero balance events. Tie the event to player plus request identity with a database uniqueness guard or transaction-bound outbox, retain only bounded economy fields with no shaft coordinate or payload, and acknowledge delivery only through the proven retry path. Real-database and route tests must cover crash before emit, crash after emit before mark, replay, concurrent same-id calls, sink recovery, one committed charge, and no duplicate or missing balance record.
+</section>
+</article>
+</body>
+</html>

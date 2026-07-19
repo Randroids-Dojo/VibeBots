@@ -1126,12 +1126,13 @@
       "followupRefs": [
         "F-114",
         "F-116",
-        "F-122"
+        "F-122",
+        "F-177"
       ]
     },
     {
       "id": "REQ-044",
-      "requirement": "A fresh or reset bunker has a deterministic pre-mined 3x2x2 starter room with a grounded passable spawn instead of an open flat plane or solid-rock trap.",
+      "requirement": "A fresh or reset bunker has a deterministic pre-mined 3x3x3 starter room with a grounded passable spawn instead of an open flat plane or solid-rock trap.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
       "status": "done",
       "implementationRefs": [
@@ -1189,7 +1190,10 @@
       "followupRefs": [
         "F-116",
         "F-120",
-        "F-122"
+        "F-122",
+        "F-133",
+        "F-181",
+        "F-184"
       ]
     },
     {

@@ -17,6 +17,38 @@ Treat non-superseded scheduled shard timeouts as actionable, finish Playwright b
 </section>
 <section id="recurrence-29406448908">
 Scheduled run 29406448908 on exact main c40b7e16 reproduced the blocker for a third consecutive schedule. Shard 4 passed, shards 1 through 3 reached 37/47, 13/47, and 31/47 results before the exact 20-minute limit cancelled them, the failure-only report step skipped, and the run retained zero artifacts or final assertion summaries. The run was not superseded or manually cancelled and must be treated as red.
+<section id="monitoring-2026-07-16">
+The four newest scheduled runs are cancelled. Run 29489140260 timed out three shards and retained zero artifacts, while the documented startup query returned blank because it filtered scheduled events after the default bounded mixed-event list. Query scheduled events at the CLI or API source so high PR traffic cannot hide the newest scheduled run.
+</section>
+<section id="pr-244-forced-timeout-2026-07-16">
+Unapproved dispatch 29531137295 at exact head d2242b03 concluded failure, all four Full E2E shards tripped the 30-second Playwright timeout, all four upload steps succeeded, and four artifacts were retained. This proves the narrow internal-timeout to failed-job to upload path. Artifact inventory contained HTML, results.json, and error-context.md, but no screenshot or trace files, disproving the branch ledger claim that the proof retained traces and screenshots. It also does not prove bounded machine output under a real long-running shard, the 60-second floor, a capped override, required-file failure, late-setup budget, or coverage-equivalent supersession. Keep F-131 open and append corrections rather than editing history.
+</section>
+<section id="pr-244-triage-precision-2026-07-16">
+The uncommitted PR #244 correction uses gh run list with event schedule and limit 1, but that can select a queued or in-progress run and hide the newest completed red conclusion. Query the newest completed scheduled run explicitly and surface an active run separately. Supersession requires a completed coverage-equivalent Full E2E run on a commit that contains the timed-out head by ancestry. Equal-or-newer SHA is not a valid ordering rule, and a manual PR-branch proof does not supersede a current-main scheduled cancellation unless its tested commit contains that main head.
+</section>
+<section id="pr-244-correction-state-2026-07-16">
+The triage change above was uncommitted when first observed, then was committed and pushed as replacement head 72f20097. Its completed-run selection and ancestry defects remain; only its repository state advanced.
+</section>
+<section id="pr-244-unsafe-replacement-2026-07-16">
+Replacement head 72f20097 floors a negative safe allowance upward to 30 seconds, so late setup can cross the outer deadline. Override 0 reaches config-load failure before reporters, huge digit strings are not safely bounded, and if-no-files-found warn still permits zero artifacts. New docs falsely claim screenshots are configured, timeouts always fail rather than cancel, artifacts always survive, and all holds are corrected. Actual config has no screenshot policy and only trace on first retry; forced artifacts had neither. Require precreated bounded fallback evidence, live-budget-safe math, finite positive bounded inputs, fail-closed required files, and inspected-artifact claims.
+</section>
+<section id="pr-244-second-forced-run-2026-07-16">
+Unapproved run 29532206397 repeated the same 30-second override on head 72f20097. All four shards failed and uploaded four artifacts, but contents again had only HTML, results.json, and error-context.md, with no screenshots or traces. This repeats the narrow happy proof but does not exercise default budget math, exhausted setup time, zero or huge override, missing files, active scheduled-run masking, ancestry supersession, or a real late test. Standard PR run 29532186386 skipped Full E2E and is not coverage-equivalent. All holds remain.
+</section>
+<section id="pr-244-q029-policy-contract-2026-07-16">
+Exact head 72f20097 leaves Q-029 internally stale. Option A and its recommendation still evaluate a 150-second reserve with a 60-second minimum test window, while the workflow and CI guide implement a 30-second upward floor. On any authorized replacement, preserve the existing record and append a Q-029 correction that separates upload reserve from minimum runnable test budget, defines fail-fast behavior when the live safe budget cannot cover both, aligns the options and recommendation with the actual contract, and adds the required Resolution placeholder. Keep F-131 open until policy and implementation agree.
+</section>
+<section id="pr-244-uncommitted-third-replacement-2026-07-16">
+The resumed local pass over remote head 72f20097 lowers the upward floor to 1 second, accepts overrides down to 1 ms, adds a post-failure text marker, enables failure screenshots, and caps the TypeScript parser. It still launches Playwright after safe budget exhaustion, outer cancellation can prevent the marker and upload, the text marker does not replace bounded machine-readable results, and parser tests do not exercise shell boundaries or artifacts. Require fail-before-launch budget handling, precreated structured fallback evidence, fail-closed artifact checks, and workflow-shell boundary tests.
+</section>
+<section id="pr-244-unfounded-q029-resolution-2026-07-16">
+The uncommitted pass marks Q-029 resolved and calls the 150-second reserve shipped based on forced run 29532206397. That 30-second startup timeout did not test a real late-running shard or reserve behavior near the outer deadline. Q-029 still says 60-second minimum while local workflow says 1 second and remote says 30 seconds. Keep Q-029 and F-131 open until an authorized consistent policy passes boundary tests and representative late-timeout proof.
+</section>
+<section id="pr-244-third-head-2026-07-16">
+Head 279f2a89 pushed the third replacement and preclaimed a successful redispatch before run 29540487421 completed. It still raises exhausted safe budget to 1 second and launches after the reserve is lost. Its later plain-text marker can be skipped by outer cancellation, checks only index.html rather than required results.json, and leaves missing files fail open. The completed-only query omits separate active-run visibility, the guide calls bounded local and Critical E2E unbounded, and resolved Q-029 remains under the open-question main. TypeScript, Biome, and Vitest validation was piped through tail without preserved status, while the shell simulation fixed a healthy positive budget. Keep F-131 and Q-029 open for fail-before-launch handling, independently validated structured fallback evidence, fail-closed upload, active-run visibility, accurate docs and question placement, direct-exit checks, exhaustive shell boundaries, and representative completed proof.
+</section>
+<section id="pr-244-third-forced-artifacts-2026-07-16">
+Run 29540487421 retained four artifacts with exactly one index.html and one results.json per shard. It retained no marker, screenshot, trace, error-context file, or other attachment. Every JSON report records both the 30-second global timeout and teardown timeout. Shard 1 passed six tests, including a 23.637-second arena test, while shards 2 through 4 ran no tests. This contradicts the claim that the proof expired before any test ran and leaves every new evidence fallback path untested. It proves only that four failure-guarded uploads executed.
 </section>
 </article>
 </body>

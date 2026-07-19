@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-182 Require approval before branch history rewrites</title>
+<meta name="dot-title" content="F-182 Require approval before branch history rewrites">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T12:22:22.495305-05:00">
+</head>
+<body>
+<article>
+<h1>F-182 Require approval before branch history rewrites</h1>
+<section id="description">
+Prevent automation from force-pushing or otherwise rewriting a shared PR branch without explicit user approval. When approved, use force-with-lease, record old and new heads plus the reason, verify no intended commits were lost, and require fresh exact-head CI and review. First evidence: PR #196 force-updated twice at 17:17:14 and 17:20:25 UTC after Quality failed.
+</section>
+</article>
+</body>
+</html>

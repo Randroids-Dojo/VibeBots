@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-190 Retain elevator request identity through uncertain outcomes</title>
+<meta name="dot-title" content="F-190 Retain elevator request identity through uncertain outcomes">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T14:35:54.490841-05:00">
+</head>
+<body>
+<article>
+<h1>F-190 Retain elevator request identity through uncertain outcomes</h1>
+<section id="description">
+Retain one valid UUID for each logical elevator purchase before the network call and persist it across an unknown transport result, malformed success body, retry, and reload. Reuse it only for the same player and an immutable bounded intent fingerprint covering operation, expected depth, and requested placement state. Scope server uniqueness to player plus request id, fail fast when the current client omits or malforms the id, and store enough committed response data to replay the original authoritative success semantics instead of returning a reduced 409. Two concurrent same-id requests must produce one mutation and one logical outcome with no contradictory loser rejection. Client and real-database tests must cover commit plus lost response, reload then retry, changed-intent reuse, cross-player reuse, simultaneous replay, original diff and refunds, and atomic adoption and persistence of world, seed, trip index, gear, consumables, balance, and rail state.
+PR #243 head 78d192e9 adds the post-conflict outbox recheck to both zero-row paths and suppresses the scripted loser's contradictory reject. Its test calls POST once and changes a SQL mock between lookups, so simultaneous real-database behavior remains unproven. The strengthened store fixture proves a nonempty diff, trip index, and rail depth persist together but does not assert the changed seed, balance, consumables, or saved consumables. All retained-identity, intent-binding, original-result replay, real-concurrency, and complete-authority acceptance remains open.
+PR #245 head 9f5dd4af adds a reload-durable block for thrown transport and one malformed object shape, then weakens F-190 to that behavior and marks it done. It still generates a fresh id on every invocation, so outbox dedup is not engaged and manual resync is not original-result replay. The block reads activeSlot after the await, so slot drift can protect the wrong save. JSON null throws, non-JSON 200 bypasses the uncertain branch, and finite negative or fractional depths pass. Keep the canonical retained identity, intent, player scope, replay, cross-slot, validation, authority, concurrency, and real-database contract open.
+PR #245 replacement head dded4efc captures requestSlot immediately before POST, blocks non-JSON 200 and JSON null, and requires a nonnegative integer depth, but it still never retains or resends the logical request id. Its early status-503 return claims nothing was charged before the code-less 5xx uncertainty guard, so a proxy or platform 503 after commit can bypass the block. The persisted marker is pinned to requestSlot, but the live railResyncFailed flag is global and Retry reconciles the current activeSlot. Mid-flight slot drift can therefore offer Retry for the wrong slot while the purchasing slot stays marked. Added tests do not cover slot drift, code-less 5xx, negative depth, or 503 classification. Keep exact replay, complete authority validation, pinned live retry ownership, and these response paths open.
+PR #245 third head f578d267 adds negative-depth, code-less 500, and marker-pinning tests. The slot test never invokes Retry, while the global live failure flag and retry action still follow the current activeSlot rather than the purchasing slot. Every status 503 still takes the nothing-charged branch before body decoding, so an indistinguishable platform or proxy 503 after commit remains stale and unblocked until a later user buy happens to conflict. Require an exact app-offline code or conservatively block unknown 503, then test the complete pinned-slot live retry flow. Retained identity, replay, and full authority validation remain open.
+</section>
+</article>
+</body>
+</html>

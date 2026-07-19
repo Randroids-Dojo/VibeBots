@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-195 Make mine autoplay seeds reproduce complete sessions</title>
+<meta name="dot-title" content="F-195 Make mine autoplay seeds reproduce complete sessions">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T19:42:03.531461-05:00">
+</head>
+<body>
+<article>
+<h1>F-195 Make mine autoplay seeds reproduce complete sessions</h1>
+<section id="description">
+AUTOPLAY_SEED currently seeds only the policy RNG, not the authoritative mine seed, guest identity, saved local state, or initial world. Two fresh seed-7 runs diverged sharply: one stopped at action 352 after four trips, fourteen trip-report drains, and four Falling rock dialogs; the next reached 400 actions with one trip, one report drain, and no Falling rock or ladder dialog. Capture and control every session input that affects the mine, or emit a bounded replay token that restores them. A repeated token must reproduce the same initial authority, action stream, trip boundaries, dialog identities, anomalies, blocker, and terminal report across isolated worktrees. Fail fast when stale browser or server state is present, record all replay inputs in autoplay-report.json, and add same-token equality plus changed-token divergence tests. Child of F-130; tracking PR #190.
+Verification must use low-impact bounded polling and controlled host load. A seed-3 proof run was contaminated by six same-host 20-second CPU busy-waits used to poll for its report. Keep baseline replay equality isolated from deliberate stress, record the runtime and host-load envelope, and run any load-sensitivity check as a separately named lane against the same replay token.
+</section>
+</article>
+</body>
+</html>

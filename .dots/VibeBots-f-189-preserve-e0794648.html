@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-189 Preserve failure status in local verification output</title>
+<meta name="dot-title" content="F-189 Preserve failure status in local verification output">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-16T13:53:24.697036-05:00">
+</head>
+<body>
+<article>
+<h1>F-189 Preserve failure status in local verification output</h1>
+<section id="description">
+Provide one dependency-free canonical local verifier that runs the required dash check, git diff check, full lint, typecheck, relevant tests, and any configured broader gates while preserving every subprocess exit status. Concise output must be captured only after the command status is saved, never through a terminal pipeline whose final formatter can mask an upstream failure. Add regression fixtures where a failing upstream command followed by successful output filtering still makes the verifier exit nonzero, cover multiple failures and signals, identify the failed gate with bounded diagnostics, and document the canonical command in the implementation plan or working agreement. Do not change CI workflow configuration in this slice.
+Recurrence on remote outbox head e1ffcd7d114c72b55a610767c000dc042d7414bd: the combined local gate ran TypeScript through head and printed TSC_DONE from the formatter status, then ran Biome through tail. Biome visibly reported two formatting errors while the pipeline returned tail's status; the agent recovered by inspecting output, not by a reliable exit gate. Focused tests, the full 1,655-test suite, the database test, sim purity, and the build were likewise piped through output filters without preserving upstream status. A later standalone full Biome check explicitly returned zero for lint only. F-189 remains release-blocking for one canonical verifier that makes every named gate's result trustworthy.
+Recurrence on PR #244 head d2242b03: the F-131 session ran a Ruby YAML validator through tail. Ruby raised NoMethodError, but the pipeline returned the formatter status and the session declared the workflow YAML valid based on a separate structural check. Its focused Vitest command also piped output through tail without preserving the test process status. Later standalone TypeScript and Biome checks do not prove those earlier validators. Rerun every claimed gate with its own exit status preserved.
+Replacement-pass recurrence: at 20:24:21 UTC, an unavailable Python YAML module failed before a later dash scan joined with double ampersand, so the dash scan never ran even though the session reported it clean. At 20:24:29, the fallback Node validator returned success when js-yaml was unavailable and said parsing was skipped. Missing tooling and skipped gates are not green evidence. The canonical verifier must fail closed and report which promised checks did not execute.
+Third-head recurrence: before committing and pushing 279f2a89, the session piped TypeScript, Biome, and Vitest through tail without pipefail or saved upstream status, then declared each clean. It also checked append-only behavior only through the final diff against origin/main, which missed a committed article relocation between PR heads. The canonical verifier must preserve direct subprocess status, and the ledger validator must inspect every branch commit.
+PR #245 recurrence: focused and full Vitest, TypeScript, Biome, and Biome rechecks were piped through head or tail without pipefail or saved upstream status. Biome visibly failed once and was reformatted, but later filtered pipelines still did not prove upstream exits. Exact head 9f5dd4af nevertheless claims all local gates passed.
+PR #246 recurrence on exact head 3fa545e2: a zero-action autoplay run with autoplay-report.json precreated as a directory produced EISDIR, wrote no JSON, printed autoplay done in teardown, and exited 0. A second isolated run exposed Mine status and a canvas without data-scene-ready=true; the 45-second readiness timeout was swallowed and the driver again printed done, wrote a clean-looking report, and exited 0. Extend the canonical failure predicate to mandatory evidence-write failures, readiness timeouts, anomalies, console errors, thrown exceptions, and signals so every failed verifier names the first failure phase and exits nonzero.
+PR #246 remote head 10a00471 fixes those two paths but still loses the first failure phase. An exact-head isolated mine emitted PLAY_PHASE_ERROR on its sole policy action. The driver exited 1 and retained the console error, but both summary and JSON said teardown instead of play. The session's forced-failure shell proof also piped through tail, printed an empty exit field, and then claimed a proven nonzero exit. Keep the canonical verifier, first-failure phase, signal handling, and direct unambiguous gate evidence open.
+PR #246 remote head 18bf5663 fixes that specific first-failure phase path: an injected play console error now exits failed with phase play. The same exact-head report has failureShot null because a nonthrowing failure closes the browser without attempting the required screenshot. Keep F-189 open for the canonical direct-status verifier, multiple failures, signals, and bounded diagnostics; F-130 owns the autoplay screenshot and recovery evidence paths.
+</section>
+</article>
+</body>
+</html>

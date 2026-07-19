@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-185 Enforce append-only records across PR commit history</title>
+<meta name="dot-title" content="F-185 Enforce append-only records across PR commit history">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T16:02:19.590800-05:00">
+</head>
+<body>
+<article>
+<h1>F-185 Enforce append-only records across PR commit history</h1>
+<section id="description">
+Reject a PR when a committed progress article, followup history pair, open-question record, or GDD build-log item is later edited, deleted, or reordered. Compare merge-base-to-head commit history, allow only documented state and reference updates plus appended correction records in their required positions, retain exact failure evidence, and cover new records, later rewrites, deletion, reorder, correction, approved history replacement, and base movement.
+PR #242 adds a second shipped example. After initial commit 05d11323 created the rail-resync-reload-durable progress article, later commits changed its committed Changed field and inserted six review-round records inside that same article. Exact head 4e74de6b merged as 0c51982f without restoring the original article byte-for-byte and adding a new newest-first correction article. Final-tree checks stayed green because they did not validate branch commit history.
+PR #243 adds a third live example. Initial head e1ffcd7d committed the elevator-outbox-idempotency progress article, then replacement head bd37128b inserted Review round 1 and Process note rows inside it after review narrowed the claims. An exact WIP hold required byte-for-byte restoration plus a new complete newest-first correction article before the push, but the committed article mutation was pushed unchanged. Restore it before merge and keep the history validator release-blocking.
+PR #243 head e936866e repairs that individual violation by restoring the original article byte-for-byte and adding a separate complete newest-first correction article. F-185 remains open because no automated merge-base-to-head validator caught the violating intermediate head.
+Tracking PR #190 commit 0980cd5d accidentally removed indentation from the already committed F-183 PR #242 evidence row while appending PR #243 evidence. The next commit restores the original bytes and records this correction separately. Even a whitespace-only committed record mutation is a fourth live example that final-tree checks miss.
+PR #244 replacement head 72f20097 places its progress correction below the older committed scheduled-e2e-deadline-visibility article instead of at the top of main entries. Because the old article contains false evidence claims, the ordering defeats newest-first visibility even though the diff is additive. Validate correction ordering as well as byte preservation.
+PR #244 head 279f2a89 then deletes the already committed original progress article from its prior position and reinserts it later while adding a correction at the top. It also edits Q-029 in place to resolved and shipped. Relocation is a committed-history rewrite even when the text is reproduced, and the new correction embeds false approval, admin-merge, redispatch, and deadline-safety claims. Validate record order, allowed question transitions, and the evidence inside corrective records.
+Evidence correction: a genuine 22:36:50 UTC user-tool response did approve the post-answer CI correction and a conditional admin merge. The relocation, in-place Q-029 mutation, premature redispatch claim, and unsafe deadline claim remain. This correction is additive because the inaccurate tracking row was already committed.
+Question-rule correction: updating Q-029 status and Resolution in place is explicitly allowed on resolution. The actual structural defect is leaving the resolved entry under the open-question main instead of moving the intact entry to the resolved aside. Its stale option and unproven resolution belong to F-131. The progress-article relocation remains a valid F-185 recurrence.
+PR #245 adds another direct recurrence. Initial head 9f5dd4af committed an F-121 progress pair, a primary F-190 section marked done, and a progress article. Replacement head dded4efc edits all three committed records in place after review, then calls a zero-removal final diff append-only proof. It also leaves duplicate F-190, F-191, and F-192 owners that conflict with tracking PR #190. Preserve the published branch as evidence and supersede it with corrected code and tests plus additive records from a fresh branch.
+PR #245 head f578d267 deepens the recurrence after accepting the ownership conflict and receiving an explicit stop. It deletes the three primary sections committed on 9f5dd4af, edits the F-121 progress pair again, and rewrites the progress article again, then relies on the final diff and a future squash as proof. Preserve the closed PR as evidence and transfer corrected code and tests to a fresh branch with new additive records only.
+PR #248 adds a shipped branch-history rewrite recurrence. Initial pushed commit 6a6fe237 committed three F-127 fields, the mine-readiness progress article, and an F-196 primary section. Replacement head 973ce490 has 13 additions and 13 deletions in FOLLOWUPS plus 3 additions and 3 deletions in PROGRESS_LOG relative to that committed head: it rewrites the F-127 fields and three progress fields, then deletes the committed F-196 section before recreating it elsewhere. Squash merge 397037b5 appears purely additive against prior main, so final-tree checks hide the mutation. Preserve this sequence as a merge-base-to-head validator fixture.
+</section>
+</article>
+</body>
+</html>

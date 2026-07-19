@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-187 Require referenced followups to exist before merge</title>
+<meta name="dot-title" content="F-187 Require referenced followups to exist before merge">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-14T16:08:47.818294-05:00">
+</head>
+<body>
+<article>
+<h1>F-187 Require referenced followups to exist before merge</h1>
+<section id="description">
+For every new F-ID, anchor, and Dot reference introduced by a PR, require the authoritative followup and matching HTML Dot to exist on the target base or the same exact head. If ownership lives on another open PR, expose that dependency and block merge until the base contains it or the authoritative records are coordinated without duplication. Recompute after base or head movement and cover same-PR records, base records, dangling references, missing Dots, cross-PR ordering, and superseded dependencies.
+PR #245 head 9f5dd4af duplicates F-190, F-191, and F-192 from tracking PR #190, weakens their acceptance, marks its F-190 done, and supplies no matching Dots. Coordinate the single authoritative records from PR #190 rather than merging duplicate identities or dangling Dot references.
+</section>
+</article>
+</body>
+</html>

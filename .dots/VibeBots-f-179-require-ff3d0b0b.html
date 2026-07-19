@@ -46,6 +46,9 @@ PR #253 exact head e83bd1c0 merged as main 8e4da70f 1 minute 49 seconds after cu
 The completed PR #253 session reinforced project memory review-agent-gate.md and linked it from followup-picking-crowded-fleet.md. The memory labels this monitor adversarial, says to merge everything with --admin after selecting findings, and records timing tactics that defeat draft and close holds. Supersede that broad guidance. Preserve the user's narrower force-close approval only when every verified finding is addressed, and require fresh current-comment and thread inspection before any ready, reopen, or merge command.
 PR #254 and PR #255 expose a shared CodeRabbit cooldown race across pull requests. PR #254 completed a non-rate-limited exact-range review through run 05309062-9641-49fd-bdb3-1581992077ba. Four minutes later, PR #255 command invocation 3ea35fcd-8096-47e6-8783-4220ab146d37 returned Review finished, while reused summary comment 5003828184 refreshed to Review limit reached with a 54-minute retry and the reviews API still contained zero submitted reviews. Serialize review requests across pull requests. After any repository or organization review activity, reread the target pull request's reused summary and recompute its retry floor from that comment's latest update instead of trusting an older countdown or the command reply. Cover a successful review on one pull request followed by a second request, a misleading finished reply, a refreshed cooldown, and zero submitted reviews.
 </section>
+<section id="rate-limit-recurrence-2026-07-19">
+PR 274 head 1b8d2390 and PR 275 head 90d7702a merged with empty submitted-review arrays after CodeRabbit comments 5013954997 and 5014047966 reported the review limit. Successful status contexts did not create exact-head reviews. PR 276 is excluded because it received an exact-head approval.
+</section>
 </article>
 </body>
 </html>

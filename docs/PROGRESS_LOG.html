@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="reconcile-live-audit-tracking" data-date="2026-07-19">
+    <h3>Reconcile live-audit followups and repair progress structure</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/reconcile-current-tracking</code></dd>
+      <dt>PR</dt><dd>Pending. Documentation and HTML Dot cleanup only.</dd>
+      <dt>Changed</dt><dd>Restored the missing <code>dl</code> and <code>article</code> close tags after the nightly-triage record without changing its prose. Created open Dots for deterministic boxed-in fixture F-207 and delegated crack-visual slice F-210, plus polish followup F-211 for future commit and pull request metadata preflight. Appended current evidence to F-116, F-131, F-132, F-153, F-164, F-179, and F-183, and redirected duplicate F-197 ownership to F-131 and F-132. F-210 stays a focused visual slice under F-116 and F-153. The nightly run remains red and non-superseded; this cleanup records evidence rather than treating required CI as a full-matrix replacement.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code> passed; <code>git diff --check</code> passed; <code>pnpm typecheck</code> passed; <code>pnpm lint</code> exited 0 with the four existing source warnings and existing broken rule-symlink warning; a stack-based block-tag scan reports balanced and properly nested <code>main</code>, <code>section</code>, <code>article</code>, and <code>dl</code> elements in both HTML ledgers; <code>dot-html show</code> confirms F-207 priority 1, F-210 priority 2, and F-211 priority 3 are open. The dependency gate remains current at VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and fiber 9.6.1.</dd>
+      <dt>Assumptions</dt><dd>No manual Full E2E dispatch was started by this docs-only slice. F-131 keeps the non-superseded matrix proof open, F-132 keeps the unclassified failure families, and F-207 requires coverage-equivalent confirmation after its deterministic repair. Author and committer identity remain outside F-211 because the literal current policy prohibits attribution in commit and pull request messages, not identity metadata.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. Rule 13 tip review and Rule 14 stamp review found no player-facing release or feature change.</dd>
+      <dt>Followups</dt><dd>Created F-211 with Dot <code>VibeBots-f-211-reject-c8128221</code>. Reconciled existing F-207 with <code>VibeBots-f-207-re-ad48782e</code> and F-210 with <code>VibeBots-f-210-show-f7ec02c7</code>. No duplicate primary was created for the scheduled matrix, review-limit recurrence, protected-main recurrence, or ore-chip visual debt.</dd>
+    </dl>
+  </article>
+
   <article data-slice="nightly-triage-deselect-e2es" data-date="2026-07-19">
     <h3>Red nightly triage: deselect broke two e2e arming steps</h3>
     <dl>
@@ -40,6 +53,8 @@
       <dt>Assumptions</dt><dd>The remaining shard failures (mine-navigation arena entry, stamp-alert open, holodeck pinch, account-sync pair, keyboard-controls depth, and shard-2's pry-damaged/loot pair) are treated as the contention flake tail of this run, not regressions: none touch changed surfaces, all are timeout-flavored, and yesterday's two elevator failures passed today, the signature of that class. A follow-up full-matrix dispatch on the fixed head is the check on that assumption; anything that stays red there gets its own triage.</dd>
       <dt>GDD coverage</dt><dd>None (test-only). F-207 gains a dated evidence note (the nightly failed that test one step earlier under degraded timing; the stale aim remains the deterministic break).</dd>
       <dt>Followups</dt><dd>No new entry: the broken tests belong to F-209's slice (fixed here), the boxed-in break stays tracked as F-207.</dd>
+    </dl>
+  </article>
   <article data-slice="bunker-multi-hit-digging" data-date="2026-07-19">
     <h3>Bunker blocks take multi-hit digging with per-swing ore chips</h3>
     <dl>

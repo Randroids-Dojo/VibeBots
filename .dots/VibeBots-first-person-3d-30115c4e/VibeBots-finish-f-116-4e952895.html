@@ -20,6 +20,9 @@ Before tuning density or rendering, classify the live row as a valid seed with z
 Make ore visibility an exact-cell invariant: the rendered face, raycast target, broken cell, bunkerCellBlock result, client preview, server excavation input, and bunkerCellOreYield payout must identify the same cell. A deterministic test breaks a decorated cell and receives its matching ore exactly once, while an ore neighbor behind an unopened non-ore wall remains hidden until its own face opens. The external one-cell-behind hint fails this contract and must not ship.
 For the user-approved current-layout missing-seed repair, preserve existing dug cells and loot. Prove dug cells remain open and depleted, loot stays unchanged and collectible exactly once, and only previously undug cells use the newly stored deterministic seed for block kind and payout. Client and server must adopt the authoritative seed and bumped revision, reload must preserve the same remaining cells and yields, and a lost repair race must expose the winner rather than pay against a locally guessed seed. Hidden ore remains hidden until its own face opens.
 </section>
+<section id="multi-hit-truth-boundary-2026-07-19">
+Release 0.1.279 computes a deterministic per-swing ore preview, but the panel drops chipOre before rendering and credits the cell on the breaking dig. Keep visible ore-fleck copy open until rendered proof exists. F-210 owns proportional crack progress, while F-153 owns material-correct chip pixels plus allocation, renderer, and real-device telemetry. This item retains shared hit cadence, reset semantics, cell identity, and truthful player copy.
+</section>
 </article>
 </body>
 </html>

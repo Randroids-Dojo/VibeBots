@@ -14,6 +14,10 @@ on:
         description: Regenerate visual regression baselines (uploads artifact)
         required: false
         default: "false"
+      full_e2e_global_timeout_ms:
+        description: Override the Full E2E Playwright global timeout in ms (blank = auto from remaining job budget; set low to prove a timeout concludes as failure with artifacts)
+        required: false
+        default: ""
   schedule:
     - cron: "17 9 * * *"
 
@@ -180,6 +184,13 @@ jobs:
           - shard: "4/4"
             shard_name: 4-of-4
     steps:
+      # Anchor for the internal Playwright deadline (F-131). The whole job has a
+      # 20-minute budget; the deadline is computed from how much of it remains
+      # right before the tests run, so a slow or hung shard fails with a report
+      # instead of being cancelled at the job deadline with zero evidence.
+      - name: Record job start
+        run: echo "JOB_START_EPOCH=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
@@ -204,16 +215,89 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install chromium --with-deps
 
+      # Compute the Playwright global timeout from the job budget left after the
+      # setup and build steps, reserving time for teardown, the HTML report, and
+      # the artifact upload (F-131). A blank dispatch override auto-computes; a
+      # low override forces a timeout to prove the failure-with-artifacts path.
+      - name: Compute Playwright global timeout
+        id: e2e_deadline
+        env:
+          OVERRIDE_MS: ${{ inputs.full_e2e_global_timeout_ms }}
+        run: |
+          set -euo pipefail
+          job_budget_s=$(( 20 * 60 ))     # matches this job's timeout-minutes: 20
+          reserve_s=150                    # teardown + HTML/JSON report + artifact upload
+          # Minimum non-zero deadline. Its only job is to stay above 0, because
+          # Playwright treats globalTimeout: 0 as "unlimited", which would put
+          # the cancel-at-job-deadline problem right back. Deliberately tiny (not
+          # 30s): when the safe budget is exhausted the wall-clock left may be
+          # only seconds, and a large floor could exceed it and re-create a
+          # cancel. safe_ms = wall-clock-left - reserve, so it never exceeds the
+          # wall-clock left when positive; a 1s floor fails fast and still leaves
+          # the remaining budget for the report and upload.
+          floor_ms=1000
+          elapsed_s=$(( $(date +%s) - JOB_START_EPOCH ))
+          safe_ms=$(( (job_budget_s - reserve_s - elapsed_s) * 1000 ))
+          if [ "$safe_ms" -lt "$floor_ms" ]; then safe_ms=$floor_ms; fi
+          if [ -n "$OVERRIDE_MS" ]; then
+            # Manual proof knob. Require a positive integer of 1 to 10 digits: the
+            # first-digit [1-9] rejects 0 and leading zeros (a 0 would mean
+            # unlimited), and the 10-digit cap keeps the value inside int64 for
+            # the shell comparison below. Then clamp DOWN to the safe budget so a
+            # too-large override cannot re-introduce a cancel.
+            if [[ ! "$OVERRIDE_MS" =~ ^[1-9][0-9]{0,9}$ ]]; then
+              echo "full_e2e_global_timeout_ms must be a positive integer of 1 to 10 digits (milliseconds)" >&2
+              exit 1
+            fi
+            if [ "$OVERRIDE_MS" -lt "$safe_ms" ]; then
+              deadline_ms=$OVERRIDE_MS
+            else
+              deadline_ms=$safe_ms
+            fi
+            echo "Override ${OVERRIDE_MS}ms; using ${deadline_ms}ms (safe budget ${safe_ms}ms)"
+          else
+            deadline_ms=$safe_ms
+            echo "Elapsed ${elapsed_s}s; Playwright global timeout ${deadline_ms}ms"
+          fi
+          echo "ms=${deadline_ms}" >> "$GITHUB_OUTPUT"
+
       - name: Full E2E smoke tests
+        env:
+          E2E_GLOBAL_TIMEOUT_MS: ${{ steps.e2e_deadline.outputs.ms }}
         run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
 
+      # Guarantee the failure upload is never empty (F-131). The HTML reporter
+      # writes playwright-report/index.html on a normal or global-timeout
+      # failure, but a crash after the reporter cleared its output dir and
+      # before it wrote could leave nothing. Drop an explicit marker ONLY when
+      # the HTML report is genuinely absent, so evidence loss can never be
+      # silent: the artifact then still carries a named signal to triage.
+      - name: Ensure failure evidence exists
+        if: failure()
+        run: |
+          mkdir -p playwright-report
+          if [ ! -f playwright-report/index.html ]; then
+            echo "Full E2E shard ${{ matrix.shard }} failed with no HTML report. Playwright likely crashed before its reporter wrote; inspect the job log for the failing step." \
+              > playwright-report/NO-REPORT.txt
+          fi
+
+      # Runs on any non-success shard, including a global-timeout failure. With
+      # the internal deadline the shard fails (not cancelled) before the job
+      # deadline, so this upload actually runs and the evidence survives (F-131).
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-full-${{ matrix.shard_name }}
-          path: playwright-report/
+          path: |
+            playwright-report/
+            test-results/
           retention-days: 7
+          # The prior step guarantees at least a NO-REPORT.txt marker exists, so
+          # this upload is never empty. Warn (not ignore) is the backstop: if the
+          # path ever did resolve to nothing, the log surfaces it instead of the
+          # step silently succeeding with an empty artifact.
+          if-no-files-found: warn
 
   visual-baselines-update:
     name: Update Visual Baselines

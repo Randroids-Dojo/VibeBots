@@ -16,7 +16,9 @@
 
 import type { BunkerFootprint } from "./bunker";
 import type { MineCell } from "./mine/cells";
-import { type OreId, oreReserveAt } from "./mine/ores";
+import { BASE_HITS, rockTierAt } from "./mine/digging";
+import type { MineGear } from "./mine/gear";
+import { type OreId, oreReserveAt, oreSwingYield } from "./mine/ores";
 import { generatedCell } from "./mine/world";
 
 /** The pre-mined starter room: 3 wide (local x), 3 tall (local y), 3
@@ -134,6 +136,95 @@ export function bunkerCellOreYield(
   const units = oreReserveAt(block.ore, row);
   if (units <= 0) return null;
   return { ore: block.ore, units };
+}
+
+/**
+ * Swings to break a bunker block, mirroring the surface dig pacing
+ * (REQ-013): dirt takes the surface hit count, rock adds its depth tier
+ * above the surface base (deeper claims cut harder but never hard-gate;
+ * a claimed room is always diggable), and an ore block takes one swing
+ * per chip of the same seeded swing sequence the surface uses, so depth
+ * grows the reserve and the pickaxe both trims swings and fattens
+ * bursts. `col`/`row`/`depth` are absolute cell coordinates. Legacy
+ * bunkers without a block seed keep the old single-hit dig.
+ */
+export function bunkerCellDigHits(
+  blockSeed: number | undefined,
+  footprint: BunkerFootprint,
+  gear: Pick<MineGear, "pickaxe">,
+  col: number,
+  row: number,
+  depth: number,
+): number {
+  if (blockSeed === undefined) return 1;
+  const x = col - footprint.col;
+  const y = footprint.row + footprint.height - 1 - row;
+  const block = bunkerCellBlock(blockSeed, footprint, x, y, depth);
+  if (block.kind === "dirt") {
+    return Math.max(1, BASE_HITS.dirt - (gear.pickaxe - 1));
+  }
+  if (block.kind === "rock") {
+    const tier =
+      block.rockTier && block.rockTier > 0 ? block.rockTier : rockTierAt(row);
+    return Math.max(1, BASE_HITS.rock + (tier - 1) - (gear.pickaxe - 1));
+  }
+  if (!block.ore) return 1;
+  const genCol = bunkerCellGenCoords(footprint, x, y, depth).col;
+  let remaining = oreReserveAt(block.ore, row);
+  let hits = 0;
+  while (remaining > 0) {
+    const units = oreSwingYield(
+      blockSeed,
+      gear,
+      block.ore,
+      row,
+      genCol,
+      remaining,
+    );
+    remaining -= Math.max(1, units);
+    hits++;
+  }
+  return Math.max(1, hits);
+}
+
+/**
+ * The ore one swing at a bunker ore block flecks out, for per-hit
+ * feedback: the hitIndex-th swing (0-based) of the same seeded sequence
+ * `bunkerCellDigHits` counts. `units` can be 0 (that swing crumbled
+ * nothing; each hit is a chance, not a guarantee). Returns null for
+ * non-ore blocks, legacy bunkers, or a hitIndex past the sequence. The
+ * block's full reserve still credits when the block breaks; this only
+ * narrates which swings the chips fall on.
+ */
+export function bunkerCellSwingOre(
+  blockSeed: number | undefined,
+  footprint: BunkerFootprint,
+  gear: Pick<MineGear, "pickaxe">,
+  col: number,
+  row: number,
+  depth: number,
+  hitIndex: number,
+): { ore: OreId; units: number } | null {
+  if (blockSeed === undefined) return null;
+  const x = col - footprint.col;
+  const y = footprint.row + footprint.height - 1 - row;
+  const block = bunkerCellBlock(blockSeed, footprint, x, y, depth);
+  if (block.kind !== "ore" || !block.ore) return null;
+  const genCol = bunkerCellGenCoords(footprint, x, y, depth).col;
+  let remaining = oreReserveAt(block.ore, row);
+  for (let i = 0; remaining > 0; i++) {
+    const units = oreSwingYield(
+      blockSeed,
+      gear,
+      block.ore,
+      row,
+      genCol,
+      remaining,
+    );
+    if (i === hitIndex) return { ore: block.ore, units };
+    remaining -= Math.max(1, units);
+  }
+  return null;
 }
 
 /** Reduce a raw mine cell to a bunker block: keep ore and plain rock,

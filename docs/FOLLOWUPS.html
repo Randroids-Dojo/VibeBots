@@ -731,6 +731,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-210" data-f="F-210" data-priority="nice-to-have">
+    <h3>F-210: Show crack damage on partially dug bunker blocks</h3>
+    <dl>
+      <dt>Context</dt><dd>The bunker multi-hit digging slice (package 0.1.279) paces first-person bunker blocks like the surface mine: <code>bunkerCellDigHits</code> swings per block, per-swing crumble bursts, and chip intents for feedback. The 2D mine also darkens a cracked cell toward its remaining hp (<code>damage</code> in <code>mine-canvas.tsx</code>), but the fp instanced grid renders a struck block at full strength until it breaks, so mid-block progress is only visible through the burst and the <code>data-fp-dig-hits</code> diagnostic. On a 13-hit deep-claim rock the lack of a visible crack state can read as <q>nothing is happening</q>.</dd>
+      <dt>Blocker (if any)</dt><dd>None. The instanced grid rebuilds at store cadence keyed off the bunker reference; per-hit visuals need either instance-color writes at strike cadence or a small overlay decal, both allocation-free options to design against the frame-loop rule.</dd>
+      <dt>Unblock condition</dt><dd>A struck block visibly darkens, cracks, or decals in proportion to hits landed vs <code>bunkerCellDigHits</code>, without allocating in the frame loop, and clears if the fp session ends before the block breaks. A narrow-viewport smoke asserts the visual changes between the first strike and the breaking strike.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised in the bunker multi-hit digging slice (branch <code>claude/load-animation-hud-overlap-3sefcn</code>).</dd>
+    </dl>
+  </section>
+
   <section id="F-205" data-f="F-205" data-priority="nice-to-have">
     <h3>F-205: Make the performance analyzer allocation-safe</h3>
     <dl>

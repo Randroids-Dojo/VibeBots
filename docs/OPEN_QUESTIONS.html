@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-030" data-status="open">
+    <h3>Q-030: Should bunker ore pay out per swing or when the block breaks?</h3>
+    <dl>
+      <dt>Context</dt><dd>The multi-hit bunker digging slice (0.1.279) paces fp bunker blocks like the surface and narrates per-swing ore chips (<code>bunkerCellSwingOre</code>), but the actual credit still lands only when a block fully breaks: the bank replay (<code>settleBunkerDig</code>) and the banked excavate route both pay per completed dug cell, and partial hit progress is client-session-ephemeral, never persisted or validated. On the surface, by contrast, every swing pays its chip into the bag immediately and partial cells persist their <code>oreRemaining</code> through the move log.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Keep payout at block break: chips are feedback, the deterministic dug-set replay stays the single economy primitive, and abandoning a cracked block forfeits nothing that was ever credited.</li>
+          <li>Pay per swing for real: persist struck cells plus hit counts in the pending payload and a banked hit endpoint, validate reachability server-side, and extend the replay to price partial sequences.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The dug-set replay is the determinism contract shared by client preview, bank, and the banked excavate route; per-swing real payment adds schema, API surface, and anti-cheat validation for a difference players only notice if they abandon a half-dug block. Revisit if playtests show players quitting mid-block and feeling robbed of chips they saw fly.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>(shipped under the default in the 0.1.279 slice)</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-029" data-status="resolved">
     <h3>Q-029: How much of the Full E2E job budget should the internal deadline reserve?</h3>
     <dl>

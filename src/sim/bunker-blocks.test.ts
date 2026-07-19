@@ -6,14 +6,18 @@ import {
   BUNKER_POCKET_WIDTH,
   type BunkerBlock,
   bunkerCellBlock,
+  bunkerCellDigHits,
   bunkerCellGenCoords,
   bunkerCellMineRow,
   bunkerCellOreYield,
+  bunkerCellSwingOre,
   bunkerSpawnPocketCells,
   deriveBunkerBlockSeed,
   isBunkerPocketCell,
   withSpawnPocket,
 } from "./bunker-blocks";
+import { BASE_HITS, rockTierAt } from "./mine/digging";
+import { DEFAULT_GEAR } from "./mine/gear";
 import { oreReserveAt } from "./mine/ores";
 
 const FOOTPRINT: BunkerFootprint = { col: 100, row: 40, width: 7, height: 5 };
@@ -252,5 +256,253 @@ describe("bunkerCellOreYield", () => {
     const a = bunkerCellOreYield(FOOTPRINT, seed, ore.col, ore.row, ore.depth);
     const b = bunkerCellOreYield(FOOTPRINT, seed, ore.col, ore.row, ore.depth);
     expect(a).toEqual(b);
+  });
+});
+
+/** The first (col,row,depth) whose block matches `kind`, scanning the
+ * volume, so pacing tests do not hardcode generator-dependent cells. */
+function firstCellOfKind(
+  footprint: BunkerFootprint,
+  blockSeed: number,
+  kind: BunkerBlock["kind"],
+): { col: number; row: number; depth: number } | null {
+  const bottomRow = footprint.row + footprint.height - 1;
+  for (let depth = 0; depth < BUNKER_CLAIM_DEPTH; depth++) {
+    for (let y = 0; y < footprint.height; y++) {
+      for (let x = 0; x < footprint.width; x++) {
+        const block = bunkerCellBlock(blockSeed, footprint, x, y, depth);
+        if (block.kind === kind) {
+          return { col: footprint.col + x, row: bottomRow - y, depth };
+        }
+      }
+    }
+  }
+  return null;
+}
+
+describe("bunkerCellDigHits", () => {
+  const seed = deriveBunkerBlockSeed(9182, FOOTPRINT);
+
+  it("keeps the legacy single-hit dig when the bunker has no block seed", () => {
+    expect(
+      bunkerCellDigHits(
+        undefined,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        FOOTPRINT.col,
+        FOOTPRINT.row,
+        1,
+      ),
+    ).toBe(1);
+  });
+
+  it("matches the surface dirt hit count and the pickaxe trims it", () => {
+    const dirt = firstCellOfKind(FOOTPRINT, seed, "dirt");
+    if (!dirt) throw new Error("expected a dirt cell in the volume");
+    expect(
+      bunkerCellDigHits(
+        seed,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        dirt.col,
+        dirt.row,
+        dirt.depth,
+      ),
+    ).toBe(BASE_HITS.dirt);
+    expect(
+      bunkerCellDigHits(
+        seed,
+        FOOTPRINT,
+        { ...DEFAULT_GEAR, pickaxe: 3 },
+        dirt.col,
+        dirt.row,
+        dirt.depth,
+      ),
+    ).toBe(BASE_HITS.dirt - 2);
+    expect(
+      bunkerCellDigHits(
+        seed,
+        FOOTPRINT,
+        { ...DEFAULT_GEAR, pickaxe: 99 },
+        dirt.col,
+        dirt.row,
+        dirt.depth,
+      ),
+    ).toBe(1);
+  });
+
+  it("scales rock hits with the depth tier instead of hard-gating", () => {
+    const rock = firstCellOfKind(FOOTPRINT, seed, "rock");
+    if (!rock) throw new Error("expected a rock cell in the volume");
+    // Rows 40-44 sit in tier 2 (rows 24-47), which pickaxe 1 cannot dig
+    // on the surface; the claim stays diggable and charges extra swings.
+    const tier = rockTierAt(rock.row);
+    expect(tier).toBe(2);
+    expect(
+      bunkerCellDigHits(
+        seed,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        rock.col,
+        rock.row,
+        rock.depth,
+      ),
+    ).toBe(BASE_HITS.rock + tier - 1);
+    expect(
+      bunkerCellDigHits(
+        seed,
+        FOOTPRINT,
+        { ...DEFAULT_GEAR, pickaxe: 2 },
+        rock.col,
+        rock.row,
+        rock.depth,
+      ),
+    ).toBe(BASE_HITS.rock + tier - 2);
+  });
+
+  it("gives an ore block one hit per swing of the seeded chip sequence", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    if (!ore) throw new Error("expected at least one ore cell in the volume");
+    const hits = bunkerCellDigHits(
+      seed,
+      FOOTPRINT,
+      DEFAULT_GEAR,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    const reserve = oreReserveAt(
+      bunkerCellOreYield(FOOTPRINT, seed, ore.col, ore.row, ore.depth)?.ore ??
+        "coal",
+      ore.row,
+    );
+    // Multi-unit bursts can shorten the sequence but every swing spends
+    // at least one unit of reserve, so 1 <= hits <= reserve.
+    expect(hits).toBeGreaterThan(1);
+    expect(hits).toBeLessThanOrEqual(reserve);
+    // A better pickaxe never adds swings.
+    const upgraded = bunkerCellDigHits(
+      seed,
+      FOOTPRINT,
+      { ...DEFAULT_GEAR, pickaxe: 4 },
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    expect(upgraded).toBeLessThanOrEqual(hits);
+  });
+
+  it("is deterministic for the same cell, seed, and gear", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    if (!ore) throw new Error("expected at least one ore cell in the volume");
+    const a = bunkerCellDigHits(
+      seed,
+      FOOTPRINT,
+      DEFAULT_GEAR,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    const b = bunkerCellDigHits(
+      seed,
+      FOOTPRINT,
+      DEFAULT_GEAR,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    expect(a).toBe(b);
+  });
+});
+
+describe("bunkerCellSwingOre", () => {
+  const seed = deriveBunkerBlockSeed(9182, FOOTPRINT);
+
+  it("returns null for legacy bunkers, non-ore cells, and out-of-range hits", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    const rock = firstCellOfKind(FOOTPRINT, seed, "rock");
+    if (!ore || !rock) throw new Error("expected ore and rock in the volume");
+    expect(
+      bunkerCellSwingOre(
+        undefined,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        ore.col,
+        ore.row,
+        ore.depth,
+        0,
+      ),
+    ).toBeNull();
+    expect(
+      bunkerCellSwingOre(
+        seed,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        rock.col,
+        rock.row,
+        rock.depth,
+        0,
+      ),
+    ).toBeNull();
+    const hits = bunkerCellDigHits(
+      seed,
+      FOOTPRINT,
+      DEFAULT_GEAR,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    expect(
+      bunkerCellSwingOre(
+        seed,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        ore.col,
+        ore.row,
+        ore.depth,
+        hits,
+      ),
+    ).toBeNull();
+  });
+
+  it("narrates every swing of the dig-hits sequence and stays within the reserve", () => {
+    const ore = firstOreCell(FOOTPRINT, seed);
+    if (!ore) throw new Error("expected at least one ore cell in the volume");
+    const drop = bunkerCellOreYield(
+      FOOTPRINT,
+      seed,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    if (!drop) throw new Error("expected the ore cell to carry a reserve");
+    const hits = bunkerCellDigHits(
+      seed,
+      FOOTPRINT,
+      DEFAULT_GEAR,
+      ore.col,
+      ore.row,
+      ore.depth,
+    );
+    let total = 0;
+    for (let i = 0; i < hits; i++) {
+      const swing = bunkerCellSwingOre(
+        seed,
+        FOOTPRINT,
+        DEFAULT_GEAR,
+        ore.col,
+        ore.row,
+        ore.depth,
+        i,
+      );
+      expect(swing).not.toBeNull();
+      expect(swing?.ore).toBe(drop.ore);
+      expect(swing?.units ?? -1).toBeGreaterThanOrEqual(0);
+      total += swing?.units ?? 0;
+    }
+    // Chips narrate at most the block's reserve (misses spend without
+    // yielding); the full reserve still credits when the block breaks.
+    expect(total).toBeGreaterThan(0);
+    expect(total).toBeLessThanOrEqual(drop.units);
   });
 });

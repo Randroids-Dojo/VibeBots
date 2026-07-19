@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-19-0.1.278-walkable-decks";
+export const RELEASE_NOTICE_ID = "2026-07-19-0.1.279-bunker-multi-hit";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.279",
+      date: "2026-07-19",
+      title: "Bunker blocks take real swings",
+      intro:
+        "Digging inside your bunker now paces like the mine outside: blocks take several pickaxe swings, and ore flecks out chip by chip while you work.",
+      changes: [
+        {
+          build,
+          text: "A bunker block used to pop in a single hit no matter what it was. Now dirt, rock, and ore soak the same kind of multi-hit digging as the open mine: deeper claims cut harder, and every pickaxe upgrade shaves swings off each block.",
+        },
+        {
+          build,
+          text: "Ore blocks chip as you swing: each hit has a chance to knock ore loose, and the block's full haul lands the moment it breaks.",
+        },
+      ],
+    },
     {
       version: "0.1.278",
       date: "2026-07-19",

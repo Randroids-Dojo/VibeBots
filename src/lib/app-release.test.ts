@@ -24,21 +24,33 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest walkable-decks note complete", () => {
+  it("keeps the latest bunker-multi-hit note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-19-0.1.278-walkable-decks");
+    expect(release.noticeId).toBe("2026-07-19-0.1.279-bunker-multi-hit");
     expect(latestNote).toMatchObject({
+      version: "0.1.279",
+      title: "Bunker blocks take real swings",
+      intro:
+        "Digging inside your bunker now paces like the mine outside: blocks take several pickaxe swings, and ore flecks out chip by chip while you work.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A bunker block used to pop in a single hit no matter what it was. Now dirt, rock, and ore soak the same kind of multi-hit digging as the open mine: deeper claims cut harder, and every pickaxe upgrade shaves swings off each block.",
+      "Ore blocks chip as you swing: each hit has a chance to knock ore loose, and the block's full haul lands the moment it breaks.",
+    ]);
+  });
+
+  it("keeps the archived walkable-decks note complete", () => {
+    const release = getAppRelease();
+    const decksNote = release.notes.find((note) => note.version === "0.1.278");
+
+    expect(decksNote).toMatchObject({
       version: "0.1.278",
       title: "Walk onto the floors you place",
       intro:
         "Placed floors are now thin decks you actually walk on, so stepping off a stair top onto your new floor works instead of hitting an invisible wall.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "A floor panel used to block its whole cell even though it drew as a thin slab, which is why the deck past your stair top felt like glass. Now the slab is the surface: walk straight from the stair onto it, and stand exactly on what you see.",
-      "Decks are one-way from below: jump up through a floor and you pop out standing on it, so climbing your own tower never wedges you under a ceiling you built.",
-    ]);
   });
 
   it("keeps the archived thin-walls note complete", () => {

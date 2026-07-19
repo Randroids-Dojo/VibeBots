@@ -338,6 +338,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Floors build off whatever you aim at, any level: a stair top's side, a deck edge, or bare rock. Bridge outward cell by cell to lay a second story.",
   "Tip: Placed floors are thin decks: walk their tops, and a jump from below pops you up through one onto it.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
+  "Tip: Bunker blocks take real swings now: deeper claims cut harder, pickaxe upgrades shave hits, and ore chips loose swing by swing until the block breaks.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
@@ -2869,6 +2870,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         });
       };
 
+      if (intent.kind === "chip") {
+        // A non-breaking pickaxe hit (multi-hit digging, REQ-013 parity):
+        // feedback only, no store commit. The block's ore still credits
+        // in full when the breaking hit lands, so a chip's fleck is a
+        // preview, not a payout.
+        triggerShopHaptic("commit");
+        playMineSfxEvent("dig-rock");
+        return;
+      }
+
       if (intent.kind === "collect") {
         // Only banked bunkers carry overflow loot; a pending claim settles
         // its overflow at bank, so there is nothing to collect mid-trip.
@@ -3661,6 +3672,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               bunker={activeBunker}
               entry={{ col: miner.col, row: miner.row }}
               tool={bunkerToolAction}
+              gear={mine.gear}
               selectedPartId={selectedBasePart}
               selectedOrientation={selectedFpOrientation}
               onEdit={applyFpBunkerEdit}

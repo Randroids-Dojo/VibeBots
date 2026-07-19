@@ -7,6 +7,7 @@ import {
   type BunkerSlot,
   type BunkerState,
 } from "@/sim/bunker";
+import type { OreId } from "@/sim/mine/ores";
 
 /**
  * Solidity grid for the first-person bunker viewer. Pure module (no
@@ -87,9 +88,12 @@ export interface FpEditCell {
 
 /** An edit the first-person canvas asks mine-panel to apply. The panel
  * owns the pending/banked branch, inventory guards, and feedback.
- * "collect" fires when the player walks over an overflow-loot cell. */
+ * "collect" fires when the player walks over an overflow-loot cell.
+ * "chip" is a non-breaking pickaxe hit on a multi-hit block: feedback
+ * only (haptic and sfx), no store commit; the canvas counts the hits
+ * and sends "dig" on the breaking swing. */
 export interface FpEditIntent {
-  kind: "place" | "pry" | "dig" | "collect";
+  kind: "place" | "pry" | "dig" | "collect" | "chip";
   cell: FpEditCell;
   /** Thin sub-cell slot the action targets (F-117). Absent for a legacy
    * whole-cell part, a dig, or a collect. On a place it is the face the
@@ -98,6 +102,10 @@ export interface FpEditIntent {
   /** Facing for a rotatable part (F-117 stair) on a place intent; absent for
    * every fixed-orientation part and non-place intent. */
   orientation?: BunkerOrientation;
+  /** On a "chip" hit at an ore block: the ore this swing flecked out
+   * (0 units = the swing crumbled nothing). Absent on other intents and
+   * on chips at dirt or rock. */
+  chipOre?: { ore: OreId; units: number };
 }
 
 /** How a thin part renders inside its cell: a small offset toward the target

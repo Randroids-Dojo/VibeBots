@@ -43,11 +43,17 @@ import {
   DEFAULT_BUNKER_SKIN,
   isRotatableBasePart,
 } from "@/sim/bunker";
-import { bunkerCellBlock, bunkerCellGenCoords } from "@/sim/bunker-blocks";
+import {
+  bunkerCellBlock,
+  bunkerCellDigHits,
+  bunkerCellGenCoords,
+  bunkerCellSwingOre,
+} from "@/sim/bunker-blocks";
 import {
   LIVE_RAID_TICKS_PER_SECOND,
   type LiveRaidOutcomeReport,
 } from "@/sim/bunker-raid-live";
+import type { MineGear } from "@/sim/mine/gear";
 import type { OreId } from "@/sim/mine/ores";
 import { FpClankerLayer } from "./bunker-fp-clankers";
 import {
@@ -219,6 +225,9 @@ export interface BunkerFpCanvasProps {
   entry: FpEntryCell;
   /** The active tool: build places, pry refunds, dig excavates. */
   tool: BunkerToolAction;
+  /** The player's mine gear: the pickaxe level paces multi-hit digging
+   * (surface parity, REQ-013) and fattens ore chip bursts. */
+  gear: Pick<MineGear, "pickaxe">;
   /** The part the build ghost previews (and a click places). */
   selectedPartId: BasePartId;
   /** Facing the ghost of a rotatable part previews and a place records. */
@@ -891,6 +900,7 @@ function BunkerFpRig({
   bunker,
   entry,
   tool,
+  gear,
   selectedPartId,
   selectedOrientation,
   onEdit,
@@ -906,6 +916,7 @@ function BunkerFpRig({
   bunker: BunkerState;
   entry: FpEntryCell;
   tool: BunkerToolAction;
+  gear: Pick<MineGear, "pickaxe">;
   selectedPartId: BasePartId;
   selectedOrientation: BunkerOrientation;
   onEdit: (intent: FpEditIntent) => void;
@@ -985,6 +996,9 @@ function BunkerFpRig({
     refreshBoxedIn();
     for (let i = 0; i < FP_CELL_COUNT; i++) {
       if (prev[i] !== FP_ROCK_UNDUG || solid[i] !== FP_OPEN) continue;
+      // The broken block's multi-hit progress is spent; drop it so a
+      // future block at a reused index never inherits stale cracks.
+      digHitsRef.current?.delete(i);
       const cell = burstCellRef.current;
       cell.x = i % FP_COLS;
       cell.y = Math.floor(i / FP_COLS) % FP_ROWS;
@@ -1220,6 +1234,16 @@ function BunkerFpRig({
   const lastDigCellRef = useRef(-1);
   const lastDigAtRef = useRef(-1);
   const lastCollectCellRef = useRef(-1);
+  // Multi-hit dig progress by cell index (surface parity, REQ-013):
+  // strikes landed on each still-solid block this fp session. The
+  // excavate intent fires only when a cell's count reaches its
+  // bunkerCellDigHits requirement; opened cells drop their entry in the
+  // rebuild effect. Ephemeral by design: leaving first person forgives
+  // partial cracks, mirroring how the pending trip never persists them.
+  const digHitsRef = useRef<Map<number, number> | null>(null);
+  if (!digHitsRef.current) digHitsRef.current = new Map();
+  // Last struck cell's progress, for the data-fp-dig-* diagnostics.
+  const digReadoutRef = useRef({ hits: 0, required: 0 });
 
   useFrame((state, delta) => {
     const move = moveRef.current;
@@ -1578,28 +1602,69 @@ function BunkerFpRig({
       });
     }
 
-    // Advance the active swing and land the dig at impact. The swing
+    // Advance the active swing and land the strike at impact. The swing
     // auto-restarts while the input stays held in dig mode, so a held
-    // press mines block after block at the swing cadence.
+    // press mines block after block at the swing cadence. Multi-hit
+    // digging (surface parity, REQ-013): every landed strike cracks the
+    // block and bursts crumble; only the strike that reaches the block's
+    // bunkerCellDigHits requirement asks the panel to excavate. Earlier
+    // strikes emit a "chip" intent (feedback only), carrying the ore
+    // that swing flecked out of an ore block, so each hit is a chance at
+    // visible ore exactly like surface swings. The cell/intent objects
+    // are the only allocations and only on a landed strike.
     if (advanceFpSwing(swing, delta, isDig && fpInput.actHeld)) {
       if (isDig && targetDiggable) {
         const digCell = fpCellIndex(rayHit.x, rayHit.y, rayHit.z);
-        const nowSec = state.clock.elapsedTime;
-        if (
-          digCell !== lastDigCellRef.current ||
-          nowSec - lastDigAtRef.current >= FP_DIG_REPEAT_GUARD
-        ) {
-          lastDigCellRef.current = digCell;
-          lastDigAtRef.current = nowSec;
-          onEdit({
-            kind: "dig",
-            cell: fpGridCellFromLocal(
-              bunker.footprint,
-              rayHit.x,
-              rayHit.y,
-              rayHit.z,
-            ),
-          });
+        const cell = fpGridCellFromLocal(
+          bunker.footprint,
+          rayHit.x,
+          rayHit.y,
+          rayHit.z,
+        );
+        const required = bunkerCellDigHits(
+          bunker.blockSeed,
+          bunker.footprint,
+          gear,
+          cell.col,
+          cell.row,
+          cell.depth,
+        );
+        const digHits = digHitsRef.current;
+        // Clamp at the requirement: extra strikes while a banked
+        // round-trip is settling stay in the excavate branch below,
+        // where the same-cell time guard rate-limits the retries.
+        const hits = Math.min(required, (digHits?.get(digCell) ?? 0) + 1);
+        digHits?.set(digCell, hits);
+        digReadoutRef.current.hits = hits;
+        digReadoutRef.current.required = required;
+        const burstCell = burstCellRef.current;
+        burstCell.x = rayHit.x;
+        burstCell.y = rayHit.y;
+        burstCell.z = rayHit.z;
+        burstRemainingRef.current = FP_BURST_SECONDS;
+        if (hits < required) {
+          const chipOre = bunkerCellSwingOre(
+            bunker.blockSeed,
+            bunker.footprint,
+            gear,
+            cell.col,
+            cell.row,
+            cell.depth,
+            hits - 1,
+          );
+          onEdit(
+            chipOre ? { kind: "chip", cell, chipOre } : { kind: "chip", cell },
+          );
+        } else {
+          const nowSec = state.clock.elapsedTime;
+          if (
+            digCell !== lastDigCellRef.current ||
+            nowSec - lastDigAtRef.current >= FP_DIG_REPEAT_GUARD
+          ) {
+            lastDigCellRef.current = digCell;
+            lastDigAtRef.current = nowSec;
+            onEdit({ kind: "dig", cell });
+          }
         }
       }
     }
@@ -1665,6 +1730,20 @@ function BunkerFpRig({
     setDatasetNumber(cache, dataset, "fpOpenCells", openCellsRef.current, 0);
     setDatasetText(cache, dataset, "fpGrounded", move.grounded ? "1" : "0");
     setDatasetText(cache, dataset, "fpSwinging", swing.active ? "1" : "0");
+    setDatasetNumber(
+      cache,
+      dataset,
+      "fpDigHits",
+      digReadoutRef.current.hits,
+      0,
+    );
+    setDatasetNumber(
+      cache,
+      dataset,
+      "fpDigRequired",
+      digReadoutRef.current.required,
+      0,
+    );
 
     // Tutorial observations (F-097): cheap scalars every frame; the
     // machine early-returns when idle or complete and notifies its
@@ -1756,6 +1835,7 @@ function BunkerFpScene({
   bunker,
   entry,
   tool,
+  gear,
   selectedPartId,
   selectedOrientation,
   onEdit,
@@ -1766,6 +1846,7 @@ function BunkerFpScene({
   bunker: BunkerState;
   entry: FpEntryCell;
   tool: BunkerToolAction;
+  gear: Pick<MineGear, "pickaxe">;
   selectedPartId: BasePartId;
   selectedOrientation: BunkerOrientation;
   onEdit: (intent: FpEditIntent) => void;
@@ -1868,6 +1949,7 @@ function BunkerFpScene({
         bunker={bunker}
         entry={entry}
         tool={tool}
+        gear={gear}
         selectedPartId={selectedPartId}
         selectedOrientation={selectedOrientation}
         onEdit={onEdit}
@@ -1888,6 +1970,7 @@ export default function BunkerFpCanvas({
   bunker,
   entry,
   tool,
+  gear,
   selectedPartId,
   selectedOrientation,
   onEdit,
@@ -1952,6 +2035,7 @@ export default function BunkerFpCanvas({
         bunker={bunker}
         entry={entry}
         tool={tool}
+        gear={gear}
         selectedPartId={selectedPartId}
         selectedOrientation={selectedOrientation}
         onEdit={onEdit}

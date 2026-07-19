@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-209" data-f="F-209" data-priority="nice-to-have">
+    <h3>F-209: Let the bunker tool deselect to nothing</h3>
+    <dl>
+      <dt>Context</dt><dd>Live request 2026-07-19: <q>make it possible to unselect the hammer so nothing is selected when in the bunker.</q> The fp hotbar always had something armed: entry arms the pick, and a null tool selection silently fell back to the build action with the default wall part, so the hotbar showed a tool the player never chose and every canvas tap acted.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Tapping the armed pick or part slot again clears the selection; with nothing selected no slot reads pressed, no ghost or outline shows, the place probe reads none, and a tap does nothing (the explicit quick-pry gesture still works).</dd>
+      <dt>Resolved</dt><dd>Deselect slice (branch <code>claude/multi-level-floor-placement-dpndmm</code>): a real <code>none</code> tool action replaces the silent build-wall fallback, pick and part slots toggle, and <code>placeOk</code> gates on the armed build tool; pinned by e2e toggle assertions in the floor-placement scenario.</dd>
+    </dl>
+  </section>
+
   <section id="F-208" data-f="F-208" data-priority="blocks-release">
     <h3>F-208: Make placed floors walkable thin decks, not invisible blocks</h3>
     <dl>

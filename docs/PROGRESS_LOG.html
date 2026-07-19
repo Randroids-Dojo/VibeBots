@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-tool-deselect" data-date="2026-07-19">
+    <h3>The bunker tool deselects to nothing</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/multi-level-floor-placement-dpndmm</code></dd>
+      <dt>PR</dt><dd>(pending). Closes F-209 (live request: unselect the hammer so nothing is selected in the bunker). No package bump: a small control affordance, no new mechanic.</dd>
+      <dt>Changed</dt><dd>Tapping the armed pick or part slot (button or its number key) now clears the selection instead of being a no-op. A null selection maps to a real <code>none</code> tool action (<code>BunkerToolAction</code> gains <code>"none"</code>) instead of silently falling back to build-with-wall, so with nothing selected no hotbar slot reads pressed, the ghost, outline, and place probe stand down (<code>placeOk</code> in <code>bunker-fp-canvas.tsx</code> now requires the build tool to be armed), and a canvas tap does nothing; the explicit quick-pry gesture (right-click or touch long-press) still pries. Pry keeps its existing toggle. Entry still arms the pick (0.1.254), it just clears on a second tap now.</dd>
+      <dt>Verification</dt><dd>Dash and whitespace checks clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok; full unit suite green. The floor-placement fp e2e gained the toggle assertions (entry pick pressed, tap clears it, part slot arms / clears / re-arms, place probe none while nothing is armed), and the building-loop e2e's entry-time place-probe expectation updated to <code>none</code> (the probe now reads a cell only while a build part is armed; its post-selection assertions are unchanged).</dd>
+      <dt>Assumptions</dt><dd>The place probe reporting <code>none</code> outside build mode is the honest semantic (it names the cell a build tap would fill). Quick-pry staying live with nothing selected matches its gesture-not-tool design. Rule 13: tip review done, no tip change (aria-pressed toggling is the platform convention). Rule 14: stamp review done, none added.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/08-base-building.html</code> gains a build-log entry. No coverage row change. No version bumps.</dd>
+      <dt>Followups</dt><dd>F-209 created for the request and resolved by this slice.</dd>
+    </dl>
+  </article>
+
   <article data-slice="walkable-floor-decks" data-date="2026-07-19">
     <h3>Floor slabs collide as thin walkable decks</h3>
     <dl>

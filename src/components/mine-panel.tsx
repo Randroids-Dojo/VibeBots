@@ -1420,7 +1420,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       ? "pry"
       : bunkerToolSelection === "dig"
         ? "dig"
-        : "build";
+        : bunkerToolSelection === null
+          ? "none"
+          : "build";
 
   useEffect(() => {
     if (mine.miner.row !== 0) return;
@@ -2976,11 +2978,13 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const rotateFpPart = useCallback(() => {
     setSelectedFpOrientation((prev) => ((prev + 1) % 4) as BunkerOrientation);
   }, []);
+  // Tapping the already-armed tool clears it (nothing selected), so the
+  // player can walk and look with no ghost, outline, or accidental act.
   const selectFpPart = useCallback((partId: BasePartId) => {
-    setBunkerToolSelection(partId);
+    setBunkerToolSelection((prev) => (prev === partId ? null : partId));
   }, []);
   const selectFpPick = useCallback(() => {
-    setBunkerToolSelection("dig");
+    setBunkerToolSelection((prev) => (prev === "dig" ? null : "dig"));
   }, []);
   const toggleFpPry = useCallback(() => {
     setBunkerToolSelection((prev) => (prev === "pry" ? null : "pry"));

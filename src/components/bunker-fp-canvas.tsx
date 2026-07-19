@@ -1384,14 +1384,17 @@ function BunkerFpRig({
       }
     }
 
-    // Placement validity: the ray crossed an open cell that is still open,
-    // would not entomb the player's capsule, and the selected part actually
-    // has a legal placement there. A sealing part needs the aimed face to be
-    // one of its slots (F-117 full-cell retirement, Q-026): aiming a wall at
-    // a floor is now rejected outright instead of dropping in a whole-cell
-    // block. A mount (turret, spikes, staircase) is always valid whole-cell,
-    // so `placement.valid` stays true for it.
+    // Placement validity: the build tool is armed (nothing places or
+    // previews when no tool is selected), the ray crossed an open cell that
+    // is still open, the placement would not entomb the player's capsule,
+    // and the selected part actually has a legal placement there. A sealing
+    // part needs the aimed face to be one of its slots (F-117 full-cell
+    // retirement, Q-026): aiming a wall at a floor is rejected outright
+    // instead of dropping in a whole-cell block. A mount (turret, spikes,
+    // staircase) is always valid whole-cell, so `placement.valid` stays
+    // true for it.
     const placeOk =
+      tool === "build" &&
       rayHit.hit &&
       rayHit.placeX >= 0 &&
       placement.valid &&

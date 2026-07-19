@@ -587,8 +587,10 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
       timeout: 20_000,
     })
     .toBe("3:0:3:rock-diggable");
-  // The deepest crossed pocket cell (3,0,2) is the place cell.
-  await expect(canvas).toHaveAttribute("data-fp-place", "3:0:2");
+  // The place probe reads a cell only while a build part is armed; entry
+  // arms the pick, so it reports none here (the wall selection below
+  // flips it to the deepest crossed pocket cell).
+  await expect(canvas).toHaveAttribute("data-fp-place", "none");
   await expect(page.locator(".bunker-fp-target-label")).toHaveText(
     "Claim rock (diggable)",
   );
@@ -1242,9 +1244,31 @@ test("first-person places a floor deck cell against a vertical face (multi-level
     .poll(async () => canvas.getAttribute("data-fp-eye-x"), { timeout: 45_000 })
     .not.toBeNull();
 
+  // Entry arms the pick; tapping the armed pick again clears it so
+  // NOTHING is selected: no slot pressed, no place cell, no ghost.
+  const pick = page.getByTestId("bunker-fp-pick");
+  await expect(pick).toHaveAttribute("aria-pressed", "true");
+  await pick.click();
+  await expect(pick).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await expect(canvas).toHaveAttribute("data-fp-place", "none");
+
   // A pending claim always starts from the starter kit (4 floors).
   const floorSlot = page.getByTestId("bunker-fp-slot-floor-panel");
   await expect(floorSlot).toHaveAttribute("aria-label", "Floor x4");
+  await floorSlot.click();
+  await expect(floorSlot).toHaveAttribute("aria-pressed", "true");
+  // Tapping the armed slot again unselects it, and a third tap re-arms.
+  await floorSlot.click();
+  await expect(floorSlot).toHaveAttribute("aria-pressed", "false");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("none");
   await floorSlot.click();
   await expect(floorSlot).toHaveAttribute("aria-pressed", "true");
 

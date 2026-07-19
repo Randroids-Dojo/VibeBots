@@ -13,7 +13,7 @@
 <article>
 <h1>F-106 Fail live raid conflicts and resync state</h1>
 <section id="description">
-F-106: Allow only one concurrent mutation to win, return a stable conflict response to the loser, and replace local state with the latest server view.
+F-106: Allow only one concurrent mutation to win, return a stable conflict response to the loser, and replace local state with the latest server view. Main 9983bffa exposes the exact PR #231 settlement race: resolve claims the raid row, a same-generation bunker edit can win before the separate parts write, and the resolver still pays and reports success when that guarded write matches zero rows; snapshots without a frozen revision bypass the guard. Make the raid claim and bunker wear one atomic winner, pay and record nothing on a loser, return a stable 409 with the authoritative bunker and raid view, fail fast on a missing snapshot revision, and test a true overlapping edit plus the legacy-snapshot path.
 </section>
 </article>
 </body>

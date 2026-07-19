@@ -1148,14 +1148,15 @@
       "followupRefs": [
         "F-115",
         "F-120",
-        "F-133"
+        "F-133",
+        "F-168"
       ]
     },
     {
       "id": "REQ-045",
       "requirement": "Bunker rock uses deterministic mine generation and break rules, spends no battery, deposits ore into the shared cargo flow, preserves depletion, and cannot pay rewards again after reset or retry. Banked edits carry an optimistic revision guard (F-122): each dig or part edit echoes the loaded revision, exactly one write per revision wins, a lost or stale race returns HTTP 409 with the authoritative view and pays no ore, and the client serializes edits and resyncs on conflict.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "done",
+      "status": "partial",
       "implementationRefs": [
         "src/sim/bunker-blocks.ts",
         "src/sim/bunker.ts",

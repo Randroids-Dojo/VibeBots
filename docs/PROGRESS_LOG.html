@@ -44,6 +44,19 @@
     </dl>
   </article>
 
+  <article data-slice="staircase-arc-simplify" data-date="2026-07-18">
+    <h3>Simplify the staircase arc: shared orientation domain, leaner mover</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/staircase-simplify</code></dd>
+      <dt>PR</dt><dd>(pending). Post-merge cleanup of the F-117 staircase arc (a <code>/simplify</code> pass), no behavior change, no package bump.</dd>
+      <dt>Changed</dt><dd>Three consensus findings from four parallel review agents (reuse, simplification, efficiency, altitude). (1) The <code>0|1|2|3</code> orientation validator was hand-rolled across five sites (three zod literal-unions plus two by-hand numeric guards); consolidated into a single source in <code>src/sim/bunker.ts</code> mirroring the <code>BUNKER_SLOTS</code> pattern: a <code>BUNKER_ORIENTATIONS</code> const (the type now derives from it), an <code>isBunkerOrientation</code> guard, and a shared <code>bunkerOrientationSchema</code>, all reused by the place route, the bank claim schema, the local-restore schema, and both normalizers. (2) A tautological per-frame guard in <code>stairRampFloor</code> (<code>Math.abs(px - Math.round(px)) &gt; 0.5</code>, never true) was removed. (3) The two near-identical ramp-ride branches in <code>stepFpMovement</code> were collapsed into one (provably equivalent: the <code>vy &lt;= 0</code> branch's <code>vy = 0</code> equals <code>if (vy &lt; 0) vy = 0</code> under its own guard), removing a duplicate <code>stairCeilingCap</code> call.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. Behavior-preserving: the 24 movement tests confirm the mover collapse, and the full unit suite is green (1736) unchanged.</dd>
+      <dt>Assumptions</dt><dd>The efficiency agent confirmed the arc's per-frame paths are already allocation-free (frame-loop rule holds), so nothing there needed a fix. Skipped, with reasons: the <code>comingSoon</code> release gate is deliberately dormant and documented (a reusable mechanism for the next unreleased part, per prior guidance), not accidental dead code; the mount-whole-cell modeling nuance, the positional-arg growth, and an fp-geometry <code>rivet</code> helper are pre-existing patterns or genuinely out of scope for a cleanup pass.</dd>
+      <dt>GDD coverage</dt><dd>No coverage or requirement change (pure refactor, no feature). No <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump. No Rule 13 tip or Rule 14 stamp change.</dd>
+      <dt>Followups</dt><dd>None.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-fullcell-retirement" data-date="2026-07-18">
     <h3>Retire the legacy whole-cell fallback for sealing parts</h3>
     <dl>

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { bunkerCellOreYield, bunkerSpawnPocketCells } from "./bunker-blocks";
 import type { MineState } from "./mine/cells";
 import { fillHold } from "./mine/inventory";
@@ -247,10 +248,31 @@ export function allowedBunkerSlots(partId: BasePartId): readonly BunkerSlot[] {
   }
 }
 
+/** The four quarter-turn facings, the single source for the orientation
+ * domain (mirrors BUNKER_SLOTS): the type, the guard, and the wire schema all
+ * derive from it, so no site hand-rolls a 0-3 union. */
+export const BUNKER_ORIENTATIONS = [0, 1, 2, 3] as const;
+
 /** A staircase's facing: which of the four horizontal directions its low end
  * points toward, as quarter turns (0 = +x, 1 = +z, 2 = -x, 3 = -z). Only a
  * stair carries one; every other part's orientation is fixed by its slot. */
-export type BunkerOrientation = 0 | 1 | 2 | 3;
+export type BunkerOrientation = (typeof BUNKER_ORIENTATIONS)[number];
+
+/** Runtime guard for a stored/legacy orientation value. */
+export function isBunkerOrientation(
+  value: unknown,
+): value is BunkerOrientation {
+  return (BUNKER_ORIENTATIONS as readonly unknown[]).includes(value);
+}
+
+/** Shared wire schema for the optional facing, reused by every route and
+ * persistence boundary the way `z.enum(BUNKER_SLOTS)` is reused for slots. */
+export const bunkerOrientationSchema = z.union([
+  z.literal(0),
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+]);
 
 export interface PlacedBasePart {
   partId: BasePartId;

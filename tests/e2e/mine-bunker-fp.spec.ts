@@ -42,6 +42,7 @@ const FP_PLANE_DUG = (() => {
 const FP_BUNKER_VIEW = {
   bunker: {
     footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+    layoutVersion: 1,
     dug: FP_PLANE_DUG,
     parts: [
       {
@@ -352,7 +353,7 @@ test("first-person bunker viewer walks, looks, jumps, and exits in place", async
   ).toBeVisible();
 });
 
-test("the single floating entry enters the banked bunker and the sheet has no redundant 3D row", async ({
+test("one bunker button at a time: Enter replaces the trigger and the fp Bunker button reopens the sheet", async ({
   page,
 }) => {
   // Software-GL runners compile the fp scene slowly.
@@ -369,14 +370,14 @@ test("the single floating entry enters the banked bunker and the sheet has no re
   await dismissReleaseNotes(page);
   await digTo(page, 1);
 
-  // The single Enter affordance: the floating Enter bunker button. The
-  // sheet's redundant 3D-entry row was removed in the menu consolidation
-  // (F-119), and the status sheet must offer no second way in.
-  await page.getByRole("button", { name: "Open bunker status" }).click();
-  await expect(page.getByTestId("bunker-fp-enter-panel")).toHaveCount(0);
-  await page.getByRole("button", { name: "Dismiss bunker status" }).click();
+  // Standing inside the editable claim, the floating Enter bunker pill
+  // is the ONLY bunker button: the collapsed status trigger yields its
+  // slot (F-119 fold), so the pair can never stack over the HUD.
   const enter = page.getByTestId("bunker-fp-enter");
   await expect(enter).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open bunker status" }),
+  ).toHaveCount(0);
   await enter.click();
 
   const status = page.getByLabel("Mine status");
@@ -388,8 +389,15 @@ test("the single floating entry enters the banked bunker and the sheet has no re
     })
     .not.toBeNull();
 
-  await page.getByRole("button", { name: "Exit bunker" }).click();
+  // The sheet's doorway from inside: the fp Bunker button drops back to
+  // the flat view with the status sheet already open.
+  await page.getByTestId("bunker-fp-status").click();
   await expect(status).toHaveAttribute("data-fp-mode", "0");
+  await expect(
+    page.getByRole("region", { name: "Bunker status" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Dismiss bunker status" }).click();
+  await expect(enter).toBeVisible();
   await awaitMineSceneReady(page);
 });
 
@@ -1083,6 +1091,7 @@ test.describe("phone viewport", () => {
       ...FP_BUNKER_VIEW,
       bunker: {
         footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+        layoutVersion: 1,
         dug: FP_PLANE_DUG,
         parts: [1, 2, 3].map((offset) => ({
           partId: "wall-panel",
@@ -2094,6 +2103,7 @@ test("first-person bunker interior renders dirt, rock, and ore, not one flat gra
  * parts (the server normalizes these), so the client sim reads them. */
 const RAID_BUNKER = {
   footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+  layoutVersion: 1,
   dug: FP_PLANE_DUG,
   parts: [
     {

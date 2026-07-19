@@ -31,6 +31,32 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-e2e-layout-version-fixtures" data-date="2026-07-18">
+    <h3>Stamp the bunker e2e fixtures with the current layout version</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/load-animation-hud-overlap-3sefcn</code> (same PR as the bunker-button fold below).</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Latent full-matrix breakage found while verifying the fold: since the layout-version gate (PR #231), a mocked <code>/api/bunker</code> bunker without <code>layoutVersion</code> reads as layout-incompatible, so the first-person Enter affordance never appears and every fp-entry e2e stalls to its timeout. The real server always emits the stamp (pinned by <code>src/server/bunker.test.ts</code>), so the pre-#231 fixtures were out of contract. Stamped <code>layoutVersion: 1</code> on the banked-bunker fixtures in <code>mine-bunker-fp.spec.ts</code> (three), <code>mine-bunker.spec.ts</code> (skins view), <code>mine-viewport.spec.ts</code>, <code>visual-baselines.spec.ts</code>, and <code>bunker-arc-capture.spec.ts</code>; the old-layout fail-fast test keeps its intentional version-0 fixture. Consequence of the rot: Full E2E shards 1-3 hit their 20-minute job timeout and reported <em>cancelled</em> on the scheduled runs of July 14-18 while triage only saw the one <em>failed</em> shard (the elevator flake, fixed in PR #263). F-197 records the monitoring gap.</dd>
+      <dt>Verification</dt><dd>Locally against a production build: the fp bag-chip flow (a CI-green-in-name test that reproduced the stall before the stamp) and the reworked fold tests run with the stamped fixtures; results recorded in the fold entry below. Biome clean on the touched specs.</dd>
+      <dt>Assumptions</dt><dd>Fixtures should mirror the authoritative route's contract (always-stamped layout version) rather than exercise the legacy default implicitly; the legacy path keeps its own dedicated test.</dd>
+      <dt>GDD coverage</dt><dd>No rows changed (test-only repair).</dd>
+      <dt>Followups</dt><dd>F-197 (cancelled-shard triage blind spot) created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="first-paint-gate-and-bunker-button-fold" data-date="2026-07-18">
+    <h3>Hold the loading animation until pixels land, and fold the bunker buttons to one</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/load-animation-hud-overlap-3sefcn</code></dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Two fixes from an iPhone playtest screenshot (depth 22, mid-session load). (1) The <q>Opening the shaft</q> notice and veil dismissed onto a still-black canvas: the first-frame signal fired on the first <code>onAfterRender</code>, but frames can start before the async pipeline warm-up finishes (the compile gate deadline is a fallback), and those early frames draw only the probe's invisible sentinel. <code>CanvasDrawCallProbe</code> now runs a pure per-frame gate (<code>advanceFirstFrameGate</code>): wait for a frame whose draw count beats the sentinel's own draw, wait one more frame so that content is submitted, then resolve the WebGPU <code>onSubmittedWorkDone</code> fence (when a queue exists) before firing; the panel's 2x-deadline fallback stays as the anti-trap ceiling. Covers the mine and fp bunker canvases. (2) The flat view stacked <q>Bunker</q> + <q>Enter bunker</q> pills and the lower pill overlapped the wrapped ladder chip: standing inside an editable claim now shows only the Enter pill in the trigger's slot (bottom 154px) via <code>entryButtonVisible</code>, and a new fp HUD <q>Bunker</q> button (under Exit) exits to the flat view with the status sheet already open, so Repair/Skins/Reset stay one tap away (F-119 step 2, the fold). Boxed-in hint and tutorial closer copy repointed.</dd>
+      <dt>Verification</dt><dd>dash clean, <code>git diff --check</code> clean, Biome clean (2 pre-existing warnings in untouched files), full type-check, full unit suite green (1713, including the new gate tests). Production build; reworked e2es run locally against it: the old-layout Start-fresh flow, the pending-claim reset two-step (both through the new fp doorway), the one-button invariant test, and the skin-repaint flow. The capture-only bunker-arc driver was repointed the same way (not CI-run).</dd>
+      <dt>Assumptions</dt><dd>Kept the collapsed <q>Bunker</q> trigger everywhere outside the claim (it is the only bunker button there). Chose exit-to-sheet for the fp Bunker button rather than overlaying the sheet inside first person, so the F-119 monitoring hazard (Reset invalidating geometry under a live fp canvas) cannot arise. No package bump or release note (control de-duplication plus loading polish, same call as PR #217); Rule 13 tips reviewed with no change needed, Rule 14 no new stamp.</dd>
+      <dt>GDD coverage</dt><dd>No coverage rows changed. Build-log entries appended to <code>docs/gdd/06-mining.html</code> and <code>docs/gdd/08-base-building.html</code>.</dd>
+      <dt>Followups</dt><dd>F-119 progress recorded (step 2, the fold). No new followups.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-stair-climb" data-date="2026-07-18">
     <h3>Make the bunker staircase a walkable climbing ramp</h3>
     <dl>

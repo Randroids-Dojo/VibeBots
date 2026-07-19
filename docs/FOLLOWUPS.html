@@ -37,6 +37,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-197" data-f="F-197" data-priority="nice-to-have">
+    <h3>F-197: Scheduled Full E2E shards that hit the 20-minute job timeout read as cancelled, not red</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-07-18 while verifying the bunker-button fold. Since the layout-version gate landed (PR #231), every e2e bunker fixture without a <code>layoutVersion</code> stamp read as layout-incompatible, which withheld the first-person Enter affordance and stalled roughly two dozen tests across <code>mine-bunker-fp.spec.ts</code>, <code>mine-viewport.spec.ts</code>, <code>visual-baselines.spec.ts</code>, and <code>bunker-arc-capture.spec.ts</code>. Each stalled test burned its full 180s budget, so Full E2E shards 1-3 exceeded <code>timeout-minutes: 20</code> and GitHub reported them as <em>cancelled</em> for at least four consecutive scheduled runs (July 14-18). Daily triage read only the one <em>failed</em> shard (the known elevator flake, since fixed in PR #263) and the rot ran unseen. The fixtures are stamped current in the bunker-button-fold slice; this followup covers the process gap.</dd>
+      <dt>Blocker (if any)</dt><dd>None; monitoring hardening.</dd>
+      <dt>Unblock condition</dt><dd>Make cancelled full-matrix jobs count as red in the loop's step-3 triage (inspect per-job conclusions, not just the run conclusion or the failed-job list), and give the full shards headroom so a stalling spec fails visibly instead of timing out the job: raise <code>timeout-minutes</code> or the shard count, and consider a tighter per-test timeout for the full matrix so one broken affordance cannot eat a shard. Record the exact triage command in <code>docs/CI_WORKFLOW.html</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised in the bunker-button-fold slice (branch <code>claude/load-animation-hud-overlap-3sefcn</code>).</dd>
+    </dl>
+  </section>
+
   <section id="F-144" data-f="F-144" data-priority="nice-to-have">
     <h3>F-144: Add a raid-burst heap-churn scenario</h3>
     <dl>
@@ -340,6 +350,7 @@
       <dt>Tracking update</dt><dd>2026-07-13: Dot VibeBots-f-119-put-d9c9aef9 created under VibeBots-first-person-3d-30115c4e.</dd>
       <dt>Monitoring update</dt><dd>The in-bunker Reset action must use F-120's no-ore-regeneration contract and must exit or remount first person from the authoritative response so the live canvas never continues over invalidated geometry.</dd>
       <dt>Progress (2026-07-15, step 1)</dt><dd>Surfaced by an Android playtest ("what happened to consolidating the bunker menus"). The redundant second entry is gone: the status sheet's <q>Enter bunker (3D)</q> row was removed, leaving the floating <q>Enter bunker</q> button (shown in the same states) as the single entry affordance; the <code>onEnterFp</code> prop and its CSS are deleted, and the three first-person entry e2es were repointed to the single button and pass against a production build. Still pending (the substantive remainder): the in-first-person toggle menu holding Raid, Repair, Skins, and confirmed Reset so those controls are reachable while inside the bunker, and folding the flat-view <q>Bunker</q>/<q>Enter bunker</q> pair down once that menu exists. The in-bunker Raid control should drive the live start path, so it is best finished alongside the client raid loop.</dd>
+      <dt>Progress (2026-07-18, step 2: the fold)</dt><dd>Surfaced again by an iPhone playtest screenshot: the <q>Bunker</q>/<q>Enter bunker</q> pair stacked over the wrapped consumable row (the ladder chip sat under the Enter pill). The flat-view pair is now folded to one button: standing inside an editable claim shows ONLY the floating <q>Enter bunker</q> pill, which takes the collapsed trigger's slot (bottom 154px, clear of the wrapped chip rows); everywhere else underground the collapsed <q>Bunker</q> trigger shows as before. The status sheet's doorway from inside is a new first-person <q>Bunker</q> HUD button (under Exit) that drops back to the flat view with the sheet already open, so Repair, Skins, and Reset stay reachable without stepping out of the claim; the Reset-over-live-canvas hazard from the Monitoring update never arises because the sheet always operates over the 2D view. Raid already lives in first person (Start raid, PR #221), so the remaining F-119 scope is whether the sheet's own controls should eventually render inside first person rather than via the drop-out doorway.</dd>
     </dl>
   </section>
 

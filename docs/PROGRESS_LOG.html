@@ -31,6 +31,19 @@
 
 <main id="entries">
 
+  <article data-slice="bunker-fullcell-retirement" data-date="2026-07-18">
+    <h3>Retire the legacy whole-cell fallback for sealing parts</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bunker-fullcell-retirement</code></dd>
+      <dt>PR</dt><dd>(pending). The last F-117 item, closes Q-026. No package bump.</dd>
+      <dt>Changed</dt><dd>In first person a sealing part (wall, floor, roof, door) now places <em>only</em> on a matching sub-cell slot: <code>placeOk</code> in <code>bunker-fp-canvas.tsx</code> gained a <code>placement.valid</code> term, so aiming a wall at a floor or roof face (which yields no slot) is rejected outright (ghost and place cell disappear) instead of dropping in a legacy whole-cell block. Mounts (turret, spikes, staircase) are always valid whole-cell, so they place exactly as before. The sim's whole-cell <code>placeBasePart</code> branch is kept on purpose, for mounts and for legacy coexistence (whole-cell parts already in a bunker keep working); the retirement is that the fp builder no longer emits a whole-cell sealing part, which is what Q-026 asked. A small raycast comment now notes the walkable stair value also targets as a part.</dd>
+      <dt>Verification</dt><dd>dash clean; <code>biome check</code> exit 0; <code>tsc --noEmit</code> ok. Full unit suite green (1736); the <code>fpPlacementSlot</code> unit tests already pin the <code>valid: false</code> case a wall on a horizontal face returns. e2e (against a production build): the building-loop was re-aimed onto canonical wall faces and gained a retirement assertion (a wall aimed down at a floor now reports place <code>none</code>); the banked dig-and-place body assertion was corrected to carry the <code>wall-pz</code> slot it always emitted (a stale pre-slot-wire assertion the strict run surfaced; the <code>placeOk</code> gate cannot change an emitted slot, only whether the emit fires); the thin-wall, staircase, and tutorial fp e2es pass unchanged.</dd>
+      <dt>Assumptions</dt><dd>No version bump or release note: normal play always aims a sealing part at a matching face, so this only removes an interim fallback, invisible to ordinary building. Rule 13 tips reviewed, no change. Rule 14 no new stamp (a strictness cleanup).</dd>
+      <dt>GDD coverage</dt><dd>Q-026 resolved in <code>docs/OPEN_QUESTIONS.html</code>. <strong>REQ-046 moves to <code>done</code></strong> (a coverage note records the honest nuance that the staircase and other mounts store whole-cell rather than on a thin sub-cell slot, a deliberate choice since a mount occupies its cell). <code>docs/gdd/08-base-building.html</code> gains a build-log entry. No <code>MINE_VERSION</code>/<code>SIM_VERSION</code> bump. The F-117 arc is complete.</dd>
+      <dt>Followups</dt><dd>None. F-117 is done.</dd>
+    </dl>
+  </article>
+
   <article data-slice="followups-marker-repair" data-date="2026-07-18">
     <h3>Repair conflict markers committed into the followups ledger</h3>
     <dl>

@@ -1200,14 +1200,20 @@
       "id": "REQ-046",
       "requirement": "Bunker construction uses rotatable sub-cell slots for thin floors, walls, roofs, and stairs, with deterministic support and destruction rules plus a confirmed hard reset for incompatible old layouts.",
       "gddRef": "docs/gdd/08-base-building.html#minecraft-bunker",
-      "status": "partial",
+      "status": "done",
+      "notes": "Thin walls (face-rotatable), floors, and roofs place strictly on sub-cell slots in first person (the full-cell retirement removed the whole-cell fallback for sealing parts). Deterministic floor support and cascade destruction, mount support, and slot-aware live-raid wear all ship. The staircase is the rotatable modular climb piece; it and the other mounts (turret, spikes) place whole-cell rather than on a thin sub-cell slot, a deliberate modeling choice since a mount occupies its cell. The confirmed no-refund Start fresh handles incompatible old layouts.",
       "implementationRefs": [
         "src/sim/bunker.ts",
         "src/server/bunker.ts",
         "src/server/db.ts",
         "src/app/api/bunker/start-fresh/route.ts",
         "src/components/mine-bunker-control-panel.tsx",
-        "src/components/mine-panel.tsx"
+        "src/components/mine-panel.tsx",
+        "src/components/bunker-fp-canvas.tsx",
+        "src/components/bunker-fp-raycast.ts",
+        "src/components/bunker-fp-grid.ts",
+        "src/components/bunker-fp-movement.ts",
+        "src/components/bunker-fp-part-geometry.ts"
       ],
       "testRefs": [
         "src/sim/bunker.test.ts",
@@ -1215,7 +1221,10 @@
         "src/app/api/bunker/route.test.ts",
         "src/state/bunker-store.test.ts",
         "src/state/bunker-api-client.test.ts",
-        "tests/e2e/mine-bunker.spec.ts"
+        "src/components/bunker-fp-raycast.test.ts",
+        "src/components/bunker-fp-movement.test.ts",
+        "tests/e2e/mine-bunker.spec.ts",
+        "tests/e2e/mine-bunker-fp.spec.ts"
       ],
       "followupRefs": [
         "F-117"

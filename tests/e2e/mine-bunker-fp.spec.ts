@@ -600,22 +600,35 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
   await wallSlot.click();
   await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
 
-  // Aim down-left: the ray crosses the open cell (2,0,0) and lands on
-  // the floor boundary, so the crossed cell becomes the place cell.
+  // Full-cell retirement (F-117, Q-026): a wall aimed at a floor/roof face
+  // has no slot, so it is no longer placeable there. Aiming down, the ghost
+  // and place cell go away instead of dropping in a whole-cell block.
   await aimFp(page, 1.57, -0.62);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-place"), {
       timeout: 10_000,
     })
-    .toBe("2:0:0");
-  await expect(canvas).toHaveAttribute("data-fp-target", "2:-1:0:rock");
+    .toBe("none");
+
+  // Aim forward: the ray crosses the open pocket cells and lands on the
+  // rock behind, so the wall builds on the deepest crossed cell's +depth
+  // face (a canonical wall slot stored at that cell).
+  await aimFp(page, 0, 0);
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-place"), {
+      timeout: 10_000,
+    })
+    .toBe("3:0:2");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-slot"), { timeout: 10_000 })
+    .toBe("wall-pz");
 
   await armFpPointer(page);
   const beforePlace = await canvas.screenshot();
   await canvas.click();
 
-  // The wall lands in the place cell: count drops, the grid closes the
-  // cell, and the crosshair now sees the part it placed.
+  // The wall lands on its slot: count drops, the grid closes the (cell-
+  // granular) place cell, and the crosshair now sees the part it placed.
   await expect(wallSlot).toHaveAttribute(
     "aria-label",
     `Wall x${wallCount - 1}`,
@@ -625,7 +638,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 10_000,
     })
-    .toBe("2:0:0:part");
+    .toBe("3:0:2:part");
   await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
   await expect(page.locator(".bunker-fp-target-label")).toHaveText(
     "Wall 90/90",
@@ -641,9 +654,7 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
   );
   expect(placedPart).toMatchObject({
     partId: "wall-panel",
-    col: START_COL - 1,
-    row: 5,
-    depth: 0,
+    slot: "wall-pz",
   });
 
   // Auto-stow prying (F-099) has no carry state: the chip's selector
@@ -651,13 +662,17 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
   const carried = page.locator(".bunker-fp-carried");
   await expect(carried).toHaveCount(0);
 
-  // Place the second wall down-right at (4,0,0): stock empties.
-  await aimFp(page, -1.57, -0.62);
+  // Place the second wall level-right on the +x face of (4,0,0): stock
+  // empties.
+  await aimFp(page, -1.57, 0);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-place"), {
       timeout: 10_000,
     })
     .toBe("4:0:0");
+  await expect
+    .poll(async () => canvas.getAttribute("data-fp-slot"), { timeout: 10_000 })
+    .toBe("wall-px");
   await canvas.click();
   await expect(wallSlot).toHaveAttribute(
     "aria-label",
@@ -690,12 +705,12 @@ test("first-person building loop on a pending claim: place, chained pry refunds,
 
   // Chain the second pry immediately: no stow step in between, both
   // refunds land, and the pack holds the full starting stock again.
-  await aimFp(page, 1.57, 0);
+  await aimFp(page, 0, 0);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-target"), {
       timeout: 10_000,
     })
-    .toBe("2:0:0:part");
+    .toBe("3:0:2:part");
   await canvas.click({ button: "right" });
   await expect(wallSlot).toHaveAttribute("aria-label", `Wall x${wallCount}`, {
     timeout: 10_000,
@@ -1562,12 +1577,16 @@ test("first-person dig and place round-trip the banked bunker APIs with depth", 
       timeout: 10_000,
     })
     .toBe("3:0:1:part");
+  // Full-cell retirement (F-117): the forward aim builds the wall on the
+  // dug cell's +depth face, so the banked place body carries that slot
+  // instead of a legacy whole-cell placement.
   expect(placeBodies).toEqual([
     {
       partId: "wall-panel",
       col: START_COL,
       row: 5,
       depth: 1,
+      slot: "wall-pz",
       expectedRevision: 0,
     },
   ]);

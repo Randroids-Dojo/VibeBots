@@ -27,11 +27,12 @@ import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
 import { detectTvMode } from "@/lib/tv-device";
 import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
-  BASE_PART_IDS,
+  AVAILABLE_BASE_PART_IDS,
   type BasePartId,
   bunkerCells,
   containsBunkerCell,
   isBasePartDamaged,
+  isBunkerLayoutIncompatible,
   maxBunkerRaidTier,
   proposedBunkerFootprint,
 } from "@/sim/bunker";
@@ -322,7 +323,6 @@ const MINE_SURFACE_TIPS = [
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
-  "Tip: Follow the XP arrow to the bright pickup, then collect when it says XP here.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Inside your bunker, Start raid drops you into a live first-person fight. The Clankers hunt you through the halls, and stopping one drops XP to walk over.",
@@ -331,13 +331,14 @@ const MINE_SURFACE_TIPS = [
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
   "Tip: In first person, hold the pick and drag your aim to mine claim rock cell after cell. Parts place at the crosshair; pry returns them to your pack.",
+  "Tip: Aim a wall, floor, or roof at a surface to build it as a thin panel on that exact face. Corner a cell with two walls, or line a room without filling it.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
-  "Tip: Sealed inside an old base? Reset bunker in the sheet refunds undamaged parts.",
+  "Tip: Sealed yourself in? Reset bunker in the sheet clears the build and refunds undamaged parts.",
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -402,6 +403,17 @@ function baseReturnTarget(
 }
 
 function elevatorAutoDelayMs(gear: MineGear): number {
+  // Test hook: slow (or speed) the automatic ride cadence so timing-sensitive
+  // restore e2es can observe a mid-ride state without racing the real 240ms
+  // step. Ignored in production (the global is never set).
+  if (typeof window !== "undefined") {
+    const override = (
+      window as Window & { __vibebotsElevatorAutoDelayMs?: number }
+    ).__vibebotsElevatorAutoDelayMs;
+    if (typeof override === "number" && Number.isFinite(override)) {
+      return Math.max(0, override);
+    }
+  }
   return Math.max(70, 240 - ((gear.elevatorSpeed ?? 1) - 1) * 20);
 }
 
@@ -1146,6 +1158,8 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     (s) => s.elevatorPlacementRequired,
   );
   const shopNote = useMineStore((s) => s.shopNote);
+  const railResyncFailed = useMineStore((s) => s.railResyncFailed);
+  const retryRailResync = useMineStore((s) => s.retryRailResync);
   const buyConsumable = useMineStore((s) => s.buyConsumable);
   const buyGearUpgrade = useMineStore((s) => s.buyGearUpgrade);
   const buyElevator = useMineStore((s) => s.buyElevator);
@@ -1165,6 +1179,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const forfeitBunkerLiveRaid = useBunkerStore((s) => s.forfeitLiveRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
   const resetBankedBunker = useBunkerStore((s) => s.resetBunker);
+  const startFreshBankedBunker = useBunkerStore((s) => s.startFreshBunker);
   const setBunkerSkin = useBunkerStore((s) => s.setSkin);
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
@@ -1180,6 +1195,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     useState<ElevatorPresentation>(() => initialElevatorPresentation(0));
   const [elevatorPlacementMode, setElevatorPlacementMode] = useState(false);
   const [elevatorPurchasePending, setElevatorPurchasePending] = useState(false);
+  const [railRetryPending, setRailRetryPending] = useState(false);
   const [elevatorPlacementError, setElevatorPlacementError] = useState<
     string | null
   >(null);
@@ -1256,9 +1272,10 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   );
   // A fresh scene load starts unpainted again (canvas remounts via
   // retryMineSceneLoad also pass through status "loading", so one reset
-  // covers both). The compile gate guarantees frames within its deadline;
-  // the 2x-deadline fallback means a stalled first-frame signal can never
-  // trap the loading veil on screen.
+  // covers both). The probe's first-frame signal waits for a frame that
+  // drew real content (not just its sentinel), so on a slow device it can
+  // trail the compile-gate deadline; the 2x-deadline fallback stays as
+  // the ceiling so a stalled signal can never trap the veil on screen.
   useEffect(() => {
     if (mineSceneStatus !== "ready") {
       setMineCanvasPainted(false);
@@ -1363,11 +1380,30 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const activeBunkerInventory = pendingBunker?.inventory ?? bunkerInventory;
   const pendingBunkerActive = pendingBunker !== null;
   const terminalMineState = Boolean(lastResult?.ok && lastResult.collapsed);
+  // A banked bunker built under an older layout model cannot be entered or
+  // edited (F-117): it fails fast in the 2D status sheet and offers Start
+  // fresh instead. A pending (unbanked) claim is born current, so it is
+  // never gated here (and its version is stamped server-side at bank).
+  const bunkerLayoutIncompatible =
+    !pendingBunkerActive &&
+    activeBunker !== null &&
+    isBunkerLayoutIncompatible(activeBunker);
   // The one first-person gate (used by the Enter affordance path and the
   // forced-exit effect only). The interim 2D raid used to freeze bunker
   // editing/entry; it is retired, and a live raid is fought in first person
   // with its own forfeit/exit lifecycle, so nothing raid-related gates this now.
-  const fpBunkerAllowed = Boolean(activeBunker) && !terminalMineState;
+  const fpBunkerAllowed =
+    Boolean(activeBunker) && !terminalMineState && !bunkerLayoutIncompatible;
+  // THE build entry point: the floating Enter bunker pill shows while
+  // the miner stands inside an editable claim, and it REPLACES the
+  // collapsed Bunker status trigger in that state (one bunker button at
+  // a time, F-119 fold; the sheet is reached through the fp view's
+  // Bunker button instead). Shares the fpBunkerAllowed gate with the
+  // forced-exit effect so the two never drift.
+  const fpEnterTriggerVisible =
+    fpBunkerAllowed &&
+    activeBunker !== null &&
+    containsBunkerCell(activeBunker.footprint, miner.col, miner.row);
   const selectedBasePart: BasePartId =
     bunkerToolSelection &&
     bunkerToolSelection !== "pry" &&
@@ -2221,6 +2257,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     }
   }, [buyElevator, elevatorPurchasePending]);
 
+  // Recover from a rail resync that failed offline mid-conflict. The buy and
+  // retry controls never show at once (the buy is blocked while the recovery
+  // box is up), so a dedicated pending flag keeps each label honest.
+  const retryRailResyncNow = useCallback(async () => {
+    if (railRetryPending) return;
+    setRailRetryPending(true);
+    try {
+      await retryRailResync();
+    } finally {
+      setRailRetryPending(false);
+    }
+  }, [retryRailResync, railRetryPending]);
+
   const isInsideOpenFloatingMenu = useCallback(
     (target: EventTarget | null, path: readonly EventTarget[]) => {
       if (
@@ -2761,6 +2810,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineCanvasPainted(false);
   }, []);
 
+  // The fp HUD's Bunker button: one tap out of first person straight
+  // into the status sheet (repair, skins, reset). The flat view no
+  // longer shows the collapsed trigger while the miner stands in the
+  // claim, so this is the sheet's only doorway from inside.
+  const openStatusFromFp = useCallback(() => {
+    exitFpBunker();
+    setBunkerPanelOpen(true);
+  }, [exitFpBunker]);
+
   // Open the cargo bag from inside first person. Releasing the pointer
   // lock frees the cursor for the panel; the keyboard and tool-key
   // effects detach while the bag is open (they gate on bagPanelOpen), and
@@ -2862,10 +2920,12 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           return;
         }
         // F-099 auto-stow: the pry returns the part straight to
-        // inventory so the next pry can follow immediately.
+        // inventory so the next pry can follow immediately. Pry the exact
+        // slot of the part found at the cell so a thin wall comes out, not a
+        // whole-cell match (F-117); the sim canonicalizes the wall face.
         commit(
-          () => removePendingBunkerPart(col, row, depth),
-          () => removeBunkerPart(col, row, depth),
+          () => removePendingBunkerPart(col, row, depth, part.slot),
+          () => removeBunkerPart(col, row, depth, part.slot),
           "clang",
         );
         return;
@@ -2876,9 +2936,11 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         feedback(false, "plank");
         return;
       }
+      // The slot the canvas aimed at (F-117); absent for a mount or a legacy
+      // whole-cell placement.
       commit(
-        () => placePendingBunkerPart(partId, col, row, depth),
-        () => placeBunkerPart(partId, col, row, depth),
+        () => placePendingBunkerPart(partId, col, row, depth, intent.slot),
+        () => placeBunkerPart(partId, col, row, depth, intent.slot),
         "plank",
       );
     },
@@ -2928,7 +2990,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         return;
       }
       const slot = Number(event.key) - 1;
-      const partId = BASE_PART_IDS[slot];
+      const partId = AVAILABLE_BASE_PART_IDS[slot];
       if (!partId) return;
       event.preventDefault();
       if (activeBunkerInventory[partId] <= 0) return;
@@ -3609,6 +3671,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onSelectPick={selectFpPick}
           onTogglePry={toggleFpPry}
           onOpenBag={openBagFromFp}
+          onOpenStatus={openStatusFromFp}
           onExit={exitFpBunker}
           onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
           raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
@@ -4316,26 +4379,31 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               void resetBankedBunker();
             }
           }}
+          // Only a banked bunker is ever layout-incompatible (F-117): a
+          // pending claim is born current, so Start fresh always runs the
+          // server hard-reset route.
+          onStartFresh={() => void startFreshBankedBunker()}
           onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
+          entryButtonVisible={fpEnterTriggerVisible}
         />
       )}
-      {/* THE build entry point: the hammer toolbelt retired, so a
-          single floating button enters the first-person builder while
-          the miner stands inside an editable claim. */}
-      {!fpBunkerActive &&
-        activeBunker &&
-        !terminalMineState &&
-        containsBunkerCell(activeBunker.footprint, miner.col, miner.row) && (
-          <button
-            type="button"
-            className="bunker-fp-enter-trigger"
-            data-testid="bunker-fp-enter"
-            aria-label="Enter bunker"
-            onClick={enterFpBunker}
-          >
-            Enter bunker
-          </button>
-        )}
+      {/* THE build entry point: a single floating button enters the
+          first-person builder while the miner stands inside an editable
+          claim. It takes the collapsed status trigger's slot (the
+          trigger hides via entryButtonVisible), so exactly one bunker
+          pill is on screen at a time; while the status sheet is open
+          (e.g. right after the fp Bunker doorway) it yields entirely. */}
+      {!fpBunkerActive && !bunkerPanelOpen && fpEnterTriggerVisible && (
+        <button
+          type="button"
+          className="bunker-fp-enter-trigger"
+          data-testid="bunker-fp-enter"
+          aria-label="Enter bunker"
+          onClick={enterFpBunker}
+        >
+          Enter bunker
+        </button>
+      )}
       {!elevatorPlacementMode && stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
@@ -4349,6 +4417,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           cashOutPending={cashOut.state === "pending"}
           elevatorPurchasePending={elevatorPurchasePending}
           elevatorPlacementRequired={elevatorPlacementRequired}
+          railResyncFailed={railResyncFailed}
+          railRetryPending={railRetryPending}
+          onRetryRailResync={() => void retryRailResyncNow()}
           onBuyConsumable={(item, quantity) =>
             void buyConsumable(item, quantity)
           }

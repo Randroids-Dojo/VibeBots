@@ -13,7 +13,6 @@ import {
   createFpSolidGrid,
   FP_CELL_COUNT,
   FP_COLS,
-  FP_CORE,
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_OPEN,
@@ -21,12 +20,19 @@ import {
   FP_ROWS,
   FP_SOLID_PART,
   FP_SPIKES,
+  FP_STAIR_NX,
+  FP_STAIR_NZ,
+  FP_STAIR_PX,
+  FP_STAIR_PZ,
   fpCellBlocks,
   fpCellBoxedIn,
   fpCellIndex,
+  fpCellIsStair,
   fpGridCellFromLocal,
   fpLocalFromGrid,
+  fpSlotRenderTransform,
   fpSpawnCell,
+  fpStairValue,
 } from "./bunker-fp-grid";
 
 const MINER_COL = 24;
@@ -35,6 +41,12 @@ const footprint = proposedBunkerFootprint(MINER_COL, MINER_ROW);
 
 function corridorBunker(): BunkerState {
   return createBunker(footprint);
+}
+
+function solidOf(bunker: BunkerState) {
+  const grid = createFpSolidGrid();
+  buildFpSolidGrid(bunker, grid);
+  return grid;
 }
 
 describe("fp grid mapping", () => {
@@ -76,35 +88,167 @@ describe("fp grid mapping", () => {
     }
   });
 
-  it("spawns at the miner's cell on the tunnel plane", () => {
-    expect(fpSpawnCell(footprint, MINER_COL, MINER_ROW)).toEqual({
-      x: 3,
+  it("spawns on the floor at the miner's cell when it is open", () => {
+    // The proposed footprint centers the miner (local x 3), inside the
+    // pre-mined spawn pocket, so the spawn is exactly there on the floor.
+    expect(
+      fpSpawnCell(solidOf(corridorBunker()), footprint, MINER_COL),
+    ).toEqual({ x: 3, y: 0, z: 0 });
+  });
+
+  it("never spawns inside undug rock when the miner entered off-center", () => {
+    const solid = solidOf(corridorBunker());
+    // A fresh claim opens only the 3-wide spawn pocket (local x 2..4) on
+    // the floor. Entering at either edge column would land in solid rock;
+    // the spawn snaps to the nearest open pocket cell instead.
+    expect(fpSpawnCell(solid, footprint, footprint.col)).toEqual({
+      x: 2,
       y: 0,
       z: 0,
     });
-    // Defensive clamp: a miner outside the claim still spawns inside.
-    expect(
-      fpSpawnCell(footprint, footprint.col - 10, footprint.row - 10),
-    ).toEqual({ x: 0, y: 4, z: 0 });
+    expect(fpSpawnCell(solid, footprint, footprint.col + 6)).toEqual({
+      x: 4,
+      y: 0,
+      z: 0,
+    });
+    // Defensive clamp: a miner outside the claim still spawns in the pocket.
+    expect(fpSpawnCell(solid, footprint, footprint.col - 10)).toEqual({
+      x: 2,
+      y: 0,
+      z: 0,
+    });
+  });
+
+  it("snaps off a part-occupied floor cell on a normal entry", () => {
+    // A placed part is a blocker even on a dug-open cell. Entering onto a
+    // walled center column must snap to the nearest standable pocket cell,
+    // not spawn the player inside the part (the review's normal-entry gap).
+    const bottomRow = footprint.row + footprint.height - 1;
+    const placed = placeBasePart(
+      corridorBunker(),
+      STARTER_BASE_PART_INVENTORY,
+      "wall-panel",
+      footprint.col + 3,
+      bottomRow,
+      0,
+    );
+    if (!placed.ok) throw new Error(`place: ${placed.reason}`);
+    expect(fpSpawnCell(solidOf(placed.bunker), footprint, MINER_COL)).toEqual({
+      x: 2,
+      y: 0,
+      z: 0,
+    });
+  });
+
+  it("falls back to any standable cell when the whole front floor is walled off", () => {
+    // Wall every open cell on the floor-front row (the 3 pocket cells x2..4;
+    // x0,x1,x5,x6 are undug rock). With no standable floor-front cell, the
+    // spawn must still find an open cell (one row deep in the pocket) rather
+    // than trusting a centre that is itself blocked.
+    let bunker = corridorBunker();
+    let inventory = { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 5 };
+    const bottomRow = footprint.row + footprint.height - 1;
+    for (const x of [2, 3, 4]) {
+      const result = placeBasePart(
+        bunker,
+        inventory,
+        "wall-panel",
+        footprint.col + x,
+        bottomRow,
+        0,
+      );
+      if (!result.ok) throw new Error(`place: ${result.reason}`);
+      bunker = result.bunker;
+      inventory = result.inventory;
+    }
+    const solid = solidOf(bunker);
+    for (let x = 0; x < FP_COLS; x++) {
+      expect(fpCellBlocks(solid[fpCellIndex(x, 0, 0)])).toBe(true);
+    }
+    const spawn = fpSpawnCell(solid, footprint, MINER_COL);
+    expect(fpCellBlocks(solid[fpCellIndex(spawn.x, spawn.y, spawn.z)])).toBe(
+      false,
+    );
+    expect(spawn).toEqual({ x: 3, y: 0, z: 1 });
+  });
+
+  it("spawns at the exact entry column once that floor cell is dug open", () => {
+    let bunker = corridorBunker();
+    const bottomRow = footprint.row + footprint.height - 1;
+    // The pocket already opens local x 2..4 on the floor; dig the two
+    // remaining floor-front cells out to the right edge (each adjacent to
+    // the last opened one).
+    for (let x = 5; x <= 6; x++) {
+      const result = excavateBunkerCell(
+        bunker,
+        footprint.col + x,
+        bottomRow,
+        0,
+      );
+      expect(result.ok).toBe(true);
+      if (result.ok) bunker = result.bunker;
+    }
+    expect(fpSpawnCell(solidOf(bunker), footprint, footprint.col + 6)).toEqual({
+      x: 6,
+      y: 0,
+      z: 0,
+    });
   });
 });
 
 describe("fp solidity", () => {
-  it("blocks parts, the core, and rock; passes air, spikes, and doors", () => {
+  it("blocks parts and rock; passes air, spikes, and doors", () => {
     expect(fpCellBlocks(FP_OPEN)).toBe(false);
     expect(fpCellBlocks(FP_SPIKES)).toBe(false);
     expect(fpCellBlocks(FP_DOOR_OWNED)).toBe(false);
     expect(fpCellBlocks(FP_SOLID_PART)).toBe(true);
-    expect(fpCellBlocks(FP_CORE)).toBe(true);
     expect(fpCellBlocks(FP_ROCK_UNDUG)).toBe(true);
   });
 
-  it("opens the spawn pocket on a fresh claim, rock elsewhere, core solid", () => {
+  it("stamps a staircase as a walkable ramp keyed to its orientation", () => {
+    // The four stair values map 1:1 to BunkerOrientation.
+    expect(fpStairValue(0)).toBe(FP_STAIR_PX);
+    expect(fpStairValue(1)).toBe(FP_STAIR_PZ);
+    expect(fpStairValue(2)).toBe(FP_STAIR_NX);
+    expect(fpStairValue(3)).toBe(FP_STAIR_NZ);
+    for (const v of [FP_STAIR_PX, FP_STAIR_PZ, FP_STAIR_NX, FP_STAIR_NZ]) {
+      expect(fpCellIsStair(v)).toBe(true);
+      expect(fpCellBlocks(v)).toBe(false); // a ramp is walkable
+    }
+    expect(fpCellIsStair(FP_SOLID_PART)).toBe(false);
+
+    const bottomRow = footprint.row + footprint.height - 1;
+    const withStair: BunkerState = {
+      ...corridorBunker(),
+      parts: [
+        {
+          partId: "stair-panel",
+          col: footprint.col + 2,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+          slot: "mount",
+          orientation: 2,
+        },
+        // A legacy stair with no orientation defaults to +x.
+        {
+          partId: "stair-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+        },
+      ],
+    };
+    const grid = solidOf(withStair);
+    expect(grid[fpCellIndex(2, 0, 0)]).toBe(FP_STAIR_NX);
+    expect(grid[fpCellIndex(3, 0, 0)]).toBe(FP_STAIR_PX);
+  });
+
+  it("opens the spawn pocket on a fresh claim, rock elsewhere", () => {
     const bunker = corridorBunker();
     const grid = createFpSolidGrid();
     buildFpSolidGrid(bunker, grid);
-    const coreX = bunker.core.col - footprint.col;
-    const coreY = footprint.row + footprint.height - 1 - bunker.core.row;
     // Openness is exactly the sim's pre-mined pocket (F-115), so derive
     // it from the claim's own dug set rather than a hard-coded plane.
     const open = new Set(
@@ -120,12 +264,7 @@ describe("fp solidity", () => {
       for (let y = 0; y < FP_ROWS; y++) {
         for (let z = 0; z < FP_DEPTH; z++) {
           const idx = fpCellIndex(x, y, z);
-          const expected =
-            x === coreX && y === coreY && z === 0
-              ? FP_CORE
-              : open.has(idx)
-                ? FP_OPEN
-                : FP_ROCK_UNDUG;
+          const expected = open.has(idx) ? FP_OPEN : FP_ROCK_UNDUG;
           expect(grid[idx]).toBe(expected);
         }
       }
@@ -170,13 +309,13 @@ describe("fp solidity", () => {
     expect(grid[fpCellIndex(5, 0, 1)]).toBe(FP_OPEN);
     expect(grid[fpCellIndex(5, 0, 2)]).toBe(FP_SOLID_PART);
     expect(grid[fpCellIndex(5, 0, 3)]).toBe(FP_ROCK_UNDUG);
-    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_CORE);
+    // The former core cell (F-118) is ordinary open pocket floor now.
+    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_OPEN);
   });
 
   it("normalizes legacy wire shapes (parts without depth, no dug list)", () => {
     const legacy = {
       footprint,
-      core: { col: MINER_COL, row: MINER_ROW - 2, durability: 160 },
       parts: [
         {
           partId: "wall-panel",
@@ -189,7 +328,9 @@ describe("fp solidity", () => {
     const grid = createFpSolidGrid();
     buildFpSolidGrid(legacy, grid);
     expect(grid[fpCellIndex(0, 0, 0)]).toBe(FP_SOLID_PART);
-    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_CORE);
+    // No dug list on a legacy wire shape, so the interior (including the
+    // former core cell, F-118) reads as unexcavated rock.
+    expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_ROCK_UNDUG);
     for (let z = 1; z < FP_DEPTH; z++) {
       expect(grid[fpCellIndex(3, 0, z)]).toBe(FP_ROCK_UNDUG);
     }
@@ -330,6 +471,69 @@ describe("fpGridCellFromLocal", () => {
       col: footprint.col + 3,
       row: footprint.row + footprint.height - 1,
       depth: 0,
+    });
+  });
+});
+
+describe("fpSlotRenderTransform (F-117)", () => {
+  const O = 0.46;
+
+  it("offsets a wall to its face and rotates x-walls onto the x axis", () => {
+    expect(fpSlotRenderTransform("wall-px")).toEqual({
+      x: O,
+      y: 0,
+      z: 0,
+      rotY: Math.PI / 2,
+    });
+    expect(fpSlotRenderTransform("wall-nx")).toEqual({
+      x: -O,
+      y: 0,
+      z: 0,
+      rotY: Math.PI / 2,
+    });
+    // Grid depth grows into world -z, so a +depth wall sits at negative
+    // local z and a -depth wall at positive local z.
+    expect(fpSlotRenderTransform("wall-pz")).toEqual({
+      x: 0,
+      y: 0,
+      z: -O,
+      rotY: 0,
+    });
+    expect(fpSlotRenderTransform("wall-nz")).toEqual({
+      x: 0,
+      y: 0,
+      z: O,
+      rotY: 0,
+    });
+  });
+
+  it("decks a floor at the bottom and a roof at the top, unrotated", () => {
+    expect(fpSlotRenderTransform("floor")).toEqual({
+      x: 0,
+      y: -O,
+      z: 0,
+      rotY: 0,
+    });
+    expect(fpSlotRenderTransform("roof")).toEqual({
+      x: 0,
+      y: O,
+      z: 0,
+      rotY: 0,
+    });
+  });
+
+  it("centers a mount and a legacy whole-cell part", () => {
+    expect(fpSlotRenderTransform("mount")).toEqual({
+      x: 0,
+      y: 0,
+      z: 0,
+      rotY: 0,
+    });
+    expect(fpSlotRenderTransform(undefined)).toEqual({
+      x: 0,
+      y: 0,
+      z: 0,
+      rotY: 0,
     });
   });
 });

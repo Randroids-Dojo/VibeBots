@@ -4,7 +4,10 @@ import {
   BUNKER_CLAIM_DEPTH,
   BUNKER_CLAIM_HEIGHT,
   BUNKER_CLAIM_WIDTH,
+  BUNKER_SLOTS,
+  type BunkerOrientation,
   type BunkerSkinId,
+  type BunkerSlot,
   isBunkerSkinId,
 } from "@/sim/bunker";
 import { withSpawnPocket } from "@/sim/bunker-blocks";
@@ -65,12 +68,16 @@ export const mineConsumablesSchema = z.object({
 // trip route, the trip-response reader, and local persistence all restore the
 // same nested PendingBunkerBuild, so validating it in one place stops the old
 // hand-rolled normalizer from throwing when it dereferenced malformed data
-// (a `parts: [null]` element, a non-object core, out-of-range cells). Invalid
-// input is rejected as a stable incompatible-state; legacy shapes coerce:
-// a missing depth lands on the tunnel plane and a missing dug list is empty.
-const BUNKER_PART_LIMIT = 174;
+// (a `parts: [null]` element, out-of-range cells). Invalid input is rejected
+// as a stable incompatible-state; legacy shapes coerce: a missing depth lands
+// on the tunnel plane, a missing dug list is empty, and a legacy `core` field
+// (F-118 removed the core) is silently dropped by the object strip.
 const MAX_BUNKER_CELLS =
   BUNKER_CLAIM_WIDTH * BUNKER_CLAIM_HEIGHT * BUNKER_CLAIM_DEPTH;
+// One part per cell, so the whole 7x5x5 volume is the cap. F-118 removed the
+// core, so every cell is now buildable (the old cap of 174 reserved the core
+// cell).
+const BUNKER_PART_LIMIT = MAX_BUNKER_CELLS;
 // Match the authoritative bank route's part bounds (min 1, max 1000): a placed
 // part always has positive durability, and aligning avoids a checkpoint that
 // resumes locally but is then rejected at bank.
@@ -84,9 +91,9 @@ const bunkerCellDepth = z
   .int()
   .min(0)
   .max(BUNKER_CLAIM_DEPTH - 1);
-// Parts and the core predate the depth axis (F-115), so their depth is
-// coerced onto the tunnel plane rather than rejected: a missing, non-integer,
-// or out-of-range depth lands on 0, matching the legacy resume behavior.
+// Parts predate the depth axis (F-115), so their depth is coerced onto the
+// tunnel plane rather than rejected: a missing, non-integer, or out-of-range
+// depth lands on 0, matching the legacy resume behavior.
 const legacyPartDepth = z.preprocess(
   (value) =>
     typeof value === "number" &&
@@ -96,6 +103,31 @@ const legacyPartDepth = z.preprocess(
       ? value
       : 0,
   bunkerCellDepth,
+);
+
+// Thin sub-cell slot (F-117). A saved trip from a build without slots, or a
+// malformed value, coerces to undefined (a legacy whole-cell part) rather than
+// rejecting the whole trip, mirroring `legacyPartDepth`.
+const legacyPartSlot = z.preprocess(
+  (value) =>
+    typeof value === "string" &&
+    (BUNKER_SLOTS as readonly string[]).includes(value)
+      ? value
+      : undefined,
+  z.enum(BUNKER_SLOTS).optional() as z.ZodType<BunkerSlot | undefined>,
+);
+
+// Facing for a rotatable part (F-117 stair). A saved trip without an
+// orientation, or a malformed value, coerces to undefined, mirroring
+// `legacyPartSlot`.
+const legacyPartOrientation = z.preprocess(
+  (value) =>
+    value === 0 || value === 1 || value === 2 || value === 3
+      ? value
+      : undefined,
+  z
+    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
+    .optional() as z.ZodType<BunkerOrientation | undefined>,
 );
 
 const basePartIdSchema = z.enum(BASE_PART_IDS);
@@ -111,6 +143,8 @@ const placedBasePartSchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
   depth: legacyPartDepth,
+  slot: legacyPartSlot,
+  orientation: legacyPartOrientation,
   durability: z
     .number()
     .int()
@@ -131,15 +165,6 @@ const bunkerFootprintSchema = z.object({
   height: z.number().int().min(1).max(BUNKER_CLAIM_HEIGHT),
 });
 
-const bunkerCoreSchema = z.object({
-  col: z.number().int(),
-  row: z.number().int().min(1),
-  depth: legacyPartDepth,
-  // The core can sit at 0 after raid damage, so allow it (unlike a placed
-  // part, which is removed at 0); the max covers full core durability.
-  durability: z.number().int().min(0).max(PART_DURABILITY_MAX),
-});
-
 const bunkerLootSchema = z.object({
   col: z.number().int(),
   row: z.number().int().min(1),
@@ -154,7 +179,6 @@ const basePartInventorySchema = z.record(z.string(), z.number().int().min(0));
 const bunkerStateSchema = z
   .object({
     footprint: bunkerFootprintSchema,
-    core: bunkerCoreSchema,
     parts: z.array(placedBasePartSchema).max(BUNKER_PART_LIMIT),
     dug: z.array(dugBunkerCellSchema).max(MAX_BUNKER_CELLS).default([]),
     blockSeed: z.number().int().optional(),

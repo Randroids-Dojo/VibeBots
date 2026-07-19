@@ -7,6 +7,7 @@ import {
   proposedBunkerFootprint,
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
+import { bunkerSpawnPocketCells } from "@/sim/bunker-blocks";
 import {
   createMine,
   DEFAULT_GEAR,
@@ -20,6 +21,7 @@ import {
 } from "@/sim/mine";
 import {
   achievementProgressForTrip,
+  cashOutRequestSummary,
   chargeableConsumables,
   gearOwnershipError,
   POST,
@@ -348,6 +350,86 @@ describe("POST /api/mine/bank", () => {
     expect(result.bunker.parts.map((part) => part.depth)).toEqual([0, 3]);
   });
 
+  it("banks two thin walls sharing one cell by their exact slots (F-117)", () => {
+    // A corner: two wall panels on two faces of the same cell. The claim
+    // replay must place each on its own slot and samePlacedParts must match
+    // them by slot, not collapse them by cell. Both wall-px and wall-pz are
+    // already canonical, so the stored slot equals the submitted slot.
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: [],
+        parts: [
+          {
+            partId: "wall-panel",
+            col: START_COL - 1,
+            row: 5,
+            depth: 0,
+            slot: "wall-px",
+            durability: BASE_PART_CATALOG["wall-panel"].durability,
+          },
+          {
+            partId: "wall-panel",
+            col: START_COL - 1,
+            row: 5,
+            depth: 0,
+            slot: "wall-pz",
+            durability: BASE_PART_CATALOG["wall-panel"].durability,
+          },
+        ],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      STARTER_BASE_PART_INVENTORY,
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bunker.parts.map((part) => part.slot)).toEqual([
+      "wall-px",
+      "wall-pz",
+    ]);
+  });
+
+  it("banks a stair on its mount carrying its facing (F-117)", () => {
+    // A grounded bottom-row mount holds the stair; the claim replay must
+    // forward the orientation to the sim so the facing round-trips.
+    const result = validatePendingBunkerClaim(
+      {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: [],
+        parts: [
+          {
+            partId: "stair-panel",
+            col: START_COL - 1,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 2,
+            durability: BASE_PART_CATALOG["stair-panel"].durability,
+          },
+        ],
+      },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      { ...STARTER_BASE_PART_INVENTORY, "stair-panel": 1 },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bunker.parts[0].orientation).toBe(2);
+  });
+
   it("banks a fresh claim whose dug payload carries the whole spawn pocket", () => {
     // Regression: the client submits its entire dug set, which for a
     // fresh claim is exactly the pre-mined spawn pocket createBunker
@@ -449,6 +531,93 @@ describe("POST /api/mine/bank", () => {
 
     expect(res.status).toBe(400);
     expect(mockedDb).not.toHaveBeenCalled();
+  });
+
+  it("rejects a pending bunker over the full-volume part cap (F-118: 175 cells)", async () => {
+    const res = await post({
+      moves: ["down", "down", "down", "down", "down"],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        // 176 exceeds the 7 x 5 x 5 = 175 cell volume that is now fully
+        // buildable (the old cap of 174 reserved the removed core cell).
+        parts: Array.from({ length: 176 }, () => ({
+          partId: "wall-panel",
+          col: START_COL - 3,
+          row: 1,
+          depth: 0,
+          durability: BASE_PART_CATALOG["wall-panel"].durability,
+        })),
+      },
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockedDb).not.toHaveBeenCalled();
+  });
+
+  it("accepts a legitimately maxed 175-part bunker at the bank boundary (F-118)", () => {
+    // A part in every cell of the 7 x 5 x 5 volume, only possible now the
+    // core no longer reserves the center cell. Build a valid dig order by
+    // flood-filling out from the pre-mined spawn pocket (each dig must be
+    // face-adjacent to an already-open cell), then a wall in every cell.
+    const footprint = { col: START_COL - 3, row: 1, width: 7, height: 5 };
+    const key = (c: number, r: number, d: number) => `${c},${r},${d}`;
+    const open = new Set(
+      bunkerSpawnPocketCells(footprint).map((c) => key(c.col, c.row, c.depth)),
+    );
+    const allCells: Array<{ col: number; row: number; depth: number }> = [];
+    for (let depth = 0; depth < 5; depth++) {
+      for (let row = footprint.row; row < footprint.row + 5; row++) {
+        for (let col = footprint.col; col < footprint.col + 7; col++) {
+          allCells.push({ col, row, depth });
+        }
+      }
+    }
+    const dug: Array<{ col: number; row: number; depth: number }> = [];
+    let progressed = true;
+    while (progressed) {
+      progressed = false;
+      for (const cell of allCells) {
+        const k = key(cell.col, cell.row, cell.depth);
+        if (open.has(k)) continue;
+        const adjacentToOpen = [
+          [cell.col - 1, cell.row, cell.depth],
+          [cell.col + 1, cell.row, cell.depth],
+          [cell.col, cell.row - 1, cell.depth],
+          [cell.col, cell.row + 1, cell.depth],
+          [cell.col, cell.row, cell.depth - 1],
+          [cell.col, cell.row, cell.depth + 1],
+        ].some(([c, r, d]) => open.has(key(c, r, d)));
+        if (adjacentToOpen) {
+          open.add(k);
+          dug.push(cell);
+          progressed = true;
+        }
+      }
+    }
+    expect(open.size).toBe(175);
+    const parts = allCells.map((cell) => ({
+      partId: "wall-panel" as const,
+      col: cell.col,
+      row: cell.row,
+      depth: cell.depth,
+      durability: BASE_PART_CATALOG["wall-panel"].durability,
+    }));
+
+    const result = validatePendingBunkerClaim(
+      { claimCol: START_COL, claimRow: 5, claimedAtMoveCount: 5, dug, parts },
+      123,
+      DEFAULT_GEAR,
+      STARTING_CONSUMABLES,
+      pendingBunkerBaseDiff(),
+      ["down", "down", "down", "down", "down"],
+      { ...STARTER_BASE_PART_INVENTORY, "wall-panel": 175 },
+    );
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.bunker.parts).toHaveLength(175);
   });
 
   it("validates a locally claimed bunker against the replayed claim moment", () => {
@@ -665,7 +834,9 @@ describe("POST /api/mine/bank", () => {
     const res = await post({
       moves: [],
       mineVersion: "29",
-      gear: { ...DEFAULT_GEAR, pickaxe: 99 },
+      // A sentinel shaft column that must never survive into the serialized
+      // validation event (F-121).
+      gear: { ...DEFAULT_GEAR, pickaxe: 99, elevatorColumn: 4242 },
       consumables: { ...STARTING_CONSUMABLES, rope: "22" },
     });
 
@@ -700,8 +871,59 @@ describe("POST /api/mine/bank", () => {
         expect.objectContaining({ path: "consumables.rope" }),
       ]),
     );
+    // The submitted shaft column is stripped from the serialized event (F-121).
+    expect(payload.request.gear).not.toHaveProperty("elevatorColumn");
+    expect(raw).not.toContain("4242");
     expect(raw).not.toContain("player-1");
     expect(raw).not.toContain("down");
+  });
+
+  it("logs a bounded per-level digest, not the full gear object, on gear_not_owned (F-121)", async () => {
+    mockSql();
+    // Overclaim a gear level so the ownership check rejects and emits the
+    // gear_not_owned monitoring event.
+    const res = await post({ gear: { ...DEFAULT_GEAR, pickaxe: 5 } });
+
+    expect(res.status).toBe(422);
+    const raw = errorSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .find((line: string) => line.includes("gear_not_owned"));
+    expect(raw).toBeDefined();
+    const payload = JSON.parse(raw as string);
+    expect(payload).toMatchObject({
+      component: "mine.cash_out",
+      event: "mine.cash_out.gear_not_owned",
+      code: "gear_not_owned",
+    });
+    // The bounded per-level digest is logged, never the full gear object: a
+    // full object would carry the elevatorColumn key (the shaft coordinate).
+    expect(payload.submitted).not.toHaveProperty("elevatorColumn");
+    expect(payload.submitted.pickaxe).toBe(5);
+    expect(raw as string).not.toContain("elevatorColumn");
+    // The rejection detail is bounded, never a coordinate.
+    expect(payload.detail).toBe("gear not owned: pickaxe level 5");
+  });
+
+  it("scrubs a sentinel shaft column from a rail-mismatch gear_not_owned event (F-121)", async () => {
+    // An owner with a placed shaft at column 27; the client submits the rail at
+    // a different sentinel column, so the ownership check rejects on the rail
+    // column path specifically.
+    mockSql({ ...ownedBase, elevator_depth: 3, elevator_col: 27 });
+    const res = await post({
+      gear: { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 4242 },
+    });
+
+    expect(res.status).toBe(422);
+    const raw = errorSpy.mock.calls
+      .map((call: unknown[]) => String(call[0]))
+      .find((line: string) => line.includes("gear_not_owned"));
+    expect(raw).toBeDefined();
+    const payload = JSON.parse(raw as string);
+    // Neither the bounded detail nor the digest nor the raw line carries the
+    // submitted shaft coordinate.
+    expect(payload.detail).toBe("rail not owned: column mismatch");
+    expect(payload.submitted).not.toHaveProperty("elevatorColumn");
+    expect(raw as string).not.toContain("4242");
   });
 
   it("logs mine-version mismatches with hashed existing player context", async () => {
@@ -1028,13 +1250,35 @@ describe("mine bank policy helpers", () => {
         owned,
       ),
     ).toBeNull();
-    expect(
-      gearOwnershipError(
-        { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 28 },
-        owned,
-      ),
-    ).toBe("rail not owned: column 28");
+    // The error carries a bounded state, never the exact submitted column
+    // (F-121): a disagreeing column is "mismatch".
+    const mismatch = gearOwnershipError(
+      { ...DEFAULT_GEAR, elevator: 3, elevatorColumn: 28 },
+      owned,
+    );
+    expect(mismatch).toBe("rail not owned: column mismatch");
+    expect(mismatch).not.toMatch(/\d/);
     expect(gearOwnershipError(DEFAULT_GEAR, owned)).toBeNull();
+  });
+
+  it("keeps the shaft column out of the cash-out request summary (F-121)", () => {
+    // The validation summary and the gear_not_owned event both build their gear
+    // digest through this helper, so a submitted elevatorColumn must never
+    // survive into telemetry as a coordinate.
+    const summary = cashOutRequestSummary({
+      seed: 1,
+      tripIndex: 0,
+      mineVersion: MINE_VERSION,
+      moves: ["down"],
+      gear: { ...DEFAULT_GEAR, elevator: 4, elevatorColumn: 42 },
+      consumables: NO_CONSUMABLES,
+    });
+    const gearSummary = summary.gear as Record<string, unknown>;
+    expect(gearSummary).not.toHaveProperty("elevatorColumn");
+    // The rail DEPTH is a bounded level and stays for validation debugging.
+    expect(gearSummary.elevator).toBe(4);
+    // No field anywhere in the summary retains the exact shaft column.
+    expect(JSON.stringify(summary)).not.toContain("42");
   });
 
   it("accepts missing column data for a legacy fixed-column rail", () => {

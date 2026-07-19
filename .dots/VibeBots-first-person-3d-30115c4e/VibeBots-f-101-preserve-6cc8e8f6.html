@@ -4,16 +4,18 @@
 <meta charset="utf-8">
 <title>F-101 Preserve first-person performance diagnostics</title>
 <meta name="dot-title" content="F-101 Preserve first-person performance diagnostics">
-<meta name="dot-status" content="open">
+<meta name="dot-status" content="closed">
 <meta name="dot-priority" content="2">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-13T23:00:33.677722-05:00">
+<meta name="dot-closed-at" content="2026-07-17T08:20:23.375434-05:00">
+<meta name="dot-close-reason" content="Source-aware diagnostic allowlist: bunker-fp traces retain fpEyeY/fpOpenCells/fpGrounded/fpSwinging, aim data rejected, allocation-free; tests pass">
 </head>
 <body>
 <article>
 <h1>F-101 Preserve first-person performance diagnostics</h1>
 <section id="description">
-F-101: Retain allocation-safe bunker context such as eye height, open cells, and grounded state in performance snapshots with unit and trace coverage.
+Retain allocation-safe bunker context in performance snapshots: eye height, open cells, grounded state, held mining, live-raid activity, and visible Clanker count. Keep values bounded and low-cardinality, exclude coordinates and Clanker-kind strings, and prove idle, mining, and raid payloads with unit and trace coverage.
 </section>
 <section id="live-raid-telemetry-2026-07-15">
 Retain fpSwinging plus bounded fpRaidActive and fpClankersAlive through the bunker-fp dataset, source-aware allowlist, payload, persistence, and insights path. Keep raid IDs, positions, and cell keys out of telemetry.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { collectCanvasDiagnostics } from "@/components/perf-probe";
 import {
   buildPerfSnapshot,
   clampNetworkSample,
@@ -213,5 +214,32 @@ describe("clampProbeSample", () => {
     for (const value of Object.values(clamped.canvasDiagnostics)) {
       expect(value.length).toBeLessThanOrEqual(32);
     }
+  });
+});
+
+describe("first-person diagnostics reach a bunker-fp payload (F-101)", () => {
+  it("collects the fp diagnostics for a bunker-fp source and they survive payload clamping", () => {
+    // The bunker-fp canvas publishes these on its dataset each snapshot.
+    const dataset = {
+      frameMs: "16.4",
+      fpEyeY: "0.72",
+      fpOpenCells: "18",
+      fpGrounded: "1",
+      fpSwinging: "0",
+      // High-cardinality aim data and mine keys must not survive.
+      fpTarget: "3,2,1",
+      renderedCellCount: "180",
+    };
+    const probe = probeSample({
+      canvasDiagnostics: collectCanvasDiagnostics(dataset, "bunker-fp"),
+    });
+    const clamped = clampProbeSample(probe);
+    expect(clamped.canvasDiagnostics).toEqual({
+      frameMs: "16.4",
+      fpEyeY: "0.72",
+      fpOpenCells: "18",
+      fpGrounded: "1",
+      fpSwinging: "0",
+    });
   });
 });

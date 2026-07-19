@@ -640,12 +640,39 @@ export function buyRemoteGearUpgrade(track: MineGearTrack) {
   return mineApi<unknown>("/api/gear/upgrade", jsonPost({ track }));
 }
 
-export async function buyRemoteElevator(column?: number) {
+/**
+ * A fresh idempotency key for one rail buy (F-121). The server ties it to the
+ * committed transaction through a durable outbox, so a replay that reuses the
+ * same id is deduplicated instead of re-charging, and the outcome telemetry is
+ * exactly-once per request. Falls back to a random hex string on the rare
+ * runtime without `crypto.randomUUID` (the server tolerates a non-UUID id by
+ * minting its own; only cross-request dedup is lost there).
+ */
+function newElevatorRequestId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return Array.from({ length: 4 }, () =>
+    Math.floor(Math.random() * 0x100000000)
+      .toString(16)
+      .padStart(8, "0"),
+  ).join("");
+}
+
+export async function buyRemoteElevator(
+  column: number | undefined,
+  expectedDepth: number,
+  requestId: string = newElevatorRequestId(),
+) {
+  // expectedDepth is required by the route (the stale-rail guard). Always send
+  // it, including 0 for the first rail, so it is never dropped as falsy. The
+  // requestId is the durable-outbox idempotency key (F-121).
+  const payload: { column?: number; expectedDepth: number; requestId: string } =
+    { expectedDepth, requestId };
+  if (column !== undefined) payload.column = column;
   return mineApi<unknown>(
     "/api/elevator/upgrade",
-    await withPushEndpointHash(
-      jsonPost(column === undefined ? {} : { column }),
-    ),
+    await withPushEndpointHash(jsonPost(payload)),
   );
 }
 

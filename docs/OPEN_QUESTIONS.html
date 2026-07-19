@@ -38,6 +38,64 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-029" data-status="resolved">
+    <h3>Q-029: How much of the Full E2E job budget should the internal deadline reserve?</h3>
+    <dl>
+      <dt>Context</dt><dd>F-131's internal Playwright deadline is computed as (20-minute job budget) minus (elapsed setup/build) minus a fixed reserve, so a timed-out shard fails with a written report and artifact upload before the GitHub job is cancelled. Too small a reserve risks the job being cancelled during teardown/upload (losing the evidence the deadline exists to preserve); too large wastes test time.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Reserve 150 seconds (teardown + HTML/JSON report generation + <code>upload-artifact</code>), floored at a 60s minimum test window.</li>
+          <li>Reserve a smaller 90 seconds to give the tests more time.</li>
+          <li>Reserve a larger 210 seconds for a bigger safety margin on slow runners.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. 150s comfortably covers report generation plus a bounded artifact upload on the standard GitHub runner while leaving the bulk of the budget for tests. B risks a cancel during a slow upload, defeating the purpose. C needlessly shortens the test window when uploads rarely approach that long. Revisit if a forced-timeout dispatch or a real timeout shows the upload step itself getting cancelled (raise the reserve) or consistently finishing with large idle margin (lower it).</dd>
+      <dt>Resolution</dt><dd>Shipped under recommended default A (150s reserve) per Rule 7 (documented default, no risky ambiguity requiring a blocking decision). Forced-timeout dispatch run 29532206397 concluded <code>failure</code> with all four Full E2E artifacts retained, so 150s left ample room for report generation and the upload on the standard runner. Revisit only on the trigger above: raise the reserve if a real timeout shows the upload itself getting cancelled, or lower it if uploads consistently finish with a large idle margin. The deadline floor is a 1s guard against <code>globalTimeout: 0</code> (unlimited), not part of the reserve budget.</dd>
+      <dt>Status</dt><dd>resolved (2026-07-16, shipped under default A)</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-028" data-status="open">
+    <h3>Q-028: How should the elevator outcome outbox be drained without a cron?</h3>
+    <dl>
+      <dt>Context</dt><dd>The durable elevator outbox (F-121) records one <code>elevator_upgrade_outcomes</code> row per buy, committed atomically with the charge, and delivers the structured monitoring event separately (emit-then-mark, at-least-once). A crash between commit and delivery, or a sink outage, leaves rows with <code>delivered_at IS NULL</code> that must be redelivered. The project has no cron or scheduled-job infrastructure (no <code>vercel.json</code> crons, no cron routes).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Drain opportunistically on request traffic: each elevator request first delivers a bounded batch (20) of stranded rows older than a 30s grace, best-effort.</li>
+          <li>Add a Vercel cron hitting a new maintenance route that calls the drain on a schedule.</li>
+          <li>Deliver inline only, no recovery drain (accept that a crash-stranded outcome is lost).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It needs no new infrastructure, is trivially testable, and delivers every stranded outcome as long as elevator traffic continues (buys are the only thing that creates rows, so traffic that creates a stranded row is exactly the traffic that later drains it). The added cost is one bounded indexed query per buy, on an infrequent action. C loses outcomes on a crash, defeating the durability the item requires. B is the cleanest at scale but adds cron infrastructure this project does not yet have; the drain function (<code>drainPendingElevatorOutcomes</code>) is already factored so a future cron can call it verbatim without changing the contract. Revisit and adopt B if elevator traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
+      <dt>Status</dt><dd>open</dd>
+      <dt>Resolution</dt><dd>Shipped under default A (the loop convention: ship under the recommended default and leave the question open for override). The durable-outbox slice drains the outbox opportunistically on elevator request traffic; the <code>drainPendingElevatorOutcomes</code> function is factored so option B (a cron) can call it verbatim later without any contract change. Left open so the cron option can be adopted if traffic ever becomes bursty enough that stranded rows sit undelivered for long between buys.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-027" data-status="resolved">
+    <h3>Q-027: Should the elevator buy require the client's expectedDepth?</h3>
+    <dl>
+      <dt>Context</dt><dd><code>expectedDepth</code> is the stale-rail guard on <code>/api/elevator/upgrade</code>: the route rejects a buy whose expected rail depth does not match the stored depth, which is what stops a stale or replayed buy (a retry after a lost success response) from silently advancing a second row (F-121). It was kept OPTIONAL for backward compatibility while clients rolled it out, so a request that omits the field bypasses the guard entirely. Every current client sends it (the store passes the live rail depth, 0 for the first rail), so the only requests without it are stale cached clients, which are exactly what the guard exists to reject. Making it required is a maintainer policy call because it could, in principle, break a genuinely old cached client mid-session.</dd>
+      <dt>Options</dt><dd>A. Require it with a stable fail-fast 400 (proposed default): reject any request without <code>expectedDepth</code> before any read or charge, and tighten the client so it can never be omitted. B. Keep it optional indefinitely, accepting that a request without it bypasses the stale guard. C. Require it but with a grace period (accept-and-warn) before enforcing.</dd>
+      <dt>Recommended default</dt><dd>A. All current clients send it, so no legitimate live request is rejected; a stale cached client from before the field existed now gets a clear 400 and reloads to the current client rather than silently buying a second row against a bypassed guard, which is strictly safer than the prior silent bypass. B leaves a permanent hole in the guard the whole item exists to close. C adds accept-and-warn plumbing for a cohort (pre-field cached clients) that a single reload eliminates, for no safety gain over A. Revisit only if telemetry shows a meaningful volume of legitimate no-<code>expectedDepth</code> traffic after release.</dd>
+      <dt>Resolution</dt><dd>Shipped under default A (branch <code>fix/elevator-expected-depth-required</code>): the route rejects a missing <code>expectedDepth</code> fail-fast with the stable code <code>elevator-expected-depth-required</code> (400), and <code>buyRemoteElevator</code>'s signature makes it required and always sends it (including 0). See <a href="FOLLOWUPS.html#F-121">F-121</a> and the progress log.</dd>
+      <dt>Correction (2026-07-16)</dt><dd>The Context and Recommended default above say a stale client "reloads to the current client". The protection is entirely SERVER-SIDE; that phrase overstated a UX outcome this change does not control. The current client cannot omit <code>expectedDepth</code> (its request builder requires it), so it never receives this 400; only a stale cached client on old JS can omit it, and its error display is the old build's, unchanged by this PR. The accurate property is only that the guard rejects the stale request fail-fast so it cannot silently buy a second row, which is still strictly safer than the prior bypass and does not change the default choice (A).</dd>
+      <dt>Update (2026-07-16, revisit criterion now observable)</dt><dd>The Recommended default says to revisit "only if telemetry shows a meaningful volume of legitimate no-<code>expectedDepth</code> traffic". That traffic is now observable: the elevator route emits one bounded reason-only outcome log (<code>elevator.upgrade.rejected</code>, <code>reason: elevator-expected-depth-required</code>, no player/operation/coordinate/payload) on the pre-auth missing-field reject, at <code>info</code>/<code>alert:false</code>. An operator can aggregate that reason to gauge stale-client volume without any per-player data. Shipped with the structured mutation-outcome telemetry slice (branch <code>fix/elevator-mutation-outcome-telemetry</code>); see <a href="FOLLOWUPS.html#F-121">F-121</a>.</dd>
+      <dt>Update (2026-07-16, player-facing reject copy)</dt><dd>Same slice: the missing-<code>expectedDepth</code> reject's <code>body.error</code> changed from the internal "expectedDepth is required" to "reload the game to update, then try again". The stale cached client that omits the field copies <code>body.error</code> into a visible shop note, so the server response copy is reachable player UI even though that client's JavaScript is old and unchangeable here; reload guidance is the actionable message for that cohort. This does not change the default choice (A); it only corrects the earlier note that dismissed this copy as unreachable dead code.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-026" data-status="open">
+    <h3>Q-026: May a Start fresh bunker take legacy whole-cell parts before slot placement ships?</h3>
+    <dl>
+      <dt>Context</dt><dd>F-117 slice 3 (package 0.1.271) lands the layout-version boundary and a confirmed Start fresh, which detects an old bunker by its persisted <code>layout_version</code> and, on Start fresh, clears the built parts and stamps the current version. But the first-person builder still emits no slot (slot placement is a later slice), so a bunker that was just Started fresh is stamped current yet the only parts a player can place into it are still legacy whole-cell parts. Because incompatibility is detected by version and the bunker is now current, it never fails fast again, so a current bunker can accumulate legacy parts in the interim between this slice and the slot-placement slice.</dd>
+      <dt>Options</dt><dd>A. Allow it (proposed default). Keep the slice minimal: fp part-building continues with legacy parts on current bunkers, and the slot-placement slice retires legacy placement while letting any legacy parts already present coexist with new thin parts, no second reset. B. Block legacy placement on current bunkers now, pausing fp part-building (digging still works) until slot placement ships, so no legacy parts can enter after a Start fresh.</dd>
+      <dt>Recommended default</dt><dd>A. It keeps building usable between slices for the two alpha players and is safe: no persisted slot write happens before the slot-placement slice (the exact boundary the whole F-117 arc is sequenced around), and no <strong>second no-refund reset</strong> is needed because slice 2 already made legacy whole-cell parts and thin parts coexist. A single cell cannot hold both (a whole-cell part blocks every thin slot in its cell and vice versa, enforced symmetrically), so a current bunker holding some legacy-part cells and some thin-part cells is structurally coherent; the player swaps legacy for thin over time by prying, with no forced wipe. B would leave the bunker dig-only for an unknown number of releases, a worse experience with no safety gain given the coexistence. Revisit only if the slot-placement slice slips far enough that carrying legacy parts becomes a real content risk.</dd>
+      <dt>Forward compatibility (2026-07-16)</dt><dd>A review of slice 3 asked what happens to a bunker whose persisted <code>layout_version</code> is <em>above</em> the deployed build's current version (an old build reading a row a newer build wrote, for instance during a rollback). Deferred to when a version 2 actually exists, for two reasons. First it is unreachable today: no code writes a version higher than the single current one, and the marker is stamped server-authoritatively, so no row can carry a future version. Second the destructive path is already safe against it without new code: Start fresh only proceeds when a bunker is <em>below</em> the current version and no-ops on any bunker at or above it, so a hypothetical newer bunker can never be downgraded or wiped by this build. What remains for the version-2 slice is a dedicated read-only "update your app" state (distinct from the destructive Start fresh, which must never be offered on a newer generation); building that state now, with no newer generation to test it against and no defined newer-version recovery UX, would be speculative scaffolding.</dd>
+      <dt>PR / Dot reference</dt><dd>(pending) resolving under default A in the F-117 slice-3 PR (package 0.1.271).</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-024" data-status="resolved">
     <h3>Q-024: How authoritative is in-raid player movement?</h3>
     <dl>
@@ -94,6 +152,12 @@
       </dd>
       <dt>Recommended default</dt><dd>B with a forfeit-loss disconnect fallback (under Q-024 option D). Dev direction 2026-07-15 is that the player is kept inside until the raid ends, so the UI simply does not offer an exit while a raid runs. Because movement matters under D (surviving means dodging Clankers and leading them onto spikes until their energy runs out), an absent player cannot be treated as a survivor. The one real escape hatch is an involuntary disconnect (closed tab, dead phone): the server-owned expiry then resolves the raid as a forfeit loss, the miner counts as reached, damage stands, and no survival reward is granted. This keeps starting a raid a genuine commitment without imprisoning the player in a hung tab. A (a voluntary exit button) is not offered, and C (auto-survive) would make walking away optimal.
 
+      <br><br>Revised 2026-07-15 (F-160, PR #224): voluntary exit is now allowed but always forfeits, a middle ground between A and B. Leaving first person during a raid (Escape, a forced exit, or navigation) immediately settles the raid as a forfeit loss with no survival reward, the same outcome as the disconnect/expiry fallback, so the client no longer leaves the raid row open for a re-entry to re-roll. Walking away is therefore never advantageous (it is always a loss), which preserves the commitment intent while sparing the player a trapped screen when they truly want out. The dedicated in-fight Exit control stays hidden per B (no inviting bail button), so the leave path is deliberate (a key or a disconnect), not a one-tap escape. Consistent with the disconnect fallback, this on-demand forfeit does not yet apply the base damage the Clankers would have dealt: the "damage stands" refinement remains open for both the on-demand and expiry paths. Touch has no Escape key, so the touch abandon affordance is tracked as F-162.
+
+      <br><br>Revised 2026-07-15 (F-162, package 0.1.268): the touch abandon affordance now exists. The first-person raid HUD carries a confirm-guarded Leave raid control (a two-step Forfeit / Stay confirm), so a phone player has a discoverable way out that runs the same forfeit path as the desktop Escape. This keeps the leave path deliberate (a confirm, not a one-tap bail) while giving touch parity; the always-visible in-fight Exit button is still not offered. Only the "damage stands" wear refinement (both on-demand and expiry paths) remains open under this question.
+
+      <br><br>Revised 2026-07-15 (F-118, package 0.1.270): the bunker core is removed, so the original option A's "Clankers targeting the core" fallback no longer has any target and is fully obsolete. Player absence, disconnect, and expiry all resolve the same way with no core involved: a voluntary leave forfeits on demand (F-160), and an abandoned tab or dead phone forfeits at server-owned expiry. There is no player-absent core-hunt path left in the sim; the live resolver only ever targeted the live player cell. The "damage stands" wear refinement stays the only open item.</dd>
+      <dt>Status</dt><dd>open (voluntary exit forfeits, with desktop Escape and a touch Leave raid control shipped, F-160/F-162; the core-fallback question is closed by F-118; only the "damage stands" wear refinement remains open)</dd>
       <br><br>Revised 2026-07-15 (F-160, PR #224): voluntary exit is now allowed but always forfeits, a middle ground between A and B. Leaving first person during a raid (Escape, a forced exit, or navigation) immediately settles the raid as a forfeit loss with no survival reward, the same outcome as the disconnect/expiry fallback, so the client no longer leaves the raid row open for a re-entry to re-roll. Walking away is therefore never advantageous (it is always a loss), which preserves the commitment intent while sparing the player a trapped screen when they truly want out. The dedicated in-fight Exit control stays hidden per B (no inviting bail button), so the leave path is deliberate (a key or a disconnect), not a one-tap escape. Consistent with the disconnect fallback, this on-demand forfeit does not yet apply the base damage the Clankers would have dealt: the "damage stands" refinement remains open for both the on-demand and expiry paths. Touch has no Escape key, so the touch abandon affordance is tracked as F-162.</dd>
       <dt>Status</dt><dd>open (voluntary exit now forfeits per the 2026-07-15 revision, F-160/PR #224; "damage stands" wear and a touch abandon affordance remain open, F-162)</dd>
       <dt>Implementation revision</dt><dd>
@@ -120,7 +184,7 @@
     </dl>
   </section>
 
-  <section data-q="Q-017" data-status="open">
+  <section data-q="Q-017" data-status="resolved">
     <h3>Q-017: Which purchases should the overall player level actually gate?</h3>
     <dl>
       <dt>Context</dt><dd>REQ-038's last clause makes overall player level "a global progression gate for robot parts, base parts, skins, stamps, consumables, and upgrades." Audit (2026-07-13, F-089): today the level gates raid tiers, the beacon cap, and base-part owned limits; robot parts (/api/shop/buy), consumables, gear upgrades, and bunker skins are purely vibes-priced with no level check. Adding floors invents pacing numbers the GDD does not specify, and retroactively locking items players could buy yesterday is a player-hostile regression.</dd>
@@ -132,7 +196,8 @@
         </ol>
       </dd>
       <dt>Recommended default</dt><dd>C, with B as the follow-on convention: the shipped level gates are the ones that proved fun (harder raids, more beacons, bigger bunkers), vibes prices already pace the shops, and a blanket retrofit would take purchases away from existing players. If C is approved the GDD clause text changes and F-089 closes; new top-tier catalog entries can still opt into floors per B.</dd>
-      <dt>Status</dt><dd>open (needs dev decision: GDD amendments require explicit approval)</dd>
+      <dt>Resolution</dt><dd>Option C (dev decision 2026-07-17): the GDD clause is narrowed to the level gates that already shipped and proved fun (the raid tier a player may trigger, the owned beacon cap, and base-part owned limits); robot parts, consumables, gear upgrades, and bunker skins stay vibes-priced, and new top-tier catalog entries may opt into a level floor as they are added (the option B follow-on convention). No code change: the shipped behavior already matches. The <code>docs/gdd/08-base-building.html#rewards-and-level</code> clause and the REQ-038 coverage row are amended, REQ-038 flips to done, and <a href="FOLLOWUPS.html#F-089">F-089</a> closes.</dd>
+      <dt>Status</dt><dd>resolved</dd>
     </dl>
   </section>
 
@@ -286,6 +351,22 @@
 
 <aside id="resolved">
   <h2>Resolved</h2>
+
+  <section data-q="Q-025" data-status="resolved">
+    <h3>Q-025: Where may a thin roof panel sit in a dug-out column?</h3>
+    <dl>
+      <dt>Context</dt><dd>The F-117 thin-piece model lets a player cap a room with a roof panel in the <code>roof</code> slot. A bunker column is now dug out cell by cell (F-115/F-116), so a room can end partway up a column with rock or a sealed cell above it, not only at the footprint's top row. The placement rule has to decide what counts as "the top" a roof is allowed to cap.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Top of the room (what shipped): a roof is allowed at any cell whose cell directly above is closed (rock, the footprint boundary, or another sealed cell) and rejected only when open air sits directly above it. A player can cap a dug-out pocket mid-column.</li>
+          <li>Top of the footprint: a roof is allowed only in the topmost row of the claim volume, so every roof reads as the literal ceiling of the bunker.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It matches how the space is actually built (rooms end where the digging stopped, not at a fixed row) and lets a roof do its structural job of sealing a pocket wherever that pocket tops out; the "open air directly above" rejection still blocks a roof floating under empty space. B is simpler to state but forbids the common case of capping a shallow dug room, which would feel arbitrary to a player who just dug it. Shipped under A with the rule documented in <code>placeBasePart</code> (<code>roof-top</code> reason).</dd>
+      <dt>Resolution</dt><dd>Resolved 2026-07-16 to option B by dev direction: "can use a second story floor as a type of roof, but only the very top gets actual roof." A roof sits only in the volume's top row (<code>footprint.row</code>); a mid-column room is capped with a second-story floor whose underside is the lower room's ceiling. Two corrections to the preserved Options and Recommended default above: (1) the "(what shipped)" and "Shipped under A" wording described provisional unmerged branch state that never reached players; option A was superseded by B before this slice merged, so no build ever shipped the top-of-the-room reading. (2) Option A's "or another sealed cell" is inaccurate about the provisional predicate: it gated on <code>isOpenBunkerCell(row - 1)</code>, which recognized only rock (an unexcavated cell) or the footprint boundary as closed; a construction-sealed dug cell stays open, so option A would still have rejected a roof beneath it. <code>placeBasePart</code> now rejects a roof outside the top row with the <code>roof-top</code> reason.</dd>
+      <dt>Status</dt><dd>resolved 2026-07-16: option B (dev direction).</dd>
+    </dl>
+  </section>
 
   <section data-q="Q-022" data-status="resolved">
     <h3>Q-022: Do existing full-block bunker parts migrate or reset under the thin-piece model?</h3>

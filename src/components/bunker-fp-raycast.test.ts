@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   createFpSolidGrid,
-  FP_CORE,
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_ROCK_UNDUG,
@@ -18,10 +17,13 @@ import {
 import {
   createFpRayHit,
   FP_FACE_NEG_X,
+  FP_FACE_NEG_Y,
   FP_FACE_NEG_Z,
   FP_FACE_POS_X,
   FP_FACE_POS_Y,
+  FP_FACE_POS_Z,
   type FpRayHit,
+  fpPlacementSlot,
   raycastFpGrid,
 } from "./bunker-fp-raycast";
 
@@ -82,10 +84,8 @@ describe("fp crosshair raycast", () => {
     expect([hit.placeX, hit.placeY, hit.placeZ]).toEqual([4, 0, 0]);
   });
 
-  it("reports the core, a door, and spikes by kind", () => {
+  it("reports a door and spikes by kind", () => {
     const grid = corridorGrid();
-    grid[fpCellIndex(4, 0, 0)] = FP_CORE;
-    expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("core");
     grid[fpCellIndex(4, 0, 0)] = FP_DOOR_OWNED;
     expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("door");
     grid[fpCellIndex(4, 0, 0)] = FP_SPIKES;
@@ -178,5 +178,78 @@ describe("fp capsule placement guard", () => {
     const edgeX = 3.5 + FP_CAPSULE_RADIUS - 0.05;
     expect(fpCellIntersectsCapsule(4, 0, 0, edgeX, py, pz)).toBe(true);
     expect(fpCellIntersectsCapsule(3, 0, 0, edgeX, py, pz)).toBe(true);
+  });
+});
+
+describe("fpPlacementSlot (F-117)", () => {
+  it("snaps a wall to the wall slot on the aimed face", () => {
+    expect(fpPlacementSlot(FP_FACE_NEG_X, "wall-panel")).toEqual({
+      slot: "wall-px",
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_POS_X, "wall-panel")).toEqual({
+      slot: "wall-nx",
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_NEG_Z, "wall-panel")).toEqual({
+      slot: "wall-pz",
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_POS_Z, "wall-panel")).toEqual({
+      slot: "wall-nz",
+      valid: true,
+    });
+  });
+
+  it("rejects a wall aimed at a horizontal face", () => {
+    expect(fpPlacementSlot(FP_FACE_POS_Y, "wall-panel")).toEqual({
+      slot: undefined,
+      valid: false,
+    });
+    expect(fpPlacementSlot(FP_FACE_NEG_Y, "wall-panel")).toEqual({
+      slot: undefined,
+      valid: false,
+    });
+  });
+
+  it("accepts a floor only on the floor face and a roof only on the roof face", () => {
+    expect(fpPlacementSlot(FP_FACE_POS_Y, "floor-panel")).toEqual({
+      slot: "floor",
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_NEG_X, "floor-panel")).toEqual({
+      slot: undefined,
+      valid: false,
+    });
+    expect(fpPlacementSlot(FP_FACE_NEG_Y, "roof-panel")).toEqual({
+      slot: "roof",
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_POS_Y, "roof-panel")).toEqual({
+      slot: undefined,
+      valid: false,
+    });
+  });
+
+  it("places a mount part whole-cell regardless of the aimed face", () => {
+    expect(fpPlacementSlot(FP_FACE_NEG_X, "basic-turret")).toEqual({
+      slot: undefined,
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_POS_Y, "floor-spikes")).toEqual({
+      slot: undefined,
+      valid: true,
+    });
+  });
+
+  it("treats a door like a wall", () => {
+    expect(fpPlacementSlot(FP_FACE_NEG_Z, "door-panel")).toEqual({
+      slot: "wall-pz",
+      valid: true,
+    });
+    expect(fpPlacementSlot(FP_FACE_POS_Y, "door-panel")).toEqual({
+      slot: undefined,
+      valid: false,
+    });
   });
 });

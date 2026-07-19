@@ -41,7 +41,7 @@ test("bunker arc capture run", async ({ page }) => {
   const view = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 140 },
+      layoutVersion: 1,
       parts: damagedParts,
       skin: "steelworks",
       skinsOwned: [] as string[],
@@ -88,12 +88,13 @@ test("bunker arc capture run", async ({ page }) => {
   );
   await page.route("**/api/bunker/repair", (route) => {
     current = structuredClone(current);
-    current.bunker.core.durability = 160;
     current.bunker.parts = current.bunker.parts.map((part) => ({
       ...part,
       durability: 90,
     }));
-    current.player = { ...current.player, balance: current.player.balance - 7 };
+    // Parts-only cost now the core is gone (F-118): the one wall at 45/90
+    // durability (price 6) repairs for ceil(0.5 * 6 * 0.5) = 2 vibes.
+    current.player = { ...current.player, balance: current.player.balance - 2 };
     return route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -129,7 +130,21 @@ test("bunker arc capture run", async ({ page }) => {
   await page.waitForTimeout(600);
   await shot("02-claim-steelworks");
 
-  await page.getByRole("button", { name: "Open bunker status" }).click();
+  // Standing inside the claim, the sheet opens through first person
+  // (F-119 fold): the fp Bunker button drops back out with it open.
+  const openSheetFromClaim = async () => {
+    await page.getByTestId("bunker-fp-enter").click();
+    await expect(page.getByLabel("Mine status")).toHaveAttribute(
+      "data-fp-mode",
+      "1",
+    );
+    await page.getByTestId("bunker-fp-status").click();
+    await expect(page.getByLabel("Mine status")).toHaveAttribute(
+      "data-fp-mode",
+      "0",
+    );
+  };
+  await openSheetFromClaim();
   const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toBeVisible();
   await page.waitForTimeout(400);
@@ -150,7 +165,7 @@ test("bunker arc capture run", async ({ page }) => {
   await page.waitForTimeout(600);
   await shot("05-skin-verdant-world");
 
-  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await openSheetFromClaim();
   await expect(builder).toBeVisible();
   await picker.getByRole("button", { name: "Gilded (120v)" }).click();
   await expect(picker.getByRole("button", { name: "Gilded" })).toHaveAttribute(

@@ -24,18 +24,108 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest first-person-raids-only note complete", () => {
+  it("keeps the latest panel-detail note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-15-0.1.269-first-person-raids-only");
+    expect(release.noticeId).toBe("2026-07-18-0.1.275-bunker-panel-detail");
     expect(latestNote).toMatchObject({
+      version: "0.1.275",
+      title: "Bunker panels look built, not flat",
+      intro:
+        "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe; floors get a walkway grate over a dark pit; roofs hang a warm work lamp underneath; doors get a framed hatch with a spin-wheel leaf and ready lights. Same panels in the same spots, just detailed to match the rest of the bunker.",
+      "This is a look-only change: nothing about placing, prying, or how your bunker plays is different, and your saved bunker is untouched.",
+    ]);
+  });
+
+  it("keeps the archived thin-walls note complete", () => {
+    const release = getAppRelease();
+    const wallsNote = release.notes.find((note) => note.version === "0.1.274");
+
+    expect(wallsNote).toMatchObject({
+      version: "0.1.274",
+      title: "Build thin walls on the face you aim at",
+      intro:
+        "Inside a bunker in first person, aiming a wall, floor, or roof at a surface now builds a thin panel on that exact face instead of filling the whole cell.",
+    });
+  });
+
+  it("keeps the archived fp-spawn note complete", () => {
+    const release = getAppRelease();
+    const spawnNote = release.notes.find((note) => note.version === "0.1.273");
+
+    expect(spawnNote).toMatchObject({
+      version: "0.1.273",
+      title: "Spawn in the room, not inside the wall",
+      intro:
+        "Entering a bunker in first person now always drops you standing in the open starter room instead of stuck inside solid rock.",
+    });
+  });
+
+  it("keeps the archived bunker-ore-backfill note complete", () => {
+    const release = getAppRelease();
+    const oreNote = release.notes.find((note) => note.version === "0.1.272");
+
+    expect(oreNote).toMatchObject({
+      version: "0.1.272",
+      title: "Old bunkers show their ore again",
+      intro:
+        "A bunker claimed before the ore update was generating plain dirt with no ore. Opening it now fills in the mine's real dirt, rock, and ore.",
+    });
+    expect(oreNote?.changes.map((change) => change.text)).toEqual([
+      "If you claimed a bunker before its walls started generating ore, it was stuck as solid dirt that paid nothing when you dug it, and even a reset did not fix it. Opening the bunker now fills in the ore it should have had, so its walls show the mine's dirt, rock, and ore for that depth and digging pays again.",
+      "This only fills in ore that was missing. It never regrows ore you already mined, and it leaves any bunker that already had ore unchanged. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-layout-reset note complete", () => {
+    const release = getAppRelease();
+    const resetNote = release.notes.find((note) => note.version === "0.1.271");
+
+    expect(resetNote).toMatchObject({
+      version: "0.1.271",
+      title: "Old bunkers need a fresh start",
+      intro:
+        "Bunkers built before the new build system now ask you to start fresh before you can build in them again.",
+    });
+    expect(resetNote?.changes.map((change) => change.text)).toEqual([
+      "If your bunker was built under the old whole-block layout, it can no longer be edited as it is. Open the bunker sheet and it now shows a Start fresh button instead of the Enter button. Start fresh clears the old build and lets you build again under the new system, and it keeps every room you dug out, so you never lose your digging.",
+      "Start fresh does not refund the parts from the old layout, since that layout is retired. Any bunker you claim from now on is already up to date, so this only affects bunkers from before the change. MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived bunker-core-removed note complete", () => {
+    const release = getAppRelease();
+    const coreNote = release.notes.find((note) => note.version === "0.1.270");
+
+    expect(coreNote).toMatchObject({
+      version: "0.1.270",
+      title: "The bunker core is gone",
+      intro:
+        "The pink diamond in the middle of your bunker is retired, freeing that cell to build in.",
+    });
+    expect(coreNote?.changes.map((change) => change.text)).toEqual([
+      "The spinning core that sat in the center of every bunker is removed. It never did anything you could use, and it took up a buildable cell, so it is gone. The cell it stood in is now ordinary open space you can walk through, build on, or dig behind.",
+      "Repairs now cover only your placed parts, since there is no core left to patch. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
+    ]);
+  });
+
+  it("keeps the archived first-person-raids-only note complete", () => {
+    const release = getAppRelease();
+    const raidsOnlyNote = release.notes.find(
+      (note) => note.version === "0.1.269",
+    );
+
+    expect(raidsOnlyNote).toMatchObject({
       version: "0.1.269",
       title: "Raids are first-person only now",
       intro:
         "The flat Start-raid button is gone; you defend your bunker from inside.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(raidsOnlyNote?.changes.map((change) => change.text)).toEqual([
       "The old flat raid, started from the bunker sheet and watched as a top-down replay, is retired. To raid now, stand in your claim, enter your bunker in first person, and start a live raid from inside, where the Clankers hunt you through your dug halls in real time.",
       "The bunker sheet keeps claiming, repairs, skins, and reset; only the raid moved inside. Your saved bunkers are untouched: MINE_VERSION and SIM_VERSION are unchanged.",
     ]);

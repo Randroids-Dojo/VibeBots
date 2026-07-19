@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "The flat Start-raid button is gone; you defend your bunker from inside.",
+    "The thin wall, floor, roof, and door panels you place in first person now read as riveted steel instead of plain slabs.",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "enter your bunker in first person, and start a live raid from inside",
+    "Walls get a recessed inner plate, a beveled edge, corner rivets, and a hazard stripe",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "MINE_VERSION and SIM_VERSION are unchanged",
+    "This is a look-only change",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,12 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.275", "Bunker panels look built, not flat"],
+    ["0.1.274", "Build thin walls on the face you aim at"],
+    ["0.1.273", "Spawn in the room, not inside the wall"],
+    ["0.1.272", "Old bunkers show their ore again"],
+    ["0.1.271", "Old bunkers need a fresh start"],
+    ["0.1.270", "The bunker core is gone"],
     ["0.1.269", "Raids are first-person only now"],
     ["0.1.268", "Abandon a live raid from your phone"],
     ["0.1.267", "Leaving a live raid now forfeits it"],

@@ -182,9 +182,9 @@ function completeFpTutorial(): void {
 function showStep(index: number, now: number): void {
   let next = index;
   if (FP_TUTORIAL_STEPS[next] === "dig") {
-    // Every cell is exactly one of open, part-stamped, core, or undug
-    // rock, so the diggable remainder falls out of the observations.
-    const undug = FP_CELL_COUNT - lastOpenCells - lastPartsCount - 1;
+    // Every cell is exactly one of open, part-stamped, or undug rock, so
+    // the diggable remainder falls out of the observations.
+    const undug = FP_CELL_COUNT - lastOpenCells - lastPartsCount;
     if (undug <= 0) next += 1;
   }
   if (next >= FP_TUTORIAL_STEPS.length) {

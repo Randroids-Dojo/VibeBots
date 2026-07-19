@@ -223,6 +223,156 @@ test("bunker claim mode highlights uncleared claim cells in red", async ({
   expect(redPixels).toBeGreaterThan(50);
 });
 
+test("an old-layout banked bunker fails fast and Start fresh clears it", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 390, height: 760 });
+  const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
+  // Clear a shaft down to row 5 so the miner stands inside the claim.
+  for (let row = 1; row <= 6; row++) {
+    for (let col = START_COL - 3; col <= START_COL + 3; col++) {
+      setCell(mine, col, row, { kind: "empty" });
+    }
+    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
+  }
+  const footprint = { col: START_COL - 3, row: 1, width: 7, height: 5 };
+  const inventory = {
+    "wall-panel": 2,
+    "floor-panel": 3,
+    "roof-panel": 3,
+    "door-panel": 1,
+    "basic-turret": 0,
+    "floor-spikes": 0,
+  };
+  const player = {
+    balance: 120,
+    trackXp: 40,
+    defenseXp: 120,
+    overallLevel: 2,
+    levelCap: 100,
+    progressXp: 20,
+    neededXp: 80,
+    nextLevelXp: 200,
+    beaconLimit: 3,
+  };
+  // The GET returns a legacy (layoutVersion 0) banked bunker until Start
+  // fresh flips it current, so a later reload cannot revive the old state.
+  let layoutVersion = 0;
+  await page.route("**/api/mine/world", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        activeSlot: 1,
+        seed: 6061,
+        tripIndex: 0,
+        diff: exportDiff(mine),
+      }),
+    });
+  });
+  await page.route("**/api/gear", async (route) => {
+    await route.fulfill({ status: 503, body: "{}" });
+  });
+  await page.route("**/api/bunker", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: {
+          footprint,
+          parts: [
+            { partId: "wall-panel", col: START_COL, row: 5, durability: 90 },
+          ],
+          dug: [],
+          layoutVersion,
+        },
+        inventory,
+        player,
+        revision: 3,
+      }),
+    });
+  });
+  let startFreshMethod: string | null = null;
+  let startFreshCalls = 0;
+  await page.route("**/api/bunker/start-fresh", async (route) => {
+    // The server hard-resets to a bare current-version claim (no refund):
+    // the returned inventory is unchanged from before the reset.
+    startFreshMethod = route.request().method();
+    startFreshCalls += 1;
+    layoutVersion = 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        bunker: { footprint, parts: [], dug: [], layoutVersion: 1 },
+        inventory,
+        player,
+        revision: 4,
+      }),
+    });
+  });
+  await page.addInitScript(
+    (trip) => {
+      const key = "vibebots-mine-trip-v2-slot-1";
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, JSON.stringify(trip));
+      }
+    },
+    {
+      seed: 6061,
+      mineVersion: MINE_VERSION,
+      tripIndex: 0,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      baseDiff: exportDiff(mine),
+      moves: ["down", "down", "down", "down", "down"],
+    },
+  );
+
+  await page.goto("/mine");
+  await dismissReleaseNotes(page);
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-depth",
+    "5",
+  );
+
+  // The old layout fails fast: the sheet shows the incompatible alert and a
+  // Start fresh action, and the first-person Enter affordance is withheld.
+  await page.getByRole("button", { name: "Open bunker status" }).click();
+  await expect(page.getByTestId("bunker-layout-incompatible")).toBeVisible();
+  const startFresh = page.getByTestId("bunker-start-fresh");
+  await expect(startFresh).toHaveText("Start fresh");
+  await expect(page.getByTestId("bunker-reset")).toHaveCount(0);
+  await expect(page.getByTestId("bunker-fp-enter")).toHaveCount(0);
+
+  // Two-step confirm: the first tap arms, the second runs the hard reset.
+  await startFresh.click();
+  await expect(startFresh).toHaveText(
+    "Really start fresh? Built parts are lost",
+  );
+  await startFresh.click();
+
+  // After Start fresh the bunker is current: the alert clears and the
+  // sheet swaps to the normal edit affordances in place.
+  await expect(page.getByTestId("bunker-layout-incompatible")).toHaveCount(0);
+  await expect(
+    page.getByRole("status", { name: "Vibes balance" }),
+  ).toBeVisible();
+  // Closing the sheet reveals the returned first-person Enter affordance
+  // (the miner is inside the claim), which is now the ONLY bunker button
+  // in that state: the collapsed trigger yields its slot (F-119 fold).
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByTestId("bunker-fp-enter")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open bunker status" }),
+  ).toHaveCount(0);
+  // The recovery went through one POST to the dedicated route, and the
+  // returned inventory carried no refund (the pre-reset stock, unchanged).
+  expect(startFreshMethod).toBe("POST");
+  expect(startFreshCalls).toBe(1);
+});
+
 test("bunker claims can be edited before banking", async ({ page }) => {
   // Software-GL runners compile the fp scene slowly.
   test.setTimeout(240_000);
@@ -494,15 +644,26 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
   await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
   await status.getByRole("button", { name: "Close" }).click();
   await placeWallInFp(page);
-  await page.getByRole("button", { name: "Exit bunker" }).click();
+
+  // The wall placement left the fp pointer lock held, and a locked
+  // pointer routes every click to the canvas (a real player presses
+  // Escape to free the cursor first). Release it so the DOM button
+  // receives the click.
+  await page.evaluate(() => document.exitPointerLock?.());
+  await expect
+    .poll(async () => page.locator("canvas").getAttribute("data-fp-lock"), {
+      timeout: 10_000,
+    })
+    .not.toBe("locked");
+  // The fp Bunker button drops back to the flat view with the status
+  // sheet already open (the sheet's only doorway while the miner stands
+  // in the claim, F-119 fold). The Reset row is a two-step confirm: the
+  // first tap arms it without resetting anything.
+  await page.getByTestId("bunker-fp-status").click();
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
     "data-fp-mode",
     "0",
   );
-
-  // Open the sheet: the Reset row is a two-step confirm. The first tap
-  // arms it without resetting anything.
-  await page.getByRole("button", { name: "Open bunker status" }).click();
   const reset = page.getByTestId("bunker-reset");
   await expect(reset).toHaveText("Reset bunker");
   await reset.click();
@@ -545,6 +706,26 @@ test("reset bunker refunds a pending claim's parts through the two-step confirm"
     "data-fp-mode",
     "1",
   );
+  // Spawn safety (F-120 collision-aware spawn): driving the real reset
+  // response, the fp remount, the spawn call site, and the rendered rig, the
+  // player must land grounded on open floor, never embedded in a blocker. The
+  // rig publishes the actual eye pose: a floor spawn reads eye y 0.22
+  // (py -0.5 + eye height 0.72), so a spawn inside rock or a part would either
+  // never ground or report a different height.
+  const fpCanvas = page.locator("canvas");
+  await expect
+    .poll(async () => fpCanvas.getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  await expect
+    .poll(async () => fpCanvas.getAttribute("data-fp-grounded"), {
+      timeout: 20_000,
+    })
+    .toBe("1");
+  await expect
+    .poll(async () => Number(await fpCanvas.getAttribute("data-fp-eye-y")))
+    .toBeCloseTo(0.22, 1);
   await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
     "aria-label",
     "Wall x6",
@@ -561,8 +742,10 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
 }) => {
   // Each pixel-diff measurement decodes two full-viewport PNGs on the
   // page's contended main thread, so one tick can take several seconds
-  // on a slow host; the default 60s budget starves the repaint poll.
-  test.setTimeout(120_000);
+  // on a slow host; the default 60s budget starves the repaint poll. The
+  // sheet also opens through first person now (F-119 fold), and
+  // software-GL runners compile the fp scene slowly.
+  test.setTimeout(180_000);
   const mine = createMine(7171, DEFAULT_GEAR, STARTING_CONSUMABLES);
   for (let row = 1; row <= 5; row++) {
     for (let offset = -3; offset <= 3; offset++) {
@@ -579,7 +762,7 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   const baseView = {
     bunker: {
       footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      core: { col: START_COL, row: 3, durability: 160 },
+      layoutVersion: 1,
       parts,
       skin: "steelworks",
       skinsOwned: [],
@@ -644,7 +827,25 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await digTo(page, 2);
-  await page.getByRole("button", { name: "Open bunker status" }).click();
+  // Standing inside the claim, the floating Enter pill replaces the
+  // collapsed trigger (F-119 fold), so the sheet opens through first
+  // person: the fp Bunker button drops back to the flat view with the
+  // status sheet already open.
+  await page.getByTestId("bunker-fp-enter").click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "1",
+  );
+  await expect
+    .poll(async () => page.locator("canvas").getAttribute("data-fp-eye-x"), {
+      timeout: 45_000,
+    })
+    .not.toBeNull();
+  await page.getByTestId("bunker-fp-status").click();
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-fp-mode",
+    "0",
+  );
   const builder = page.getByRole("region", { name: "Bunker status" });
   await expect(builder).toBeVisible();
 
@@ -662,6 +863,14 @@ test("bunker skins repaint placed parts and reselect owned skins free", async ({
   await expect(gilded).toBeDisabled();
   await expect(gilded).toHaveAttribute("title", /needs 20 more vibes/);
 
+  // The flat canvas remounted behind the sheet on the way out of first
+  // person; wait for its first painted frame so the veil never lands in
+  // the baseline screenshot.
+  await expect(page.getByLabel("Mine status")).toHaveAttribute(
+    "data-scene-painted",
+    "true",
+    { timeout: 45_000 },
+  );
   const before = await page.locator("canvas").screenshot();
   await picker.getByRole("button", { name: "Verdant (80v)" }).click();
   const verdant = picker.getByRole("button", { name: "Verdant" });

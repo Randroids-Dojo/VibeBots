@@ -9,6 +9,7 @@ import {
   bunkerRepairPlan,
   DEFAULT_BUNKER_SKIN,
   DEFENSE_XP_PER_LEVEL,
+  isBunkerLayoutIncompatible,
 } from "@/sim/bunker";
 import type { MineCoord } from "@/sim/mine";
 import { useBunkerStore } from "@/state/bunker-store";
@@ -37,7 +38,9 @@ export function BunkerControlPanel({
   onClaim,
   onRepair,
   onReset,
+  onStartFresh,
   onSelectSkin,
+  entryButtonVisible = false,
 }: {
   minerRow: number;
   claimMode: boolean;
@@ -56,13 +59,29 @@ export function BunkerControlPanel({
   /** Resets the bunker to a bare claim (F-093): undamaged parts refund
    * to inventory, damaged parts are lost, dug cells refill. */
   onReset?: () => void;
+  /** Hard-reset a layout-incompatible bunker (F-117, Q-022): clears built
+   * parts with no refund, keeps the excavation, stamps the new layout so
+   * building is allowed again. */
+  onStartFresh?: () => void;
   onSelectSkin?: (skinId: BunkerSkinId) => void;
+  /** True while the floating Enter bunker pill is on screen (the miner
+   * stands inside an editable claim). The collapsed status trigger
+   * yields its slot so exactly one bunker button shows at a time
+   * (F-119 fold); the sheet itself still renders when opened, e.g.
+   * from the first-person Bunker button. */
+  entryButtonVisible?: boolean;
 }) {
   const status = useBunkerStore((s) => s.status);
   const player = useBunkerStore((s) => s.player);
   const lastReward = useBunkerStore((s) => s.lastRaidReward);
   const note = useBunkerStore((s) => s.note);
   const hasBunker = Boolean(bunker);
+  // A banked bunker built under an older layout model cannot be edited
+  // (F-117). It fails fast with a no-refund Start fresh (Q-022) in place of
+  // the normal build/repair/reset affordances. A pending (unbanked) claim
+  // is always current, so this only fires on a loaded banked bunker.
+  const layoutIncompatible =
+    bunker !== null && !pendingClaim && isBunkerLayoutIncompatible(bunker);
   const localBlockerCount = localBlockedCells.length;
   const canClaim =
     !hasBunker &&
@@ -106,6 +125,9 @@ export function BunkerControlPanel({
     }
     setResetArmed(false);
   }, [panelOpen]);
+  // The same two-step confirm drives both destructive actions (they are
+  // mutually exclusive): Reset on a compatible bunker, Start fresh on a
+  // layout-incompatible one.
   const handleReset = () => {
     if (!resetArmed) {
       setResetArmed(true);
@@ -116,13 +138,22 @@ export function BunkerControlPanel({
       return;
     }
     disarmReset();
-    onReset?.();
+    if (layoutIncompatible) onStartFresh?.();
+    else onReset?.();
   };
   // Reset only clears placed parts now; it preserves the excavation and
   // the spawn pocket (F-120: no ore regen, never respawn in rock), so a
-  // dug-out-but-unbuilt claim has nothing to reset.
+  // dug-out-but-unbuilt claim has nothing to reset. Start fresh replaces it
+  // on an incompatible bunker and needs no built parts to be worth showing.
+  const startFreshAvailable = layoutIncompatible && onStartFresh !== undefined;
   const resetAvailable =
-    hasBunker && onReset !== undefined && (bunker?.parts.length ?? 0) > 0;
+    hasBunker &&
+    !layoutIncompatible &&
+    onReset !== undefined &&
+    (bunker?.parts.length ?? 0) > 0;
+  const confirmAvailable = layoutIncompatible
+    ? startFreshAvailable
+    : resetAvailable;
   const balance = player?.balance ?? 0;
   const levelProgressMax =
     player?.nextLevelXp === null
@@ -144,6 +175,7 @@ export function BunkerControlPanel({
 
   if (minerRow <= 0) return null;
   if ((!hasBunker && !claimMode) || (hasBunker && !panelOpen)) {
+    if (entryButtonVisible) return null;
     return (
       <button
         type="button"
@@ -173,7 +205,7 @@ export function BunkerControlPanel({
           if (!resetArmed) return;
           if (
             event.target instanceof Element &&
-            event.target.closest('[data-testid="bunker-reset"]')
+            event.target.closest("[data-confirm-button]")
           ) {
             return;
           }
@@ -197,7 +229,9 @@ export function BunkerControlPanel({
 
         <p className="bunker-status-copy">
           {hasBunker
-            ? "Enter the bunker to build inside: place, pry, and dig in first person."
+            ? layoutIncompatible
+              ? "This bunker was built under the old layout and can't be edited. Start fresh to rebuild."
+              : "Enter the bunker to build inside: place, pry, and dig in first person."
             : !preview
               ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
               : localBlockerCount > 0
@@ -229,6 +263,20 @@ export function BunkerControlPanel({
                 : `Defense XP ${levelProgressValue}/${levelProgressMax}. ${player.neededXp} XP to level ${player.overallLevel + 1}.`}
             </small>
           </fieldset>
+        )}
+
+        {layoutIncompatible && (
+          <div
+            className="bunker-result bunker-result-failed"
+            role="alert"
+            data-testid="bunker-layout-incompatible"
+          >
+            <strong>Layout needs a fresh start</strong>
+            <span>
+              Bunkers built before the new build system can't be edited. Start
+              fresh keeps your dug-out rooms but clears built parts (no refund).
+            </span>
+          </div>
         )}
 
         {lastReward && (
@@ -271,7 +319,7 @@ export function BunkerControlPanel({
           </div>
         )}
 
-        {hasBunker && !pendingClaim && (
+        {hasBunker && !pendingClaim && !layoutIncompatible && (
           <>
             <p
               className="bunker-balance"
@@ -331,17 +379,24 @@ export function BunkerControlPanel({
           </>
         )}
 
-        {resetAvailable && (
+        {confirmAvailable && (
           <button
             type="button"
             className="bunker-reset-button"
-            data-testid="bunker-reset"
+            data-testid={
+              layoutIncompatible ? "bunker-start-fresh" : "bunker-reset"
+            }
+            data-confirm-button=""
             aria-pressed={resetArmed}
             onClick={handleReset}
           >
-            {resetArmed
-              ? "Really reset? Parts return to inventory"
-              : "Reset bunker"}
+            {layoutIncompatible
+              ? resetArmed
+                ? "Really start fresh? Built parts are lost"
+                : "Start fresh"
+              : resetArmed
+                ? "Really reset? Parts return to inventory"
+                : "Reset bunker"}
           </button>
         )}
 

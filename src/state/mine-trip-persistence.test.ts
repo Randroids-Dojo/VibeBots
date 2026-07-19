@@ -17,13 +17,16 @@ import {
   setCell,
 } from "@/sim/mine";
 import {
+  anyRailResyncBlock,
   loadLocalTrip,
+  loadRailResyncBlock,
   localTripKey,
   normalizePendingBunker,
   removeLocalTrip,
   replaySavedTrip,
   type SavedTrip,
   saveLocalTrip,
+  saveRailResyncBlock,
   storedTripPendingBunkerIsCorrupt,
 } from "./mine-trip-persistence";
 
@@ -336,11 +339,6 @@ describe("pending bunker depth normalization", () => {
       claimedAtMoveCount: 0,
       bunker: {
         footprint: bunker.footprint,
-        core: {
-          col: bunker.core.col,
-          row: bunker.core.row,
-          durability: bunker.core.durability,
-        },
         parts: [
           { partId: "wall-panel", col: 2, row: 5, durability: 90 },
           { partId: "door-panel", col: 3, row: 5, depth: 9, durability: 60 },
@@ -355,7 +353,6 @@ describe("pending bunker depth normalization", () => {
 
     const loaded = loadLocalTrip(1);
 
-    expect(loaded?.pendingBunker?.bunker.core.depth).toBe(0);
     expect(loaded?.pendingBunker?.bunker.parts).toEqual([
       { partId: "wall-panel", col: 2, row: 5, depth: 0, durability: 90 },
       { partId: "door-panel", col: 3, row: 5, depth: 0, durability: 60 },
@@ -363,6 +360,90 @@ describe("pending bunker depth normalization", () => {
     // A pre-dig-out save has no dug set; load seeds the spawn pocket
     // (F-115), which is exactly what a fresh createBunker ships.
     expect(loaded?.pendingBunker?.bunker.dug).toEqual(bunker.dug);
+  });
+
+  it("keeps a valid part slot and drops a malformed one (F-117)", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const pending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        parts: [
+          {
+            partId: "wall-panel",
+            col: 2,
+            row: 5,
+            depth: 0,
+            slot: "wall-px",
+            durability: 90,
+          },
+          {
+            partId: "wall-panel",
+            col: 3,
+            row: 5,
+            depth: 0,
+            slot: "bogus",
+            durability: 90,
+          },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(pending)),
+    );
+
+    const parts = loadLocalTrip(1)?.pendingBunker?.bunker.parts;
+    // The known slot survives the persistence round-trip; a malformed one
+    // coerces to a legacy whole-cell part rather than rejecting the trip.
+    expect(parts?.[0].slot).toBe("wall-px");
+    expect(parts?.[1].slot).toBeUndefined();
+  });
+
+  it("keeps a valid stair orientation and drops a malformed one (F-117)", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const pending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        parts: [
+          {
+            partId: "stair-panel",
+            col: 2,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 2,
+            durability: 70,
+          },
+          {
+            partId: "stair-panel",
+            col: 3,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 7,
+            durability: 70,
+          },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(pending)),
+    );
+
+    const parts = loadLocalTrip(1)?.pendingBunker?.bunker.parts;
+    // The valid facing survives; an out-of-range one coerces to undefined
+    // rather than rejecting the trip.
+    expect(parts?.[0].orientation).toBe(2);
+    expect(parts?.[1].orientation).toBeUndefined();
   });
 });
 
@@ -415,12 +496,16 @@ describe("pending bunker validation (F-112)", () => {
     expect(normalizePendingBunker(withBunker({ parts: {} }))).toBeNull();
   });
 
-  it("returns null for a malformed core", () => {
-    expect(normalizePendingBunker(withBunker({ core: null }))).toBeNull();
-    expect(normalizePendingBunker(withBunker({ core: "core" }))).toBeNull();
-    expect(
-      normalizePendingBunker(withBunker({ core: { col: 1, row: 1 } })),
-    ).toBeNull();
+  it("strips a legacy core field from a stored checkpoint (F-118)", () => {
+    // A checkpoint saved before the core was removed still carries one; the
+    // object schema drops the unknown key rather than rejecting the trip.
+    const result = normalizePendingBunker(
+      withBunker({ core: { col: 3, row: 3, depth: 0, durability: 160 } }),
+    );
+    expect(result).not.toBeNull();
+    expect(result?.bunker).not.toHaveProperty("core");
+    expect(result?.bunker.footprint).toBeDefined();
+    expect(Array.isArray(result?.bunker.parts)).toBe(true);
   });
 
   it("returns null for a malformed dug cell", () => {
@@ -431,15 +516,35 @@ describe("pending bunker validation (F-112)", () => {
     ).toBeNull();
   });
 
-  it("returns null for an oversized parts array", () => {
-    const parts = Array.from({ length: 175 }, () => ({
-      partId: "wall-panel",
-      col: 1,
-      row: 1,
-      depth: 0,
-      durability: 10,
-    }));
-    expect(normalizePendingBunker(withBunker({ parts }))).toBeNull();
+  it("caps the checkpoint parts array at the 175-cell volume, not the old 174", () => {
+    // Checkpoint validation only bounds shape and array length (the bank
+    // route is the authoritative placement/occupancy boundary; see its
+    // "maxed 175-part bunker" test). This proves the length cap moved off
+    // 174 to the full 5 x 5 x 7 = 175-cell volume now the core is gone.
+    const uniqueParts = [];
+    for (let depth = 0; depth < 5; depth++) {
+      for (let row = 1; row <= 5; row++) {
+        for (let col = 1; col <= 7; col++) {
+          uniqueParts.push({
+            partId: "wall-panel",
+            col,
+            row,
+            depth,
+            durability: 10,
+          });
+        }
+      }
+    }
+    expect(uniqueParts).toHaveLength(175);
+    const accepted = normalizePendingBunker(withBunker({ parts: uniqueParts }));
+    expect(accepted).not.toBeNull();
+    expect(accepted?.bunker.parts).toHaveLength(175);
+    // A 176th part (one cell repeated) exceeds the volume and is rejected.
+    expect(
+      normalizePendingBunker(
+        withBunker({ parts: [...uniqueParts, uniqueParts[0]] }),
+      ),
+    ).toBeNull();
   });
 
   it("passes a null pending through as no checkpoint", () => {
@@ -452,7 +557,6 @@ describe("pending bunker validation (F-112)", () => {
     const normalized = normalizePendingBunker(valid);
     expect(normalized).not.toBeNull();
     expect(normalized?.bunker.dug).toEqual(valid.bunker.dug);
-    expect(normalized?.bunker.core.depth).toBe(0);
   });
 
   it("drops a stored trip whose pending bunker is malformed", () => {
@@ -494,5 +598,34 @@ describe("pending bunker validation (F-112)", () => {
     const normalized = normalizePendingBunker(skinned);
     expect(normalized).not.toBeNull();
     expect(normalized?.bunker.skin).toBeUndefined();
+  });
+
+  it("round-trips the rail-resync block per slot", () => {
+    expect(loadRailResyncBlock(1)).toBe(false);
+
+    saveRailResyncBlock(1, true);
+    expect(loadRailResyncBlock(1)).toBe(true);
+    // The block is scoped to its own slot only.
+    expect(loadRailResyncBlock(2)).toBe(false);
+
+    saveRailResyncBlock(1, false);
+    expect(loadRailResyncBlock(1)).toBe(false);
+    expect(localStorage.removeItem).toHaveBeenCalledWith(
+      "vibebots-rail-resync-blocked-slot-1",
+    );
+  });
+
+  it('treats any non-"1" stored rail-block value as unblocked', () => {
+    localStorage.setItem("vibebots-rail-resync-blocked-slot-3", "true");
+    expect(loadRailResyncBlock(3)).toBe(false);
+  });
+
+  it("reports a block on ANY slot for the unresolved-slot fail-closed check", () => {
+    expect(anyRailResyncBlock()).toBe(false);
+    // A block on a slot other than the assumed active one still trips it.
+    saveRailResyncBlock(2, true);
+    expect(anyRailResyncBlock()).toBe(true);
+    saveRailResyncBlock(2, false);
+    expect(anyRailResyncBlock()).toBe(false);
   });
 });

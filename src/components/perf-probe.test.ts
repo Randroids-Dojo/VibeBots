@@ -95,17 +95,55 @@ describe("collectRendererInfo", () => {
 });
 
 describe("collectCanvasDiagnostics", () => {
-  it("keeps only allowlisted dataset keys", () => {
+  it("keeps only the mine allowlist for a mine source", () => {
     expect(
-      collectCanvasDiagnostics({
-        frameMs: "16.2",
-        particleCount: "12",
-        timeOfDay: "day",
-        minerX: "4.00",
-        camX: "1.00",
-        renderer: "webgpu-auto",
-      }),
+      collectCanvasDiagnostics(
+        {
+          frameMs: "16.2",
+          particleCount: "12",
+          timeOfDay: "day",
+          minerX: "4.00",
+          camX: "1.00",
+          renderer: "webgpu-auto",
+          // A mine trace must not carry first-person keys.
+          fpEyeY: "0.72",
+        },
+        "mine",
+      ),
     ).toEqual({ frameMs: "16.2", particleCount: "12", timeOfDay: "day" });
+  });
+
+  it("keeps the first-person allowlist for a bunker-fp source, rejecting the rest (F-101)", () => {
+    expect(
+      collectCanvasDiagnostics(
+        {
+          frameMs: "16.2",
+          particleCount: "3",
+          fpEyeY: "0.72",
+          fpOpenCells: "18",
+          fpGrounded: "1",
+          fpSwinging: "0",
+          // Mine keys and high-cardinality aim data are dropped.
+          renderedCellCount: "180",
+          fpTarget: "3,2,1",
+          minerX: "4.00",
+        },
+        "bunker-fp",
+      ),
+    ).toEqual({
+      frameMs: "16.2",
+      particleCount: "3",
+      fpEyeY: "0.72",
+      fpOpenCells: "18",
+      fpGrounded: "1",
+      fpSwinging: "0",
+    });
+  });
+
+  it("drops empty and missing approved values", () => {
+    expect(
+      collectCanvasDiagnostics({ fpEyeY: "", fpGrounded: "1" }, "bunker-fp"),
+    ).toEqual({ fpGrounded: "1" });
   });
 });
 

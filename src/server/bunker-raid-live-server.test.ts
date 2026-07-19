@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BUNKER_LAYOUT_VERSION } from "@/sim/bunker";
 import {
   BUNKER_RAID_LIVE_VERSION,
   type LiveRaidOutcomeReport,
@@ -12,13 +13,11 @@ import {
 } from "./bunker";
 
 const FOOTPRINT = { col: 1, row: 1, width: 7, height: 5 };
-const CORE = { col: 4, row: 3, durability: 160, depth: 0 };
 
 /** A bunkers-table row with one wall at an arbitrary (unworn) durability. */
 function bunkerRow(durability: number) {
   return {
     footprint: FOOTPRINT,
-    core: CORE,
     parts: [{ partId: "wall-panel", col: 3, row: 3, durability, depth: 1 }],
     dug: [{ col: 3, row: 3, depth: 1 }],
     block_seed: null,
@@ -26,6 +25,7 @@ function bunkerRow(durability: number) {
     skin: null,
     skins_owned: [],
     revision: 2,
+    layout_version: BUNKER_LAYOUT_VERSION,
   };
 }
 
@@ -58,8 +58,7 @@ describe("startLiveRaid (F-108)", () => {
         queries.push(query);
         if (query.includes("SELECT emeralds, track_xp, defense_xp"))
           return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-        if (query.includes("SELECT footprint, core, parts"))
-          return [bunkerRow(88)];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
         // The raid row is empty until the INSERT, then reads back the frozen row.
         if (query.includes("SELECT snapshot")) {
           return insertedSnapshot
@@ -105,8 +104,7 @@ describe("startLiveRaid (F-108)", () => {
       const query = strings.join(" ");
       if (query.includes("SELECT emeralds, track_xp, defense_xp"))
         return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, core, parts"))
-        return [bunkerRow(88)];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
       if (query.includes("SELECT snapshot"))
         return [
           {
@@ -127,6 +125,39 @@ describe("startLiveRaid (F-108)", () => {
       error: "raid already active",
     });
   });
+
+  it("refuses to start a raid on a layout-incompatible bunker (F-117)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
+    // A legacy row carries no layout_version, so it reads as incompatible.
+    const legacyRow = { ...bunkerRow(88), layout_version: 0 };
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
+      if (query.includes("SELECT footprint, parts")) return [legacyRow];
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const result = await startLiveRaid(sql as never, "player-1", 2);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.code).toBe("bunker-layout-incompatible");
+    }
+    // It never freezes a snapshot: no raid row is inserted, so no old layout
+    // can ever run a raid whose settlement could race a Start fresh.
+    expect(
+      sql.mock.calls.some((c) =>
+        (c[0] as TemplateStringsArray)
+          .join(" ")
+          .includes("INSERT INTO bunker_raids"),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("loadBunkerView live raid discrimination", () => {
@@ -135,8 +166,7 @@ describe("loadBunkerView live raid discrimination", () => {
       const query = strings.join(" ");
       if (query.includes("SELECT emeralds, track_xp, defense_xp"))
         return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, core, parts"))
-        return [bunkerRow(88)];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
       if (query.includes("SELECT snapshot")) return raidRows;
       if (query.includes("SELECT part_id, count")) return [];
       return [];
@@ -159,6 +189,35 @@ describe("loadBunkerView live raid discrimination", () => {
 
     expect(view.activeLiveRaid?.raidId).toBe("live-active");
     expect(view.activeLiveRaid?.tier).toBe(2);
+  });
+
+  it("resolves a legacy snapshot whose frozen bunker still carries a core (F-118)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T00:00:00.000Z"));
+    // A snapshot frozen before the core was removed serialized one into its
+    // bunker; the new parser must ignore it, not crash, and expose the raid.
+    const legacy = liveSnapshot(88, "live-legacy");
+    (legacy.bunker as Record<string, unknown>).core = {
+      col: 4,
+      row: 3,
+      depth: 0,
+      durability: 160,
+    };
+    const sql = vi.fn(
+      baseSql([
+        {
+          snapshot: legacy,
+          raid_version: BUNKER_RAID_LIVE_VERSION,
+          started_at: new Date().toISOString(),
+        },
+      ]),
+    );
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.activeLiveRaid?.raidId).toBe("live-legacy");
+    expect(view.activeLiveRaid?.bunker).not.toHaveProperty("core");
+    expect(view.activeLiveRaid?.bunker.parts).toHaveLength(1);
   });
 
   it("treats a live raid past duration plus grace as inactive", async () => {
@@ -189,8 +248,7 @@ describe("loadBunkerView live raid discrimination", () => {
       queries.push(query);
       if (query.includes("SELECT emeralds, track_xp, defense_xp"))
         return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, core, parts"))
-        return [bunkerRow(88)];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
       if (query.includes("SELECT snapshot"))
         return [
           {
@@ -296,8 +354,7 @@ describe("resolveLiveRaid (F-105/F-106)", () => {
         // loadBunkerView after resolution: the raid is settled, so no active row.
         if (query.includes("SELECT emeralds, track_xp, defense_xp"))
           return [{ emeralds: 100, track_xp: 1000, defense_xp: 540 }];
-        if (query.includes("SELECT footprint, core, parts"))
-          return [bunkerRow(20)];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(20)];
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];
         return [];
@@ -321,6 +378,74 @@ describe("resolveLiveRaid (F-105/F-106)", () => {
     // The chewed wall's reduced durability is written back to the bunker.
     expect(writtenParts()?.[0]?.durability).toBe(20);
     expect(queries.some((q) => q.includes("UPDATE players"))).toBe(true);
+  });
+
+  it("guards the settled parts-write on the frozen layout version (F-117)", async () => {
+    const { sql, queries } = makeResolveSql();
+
+    const result = await resolveLiveRaid(sql as never, "player-1", WON_REPORT);
+
+    expect(result.ok).toBe(true);
+    // The parts-write carries the layout-version guard, so a Start fresh that
+    // advanced the bunker between the raid-row claim and this write drops the
+    // worn old parts instead of restoring them onto the freshly reset bunker.
+    const bunkerWrite = queries.find((q) => q.includes("UPDATE bunkers"));
+    expect(bunkerWrite).toBeDefined();
+    expect(bunkerWrite).toContain("layout_version =");
+  });
+
+  it("contends the settled parts-write on the frozen bunker revision (F-106)", async () => {
+    // A snapshot frozen at bunker revision 7. Claiming the raid row flips the
+    // raid inactive, so an ordinary edit can then succeed at the same layout
+    // version; contending the settlement write on the frozen revision makes it
+    // lose to that edit (which already bumped the revision) instead of silently
+    // overwriting the newer parts. Here the write matches zero rows, standing
+    // in for that lost race; the resolve still succeeds and pays the reward.
+    const queries: string[] = [];
+    const bunkerWriteValues: unknown[] = [];
+    const sql = vi.fn(
+      async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const query = strings.join(" ");
+        queries.push(query);
+        if (query.includes("SELECT raid_id, tier, snapshot"))
+          return [
+            {
+              raid_id: "live-existing",
+              tier: 2,
+              snapshot: { ...liveSnapshot(88, "live-existing"), revision: 7 },
+            },
+          ];
+        if (query.includes("UPDATE bunker_raids"))
+          return [{ raid_id: "live-existing" }];
+        if (query.includes("UPDATE bunkers")) {
+          bunkerWriteValues.push(...values);
+          // Zero rows: a concurrent same-version edit already moved the
+          // revision, so the settlement write misses and its parts do not land.
+          return [];
+        }
+        if (query.includes("SELECT track_xp, defense_xp"))
+          return [{ track_xp: 1000, defense_xp: 500 }];
+        if (query.includes("UPDATE players")) return [{ defense_xp: 540 }];
+        if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+          return [{ emeralds: 100, track_xp: 1000, defense_xp: 540 }];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(20)];
+        return [];
+      },
+    );
+
+    const result = await resolveLiveRaid(sql as never, "player-1", WON_REPORT);
+
+    expect(result.ok).toBe(true);
+    const bunkerWrite = queries.find((q) => q.includes("UPDATE bunkers"));
+    expect(bunkerWrite).toBeDefined();
+    // The write is contended on the frozen revision, and it is bound with the
+    // snapshot's revision (7), so the DB refuses it when a concurrent edit has
+    // moved the bunker on.
+    expect(bunkerWrite).toContain("IS NULL OR revision =");
+    expect(bunkerWriteValues).toContain(7);
+    // The reward still lands even though the parts-write missed: settlement
+    // does not depend on its parts-write winning.
+    if (result.ok) expect(result.reward.survived).toBe(true);
   });
 
   it("rejects an invalid report with 422 and its reason", async () => {
@@ -400,8 +525,7 @@ describe("forfeitLiveRaid (F-160)", () => {
         }
         if (query.includes("SELECT emeralds, track_xp, defense_xp"))
           return [{ emeralds: 100, track_xp: 1000, defense_xp: 500 }];
-        if (query.includes("SELECT footprint, core, parts"))
-          return [bunkerRow(20)];
+        if (query.includes("SELECT footprint, parts")) return [bunkerRow(20)];
         // The forfeit settled the row, so loadBunkerView finds no active raid.
         if (query.includes("SELECT snapshot")) return [];
         if (query.includes("SELECT part_id, count")) return [];

@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-213 Validate Web Push targets before server egress</title>
+<meta name="dot-title" content="F-213 Validate Web Push targets before server egress">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-19T23:10:35.117588-05:00">
+</head>
+<body>
+<article>
+<h1>F-213 Validate Web Push targets before server egress</h1>
+<section id="description">
+F-213: Validate every guest-supplied Web Push endpoint at subscription ingress and again immediately before release or save-sync dispatch. Parse with WHATWG URL, allow only bounded HTTPS targets for supported browser push services, reject credentials and loopback, private, link-local, reserved, encoded, or alternate-form hosts, quarantine invalid stored rows before network activity, and prove denied targets cause zero egress. Replace, patch, or isolate web-push 3.6.7&#39;s deprecated url.parse path for Node 24. Return bounded errors and record reason-only telemetry without endpoint data. Cover valid Chromium, Firefox, Safari, and WNS endpoints plus hostile schemes, hosts, IP forms, credentials, and legacy rows. This preexisting hardening item does not block unrelated tracking PRs 279 or 282.
+</section>
+</article>
+</body>
+</html>

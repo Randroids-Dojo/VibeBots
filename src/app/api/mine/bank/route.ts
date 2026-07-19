@@ -85,6 +85,11 @@ const placedBasePartSchema = z.object({
   // claim replay re-places each part through the sim, which enforces the
   // slot rules, then samePlacedParts confirms the layout round-trips.
   slot: z.enum(BUNKER_SLOTS).optional(),
+  // Facing for a rotatable part (F-117 stair), quarter turns 0-3; absent on
+  // fixed-orientation parts. Replayed through the sim and round-trip checked.
+  orientation: z
+    .union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
+    .optional(),
   durability: z.number().int().min(1).max(1000),
 });
 const dugBunkerCellSchema = z.object({
@@ -367,6 +372,7 @@ function samePlacedParts(
         part.row === other.row &&
         part.depth === other.depth &&
         part.slot === other.slot &&
+        part.orientation === other.orientation &&
         part.durability === other.durability
       );
     })
@@ -445,6 +451,7 @@ export function validatePendingBunkerClaim(
       part.row,
       part.depth,
       part.slot,
+      part.orientation,
     );
     if (!placed.ok) {
       return { ok: false, error: `cannot place bunker part: ${placed.reason}` };

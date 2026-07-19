@@ -402,6 +402,49 @@ describe("pending bunker depth normalization", () => {
     expect(parts?.[0].slot).toBe("wall-px");
     expect(parts?.[1].slot).toBeUndefined();
   });
+
+  it("keeps a valid stair orientation and drops a malformed one (F-117)", () => {
+    const bunker = createBunker({ col: 1, row: 4, width: 7, height: 5 });
+    const pending = {
+      claimCol: 4,
+      claimRow: 8,
+      claimedAtMoveCount: 0,
+      bunker: {
+        footprint: bunker.footprint,
+        parts: [
+          {
+            partId: "stair-panel",
+            col: 2,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 2,
+            durability: 70,
+          },
+          {
+            partId: "stair-panel",
+            col: 3,
+            row: 5,
+            depth: 0,
+            slot: "mount",
+            orientation: 7,
+            durability: 70,
+          },
+        ],
+      },
+      inventory: STARTER_BASE_PART_INVENTORY,
+    } as unknown as PendingBunkerBuild;
+    localStorage.setItem(
+      localTripKey(1),
+      JSON.stringify(savedTripWithPending(pending)),
+    );
+
+    const parts = loadLocalTrip(1)?.pendingBunker?.bunker.parts;
+    // The valid facing survives; an out-of-range one coerces to undefined
+    // rather than rejecting the trip.
+    expect(parts?.[0].orientation).toBe(2);
+    expect(parts?.[1].orientation).toBeUndefined();
+  });
 });
 
 function savedTripWithPending(pending: PendingBunkerBuild): SavedTrip {

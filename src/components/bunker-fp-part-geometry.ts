@@ -195,11 +195,173 @@ function buildFpDoor(ctx: BuildContext): void {
   }
 }
 
+/** Stair flight: five risers climb the first 60% of the cell in +x
+ * (x -0.5..0.1), cell floor to landing level, so the render matches the
+ * collision ramp exactly. Each tread top sits at -0.5 + 0.19 * (i + 1). */
+const FP_STAIR_STEPS = 5;
+const FP_STAIR_STEP_W = 0.12;
+const FP_STAIR_RISE = 0.19;
+
+/** Slope of the flight (rise 0.95 over run 0.6) for the side stringers. */
+const FP_STAIR_ANGLE = Math.atan2(0.95, 0.6);
+
+/** [x, y] rivet spots along the stringer slope line (center -0.2, -0.025,
+ * direction [0.534, 0.845]). Ends ship on both tiers; the in-between pair
+ * is the high-tier extra. */
+const FP_STAIR_STRINGER_RIVETS: readonly (readonly [number, number])[] = [
+  [-0.387, -0.321],
+  [-0.2, -0.025],
+  [-0.013, 0.271],
+];
+const FP_STAIR_STRINGER_RIVETS_HIGH: readonly (readonly [number, number])[] = [
+  [-0.293, -0.173],
+  [-0.107, 0.123],
+];
+
+function buildFpStair(ctx: BuildContext): void {
+  // Five solid steps ascend in +x, then a solid plinth landing fills the
+  // last 40% of the cell at full height (top y 0.45). Everything spans
+  // the full 0.9 cell depth in z, wide enough to climb side by side.
+  for (let i = 0; i < FP_STAIR_STEPS; i++) {
+    const h = FP_STAIR_RISE * (i + 1);
+    const xFront = -0.5 + FP_STAIR_STEP_W * i;
+    box(
+      ctx,
+      "shell",
+      [FP_STAIR_STEP_W, h, 0.9],
+      [xFront + FP_STAIR_STEP_W / 2, -0.5 + h / 2, 0],
+    );
+    // Warm tread nosing along each leading edge, proud of the tread top.
+    box(
+      ctx,
+      "accent",
+      [0.05, 0.02, 0.86],
+      [xFront + 0.025, -0.5 + h + 0.008, 0],
+    );
+  }
+  box(ctx, "shell", [0.4, 0.95, 0.9], [0.3, -0.025, 0]);
+  // Dark joint seams where each tread meets the next riser, plus a warm
+  // under-nosing light strip on each riser above the first.
+  for (let i = 1; i < FP_STAIR_STEPS; i++) {
+    const xFront = -0.5 + FP_STAIR_STEP_W * i;
+    box(
+      ctx,
+      "composite",
+      [0.03, 0.014, 0.88],
+      [xFront - 0.015, -0.5 + FP_STAIR_RISE * i + 0.005, 0],
+    );
+    box(
+      ctx,
+      "emissive",
+      [0.016, 0.03, 0.5],
+      [xFront - 0.008, -0.5 + FP_STAIR_RISE * (i + 1) - 0.05, 0],
+    );
+  }
+  // Seam marking the flight-to-landing joint on the landing top.
+  box(ctx, "composite", [0.03, 0.014, 0.88], [0.115, 0.455, 0]);
+  for (const side of [-1, 1] as const) {
+    // Side stringer tracking the flight, half proud of the step sides,
+    // with a curb rail continuing it around the landing.
+    box(
+      ctx,
+      "frame",
+      [0.99, 0.08, 0.05],
+      [-0.2, -0.025, side * 0.45],
+      [0, 0, FP_STAIR_ANGLE],
+    );
+    box(ctx, "frame", [0.4, 0.08, 0.05], [0.3, 0.42, side * 0.45]);
+    for (const [x, y] of FP_STAIR_STRINGER_RIVETS) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, y, side * 0.478],
+        [(side * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+    cylinder(
+      ctx,
+      "frame",
+      0.045,
+      0.05,
+      0.04,
+      [0.3, 0.42, side * 0.478],
+      [(side * Math.PI) / 2, 0, 0],
+      6,
+    );
+  }
+  // End rail across the step-off edge, capped by a warm painted lip.
+  box(ctx, "frame", [0.05, 0.08, 0.9], [0.475, 0.42, 0]);
+  box(ctx, "accent", [0.05, 0.02, 0.86], [0.475, 0.465, 0]);
+  if (ctx.tier !== "high") return;
+  for (const side of [-1, 1] as const) {
+    for (const [x, y] of FP_STAIR_STRINGER_RIVETS_HIGH) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, y, side * 0.478],
+        [(side * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+    for (const x of [0.16, 0.44]) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, 0.42, side * 0.478],
+        [(side * Math.PI) / 2, 0, 0],
+        6,
+      );
+    }
+    // Deck rivets pinning the landing top corners.
+    for (const x of [0.2, 0.44]) {
+      cylinder(
+        ctx,
+        "frame",
+        0.045,
+        0.05,
+        0.04,
+        [x, 0.47, side * 0.36],
+        [0, 0, 0],
+        6,
+      );
+    }
+    // Weld seam along each stringer's outer face.
+    box(
+      ctx,
+      "composite",
+      [0.9, 0.02, 0.012],
+      [-0.2, -0.025, side * 0.4785],
+      [0, 0, FP_STAIR_ANGLE],
+    );
+  }
+  // Dark kick plates shadowing the riser feet.
+  for (let i = 1; i < FP_STAIR_STEPS; i++) {
+    const xFront = -0.5 + FP_STAIR_STEP_W * i;
+    box(
+      ctx,
+      "composite",
+      [0.014, 0.05, 0.86],
+      [xFront - 0.006, -0.5 + FP_STAIR_RISE * i + 0.032, 0],
+    );
+  }
+}
+
 const FP_BUILDERS: Partial<Record<BasePartId, (ctx: BuildContext) => void>> = {
   "wall-panel": buildFpWall,
   "floor-panel": buildFpFloor,
   "roof-panel": buildFpRoof,
   "door-panel": buildFpDoor,
+  "stair-panel": buildFpStair,
 };
 
 /**

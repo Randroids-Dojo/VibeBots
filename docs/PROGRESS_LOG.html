@@ -69,6 +69,19 @@
     </dl>
   </article>
 
+  <article data-slice="web-push-egress-followup" data-date="2026-07-19">
+    <h3>Track Web Push endpoint egress safety</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>codex/f212-web-push-egress-followup</code>, created from current <code>origin/main</code> (<code>8558431c</code>).</dd>
+      <dt>PR</dt><dd>Pending. Documentation and HTML Dot tracking only; no runtime or package change.</dd>
+      <dt>Changed</dt><dd>Created blocks-release followup F-213 and matching priority-1 HTML Dot for the unowned Web Push network boundary. The guest subscription route currently accepts any URL, and both release-notice and save-sync dispatch later pass stored endpoints to <code>web-push</code> 3.6.7, whose Node 24 path uses deprecated <code>url.parse()</code> before <code>https.request()</code>. The followup requires shared ingress and dispatch validation, supported push-service targets only, quarantine of invalid stored rows, zero egress for denied targets, bounded reason-only telemetry, and replacement or isolation of the legacy parser path. It is a separate preexisting hardening item and does not block unrelated PRs #279 or #282.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:dashes</code>; <code>git diff --check</code>; <code>pnpm typecheck</code>; stack-based HTML block validation; <code>dot-html show VibeBots-f-213-validate-d14efa38</code>; uniqueness and physical-priority checks for F-213. The dependency gate remains current at VibeKit v0.3.0, Rapier 0.19.3, Next 16.2.10, three 0.185.1, and fiber 9.6.1. Scheduled Full E2E run 29682444566 remains red but is already owned by F-131, F-132, and F-207, so no duplicate was added.</dd>
+      <dt>Assumptions</dt><dd>The server-egress risk is inferred from the route, stored dispatch path, dependency source, and local schema probes. The production warnings prove the legacy parser executes but do not prove an SSRF exploit. No exploit attempt was made. This tracking slice changes no runtime behavior and creates no merge hold for the other agent.</dd>
+      <dt>GDD coverage</dt><dd>No requirement status changed. REQ-039 remains done because the shipped notification feature is unchanged. No GDD build-log, release-note, package, mine-tip, or stamp change applies to this tracking-only slice.</dd>
+      <dt>Followups</dt><dd>Created <a href="FOLLOWUPS.html#F-213">F-213</a> with Dot <code>VibeBots-f-213-validate-d14efa38</code>. No duplicate was created for F-204 telemetry privacy or the archived save-sync feature Dot.</dd>
+    </dl>
+  </article>
+
   <article data-slice="canonical-host-redirect" data-date="2026-07-19">
     <h3>Redirect *.vercel.app alias traffic to the canonical domain</h3>
     <dl>

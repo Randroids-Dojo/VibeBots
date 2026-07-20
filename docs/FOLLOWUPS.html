@@ -54,6 +54,16 @@
     </dl>
   </section>
 
+  <section id="F-213" data-f="F-213" data-priority="blocks-release">
+    <h3>F-213: Validate Web Push targets before server egress</h3>
+    <dl>
+      <dt>Context</dt><dd>The production 24-hour runtime view recorded four <code>DEP0169</code> warnings on successful <code>/api/version</code> requests that performed release-notice dispatch. Current main <code>8558431c</code> accepts a guest-supplied subscription endpoint through <code>z.string().url()</code>, stores it, and later passes it to <code>web-push</code> 3.6.7 for release and save-sync sends. That library parses the endpoint with legacy <code>url.parse()</code> and opens an <code>https.request()</code>. Local schema probes accepted arbitrary HTTPS hosts as well as <code>file:</code>, <code>ftp:</code>, loopback, and link-local targets. Code inspection therefore identifies a guest-controlled server-egress and SSRF boundary. No production exploit was attempted or observed.</dd>
+      <dt>Blocker (if any)</dt><dd>None for unrelated tracking PRs #279 or #282. Resolve before treating guest Web Push subscription storage and dispatch as a safe v1 network boundary.</dd>
+      <dt>Unblock condition</dt><dd>Use one shared validator at subscription ingress and immediately before every release or save-sync dispatch. Parse with the WHATWG URL API; bound endpoint length; require <code>https:</code>; reject credentials, IP literals, localhost, private, loopback, link-local, reserved, encoded, and alternate-form targets; and allow only the supported Chromium, Firefox, Safari, and WNS push-service hosts. Quarantine or disable every preexisting invalid row before network activity. Replace, patch, or isolate the legacy <code>url.parse()</code> sender path so Node 24 emits no warning. A denied target must cause zero outbound request. Return a bounded public error and retain only a bounded reason code in telemetry, never the endpoint. Route and sender tests must cover valid major-browser endpoints, hostile schemes and hosts, credentials, IP encodings, DNS-like edge cases, and invalid stored rows.</dd>
+      <dt>PR / Dot reference</dt><dd>Open Dot <code>VibeBots-f-213-validate-d14efa38</code>. The archived save-sync Dot owns the shipped feature, while F-204 remains limited to performance-telemetry privacy.</dd>
+    </dl>
+  </section>
+
   <section id="F-209" data-f="F-209" data-priority="nice-to-have">
     <h3>F-209: Let the bunker tool deselect to nothing</h3>
     <dl>

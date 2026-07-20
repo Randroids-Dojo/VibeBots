@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-inventory-debit-lock" data-date="2026-07-19">
+    <h3>Lock the inventory rows a bunker edit debits</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, rebased on current <code>origin/main</code>. Direct commit to <code>main</code> at the user's standing instruction.</dd>
+      <dt>PR</dt><dd>None. This answers the post-ship correction on open PR <a href="https://github.com/Randroids-Dojo/VibeBots/pull/279">#279</a>, which reopens <a href="FOLLOWUPS.html#F-171">F-171</a> against the atomic write shipped earlier the same day in <code>0e32e4e5</code>. That PR is docs-only and stays open for its author; merging another agent's PR was outside my authority here.</dd>
+      <dt>Changed</dt><dd><code>src/server/bunker.ts</code>: <code>saveBunkerAndInventory</code> gains a <code>locked</code> CTE that selects every affected <code>player_base_parts</code> row <code>FOR UPDATE</code> in <code>part_id</code> order, and <code>guard</code> now reads those locked counts instead of an unlocked snapshot <code>LEFT JOIN</code>. <code>src/server/bunker.test.ts</code>: a new lock test plus the updated guard-shape assertion. Ledgers: the F-171 correction entry and new <a href="FOLLOWUPS.html#F-212">F-212</a>.</dd>
+      <dt>Verification</dt><dd>Dash check clean, <code>git diff --check</code> clean, type-check, Biome, and the full unit suite green; <code>src/server/bunker.test.ts</code> 40 passed. The shape assertions are the fast gate only: they cannot execute the CTE, so the interleaving proof is carried by F-212 rather than claimed here.</dd>
+      <dt>Assumptions</dt><dd>Referencing <code>locked</code> from <code>guard</code>, <code>guard</code> from the parts UPDATE, and the UPDATE from the debit gives one dependency chain, so the lock is taken before the guard decides. Locking in <code>part_id</code> order keeps two concurrent multi-part edits from deadlocking; a deadlock that does occur aborts the statement, which the caller surfaces as a failed write with neither side changed. Rows that do not exist yet cannot be locked, but a debit against a missing row is already rejected, so a concurrent insert can only reject conservatively.</dd>
+      <dt>GDD coverage</dt><dd>No change. Server-internal durability fix, ships dark.</dd>
+      <dt>Followups</dt><dd>F-171 closed again with the correction answered. F-212 raised for the real-database concurrency harness the correction asked for. The reset path's separate absolute inventory save stays with <a href="FOLLOWUPS.html#F-146">F-146</a>; the lock downgrades that ordering from a possible negative count to a plain lost update. Tips (Rule 13) and stamps (Rule 14) reviewed: no player-facing change, so neither warrants an update.</dd>
+    </dl>
+  </article>
+
   <article data-slice="canonical-host-redirect" data-date="2026-07-19">
     <h3>Redirect *.vercel.app alias traffic to the canonical domain</h3>
     <dl>

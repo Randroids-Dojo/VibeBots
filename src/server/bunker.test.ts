@@ -1442,9 +1442,10 @@ describe("atomic bunker part and inventory writes (F-171)", () => {
   // app-level contract that closes the winner-side partial-write and the
   // blind-snapshot clobber: exactly one data-modifying inventory statement is
   // issued, it carries the change as a DELTA (count + EXCLUDED.count) with the
-  // non-negative guard, and a losing guard resyncs with no separate write. The
-  // all-or-nothing commit itself is a property of the single Postgres
-  // statement, which a mock cannot run.
+  // non-negative guard checked against locked rows, and a losing guard resyncs
+  // with no separate write. The all-or-nothing commit and the lock ordering
+  // are properties of the single Postgres statement, which a mock cannot run;
+  // proving the interleaving end to end needs a real database (F-212).
   type Call = { query: string; values: unknown[] };
   function atomicSql(opts: {
     parts?: unknown[];
@@ -1532,12 +1533,62 @@ describe("atomic bunker part and inventory writes (F-171)", () => {
       "count = player_base_parts.count + EXCLUDED.count",
     );
     // A debit that would drop a stored count below zero is rejected in the
-    // same statement.
-    expect(write.query).toContain("COALESCE(p.count, 0) + i.delta < 0");
+    // same statement, checked against the LOCKED counts (see the row-lock
+    // test below for why the lock is what makes that guarantee hold).
+    expect(write.query).toContain("COALESCE(l.count, 0) + i.delta < 0");
     // The bound delta is exactly the one-part debit.
     expect(JSON.parse(String(write.values[0]))).toEqual([
       { part_id: "wall-panel", delta: -1 },
     ]);
+  });
+
+  it("locks every affected inventory row through the guard and the debit", async () => {
+    // F-171 post-ship correction. The first shipped version checked the guard
+    // against an unlocked statement-snapshot read while the upsert applied its
+    // delta to the latest row version, so a write committing in between could
+    // leave a count at -1 (place debits the 1 a purchase just added, while a
+    // reset's stale absolute save writes the earlier 0 underneath it). The
+    // FOR UPDATE lock reads the latest committed counts and holds them still
+    // for the rest of the statement, so guard and debit see the same row.
+    const { sql, calls } = atomicSql({
+      dug: [
+        { col: 2, row: 5, depth: 1 },
+        { col: 2, row: 5, depth: 2 },
+        { col: 2, row: 5, depth: 3 },
+      ],
+      inventory: [{ part_id: "wall-panel", count: 5 }],
+      revision: 3,
+    });
+    const result = await placeBunkerPart(
+      sql as never,
+      "player-1",
+      "wall-panel",
+      2,
+      5,
+      3,
+      undefined,
+      undefined,
+      3,
+    );
+    expect(result.ok).toBe(true);
+
+    const write = conflictWrites(calls)[0];
+    // The lock covers exactly the rows this edit touches.
+    expect(write.query).toContain("FOR UPDATE");
+    expect(write.query).toContain("part_id IN (SELECT part_id FROM input)");
+    // Deterministic lock order keeps two concurrent multi-part edits from
+    // deadlocking against each other.
+    expect(write.query).toContain("ORDER BY p.part_id");
+    // The guard reads the locked rows, not a second unlocked snapshot read.
+    expect(write.query).toContain("LEFT JOIN locked l");
+    expect(write.query).not.toContain("LEFT JOIN player_base_parts p");
+    // The lock is taken before the guard decides, and the guard gates the
+    // parts write, which in turn gates the debit: one dependency chain.
+    expect(write.query.indexOf("FOR UPDATE")).toBeLessThan(
+      write.query.indexOf("inventory_ok"),
+    );
+    expect(write.query).toContain("AND (SELECT inventory_ok FROM guard)");
+    expect(write.query).toContain("WHERE EXISTS (SELECT 1 FROM bunker_update)");
   });
 
   it("removes by refunding one part as a +1 delta in the same statement", async () => {

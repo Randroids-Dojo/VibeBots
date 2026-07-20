@@ -1080,11 +1080,22 @@ async function saveBasePartInventory(
  *
  * This closes both. Neon runs a single SQL statement in one implicit
  * transaction, so the guarded parts write and the inventory deltas commit
- * together or not at all. The `guard` CTE checks, against the pre-write
- * snapshot, that no debit would drive a stored count below zero; the parts
+ * together or not at all. The `locked` CTE takes a row lock (`FOR UPDATE`)
+ * on every affected inventory row, so it reads the latest committed counts
+ * and holds them still for the rest of the statement; `guard` checks against
+ * those locked counts that no debit would drive one below zero; the parts
  * UPDATE keeps the optimistic revision guard (F-122) and is additionally
  * gated on that check; and the inventory upsert is gated on the parts write
  * landing. So a lost revision or an impossible debit changes neither side.
+ *
+ * The lock is what makes the non-negative guarantee real. Without it the
+ * guard would read a statement-snapshot count while the upsert applied its
+ * delta to whatever the latest row version had become, so a write committing
+ * in between could leave a count at -1 (F-171 post-ship correction). Rows
+ * are locked in `part_id` order to keep concurrent edits from deadlocking.
+ * A part with no row yet cannot be locked, but a debit against a missing
+ * row is rejected by the same guard, so a concurrent insert can only make
+ * this reject conservatively, never let a negative count through.
  *
  * Inventory moves by DELTA (`count = count + delta`), not by a previously
  * loaded absolute value, so a concurrent purchase that raised a count in
@@ -1123,12 +1134,18 @@ async function saveBunkerAndInventory(
       SELECT part_id, delta
       FROM jsonb_to_recordset(${JSON.stringify(deltas)}::jsonb)
         AS d(part_id text, delta int)
+    ), locked AS (
+      SELECT p.part_id, p.count
+      FROM player_base_parts p
+      WHERE p.player_id = ${playerId}
+        AND p.part_id IN (SELECT part_id FROM input)
+      ORDER BY p.part_id
+      FOR UPDATE
     ), guard AS (
       SELECT NOT EXISTS (
         SELECT 1 FROM input i
-        LEFT JOIN player_base_parts p
-          ON p.player_id = ${playerId} AND p.part_id = i.part_id
-        WHERE COALESCE(p.count, 0) + i.delta < 0
+        LEFT JOIN locked l ON l.part_id = i.part_id
+        WHERE COALESCE(l.count, 0) + i.delta < 0
       ) AS inventory_ok
     ), bunker_update AS (
       UPDATE bunkers

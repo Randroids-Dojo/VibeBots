@@ -183,6 +183,25 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE bunkers
     ADD COLUMN IF NOT EXISTS loot jsonb NOT NULL DEFAULT '[]'::jsonb`;
+  // How many leading `dug` cells have already been paid out. `dug` is ordered
+  // by dig order, so every cell at or past this index is dug but unsold.
+  // Added NULLABLE on purpose: rows that already exist were paid at dig time
+  // under the old direct-to-vibes rule, so they backfill to their full dug
+  // length and can never pay a second time. Only after that backfill does the
+  // column take its DEFAULT 0, which is what new rows want. Writing this as a
+  // single `ADD COLUMN NOT NULL DEFAULT 0` would silently re-pay every
+  // already-mined cell of every live bunker at its next bank.
+  await sql`
+    ALTER TABLE bunkers
+    ADD COLUMN IF NOT EXISTS settled_dug integer`;
+  await sql`
+    UPDATE bunkers
+    SET settled_dug = jsonb_array_length(dug)
+    WHERE settled_dug IS NULL`;
+  await sql`
+    ALTER TABLE bunkers
+    ALTER COLUMN settled_dug SET DEFAULT 0,
+    ALTER COLUMN settled_dug SET NOT NULL`;
   // Optimistic-concurrency counter for banked bunker edits (F-122): each
   // successful mutation bumps it, and a write only lands when the client's
   // expected revision still matches, so reordered or duplicate edits lose.

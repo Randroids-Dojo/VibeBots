@@ -38,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
         (result) => ({
           ...result.view,
           newStamps: result.newStamps,
-          oreVibes: result.oreVibes,
+          oreDrop: result.oreDrop,
         }),
       ),
   );

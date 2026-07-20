@@ -1,14 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  BUNKER_CLAIM_DEPTH,
+  type BunkerFootprint,
+  createBunker,
+  excavateBunkerCell,
+} from "../bunker";
+import { bunkerCellBlock, deriveBunkerBlockSeed } from "../bunker-blocks";
+import {
   activatePortalAction,
+  bunkerDigAction,
   collectAction,
   type MineAction,
   portalWarpAction,
 } from "./actions";
 import type { MineState } from "./cells";
 import type { MineConsumables } from "./consumables";
+import { BAG_STACK_LIMIT } from "./consumables";
 import { MOVE_COST, START_COL } from "./digging";
-import { DEFAULT_GEAR } from "./gear";
+import { cargoCapacity, DEFAULT_GEAR } from "./gear";
+import { carriedCount } from "./inventory";
 import { oreDef } from "./ores";
 import {
   applyAction,
@@ -885,5 +895,121 @@ describe("climbWouldPlaceLadder", () => {
     const state = createMine(422, DEFAULT_GEAR, stock({ ladder: 3 }));
     state.miner.row = 0;
     expect(climbWouldPlaceLadder(state)).toBe(false);
+  });
+});
+
+describe("bunker digs in the trip log", () => {
+  // Bunker digging is part of the trip: the drop lands in the SAME bag as
+  // mine ore, so it competes for the same capacity and only pays when the
+  // player banks it at the surface. That is precisely why the dig has to be
+  // a logged action. If it were not, the server's mine-only replay would
+  // rebuild a different bag than the client, because bunker ore taking space
+  // changes which later mine ore fits.
+  const footprint: BunkerFootprint = {
+    col: START_COL - 3,
+    row: 40,
+    width: 7,
+    height: 5,
+  };
+
+  function bunkerTripState(): MineState {
+    const state = createMine(909, DEFAULT_GEAR, stock({}));
+    state.miner.col = START_COL;
+    state.miner.row = footprint.row + 2;
+    return state;
+  }
+
+  function digTarget() {
+    const blockSeed = deriveBunkerBlockSeed(9090, footprint);
+    const bunker = createBunker(footprint, blockSeed);
+    // Any ore cell reachable from an already-open face.
+    const bottomRow = footprint.row + footprint.height - 1;
+    for (let depth = 1; depth < BUNKER_CLAIM_DEPTH; depth++) {
+      for (let y = 0; y < footprint.height; y++) {
+        for (let x = 0; x < footprint.width; x++) {
+          if (bunkerCellBlock(blockSeed, footprint, x, y, depth).kind !== "ore")
+            continue;
+          const cell = { col: footprint.col + x, row: bottomRow - y, depth };
+          const opened = excavateBunkerCell(
+            bunker,
+            cell.col,
+            cell.row,
+            depth - 1,
+          );
+          if (!opened.ok) continue;
+          return { bunker: opened.bunker, cell };
+        }
+      }
+    }
+    throw new Error("expected a reachable ore cell in a deep footprint");
+  }
+
+  it("puts the drop in the live trip bag and pays nothing", () => {
+    const { bunker, cell } = digTarget();
+    const state = bunkerTripState();
+    const holder = { current: bunker };
+    const creditsBefore = state.miner.bankedCredits;
+
+    const result = applyAction(state, bunkerDigAction(cell), {
+      bunker: holder,
+    });
+
+    expect(result).toMatchObject({ ok: true });
+    // The ore is in the trip bag, not in the wallet: banking it is the only
+    // way it becomes vibes.
+    expect(carriedCount(state.miner)).toBeGreaterThan(0);
+    expect(state.miner.bankedCredits).toBe(creditsBefore);
+  });
+
+  it("shares one capacity with mine ore, so a full bag spills to loot", () => {
+    const { bunker, cell } = digTarget();
+    const state = bunkerTripState();
+    // Fill the bag to the brim with mine ore first. If bunker ore had its
+    // own bag this dig would fit; sharing the cap means it spills instead.
+    // cargoCapacity is SLOTS; each holds BAG_STACK_LIMIT chunks, so this
+    // fills every slot to the brim and leaves room for nothing.
+    const capacity = cargoCapacity(state.gear) * BAG_STACK_LIMIT;
+    state.miner.carried = { coal: capacity };
+    const holder = { current: bunker };
+
+    expect(
+      applyAction(state, bunkerDigAction(cell), { bunker: holder }),
+    ).toMatchObject({ ok: true });
+
+    expect(carriedCount(state.miner)).toBe(capacity);
+    // Nothing vanished: the drop is sitting on the cell to come back for.
+    expect((holder.current.loot ?? []).length).toBeGreaterThan(0);
+  });
+
+  it("refuses a dig with no bunker in context or from outside the claim", () => {
+    const { bunker, cell } = digTarget();
+    const noBunker = bunkerTripState();
+    expect(applyAction(noBunker, bunkerDigAction(cell))).toEqual({
+      ok: false,
+      reason: "blocked",
+    });
+
+    const outside = bunkerTripState();
+    outside.miner.row = 1;
+    expect(
+      applyAction(outside, bunkerDigAction(cell), {
+        bunker: { current: bunker },
+      }),
+    ).toEqual({ ok: false, reason: "blocked" });
+  });
+
+  it("replays identically from the same starting bunker", () => {
+    // The determinism contract: client and server walk the same states.
+    const runOnce = () => {
+      const { bunker, cell } = digTarget();
+      const state = bunkerTripState();
+      const holder = { current: bunker };
+      applyAction(state, bunkerDigAction(cell), { bunker: holder });
+      return {
+        carried: state.miner.carried,
+        loot: holder.current.loot ?? [],
+      };
+    };
+    expect(runOnce()).toEqual(runOnce());
   });
 });

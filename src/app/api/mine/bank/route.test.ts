@@ -143,6 +143,12 @@ function mockSql(
       width: number;
       height: number;
     };
+    bankedBunker?: {
+      footprint: { col: number; row: number; width: number; height: number };
+      blockSeed: number;
+      dug: Array<{ col: number; row: number; depth: number }>;
+      settledDug: number;
+    };
   } = {},
 ) {
   const worldSeed = options.seed ?? 123;
@@ -162,6 +168,24 @@ function mockSql(
     if (query.includes("SELECT pickaxe_level")) return [owned];
     if (query.includes("SELECT player_id") && query.includes("FROM bunkers")) {
       return options.existingBunker ? [{ player_id: "player-1" }] : [];
+    }
+    if (query.includes("SELECT footprint, parts, dug, block_seed")) {
+      // The banked-bunker settle load (loadBankedBunkerForSettle).
+      return options.bankedBunker
+        ? [
+            {
+              footprint: options.bankedBunker.footprint,
+              parts: [],
+              dug: options.bankedBunker.dug,
+              block_seed: options.bankedBunker.blockSeed,
+              loot: [],
+              skin: null,
+              skins_owned: [],
+              layout_version: 1,
+              settled_dug: options.bankedBunker.settledDug,
+            },
+          ]
+        : [];
     }
     if (query.includes("SELECT footprint") && query.includes("FROM bunkers")) {
       return options.bunkerFootprint
@@ -764,6 +788,85 @@ describe("POST /api/mine/bank", () => {
       "player-1",
       expect.not.objectContaining({ bunkerCellsDug: expect.anything() }),
     );
+  });
+
+  it("settles a banked bunker dig into the shared trip bag at the surface", async () => {
+    // Banked bunker digs ride the shared trip bag and pay only here at the
+    // surface (F-116 trip-bag model). A `bunker-dig` action credits the bag
+    // during replay; the bank advances the settled watermark so the cell
+    // cannot pay again.
+    const footprint = { col: START_COL - 3, row: 1, width: 7, height: 5 };
+    const sql = mockSql(ownedBase, {
+      diff: pendingBunkerBaseDiff(),
+      bankedBunker: {
+        footprint,
+        blockSeed: 4242,
+        // Already dug authoritatively (the excavate route persisted it) and
+        // unsold (index 0 is at or past the settled watermark 0).
+        dug: [{ col: START_COL, row: 1, depth: 1 }],
+        settledDug: 0,
+      },
+    });
+
+    const res = await post({
+      moves: ["down", "bunker-dig:" + `${START_COL},1,1`],
+    });
+
+    expect(res.status).toBe(200);
+    const queries = (
+      sql.mock.calls as unknown as Array<[TemplateStringsArray]>
+    ).map(([strings]) => strings.join(" "));
+    // The banked bunker was loaded for settlement and the atomic write
+    // advances its settled watermark alongside the wallet credit.
+    expect(
+      queries.some(
+        (query) =>
+          query.includes("settled_dug") && query.includes("FROM bunkers"),
+      ),
+    ).toBe(true);
+    expect(
+      queries.some(
+        (query) =>
+          query.includes("banked_settle") && query.includes("SET settled_dug"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a banked bunker dig for an already-settled or unknown cell", async () => {
+    const footprint = { col: START_COL - 3, row: 1, width: 7, height: 5 };
+    mockSql(ownedBase, {
+      diff: pendingBunkerBaseDiff(),
+      bankedBunker: {
+        footprint,
+        blockSeed: 4242,
+        // The cell is dug, but the watermark already covers it (settledDug 1
+        // > its index 0), so it was sold on an earlier trip.
+        dug: [{ col: START_COL, row: 1, depth: 1 }],
+        settledDug: 1,
+      },
+    });
+
+    const res = await post({
+      moves: ["down", "bunker-dig:" + `${START_COL},1,1`],
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "bunker dig out of sync; reopen the bunker",
+    });
+  });
+
+  it("rejects a banked bunker dig when the player has no bunker", async () => {
+    mockSql(ownedBase, { diff: pendingBunkerBaseDiff() });
+
+    const res = await post({
+      moves: ["down", "bunker-dig:" + `${START_COL},1,1`],
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "bunker dig requires a claimed bunker",
+    });
   });
 
   it("replays scaffold movement only after the pending claim checkpoint", async () => {

@@ -339,7 +339,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Placed floors are thin decks: walk their tops, and a jump from below pops you up through one onto it.",
   "Tip: A fresh claim is a small pre-mined room in solid rock. Dig the walls, and even the floor, to open the space you want.",
   "Tip: Bunker blocks take real swings now: deeper claims cut harder, pickaxe upgrades shave hits, and ore chips loose swing by swing until the block breaks.",
-  "Tip: Digging your bunker walls pays ore now, richer the deeper you carve. It banks with your surface haul, and overflow waits as a pile to walk over.",
+  "Tip: Digging your bunker walls fills your cargo bag, richer the deeper you carve. Carry it up and bank it with your surface haul, because a cave-in loses it like any other ore.",
   "Tip: Your bunker walls show the mine's own dirt, rock, and ore for that depth. Break the cells where ore glints to bank what they are worth.",
   "Tip: Need the bunker basics again? Replay bunker tutorial lives in the settings gear.",
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
@@ -1137,6 +1137,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const excavatePendingBunkerCell = useMineStore(
     (s) => s.excavatePendingBunkerCell,
   );
+  const recordBankedBunkerDig = useMineStore((s) => s.recordBankedBunkerDig);
   const resetPendingBunker = useMineStore((s) => s.resetPendingBunker);
   const gear = useMineStore((s) => s.gear);
   const worldLoaded = useMineStore((s) => s.worldLoaded);
@@ -2894,11 +2895,21 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       }
 
       if (intent.kind === "dig") {
-        commit(
-          () => excavatePendingBunkerCell(col, row, depth),
-          () => excavateBunkerCellRemote(col, row, depth),
-          "dig-rock",
-        );
+        if (pendingBunkerActive) {
+          // A pending claim settles its ore at bank into its own bag; the
+          // local excavate records the dug cell only.
+          feedback(excavatePendingBunkerCell(col, row, depth), "dig-rock");
+          return;
+        }
+        // A banked bunker persists the dug cell server-side first, then the
+        // drop is logged into the trip so it rides the shared bag and sells
+        // at the surface (the bank replay credits it). We only log after the
+        // authoritative excavate lands, so the cell is in the durable dug set
+        // the server validates against.
+        void excavateBunkerCellRemote(col, row, depth).then((ok) => {
+          if (ok) recordBankedBunkerDig(activeBunker, col, row, depth);
+          feedback(Boolean(ok), "dig-rock");
+        });
         return;
       }
 
@@ -2970,6 +2981,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       collectBunkerLootRemote,
       excavateBunkerCellRemote,
       excavatePendingBunkerCell,
+      recordBankedBunkerDig,
       pendingBunkerActive,
       placeBunkerPart,
       placePendingBunkerPart,

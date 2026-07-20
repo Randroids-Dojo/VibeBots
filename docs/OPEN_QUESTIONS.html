@@ -51,6 +51,7 @@
       <dt>Recommended default</dt><dd>A. The dug-set replay is the determinism contract shared by client preview, bank, and the banked excavate route; per-swing real payment adds schema, API surface, and anti-cheat validation for a difference players only notice if they abandon a half-dug block. Revisit if playtests show players quitting mid-block and feeling robbed of chips they saw fly.</dd>
       <dt>Status</dt><dd>open</dd>
       <dt>Resolution</dt><dd>(shipped under the default in the 0.1.279 slice)</dd>
+      <dt>Note (2026-07-20, package 0.1.280)</dt><dd>The trip-bag economy change leaves this default intact: bunker ore still pays per completed dug cell, not per swing. What changed is the destination, not the timing. A banked block's ore now credits the shared cargo bag (via a logged <code>bunker-dig</code> action) instead of vibes on the balance, and pays at the surface bank. The dug-set / logged-action replay remains the single economy primitive, so option A's reasoning is unchanged.</dd>
     </dl>
   </section>
 
@@ -139,6 +140,7 @@
       <dt>Options</dt><dd>A. Mirror the live mine bag exactly (what shipped): one consistent bag concept across surface and bunker, no new state. B. Add a separate in-view "bunker haul" indicator that tallies pending or vibe-credited ore dug this visit, alongside the bag. C. Fold pending bunker ore into the displayed bag total optimistically before it settles.</dd>
       <dt>Recommended default</dt><dd>A. It is the literal reading of "see and access the bag", keeps one bag concept everywhere (RULE 7), and adds no state; the ore economy already shows dug ore glinting as loot and settling at bank. Revisit with B if playtests show the pending-versus-live gap confuses players; C risks a display that disagrees with the authoritative settle.</dd>
       <dt>PR / Dot reference</dt><dd>Shipped under default A in PR #199 (package 0.1.264).</dd>
+      <dt>Resolution (2026-07-20, package 0.1.280)</dt><dd>The premise this question rested on is now gone for banked bunkers: bunker-dug ore no longer bypasses the bag into vibes. A banked dig logs a <code>bunker-dig</code> action that credits the SAME cargo bag as mine ore, so the in-view bag the player is watching visibly counts up as they dig, and the ore banks with the surface haul (or is lost with the bag on a cave-in). That is option A carried through to its logical end: one bag concept everywhere, and "my digs are not counting" no longer happens because they do count, in the bag on screen. The remaining gap is the pending (unbanked) claim, which still settles into a separate gear-sized bag at bank rather than the live one; folding it into the same shared-bag model is <a href="FOLLOWUPS.html#F-214">F-214</a>. Overflow that will not fit still drops as a collectible pile (unchanged).</dd>
     </dl>
   </section>
 

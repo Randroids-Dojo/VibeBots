@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-19-0.1.279-bunker-multi-hit";
+export const RELEASE_NOTICE_ID = "2026-07-20-0.1.280-bunker-ore-trip-bag";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.280",
+      date: "2026-07-20",
+      title: "Bunker ore rides home in your bag",
+      intro:
+        "Ore you dig inside your bunker now goes into your cargo bag instead of paying out on the spot, so you carry it up and bank it with the rest of your haul.",
+      changes: [
+        {
+          build,
+          text: "Digging your bunker used to pay vibes the instant a block broke. Now that ore fills your cargo bag like everything else, shares the same space, and only turns into vibes once you climb back to the surface and bank it.",
+        },
+        {
+          build,
+          text: "So bunker ore rides the same risk as mine ore: a cave-in on the way up loses the whole bag, bunker haul and all. A deep dig is worth carrying carefully.",
+        },
+      ],
+    },
     {
       version: "0.1.279",
       date: "2026-07-19",

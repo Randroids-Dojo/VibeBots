@@ -939,41 +939,42 @@ describe("bunker excavation wrapper", () => {
     expect(applyAchievementProgress).toHaveBeenCalledWith(sql, "player-1", {});
   });
 
-  it("credits the block's ore vibes to the balance when digging ore", async () => {
+  it("reports the ore drop without paying for it when digging ore", async () => {
+    // Bunker digging is part of the trip: the drop belongs in the trip bag
+    // and only becomes vibes if the player banks it at the surface. Digging
+    // must therefore touch no balance at all. Before this, a banked bunker
+    // credited players.emeralds here, which was the one path in the game
+    // where ore skipped the bag, the capacity cap, and the walk home.
     const footprint: BunkerFootprint = { col: 1, row: 40, width: 7, height: 5 };
     const blockSeed = deriveBunkerBlockSeed(9090, footprint);
     const target = oreCellWithOpenNeighbor(footprint, blockSeed);
     if (!target) throw new Error("expected an ore cell in a deep footprint");
-    let playerCredit: unknown[] | null = null;
-    const sql = vi.fn(
-      async (strings: TemplateStringsArray, ...values: unknown[]) => {
-        const query = strings.join(" ");
-        if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
-          return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
-        }
-        if (query.includes("SELECT footprint, parts")) {
-          return [
-            {
-              footprint,
-              parts: [],
-              dug: [target.open],
-              block_seed: blockSeed,
-              layout_version: BUNKER_LAYOUT_VERSION,
-            },
-          ];
-        }
-        if (query.includes("SELECT snapshot")) return [];
-        if (query.includes("SELECT part_id, count")) return [];
-        if (query.includes("UPDATE players")) {
-          // The excavate write is one CTE that digs and pays ore, so this
-          // branch matches the whole statement; report the guarded dig as
-          // won (F-122) while capturing the ore payout's bound values.
-          playerCredit = values;
-          return [{ dug_rows: 1, ore_rows: 1 }];
-        }
-        return [];
-      },
-    );
+    const statements: string[] = [];
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      statements.push(query);
+      if (query.includes("SELECT emeralds, track_xp, defense_xp")) {
+        return [{ emeralds: 30, track_xp: 0, defense_xp: 0 }];
+      }
+      if (query.includes("SELECT footprint, parts")) {
+        return [
+          {
+            footprint,
+            parts: [],
+            dug: [target.open],
+            block_seed: blockSeed,
+            layout_version: BUNKER_LAYOUT_VERSION,
+          },
+        ];
+      }
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT part_id, count")) return [];
+      if (query.includes("UPDATE bunkers")) {
+        // Report the guarded dig as won (F-122).
+        return [{ dug_rows: 1 }];
+      }
+      return [];
+    });
     const result = await excavateBunker(
       sql as never,
       "player-1",
@@ -982,9 +983,18 @@ describe("bunker excavation wrapper", () => {
       target.ore.depth,
     );
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.oreVibes ?? 0).toBeGreaterThan(0);
-    // The single CTE credited the balance with the ore's vibes.
-    expect(playerCredit).not.toBeNull();
+    // The drop is reported so the client can put it in the trip bag, as ore
+    // and units rather than as a settled currency amount.
+    if (result.ok) {
+      expect(result.oreDrop).not.toBeNull();
+      expect(result.oreDrop?.units ?? 0).toBeGreaterThan(0);
+      expect(typeof result.oreDrop?.ore).toBe("string");
+    }
+    // Nothing anywhere in the dig touched the wallet.
+    expect(statements.some((q) => q.includes("UPDATE players"))).toBe(false);
+    expect(statements.some((q) => q.includes("emeralds = emeralds"))).toBe(
+      false,
+    );
   });
 
   it("persists cascaded parts atomically with the dug cell (F-117)", async () => {
@@ -1063,15 +1073,16 @@ describe("bunker excavation wrapper", () => {
         ),
       ).toBe(true);
     }
-    // One statement carried the dug write, the parts write, the revision
-    // guard, and the ore-pay CTE, so dug and parts settle under one revision.
+    // One statement carried the dug write, the parts write, and the revision
+    // guard, so dug and parts settle under one revision. The ore-pay CTE that
+    // used to ride along is gone: bunker ore is banked at the surface now.
     expect(bunkerUpdateQuery).not.toBeNull();
     const updateSql = bunkerUpdateQuery ?? "";
     expect(updateSql).toContain("SET dug");
     expect(updateSql).toContain("parts =");
     expect(updateSql).toContain("revision = revision + 1");
     expect(updateSql).toContain("AND revision =");
-    expect(updateSql).toContain("ore_pay");
+    expect(updateSql).not.toContain("ore_pay");
     // The winning write also settled the underlying store (the next load's
     // source): the new cell is dug and the cascaded floor is gone.
     expect(storedDug.some((cell) => cell.row === 8)).toBe(true);

@@ -44,6 +44,26 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-214" data-f="F-214" data-priority="polish">
+    <h3>F-214: Fold pending bunker digs into the shared trip bag</h3>
+    <dl>
+      <dt>Context</dt><dd>The trip-bag economy (package 0.1.280) routed BANKED bunker digs into the live shared cargo bag through a logged <code>bunker-dig</code> action, so their ore competes for one capacity and banks at the surface with mine ore. The PENDING (unbanked) claim path was left on its older model: its digs live in the <code>pendingBunker</code> claim payload and settle at bank into a SEPARATE fresh gear-sized bag (<code>settleBunkerDig</code>, capped at one bagful per cash-out), not the live bag. So bunker-ore behavior now differs by whether the claim is banked, which is exactly the branchy inconsistency RULE 7 warns against, and a pending dig does not visibly count up the on-screen bag the way a banked dig does.</dd>
+      <dt>Blocker (if any)</dt><dd>None functional; the pending path already requires the walk home, so this is consistency, not a payout hole. Unifying it means the pending claim's digs become <code>bunker-dig</code> log actions too, which changes <code>validatePendingBunkerClaim</code> (today it validates a separately-submitted dug chain) and removes the separate-bag <code>settleBunkerDig</code> call.</dd>
+      <dt>Unblock condition</dt><dd>Emit <code>bunker-dig</code> actions for pending-claim digs, derive the pending bunker's dug set from the log rather than a parallel payload field, credit the shared bag inline during replay exactly like the banked path, and retire the fresh-bag <code>settleBunkerDig</code> settle at bank. Keep the one-bunker-per-player and claim-position validation. Prove a pending dig and a banked dig now behave identically (shared bag, surface bank, lost on death) with the same interleaving determinism.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-07-20 by the banked-bunker trip-bag slice (package 0.1.280); the banked half shipped, the pending half is deferred here.</dd>
+    </dl>
+  </section>
+
+  <section id="F-213" data-f="F-213" data-priority="polish">
+    <h3>F-213: Collect bunker overflow loot into the trip bag</h3>
+    <dl>
+      <dt>Context</dt><dd>When a bunker dig overflows the shared cargo bag, the excess drops as a per-cell loot pile (F-116). Walking over the pile in first person collects it through <code>collectBunkerLoot</code>, which still credits its vibes straight to the balance, the same instant-payout shortcut the trip-bag change (package 0.1.280) removed from digging. So the main dig now rides the bag and pays at the surface, but its own overflow still mints vibes on the spot, which is inconsistent and lets a full bag be drained into vibes underground.</dd>
+      <dt>Blocker (if any)</dt><dd>Overflow is an edge case (the bag has to be full first), so this was deferred out of the main slice. Making loot collection credit the bag deterministically needs it to be a logged trip action too (like <code>bunker-dig</code>), so the server can reproduce the bag credit on bank replay; a direct remote payout cannot be replayed into the shared bag.</dd>
+      <dt>Unblock condition</dt><dd>Turn loot pickup into a logged action that credits the shared bag at its replay position (respecting the shared capacity), validate the collected pile against the durable bunker loot server-side, clear the pile atomically, and stop crediting vibes directly. Lost with the bag on a cave-in, like every other carried chunk.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-07-20 by the banked-bunker trip-bag slice (package 0.1.280).</dd>
+    </dl>
+  </section>
+
   <section id="F-212" data-f="F-212" data-priority="polish">
     <h3>F-212: Prove bunker inventory concurrency against a real database</h3>
     <dl>

@@ -24,20 +24,20 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-multi-hit note complete", () => {
+  it("keeps the latest bunker-ore-trip-bag note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-19-0.1.279-bunker-multi-hit");
+    expect(release.noticeId).toBe("2026-07-20-0.1.280-bunker-ore-trip-bag");
     expect(latestNote).toMatchObject({
-      version: "0.1.279",
-      title: "Bunker blocks take real swings",
+      version: "0.1.280",
+      title: "Bunker ore rides home in your bag",
       intro:
-        "Digging inside your bunker now paces like the mine outside: blocks take several pickaxe swings, and ore flecks out chip by chip while you work.",
+        "Ore you dig inside your bunker now goes into your cargo bag instead of paying out on the spot, so you carry it up and bank it with the rest of your haul.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "A bunker block used to pop in a single hit no matter what it was. Now dirt, rock, and ore soak the same kind of multi-hit digging as the open mine: deeper claims cut harder, and every pickaxe upgrade shaves swings off each block.",
-      "Ore blocks chip as you swing: each hit has a chance to knock ore loose, and the block's full haul lands the moment it breaks.",
+      "Digging your bunker used to pay vibes the instant a block broke. Now that ore fills your cargo bag like everything else, shares the same space, and only turns into vibes once you climb back to the surface and bank it.",
+      "So bunker ore rides the same risk as mine ore: a cave-in on the way up loses the whole bag, bunker haul and all. A deep dig is worth carrying carefully.",
     ]);
   });
 

@@ -5,6 +5,7 @@ import {
 } from "@/lib/api-codes";
 import { applyAchievementProgress } from "@/server/achievements";
 import { recordBalanceEvent } from "@/server/balance-telemetry";
+import { loadBankedBunkerForSettle } from "@/server/bunker";
 import { db, storageConfigured } from "@/server/db";
 import {
   mineConsumablesSchema,
@@ -63,6 +64,7 @@ import {
   type MineGearTrack,
   normalizeGear,
   PLANK_RECOVERY_FLOOR,
+  parseBunkerDigAction,
   replayTrip,
   type TripResult,
   type WorldDiff,
@@ -741,13 +743,68 @@ export async function POST(request: Request): Promise<Response> {
       { status: 409 },
     );
   }
+  // A banked bunker's digs ride the shared trip bag: each `bunker-dig` action
+  // credits the same bag as mine ore during replay, and pays only here at the
+  // surface (F-116 trip-bag model). Load the banked bunker so the replay has
+  // its block seed, and validate every logged dig against the durable dug set
+  // and the settled watermark so a cell pays at most once and a stale or
+  // forged log cannot mint ore. Pending claims keep their own settle path
+  // below and never emit bunker-dig, so these two never overlap.
+  const bunkerDigCells = actions
+    .map((action) => parseBunkerDigAction(action))
+    .filter((cell): cell is { col: number; row: number; depth: number } =>
+      Boolean(cell),
+    );
+  const dugKey = (cell: { col: number; row: number; depth: number }) =>
+    `${cell.col},${cell.row},${cell.depth}`;
+  let bunkerHolder: { current: BunkerState } | null = null;
+  let bankedBunkerSettle: { settledDug: number; dugLength: number } | null =
+    null;
+  if (bunkerDigCells.length > 0) {
+    const loaded = await loadBankedBunkerForSettle(sql, playerId);
+    if (!loaded) {
+      logMineCashOutEvent({
+        code: "cash_out_failed",
+        severity: "warn",
+        ...playerLogContext,
+        detail: "bunker dig without a claimed bunker",
+      });
+      return Response.json(
+        { error: "bunker dig requires a claimed bunker" },
+        { status: 409 },
+      );
+    }
+    // Only cells dug this trip (at or past the watermark) are eligible. Cells
+    // below it were already sold; cells never dug are not in the set at all.
+    const unsold = new Set(
+      loaded.storedDug.slice(loaded.settledDug).map(dugKey),
+    );
+    const outOfSync = bunkerDigCells.some((cell) => !unsold.has(dugKey(cell)));
+    if (outOfSync) {
+      logMineCashOutEvent({
+        code: "cash_out_failed",
+        severity: "warn",
+        ...playerLogContext,
+        detail: "bunker dig out of sync with the banked bunker",
+      });
+      return Response.json(
+        { error: "bunker dig out of sync; reopen the bunker" },
+        { status: 409 },
+      );
+    }
+    bunkerHolder = { current: loaded.bunker };
+    bankedBunkerSettle = {
+      settledDug: loaded.settledDug,
+      dugLength: loaded.storedDug.length,
+    };
+  }
   const trip = replayTrip(
     parsed.data.seed,
     actions,
     gear,
     replayConsumables,
     replayBaseDiff,
-    { bunkerFootprint: replayBunkerFootprint },
+    { bunkerFootprint: replayBunkerFootprint, bunker: bunkerHolder },
   );
   const railReconciliation =
     ownedRow.elevator_depth > 0 && ownedElevatorColumn !== null
@@ -878,6 +935,16 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = EXCLUDED.count
       RETURNING part_id
+    ), banked_settle AS (
+      UPDATE bunkers
+      SET settled_dug = ${bankedBunkerSettle?.dugLength ?? 0},
+          loot = ${JSON.stringify(bunkerHolder?.current.loot ?? [])}::jsonb,
+          updated_at = now()
+      WHERE ${bankedBunkerSettle !== null}
+        AND player_id = ${playerId}
+        AND settled_dug = ${bankedBunkerSettle?.settledDug ?? 0}
+        AND EXISTS (SELECT 1 FROM world)
+      RETURNING player_id
     )
     SELECT
       (SELECT emeralds FROM upd) AS emeralds,

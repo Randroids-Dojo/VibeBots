@@ -91,7 +91,8 @@ export type MineAction =
   | `activate-portal:${PortalBeaconId}`
   | `portal-warp:${PortalTargetId}`
   | `warp-down:${number},${number}`
-  | `rename-beacon:${number},${number},${string}`;
+  | `rename-beacon:${number},${number},${string}`
+  | `bunker-dig:${number},${number},${number}`;
 
 export const MINE_ACTIONS = [
   "down",
@@ -230,6 +231,46 @@ export function parseRenameBeaconAction(
   }
 }
 
+/**
+ * One bunker cell dug out during this trip. Bunker digging is part of the
+ * trip: the drop goes into the same bag as mine ore and only pays when the
+ * player banks it at the surface. The dig therefore has to sit in the action
+ * log at the exact point it happened, because the bag is capacity-shared:
+ * bunker ore taking space changes which later mine ore fits. If the log
+ * omitted it, the server's replay would rebuild a different bag than the
+ * client and the whole trip would disagree.
+ *
+ * Depth is the bunker's dig-in axis (0 is the tunnel plane), so unlike the
+ * mine-cell actions above this carries three coordinates.
+ */
+export function parseBunkerDigAction(
+  action: string,
+): { col: number; row: number; depth: number } | null {
+  const match = /^bunker-dig:(-?\d+),(-?\d+),(-?\d+)$/.exec(action);
+  if (!match) return null;
+  const col = Number(match[1]);
+  const row = Number(match[2]);
+  const depth = Number(match[3]);
+  if (
+    !Number.isSafeInteger(col) ||
+    !Number.isSafeInteger(row) ||
+    !Number.isSafeInteger(depth) ||
+    row < 1 ||
+    row >= MINE_BOTTOM_ROW ||
+    depth < 0
+  )
+    return null;
+  return { col, row, depth };
+}
+
+export function bunkerDigAction(target: {
+  col: number;
+  row: number;
+  depth: number;
+}): MineAction {
+  return `bunker-dig:${target.col},${target.row},${target.depth}`;
+}
+
 export function renameBeaconAction(
   target: { col: number; row: number },
   label: string,
@@ -260,6 +301,7 @@ export function isMineAction(action: string): action is MineAction {
     parseActivatePortalAction(action) !== null ||
     parsePortalWarpAction(action) !== null ||
     parseWarpDownAction(action) !== null ||
-    parseRenameBeaconAction(action) !== null
+    parseRenameBeaconAction(action) !== null ||
+    parseBunkerDigAction(action) !== null
   );
 }

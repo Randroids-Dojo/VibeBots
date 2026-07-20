@@ -6,6 +6,7 @@ import {
   type BunkerFootprint,
   type BunkerOrientation,
   type BunkerSlot,
+  type BunkerState,
   bunkerCells,
   createBunker,
   excavateBunkerCell,
@@ -21,6 +22,7 @@ import { deriveBunkerBlockSeed } from "@/sim/bunker-blocks";
 import {
   addConsumables,
   applyAction,
+  bunkerDigAction,
   carryoverConsumables,
   cellAt,
   createMine,
@@ -446,6 +448,20 @@ export interface MineSessionState {
     toDepth?: number,
   ) => boolean;
   excavatePendingBunkerCell: (
+    col: number,
+    row: number,
+    depth: number,
+  ) => boolean;
+  /**
+   * Record a dig in a BANKED bunker into the live trip: log a `bunker-dig`
+   * action and credit its ore to the shared trip bag. The bunker's block seed
+   * derives the drop, so the caller passes the current banked bunker. Called
+   * only after the authoritative excavate has persisted the cell server-side,
+   * so the bank replay finds the cell in the durable dug set. Returns whether
+   * the credit applied.
+   */
+  recordBankedBunkerDig: (
+    bunker: BunkerState,
     col: number,
     row: number,
     depth: number,
@@ -1645,6 +1661,26 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           bunker: dug.bunker,
         },
       });
+      persistCurrentTrip();
+      return true;
+    },
+
+    recordBankedBunkerDig: (bunker, col, row, depth) => {
+      const { mine, tick, moves, cashOut } = get();
+      // Digging during a pending cash-out would be discarded on success, the
+      // same guard `move` uses.
+      if (cashOut.state === "pending") return false;
+      // Credit the drop into the SHARED trip bag at this exact log position,
+      // so the server's bank replay rebuilds the identical bag. The holder is
+      // throwaway on the client (the banked bunker's structure is server
+      // authoritative); only the bag credit and the logged action matter.
+      const holder = { current: bunker };
+      const result = applyAction(mine, bunkerDigAction({ col, row, depth }), {
+        bunker: holder,
+      });
+      if (!result.ok) return false;
+      moves.push(bunkerDigAction({ col, row, depth }));
+      set({ tick: tick + 1, lastResult: result, lastAction: null });
       persistCurrentTrip();
       return true;
     },

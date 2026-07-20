@@ -1,4 +1,9 @@
-import { type BunkerFootprint, containsBunkerCell } from "../bunker";
+import {
+  type BunkerFootprint,
+  type BunkerState,
+  containsBunkerCell,
+  creditBunkerDig,
+} from "../bunker";
 import {
   type BunkerScaffoldAction,
   bunkerScaffoldDirection,
@@ -7,6 +12,7 @@ import {
   isSupportSalvageTarget,
   type MineAction,
   parseActivatePortalAction,
+  parseBunkerDigAction,
   parseCollectAction,
   parseDropOreAction,
   parsePortalWarpAction,
@@ -1152,6 +1158,62 @@ function clearJumpHover(state: MineState): void {
 
 export interface MineActionContext {
   bunkerFootprint?: BunkerFootprint | null;
+  /**
+   * The bunker being dug during this trip, as a mutable holder. A
+   * `bunker-dig` action needs the block seed to derive the drop and writes
+   * back any overflow loot, so the caller owns the reference and the replay
+   * updates it in place. The client and the server's bank replay pass the
+   * same starting bunker, so both credit the shared bag identically.
+   */
+  bunker?: { current: BunkerState } | null;
+}
+
+/**
+ * Credit one bunker cell's ore into the trip during replay. The drop goes
+ * into the SAME bag as mine ore (`creditBunkerDig` -> `fillHold`), so it
+ * competes for the same capacity and shares the trip's fate: bank it at the
+ * surface or lose it. Overflow spills to a per-cell loot pile exactly as an
+ * overfull mine dig drops a bag. Nothing here pays vibes; payment happens
+ * once, at bank, when the replayed bag is sold.
+ *
+ * This is credit-only: it does NOT re-excavate the cell. A banked bunker's
+ * cell is already dug in the authoritative structure (the excavate route
+ * persisted it and validated its reach at dig time), so requiring it closed
+ * here would reject every replayed dig. The drop is derived purely from the
+ * block seed and coordinates, so it is identical whether the holder's dug
+ * set has the cell or not. What stops a cell paying twice is the
+ * `settled_dug` watermark the bank route checks, not this function.
+ */
+function applyBunkerDigAction(
+  state: MineState,
+  target: { col: number; row: number; depth: number },
+  context?: MineActionContext,
+): MoveResult {
+  const holder = context?.bunker;
+  if (!holder?.current) return { ok: false, reason: "blocked" };
+  const miner = state.miner;
+  // The player must be standing in their own claim to dig it, the same
+  // containment rule first-person entry enforces. On both the client and the
+  // server replay the miner sits at the same cell at this log position, so
+  // this holds deterministically.
+  if (!containsBunkerCell(holder.current.footprint, miner.col, miner.row)) {
+    return { ok: false, reason: "blocked" };
+  }
+  const credited = creditBunkerDig(
+    state,
+    holder.current,
+    target.col,
+    target.row,
+    target.depth,
+  );
+  holder.current = credited.bunker;
+  return {
+    ok: true,
+    dug: null,
+    dugOre: null,
+    found: null,
+    collapsed: false,
+  };
 }
 
 function applyBunkerScaffoldAction(
@@ -2459,6 +2521,10 @@ export function applyAction(
   if (warpTarget) return warpDown(state, warpTarget);
   const renameTarget = parseRenameBeaconAction(action);
   if (renameTarget) return renameBeacon(state, renameTarget);
+  const bunkerDigTarget = parseBunkerDigAction(action);
+  if (bunkerDigTarget) {
+    return applyBunkerDigAction(state, bunkerDigTarget, context);
+  }
   if (action.startsWith("bunker-scaffold-")) {
     return applyBunkerScaffoldAction(
       state,

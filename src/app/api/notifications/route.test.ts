@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-19-0.1.279-bunker-multi-hit",
+      releaseNoticeId: "2026-07-20-0.1.280-bunker-ore-trip-bag",
       releaseSummary:
-        "Bunker blocks take real swings: Digging inside your bunker now paces like the mine outside: blocks take several pickaxe swings, and ore flecks out chip by chip while you work.",
+        "Bunker ore rides home in your bag: Ore you dig inside your bunker now goes into your cargo bag instead of paying out on the spot, so you carry it up and bank it with the rest of your haul.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-19-0.1.279-bunker-multi-hit",
+      releaseNoticeId: "2026-07-20-0.1.280-bunker-ore-trip-bag",
       attempted: 2,
       sent: 1,
       expired: 1,

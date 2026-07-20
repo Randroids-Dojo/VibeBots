@@ -302,6 +302,46 @@ function numberValue(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+/**
+ * Load the player's banked bunker for surface settlement (F-116 trip-bag
+ * model). The mine bank route calls this when a trip's action log contains
+ * `bunker-dig` actions: those digs credited the shared trip bag during
+ * replay, and settlement needs the block seed (via the parsed bunker holder)
+ * plus the durable watermark to prove which dug cells are still unsold.
+ *
+ * Returns the parsed bunker (footprint, block seed, and existing loot drive
+ * the replay), the RAW stored dug array (its indices align with
+ * `settled_dug`, unlike the spawn-pocket-augmented parsed dug), and the
+ * `settled_dug` watermark. Null when the player has no bunker row.
+ */
+export async function loadBankedBunkerForSettle(
+  sql: Sql,
+  playerId: string,
+): Promise<{
+  bunker: BunkerState;
+  storedDug: DugBunkerCell[];
+  settledDug: number;
+} | null> {
+  const rows = (await sql`
+    SELECT footprint, parts, dug, block_seed, loot, skin, skins_owned,
+           layout_version, settled_dug
+    FROM bunkers
+    WHERE player_id = ${playerId}
+    LIMIT 1`) as Array<Record<string, unknown>>;
+  const row = rows[0];
+  if (!row) return null;
+  const bunker = parseBunkerState(
+    row as Parameters<typeof parseBunkerState>[0],
+  );
+  if (!bunker) return null;
+  const storedDug = normalizedDugCells(row.dug);
+  return {
+    bunker,
+    storedDug,
+    settledDug: numberValue(row.settled_dug, storedDug.length),
+  };
+}
+
 /** Server grace beyond a live raid's authored duration before it is treated
  * as expired, in seconds (mirrors the sim's tick-based grace). */
 const LIVE_RAID_GRACE_SECONDS =
@@ -934,7 +974,12 @@ export async function excavateBunker(
   row: number,
   depth: number,
   expectedRevision?: number,
-): Promise<BunkerOperationResult<{ newStamps?: string[]; oreVibes?: number }>> {
+): Promise<
+  BunkerOperationResult<{
+    newStamps?: string[];
+    oreDrop?: { ore: OreId; units: number } | null;
+  }>
+> {
   const view = await loadBunkerView(sql, playerId);
   if (!view.bunker)
     return { ok: false, status: 409, error: "claim a bunker first" };
@@ -948,11 +993,22 @@ export async function excavateBunker(
   if (!dug.ok) {
     return { ok: false, status: 409, error: `cannot dig: ${dug.reason}` };
   }
-  // A banked bunker has no trip bag, so its ore credits vibes to the
-  // balance directly, atomically with the dug write (F-116). The server
-  // recomputes the drop from the stored block seed so the client can
-  // never claim ore that is not there; a cell can only be dug once
-  // (excavateBunkerCell rejects an open cell), so this never double-pays.
+  // Bunker digging is part of the trip: the drop goes into the trip bag and
+  // only becomes vibes when the player walks it back to the surface, exactly
+  // like mine ore. So this reports the drop and pays nothing. The player is
+  // always standing inside their own claim underground with a live trip when
+  // they dig (entry is gated on containsBunkerCell), so a bag always exists;
+  // it just lives client-side and reaches the server at bank time.
+  //
+  // Before this, a banked bunker credited `players.emeralds` here on the
+  // reasoning that "a banked bunker has no trip bag". That was a statement
+  // about what this request can see, not about the world, and it made the
+  // banked bunker the one place in the game where ore skipped the bag, the
+  // capacity cap, and the walk home.
+  //
+  // The server still recomputes the drop from the stored block seed so the
+  // client can never claim ore that is not there, and a cell can only be dug
+  // once (excavateBunkerCell rejects an open cell), so it cannot be farmed.
   const drop = bunkerCellOreYield(
     view.bunker.footprint,
     view.bunker.blockSeed,
@@ -960,7 +1016,6 @@ export async function excavateBunker(
     row,
     depth,
   );
-  const oreVibes = drop ? drop.units * oreDef(drop.ore).value : 0;
   // The dug write carries the same optimistic-concurrency guard as part
   // edits (F-122): it only lands when the revision still matches, bumping
   // it, and the ore payout is gated on that dig winning, so a concurrent
@@ -981,18 +1036,9 @@ export async function excavateBunker(
       WHERE player_id = ${playerId}
         AND revision = ${expected}
       RETURNING player_id
-    ), ore_pay AS (
-      UPDATE players
-      SET emeralds = emeralds + ${oreVibes}
-      WHERE id = ${playerId}
-        AND ${oreVibes} > 0
-        AND EXISTS (SELECT 1 FROM dug_update)
-      RETURNING id
     )
-    SELECT (SELECT count(*) FROM dug_update)::int AS dug_rows,
-           (SELECT count(*) FROM ore_pay)::int AS ore_rows`) as Array<{
+    SELECT (SELECT count(*) FROM dug_update)::int AS dug_rows`) as Array<{
     dug_rows: number;
-    ore_rows: number;
   }>;
   if ((guardResult[0]?.dug_rows ?? 0) === 0) {
     return revisionConflict(await loadBunkerView(sql, playerId));
@@ -1013,7 +1059,14 @@ export async function excavateBunker(
       }
     })(),
   ]);
-  return { ok: true, view: latestView, newStamps, oreVibes };
+  return {
+    ok: true,
+    view: latestView,
+    newStamps,
+    // The drop the client should put in the trip bag. It is not vibes and
+    // not yet owed: it only pays if the player banks it at the surface.
+    oreDrop: drop ? { ore: drop.ore, units: drop.units } : null,
+  };
 }
 
 /**

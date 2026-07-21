@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="fix-boxed-in-e2e-reenclosure" data-date="2026-07-21">
+    <h3>Drop the boxed-in e2e's retired re-enclosure step (F-207)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, rebased on current <code>origin/main</code>. Direct commit to <code>main</code> at the user's standing instruction.</dd>
+      <dt>PR</dt><dd>None. Fixes a deterministically-failing full-matrix e2e (<code>tests/e2e/mine-bunker-fp.spec.ts</code> <q>an enclosed spawn shows the boxed-in escape hint until a part is pried</q>), tracked by F-207.</dd>
+      <dt>Changed</dt><dd><code>tests/e2e/mine-bunker-fp.spec.ts</code>: removed the re-enclosure tail (re-arm wall, aim, place, hint-returns, dismiss). It placed a whole-cell wall back into the pried escape cell, which the F-117 full-cell retirement (PR #272) removed: a thin wall attaches to a solid face, but in this fixture the whole depth-0 plane is dug, so the escape is one open cell with no solid to hold a lateral wall and no single legal placement re-seals it (confirmed by instrumenting the aim: every ray from the spawn hits floor/depth rock or exits to the far boundary, never a wall slot). The surviving coverage is the pair that still holds under F-117: a sealed spawn shows the hint, and prying its wall clears it.</dd>
+      <dt>Verification</dt><dd>The test passes locally in ~17s (was failing deterministically with place <code>none</code> vs expected <code>4:0:0</code>). Biome clean. No product code changed, so the unit suite is unaffected.</dd>
+      <dt>Assumptions</dt><dd>The retirement assertion was not weakened; the stale expectation was removed. Re-enclosure via a single whole-cell placement is genuinely unreachable under F-117 slot placement, so this is coverage of a dead path removed, not a real behavior left untested.</dd>
+      <dt>GDD coverage</dt><dd>No change; a test-only fix.</dd>
+      <dt>Followups</dt><dd>F-207 resolved. Triage note: the newest scheduled Full E2E (run 29820975553, head <code>32220450</code> = current tip) is red with a shard-timeout cascade under the software renderer (dozens of unrelated tests including pure helper specs, individual tests running 1.3 to 3.2 minutes vs ~30s locally, all four shards hitting the 989s budget). This is the chronic F-131/F-132 condition, now seven consecutive days, not a diff regression; its real fix likely needs a CI-config decision (more shards or a larger budget) that is owner-gated (Rule 6). Flagged to the user.</dd>
+    </dl>
+  </article>
+
   <article data-slice="fire-tv-overscan-safe-area" data-date="2026-07-21">
     <h3>Fire TV sessions keep the mine inside the visible screen</h3>
     <dl>

@@ -2240,25 +2240,14 @@ test("an enclosed spawn shows the boxed-in escape hint until a part is pried", a
   await expect(page.locator(".bunker-fp-carried")).toHaveCount(0);
   await expect(hint).toHaveCount(0);
 
-  // Entry armed the pick (0.1.254), so re-arm the wall before building.
-  await page.keyboard.press("1");
-  await expect(page.getByTestId("bunker-fp-slot-wall-panel")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-
-  // Walling the gap back up re-encloses the player, so the hint
-  // returns; a tap dismisses it until the next enclosure.
-  await aimFp(page, -1.57, -0.62);
-  await expect
-    .poll(async () => canvas.getAttribute("data-fp-place"), {
-      timeout: 10_000,
-    })
-    .toBe("4:0:0");
-  await canvas.click();
-  await expect(hint).toBeVisible({ timeout: 10_000 });
-  await hint.click();
-  await expect(hint).toHaveCount(0);
+  // No re-enclosure step: re-boxing the spawn depended on dropping a
+  // whole-cell wall back into the open escape cell, which F-117 slot
+  // placement retired (a thin wall attaches to a solid face, but the
+  // escape here is one open cell in a fully open plane with no solid to
+  // hold a lateral wall, so no single legal placement re-seals it). The
+  // surviving coverage is the pair proven above: a sealed spawn shows the
+  // hint (the boxed fixture at entry), and prying its wall clears it
+  // (F-207).
 });
 
 test("prying a damaged part denies with repair-first guidance", async ({

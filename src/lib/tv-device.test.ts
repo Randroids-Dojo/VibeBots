@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isTvUserAgent, resolveTvMode } from "./tv-device";
+import {
+  isTvUserAgent,
+  resolveTvMode,
+  TV_SAFE_FRACTION,
+  tvSafeInsets,
+} from "./tv-device";
 
 const FIRE_TV_SILK_UA =
   "Mozilla/5.0 (Linux; Android 11; AFTMA475B1) AppleWebKit/537.36 " +
@@ -89,5 +94,20 @@ describe("resolveTvMode", () => {
         stored: "maybe",
       }),
     ).toEqual({ tvMode: true, persist: null });
+  });
+});
+
+describe("tvSafeInsets", () => {
+  it("insets each edge by the safe fraction of the viewport", () => {
+    expect(tvSafeInsets(1920, 1080)).toEqual({ x: 96, y: 54 });
+    expect(tvSafeInsets(1280, 720)).toEqual({ x: 64, y: 36 });
+  });
+
+  it("rounds to whole pixels so the shell frame stays crisp", () => {
+    const { x, y } = tvSafeInsets(963, 541);
+    expect(x).toBe(Math.round(963 * TV_SAFE_FRACTION));
+    expect(y).toBe(Math.round(541 * TV_SAFE_FRACTION));
+    expect(Number.isInteger(x)).toBe(true);
+    expect(Number.isInteger(y)).toBe(true);
   });
 });

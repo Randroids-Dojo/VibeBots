@@ -24,7 +24,7 @@ import {
 } from "@/components/mine-camera";
 import type { AppRelease } from "@/lib/app-release-types";
 import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
-import { detectTvMode } from "@/lib/tv-device";
+import { detectTvMode, tvSafeInsets } from "@/lib/tv-device";
 import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
   AVAILABLE_BASE_PART_IDS,
@@ -651,6 +651,9 @@ const zoomButtonStyle: React.CSSProperties = {
   lineHeight: 1,
   pointerEvents: "auto",
 };
+
+const SETTINGS_MENU_TOP = 206;
+const SETTINGS_MENU_EDGE_GAP = 14;
 
 const SURFACE_ACTION_PROMPT_BOTTOM = 154;
 
@@ -3646,20 +3649,30 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     setMineSceneStatus("error");
     setMineSceneMessage(message || "The mine renderer failed to start.");
   };
+  // TV overscan safe area: TVs can crop the outer edges of the picture,
+  // which cut edge-anchored chrome (the pause menu sat half off the right
+  // side of a Fire TV screen). Every mine overlay anchors to this shell,
+  // so shrinking the shell itself keeps all of them, plus dialogs that
+  // center inside it, within the visible screen with one rule.
+  const tvSafe =
+    tvMode && mineViewportFrame
+      ? tvSafeInsets(mineViewportFrame.width, mineViewportFrame.height)
+      : { x: 0, y: 0 };
   const measuredMineShellStyle: React.CSSProperties = mineViewportFrame
     ? {
         ...mineShellStyle,
         inset: "auto",
-        left: `${mineViewportFrame.left}px`,
-        top: `${mineViewportFrame.top}px`,
-        width: `${mineViewportFrame.width}px`,
-        height: `${mineViewportFrame.height}px`,
+        left: `${mineViewportFrame.left + tvSafe.x}px`,
+        top: `${mineViewportFrame.top + tvSafe.y}px`,
+        width: `${mineViewportFrame.width - 2 * tvSafe.x}px`,
+        height: `${mineViewportFrame.height - 2 * tvSafe.y}px`,
       }
     : mineShellStyle;
 
   return (
     <div
       data-mine-shell="true"
+      data-tv-safe-area={tvMode ? "on" : "off"}
       data-display-mode={mineViewportFrame?.displayMode ?? "unknown"}
       data-layout-viewport-height={mineViewportValue(
         mineViewportFrame?.layoutHeight,
@@ -3945,10 +3958,15 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               aria-label="Settings"
               style={{
                 position: "absolute",
-                top: 206,
-                right: 14,
+                top: SETTINGS_MENU_TOP,
+                right: SETTINGS_MENU_EDGE_GAP,
                 zIndex: 7,
                 width: 238,
+                // The shell clips at its bottom edge (overflow hidden), so
+                // on short viewports the menu scrolls instead of losing
+                // its lower buttons past the edge.
+                maxHeight: `calc(100% - ${SETTINGS_MENU_TOP + SETTINGS_MENU_EDGE_GAP}px)`,
+                overflowY: "auto",
                 border: "1px solid #26304a",
                 borderRadius: 12,
                 background: "rgba(17, 21, 31, 0.96)",

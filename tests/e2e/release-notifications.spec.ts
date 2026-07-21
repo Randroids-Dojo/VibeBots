@@ -21,14 +21,14 @@ test("mine shows the latest release note once to a fresh browser", async ({
   expect(noteId).toBeTruthy();
   await expect(dialog).not.toContainText("Mason, load your first save now.");
   await expect(dialog).toContainText(
-    "Ore you dig in a bunker you just claimed now banks with the rest of your haul",
+    "TV sessions now keep everything inside the visible area",
   );
   await expect(dialog.locator("li")).toHaveCount(2);
   await expect(dialog.locator("li").first()).toContainText(
-    "fills the same cargo bag as everything else you dig",
+    "plays inside a screen-safe frame",
   );
   await expect(dialog.locator("li").nth(1)).toContainText(
-    "a bunker-only cash-out that could read 'Sold no resources'",
+    "scrolls instead of losing its bottom buttons",
   );
 
   await page.mouse.click(8, 8);
@@ -48,6 +48,7 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
+    ["0.1.282", "The mine fits on your TV screen"],
     ["0.1.281", "Fresh-claim bunker ore counts too"],
     ["0.1.280", "Bunker ore rides home in your bag"],
     ["0.1.279", "Bunker blocks take real swings"],

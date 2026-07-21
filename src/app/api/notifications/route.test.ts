@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-20-0.1.281-fresh-claim-ore",
+      releaseNoticeId: "2026-07-21-0.1.282-fire-tv-safe-area",
       releaseSummary:
-        "Fresh-claim bunker ore counts too: Ore you dig in a bunker you just claimed now banks with the rest of your haul, and your cash-out screen counts it instead of quietly showing none.",
+        "The mine fits on your TV screen: TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-20-0.1.281-fresh-claim-ore",
+      releaseNoticeId: "2026-07-21-0.1.282-fire-tv-safe-area",
       attempted: 2,
       sent: 1,
       expired: 1,

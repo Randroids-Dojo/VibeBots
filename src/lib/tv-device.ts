@@ -23,6 +23,26 @@ export function isTvUserAgent(userAgent: string): boolean {
   return FIRE_TV_MODEL.test(userAgent) || GENERIC_TV_TOKENS.test(userAgent);
 }
 
+/**
+ * TV overscan safe margin, as a fraction of each viewport edge. TVs can
+ * crop the outer edges of the picture (overscan), which cut the mine's
+ * edge-anchored chrome (the pause menu hung half off the right side of a
+ * Fire TV screen). Amazon's Fire TV design guidance keeps interactive UI
+ * inside the central 90%, so 5% per edge.
+ */
+export const TV_SAFE_FRACTION = 0.05;
+
+/** Pixel insets that keep a TV viewport's UI inside the safe area. */
+export function tvSafeInsets(
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  return {
+    x: Math.round(width * TV_SAFE_FRACTION),
+    y: Math.round(height * TV_SAFE_FRACTION),
+  };
+}
+
 export const TV_MODE_STORAGE_KEY = "vibebots.tvMode";
 
 /**

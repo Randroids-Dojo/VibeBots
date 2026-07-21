@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-20-0.1.281-fresh-claim-ore";
+export const RELEASE_NOTICE_ID = "2026-07-21-0.1.282-fire-tv-safe-area";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.282",
+      date: "2026-07-21",
+      title: "The mine fits on your TV screen",
+      intro:
+        "TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
+      changes: [
+        {
+          build,
+          text: "On a TV the whole mine plays inside a screen-safe frame, so the settings menu, the remote deck, and every button sit where the TV can actually show them.",
+        },
+        {
+          build,
+          text: "A pause menu taller than the screen scrolls instead of losing its bottom buttons past the edge.",
+        },
+      ],
+    },
     {
       version: "0.1.281",
       date: "2026-07-20",

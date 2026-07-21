@@ -113,6 +113,45 @@ test.describe("fire tv sessions", () => {
     await expect(status).toHaveAttribute("data-depth", "0");
   });
 
+  test("the shell insets to the overscan safe area and the pause menu fits", async ({
+    page,
+  }) => {
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await awaitMineSceneReady(page);
+
+    // TVs crop the outer edges of the picture (overscan), so the TV
+    // session's shell shrinks to the central 90% and every edge-anchored
+    // overlay anchors inside the visible screen.
+    const shell = page.locator("[data-mine-shell]");
+    await expect(shell).toHaveAttribute("data-tv-safe-area", "on");
+    const viewport = page.viewportSize();
+    if (!viewport) throw new Error("viewport size unavailable");
+    const safeX = Math.round(viewport.width * 0.05);
+    const safeY = Math.round(viewport.height * 0.05);
+    const box = await shell.boundingBox();
+    if (!box) throw new Error("mine shell has no bounding box");
+    expect(Math.round(box.x)).toBe(safeX);
+    expect(Math.round(box.y)).toBe(safeY);
+    expect(Math.round(box.x + box.width)).toBe(viewport.width - safeX);
+    expect(Math.round(box.y + box.height)).toBe(viewport.height - safeY);
+
+    // The pause menu (the gear's settings panel) was the reported victim:
+    // it hung half off the right side of a Fire TV screen.
+    await page.getByLabel("Open settings").click();
+    const menu = page.locator("section[aria-label='Settings']");
+    await expect(menu).toBeVisible();
+    const menuBox = await menu.boundingBox();
+    if (!menuBox) throw new Error("settings menu has no bounding box");
+    expect(menuBox.x).toBeGreaterThanOrEqual(safeX);
+    expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(
+      viewport.width - safeX + 1,
+    );
+    expect(menuBox.y + menuBox.height).toBeLessThanOrEqual(
+      viewport.height - safeY + 1,
+    );
+  });
+
   test("Select keeps its focused activation behavior", async ({ page }) => {
     await page.goto("/mine");
     await dismissReleaseNotes(page);
@@ -153,11 +192,20 @@ test.describe("tv override without a TV user agent", () => {
   });
 });
 
-test("desktop sessions never see the TV deck", async ({ page }) => {
+test("desktop sessions never see the TV deck and keep a full-bleed shell", async ({
+  page,
+}) => {
   await page.goto("/mine");
   await dismissReleaseNotes(page);
   await awaitMineSceneReady(page);
   await expect(page.locator("[data-tv-controls]")).toHaveCount(0);
+
+  const shell = page.locator("[data-mine-shell]");
+  await expect(shell).toHaveAttribute("data-tv-safe-area", "off");
+  const box = await shell.boundingBox();
+  if (!box) throw new Error("mine shell has no bounding box");
+  expect(Math.round(box.x)).toBe(0);
+  expect(Math.round(box.y)).toBe(0);
 });
 
 test("gamepad D-pad digs and releases through the shared cadence", async ({

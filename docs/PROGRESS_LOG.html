@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="fire-tv-overscan-safe-area" data-date="2026-07-21">
+    <h3>Fire TV sessions keep the mine inside the visible screen</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/fire-tv-screen-safe-area-fig7bg</code>.</dd>
+      <dt>PR</dt><dd>Pending. User report: on a Fire TV the pause menu (the settings gear panel) hung half off the right side of the screen. TVs crop the outer edges of the picture (overscan), and every mine overlay anchors to a full-viewport shell, so edge-anchored chrome landed in the cropped band.</dd>
+      <dt>Changed</dt><dd>TV sessions now shrink the whole mine shell to the central 90% of the viewport (5% per edge, Amazon's Fire TV safe-zone guidance). New <code>TV_SAFE_FRACTION</code> and <code>tvSafeInsets</code> in <code>src/lib/tv-device.ts</code>; <code>mine-panel.tsx</code> applies the insets to both the measured visual-viewport shell frame and the pre-measurement fallback style, and stamps <code>data-tv-safe-area</code> on the shell. Because the shell is the containing block for every overlay (HUD, deck, dialogs, popups), one rule moves all of them inside the visible screen; the letterbox band shows the near-black page background. The settings menu also gains <code>maxHeight</code> plus <code>overflowY: auto</code> so a short safe-area viewport scrolls the menu instead of clipping its lower buttons at the shell's <code>overflow: hidden</code> edge. Release note 0.1.281.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, typecheck, Biome, and the full unit suite green (1775 after the new <code>tvSafeInsets</code> and release-note tests). Playwright: the Fire TV spec grows two assertions run locally against a production build, all 9 passing: a TV session's shell insets to the exact safe frame and the opened pause menu's box sits fully inside it, and a desktop session keeps a full-bleed shell with no TV deck. Critical e2e grep suite also green locally.</dd>
+      <dt>Assumptions</dt><dd>5% per edge is the Recommended default (Amazon Fire TV design guidance); TVs that crop more remain the player's display-calibration territory, and <code>?tv=0</code> still force-disables TV mode entirely. Insetting the shell (letterboxing the world) was chosen over per-overlay offsets because dozens of overlays anchor to the shell edges and one container rule cannot miss any of them, current or future.</dd>
+      <dt>GDD coverage</dt><dd>No row change. Platform legibility fix inside the existing TV-mode arc.</dd>
+      <dt>Followups</dt><dd>Appended a dated note to <a href="FOLLOWUPS.html#F-091">F-091</a>: Workshop/Holodeck TV work must apply the same safe-area inset to their shells. Tips reviewed (Rule 13): no tip change, the safe area is automatic and adds no rule to remember. Stamps reviewed (Rule 14): none, a display fix is not a milestone.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-ore-into-trip-bag" data-date="2026-07-20">
     <h3>Bunker ore rides the trip bag and pays at the surface</h3>
     <dl>

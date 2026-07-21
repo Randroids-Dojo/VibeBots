@@ -1714,6 +1714,7 @@
       <dt>Blocker (if any)</dt><dd>none.</dd>
       <dt>Unblock condition</dt><dd>Ready when picked up: enlarge primary click targets on Workshop/Holodeck in TV sessions, add a "TV controls" toggle to the settings menu wired to the same persisted override, and record a VibeReview playtest from a real Fire TV (Rule 12) confirming the deck, Back behavior, and legibility. Acceptance: a Fire TV session can build a bot and watch a battle without pixel-hunting, and the playtest evidence lands in docs/PLAYTEST.html.</dd>
       <dt>PR / Dot reference</dt><dd>(not started)</dd>
+      <dt>Safe-area note (2026-07-21)</dt><dd>The mine shell now shrinks to the central 90% in TV sessions (overscan safe area, <code>tvSafeInsets</code> in <code>src/lib/tv-device.ts</code>), after a real Fire TV showed the pause menu half off the right side of the screen. When this followup brings TV mode to Workshop/Holodeck, apply the same safe-area inset to those shells; the mine-only fix does not cover them.</dd>
     </dl>
   </section>
 

@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest bunker-ore-trip-bag note complete", () => {
+  it("keeps the latest fire-tv-safe-area note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-20-0.1.280-bunker-ore-trip-bag");
+    expect(release.noticeId).toBe("2026-07-21-0.1.281-fire-tv-safe-area");
     expect(latestNote).toMatchObject({
+      version: "0.1.281",
+      title: "The mine fits on your TV screen",
+      intro:
+        "TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "On a TV the whole mine plays inside a screen-safe frame, so the settings menu, the remote deck, and every button sit where the TV can actually show them.",
+      "A pause menu taller than the screen scrolls instead of losing its bottom buttons past the edge.",
+    ]);
+  });
+
+  it("keeps the archived bunker-ore-trip-bag note complete", () => {
+    const release = getAppRelease();
+    const bagNote = release.notes.find((note) => note.version === "0.1.280");
+
+    expect(bagNote).toMatchObject({
       version: "0.1.280",
       title: "Bunker ore rides home in your bag",
       intro:
         "Ore you dig inside your bunker now goes into your cargo bag instead of paying out on the spot, so you carry it up and bank it with the rest of your haul.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(bagNote?.changes.map((change) => change.text)).toEqual([
       "Digging your bunker used to pay vibes the instant a block broke. Now that ore fills your cargo bag like everything else, shares the same space, and only turns into vibes once you climb back to the surface and bank it.",
       "So bunker ore rides the same risk as mine ore: a cave-in on the way up loses the whole bag, bunker haul and all. A deep dig is worth carrying carefully.",
     ]);

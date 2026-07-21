@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { TV_SAFE_FRACTION } from "../../src/lib/tv-device";
 import {
   awaitMineSceneReady,
   dismissReleaseNotes,
   installGamepadPadControl,
   MINE_KEY_STEP_MS,
+  openSettings,
   setGamepadPressed,
 } from "./support/mine-helpers";
 
@@ -127,8 +129,8 @@ test.describe("fire tv sessions", () => {
     await expect(shell).toHaveAttribute("data-tv-safe-area", "on");
     const viewport = page.viewportSize();
     if (!viewport) throw new Error("viewport size unavailable");
-    const safeX = Math.round(viewport.width * 0.05);
-    const safeY = Math.round(viewport.height * 0.05);
+    const safeX = Math.round(viewport.width * TV_SAFE_FRACTION);
+    const safeY = Math.round(viewport.height * TV_SAFE_FRACTION);
     const box = await shell.boundingBox();
     if (!box) throw new Error("mine shell has no bounding box");
     expect(Math.round(box.x)).toBe(safeX);
@@ -138,9 +140,7 @@ test.describe("fire tv sessions", () => {
 
     // The pause menu (the gear's settings panel) was the reported victim:
     // it hung half off the right side of a Fire TV screen.
-    await page.getByLabel("Open settings").click();
-    const menu = page.locator("section[aria-label='Settings']");
-    await expect(menu).toBeVisible();
+    const menu = await openSettings(page);
     const menuBox = await menu.boundingBox();
     if (!menuBox) throw new Error("settings menu has no bounding box");
     expect(menuBox.x).toBeGreaterThanOrEqual(safeX);

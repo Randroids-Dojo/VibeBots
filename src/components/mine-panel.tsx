@@ -24,7 +24,7 @@ import {
 } from "@/components/mine-camera";
 import type { AppRelease } from "@/lib/app-release-types";
 import { MINE_REFRESH_ENTRY_KEY } from "@/lib/mine-refresh";
-import { detectTvMode, TV_SAFE_FRACTION, tvSafeInsets } from "@/lib/tv-device";
+import { detectTvMode, tvSafeInsets } from "@/lib/tv-device";
 import { tvRemoteDirection } from "@/lib/tv-remote-input";
 import {
   AVAILABLE_BASE_PART_IDS,
@@ -651,6 +651,9 @@ const zoomButtonStyle: React.CSSProperties = {
   lineHeight: 1,
   pointerEvents: "auto",
 };
+
+const SETTINGS_MENU_TOP = 206;
+const SETTINGS_MENU_EDGE_GAP = 14;
 
 const SURFACE_ACTION_PROMPT_BOTTOM = 154;
 
@@ -3654,24 +3657,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const tvSafe =
     tvMode && mineViewportFrame
       ? tvSafeInsets(mineViewportFrame.width, mineViewportFrame.height)
-      : null;
+      : { x: 0, y: 0 };
   const measuredMineShellStyle: React.CSSProperties = mineViewportFrame
     ? {
         ...mineShellStyle,
         inset: "auto",
-        left: `${mineViewportFrame.left + (tvSafe?.x ?? 0)}px`,
-        top: `${mineViewportFrame.top + (tvSafe?.y ?? 0)}px`,
-        width: `${mineViewportFrame.width - 2 * (tvSafe?.x ?? 0)}px`,
-        height: `${mineViewportFrame.height - 2 * (tvSafe?.y ?? 0)}px`,
+        left: `${mineViewportFrame.left + tvSafe.x}px`,
+        top: `${mineViewportFrame.top + tvSafe.y}px`,
+        width: `${mineViewportFrame.width - 2 * tvSafe.x}px`,
+        height: `${mineViewportFrame.height - 2 * tvSafe.y}px`,
       }
-    : tvMode
-      ? {
-          ...mineShellStyle,
-          inset: `${TV_SAFE_FRACTION * 100}dvh ${TV_SAFE_FRACTION * 100}vw`,
-          width: `${100 - 2 * TV_SAFE_FRACTION * 100}vw`,
-          height: `${100 - 2 * TV_SAFE_FRACTION * 100}dvh`,
-        }
-      : mineShellStyle;
+    : mineShellStyle;
 
   return (
     <div
@@ -3962,14 +3958,14 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
               aria-label="Settings"
               style={{
                 position: "absolute",
-                top: 206,
-                right: 14,
+                top: SETTINGS_MENU_TOP,
+                right: SETTINGS_MENU_EDGE_GAP,
                 zIndex: 7,
                 width: 238,
                 // The shell clips at its bottom edge (overflow hidden), so
                 // on short viewports the menu scrolls instead of losing
                 // its lower buttons past the edge.
-                maxHeight: "calc(100% - 220px)",
+                maxHeight: `calc(100% - ${SETTINGS_MENU_TOP + SETTINGS_MENU_EDGE_GAP}px)`,
                 overflowY: "auto",
                 border: "1px solid #26304a",
                 borderRadius: 12,

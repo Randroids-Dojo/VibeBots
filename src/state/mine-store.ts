@@ -510,6 +510,14 @@ function pendingBunkerPayload(
 // pageshow) can fire in bursts and every probe is a network roundtrip.
 export const FRESHNESS_PROBE_MIN_INTERVAL_MS = 10_000;
 
+// Incremental server check-ins: how many logged trip actions between
+// background uploads of the in-flight trip to the account checkpoint, so a
+// long dig session (especially inside a bunker) survives a reload or a swap
+// to another device without banking. A claim fires one immediately on top of
+// this cadence. Every action would be a network roundtrip per dig; this keeps
+// at most one upload per this many actions.
+export const TRIP_CHECKPOINT_ACTION_INTERVAL = 25;
+
 /** Same-browser tabs share save updates instantly, no push needed. */
 export const SAVE_SYNC_CHANNEL = "vibebots-save-sync";
 
@@ -633,6 +641,40 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   const clearAccountTripCheckpoint = () => {
     if (get().accountSync.mode === "guest") return;
     void clearRemoteAccountTrip();
+  };
+  // A background upload of the in-flight trip to the account checkpoint, fired
+  // on the action cadence and right after a bunker claim. Best-effort by
+  // design: the local trip stays the authority, so a failed or stale upload
+  // never blocks digging. Guests have no checkpoint row (they persist
+  // locally), and the in-flight guard keeps a burst of actions from stacking
+  // uploads. A stale upload means another device advanced the world; the
+  // first-move freshness probe and the bank's own re-validation own that
+  // conflict, so this stays quiet rather than interrupting play.
+  //
+  // The calling reducer has already persisted the trip locally, so this only
+  // needs the snapshot for the network upload: it builds it once and uploads
+  // directly rather than re-persisting (which would re-serialize and re-write
+  // local storage a second time on every check-in).
+  let tripCheckpointInFlight = false;
+  const checkpointTripInBackground = () => {
+    if (get().accountSync.mode === "guest") return;
+    if (tripCheckpointInFlight) return;
+    const trip = currentTripSnapshot();
+    if (!trip) return;
+    tripCheckpointInFlight = true;
+    void storeRemoteAccountTrip(trip)
+      .catch(() => {})
+      .finally(() => {
+        tripCheckpointInFlight = false;
+      });
+  };
+  // Every reducer that appends a logged trip action calls this so the check-in
+  // cadence covers the whole trip log, not just `move`. First-move handling
+  // (the freshness probe) stays with `move`; this owns only the interval.
+  const checkpointTripOnCadence = (moveCount: number) => {
+    if (moveCount > 1 && moveCount % TRIP_CHECKPOINT_ACTION_INTERVAL === 0) {
+      checkpointTripInBackground();
+    }
   };
   // Drops this device's local trip and adopts the cloud world, gear, and
   // save slots. Used after a cloud load and whenever another device
@@ -806,6 +848,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // A trip is starting: catch a save that advanced on another
         // device while real progress on this one is still tiny.
         if (moves.length === 1) void get().checkWorldFreshness();
+        // Incremental server check-in on the action cadence, so a long session
+        // survives a reload without banking. `moves` already has this action
+        // pushed, so its length is the running action count.
+        else checkpointTripOnCadence(moves.length);
       }
       return result;
     },
@@ -1557,6 +1603,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         shopNote: "bunker claimed; bank at surface to save it",
       });
       persistCurrentTrip();
+      // Claiming a bunker is exactly the progress worth not losing to a
+      // reload, so it checks in immediately rather than waiting for the
+      // action cadence.
+      checkpointTripInBackground();
       return true;
     },
 
@@ -1675,13 +1725,16 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       // throwaway on the client (the banked bunker's structure is server
       // authoritative); only the bag credit and the logged action matter.
       const holder = { current: bunker };
-      const result = applyAction(mine, bunkerDigAction({ col, row, depth }), {
-        bunker: holder,
-      });
+      const action = bunkerDigAction({ col, row, depth });
+      const result = applyAction(mine, action, { bunker: holder });
       if (!result.ok) return false;
-      moves.push(bunkerDigAction({ col, row, depth }));
+      moves.push(action);
       set({ tick: tick + 1, lastResult: result, lastAction: null });
       persistCurrentTrip();
+      // A bunker-dig is a logged trip action too, so it advances the same
+      // check-in cadence; without this a pure in-bunker dig session (all
+      // bunker-dig actions, no `move`) would never check in.
+      checkpointTripOnCadence(moves.length);
       return true;
     },
 

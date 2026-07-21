@@ -757,9 +757,15 @@ export async function POST(request: Request): Promise<Response> {
     );
   const dugKey = (cell: { col: number; row: number; depth: number }) =>
     `${cell.col},${cell.row},${cell.depth}`;
-  let bunkerHolder: { current: BunkerState } | null = null;
-  let bankedBunkerSettle: { settledDug: number; dugLength: number } | null =
-    null;
+  // The banked-bunker settle context: the mutable bunker holder threaded into
+  // the replay (its ore banks into the shared bag) plus the watermark bounds
+  // written back atomically. Null when this trip dug no banked cells; set as
+  // one unit so the both-present invariant is a single null check.
+  let bankedSettle: {
+    holder: { current: BunkerState };
+    settledDug: number;
+    dugLength: number;
+  } | null = null;
   if (bunkerDigCells.length > 0) {
     const loaded = await loadBankedBunkerForSettle(sql, playerId);
     if (!loaded) {
@@ -792,8 +798,8 @@ export async function POST(request: Request): Promise<Response> {
         { status: 409 },
       );
     }
-    bunkerHolder = { current: loaded.bunker };
-    bankedBunkerSettle = {
+    bankedSettle = {
+      holder: { current: loaded.bunker },
       settledDug: loaded.settledDug,
       dugLength: loaded.storedDug.length,
     };
@@ -804,7 +810,7 @@ export async function POST(request: Request): Promise<Response> {
     gear,
     replayConsumables,
     replayBaseDiff,
-    { bunkerFootprint: replayBunkerFootprint, bunker: bunkerHolder },
+    { bunkerFootprint: replayBunkerFootprint, bunker: bankedSettle?.holder },
   );
   const railReconciliation =
     ownedRow.elevator_depth > 0 && ownedElevatorColumn !== null
@@ -937,12 +943,12 @@ export async function POST(request: Request): Promise<Response> {
       RETURNING part_id
     ), banked_settle AS (
       UPDATE bunkers
-      SET settled_dug = ${bankedBunkerSettle?.dugLength ?? 0},
-          loot = ${JSON.stringify(bunkerHolder?.current.loot ?? [])}::jsonb,
+      SET settled_dug = ${bankedSettle?.dugLength ?? 0},
+          loot = ${JSON.stringify(bankedSettle?.holder.current.loot ?? [])}::jsonb,
           updated_at = now()
-      WHERE ${bankedBunkerSettle !== null}
+      WHERE ${bankedSettle !== null}
         AND player_id = ${playerId}
-        AND settled_dug = ${bankedBunkerSettle?.settledDug ?? 0}
+        AND settled_dug = ${bankedSettle?.settledDug ?? 0}
         AND EXISTS (SELECT 1 FROM world)
       RETURNING player_id
     )

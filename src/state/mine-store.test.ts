@@ -15,7 +15,11 @@ import {
   setCell,
   type WorldDiff,
 } from "@/sim/mine";
-import { type AccountSaveSummary, useMineStore } from "./mine-store";
+import {
+  type AccountSaveSummary,
+  TRIP_CHECKPOINT_ACTION_INTERVAL,
+  useMineStore,
+} from "./mine-store";
 
 const store = () => useMineStore.getState();
 
@@ -4169,5 +4173,124 @@ describe("mine store upgrade flow", () => {
       expect(store().saveConflict).toBe("none");
       expect(store().cashOut).toMatchObject({ state: "error" });
     });
+  });
+});
+
+describe("incremental trip check-ins", () => {
+  const flush = () => new Promise((resolve) => setTimeout(resolve));
+
+  function signedInMine(moves: MineAction[]) {
+    const local = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: vi.fn((key: string) => local.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => local.set(key, value)),
+      removeItem: vi.fn((key: string) => local.delete(key)),
+    });
+    const mine = clearedBunkerMine();
+    useMineStore.setState((state) => ({
+      mine,
+      seed: 123,
+      gear: DEFAULT_GEAR,
+      consumables: STARTING_CONSUMABLES,
+      tripIndex: 2,
+      tripBaseDiff: [],
+      moves: [...moves],
+      cashOut: { state: "idle" },
+      pendingBunker: null,
+      activeSlot: 1,
+      worldLoaded: true,
+      // A signed-in (non-guest) session is the only one with a server
+      // checkpoint row; guests persist locally only.
+      accountSync: { ...state.accountSync, mode: "cloud_loaded" },
+    }));
+    return vi.fn(async (url: string) => {
+      if (url === "/api/account/trip") return jsonResponse({});
+      // The first move of a trip fires a freshness probe; answer it so it
+      // does not throw, but the assertions only care about the checkpoint.
+      if (url === "/api/mine/world/version") {
+        return jsonResponse({ world: { seed: 123, tripCount: 2 } });
+      }
+      return jsonResponse({});
+    });
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("checks the trip in immediately when a bunker is claimed", async () => {
+    const fetchMock = signedInMine(["down", "down", "down", "down", "down"]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(useMineStore.getState().claimPendingBunker(START_COL, 5)).toBe(true);
+    await flush();
+
+    expect(
+      fetchMock.mock.calls.some(([url]) => url === "/api/account/trip"),
+    ).toBe(true);
+  });
+
+  it("checks in on the action cadence without banking", async () => {
+    const fetchMock = signedInMine(["down"]);
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Walk along the surface until the action counter crosses the interval.
+    for (let i = 0; i < TRIP_CHECKPOINT_ACTION_INTERVAL + 2; i++) {
+      useMineStore.getState().move(i % 2 === 0 ? "right" : "left");
+    }
+    await flush();
+
+    const checkpointCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === "/api/account/trip",
+    );
+    expect(checkpointCalls.length).toBeGreaterThan(0);
+    // Never a bank: a check-in must not credit vibes or advance the trip.
+    expect(fetchMock.mock.calls.some(([url]) => url === "/api/mine/bank")).toBe(
+      false,
+    );
+  });
+
+  it("checks in on the cadence for a pure bunker-dig session", async () => {
+    // A player who drops into a banked bunker and digs generates only
+    // bunker-dig actions, never `move`, so the cadence must ride the shared
+    // logged-action seam or a whole dig session would never check in.
+    const fetchMock = signedInMine(["down"]);
+    vi.stubGlobal("fetch", fetchMock);
+    const bunker = createBunker({
+      col: START_COL - 3,
+      row: 1,
+      width: 7,
+      height: 5,
+    });
+
+    for (let i = 0; i < TRIP_CHECKPOINT_ACTION_INTERVAL + 2; i++) {
+      expect(
+        useMineStore.getState().recordBankedBunkerDig(bunker, START_COL, 5, 1),
+      ).toBe(true);
+    }
+    await flush();
+
+    expect(
+      fetchMock.mock.calls.some(([url]) => url === "/api/account/trip"),
+    ).toBe(true);
+  });
+
+  it("does not check in for a guest session", async () => {
+    const fetchMock = signedInMine(["down"]);
+    useMineStore.setState((state) => ({
+      accountSync: { ...state.accountSync, mode: "guest" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    useMineStore.getState().claimPendingBunker(START_COL, 5);
+    for (let i = 0; i < TRIP_CHECKPOINT_ACTION_INTERVAL + 2; i++) {
+      useMineStore.getState().move(i % 2 === 0 ? "right" : "left");
+    }
+    await flush();
+
+    expect(
+      fetchMock.mock.calls.some(([url]) => url === "/api/account/trip"),
+    ).toBe(false);
   });
 });

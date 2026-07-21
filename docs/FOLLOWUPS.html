@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-215" data-f="F-215" data-priority="polish">
+    <h3>F-215: Persist a bunker claim to its durable row mid-trip, and survive a death</h3>
+    <dl>
+      <dt>Context</dt><dd>Incremental trip check-ins (2026-07-20) now upload the in-flight trip log (bunker claim included) to the account checkpoint after a claim and every 25 actions, so a reload or another device can resume the pending claim. But the claim is still only durable as a REPLAYABLE LOG against the unchanged world: it does not become a real <code>bunkers</code> row until the surface bank, and a terminal cave-in still resets the trip on resume (<code>replaySavedTrip</code> consumes the collapse), so the claim and dug progress are lost on death. The user's phrasing was "the bunker claim should be sent to the server immediately"; the log check-in satisfies the cross-device and reload half, not the survive-a-death or truly-banked-while-underground half.</dd>
+      <dt>Blocker (if any)</dt><dd>Making a claim a durable <code>bunkers</code> row mid-trip means running the anti-cheat validation that only the bank does today (<code>validatePendingBunkerClaim</code> replays the log to the claim move), so it needs a validated mid-trip checkpoint endpoint that replays server-side, plus a mode switch: once a claim is banked mid-trip, its subsequent digs must follow the BANKED path (immediate <code>excavateBunker</code> plus <code>bunker-dig</code> log actions) instead of the pending path, and the two must not double-count at the eventual surface bank. This is the larger "incremental check-in with server replay" arc, not the log-cadence slice.</dd>
+      <dt>Unblock condition</dt><dd>Decide whether a mid-trip claim should durably bank into the <code>bunkers</code> row (surviving death) or stay a resumable log. If durable: add a validated checkpoint that replays and persists the claim once, switch that claim to the banked dig path for the rest of the trip, and reconcile so the surface bank neither re-claims nor re-credits. Prove a death after a mid-trip claim keeps the claim and its dug cells while still losing the carried ore (the trip-bag risk model).</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-07-20 by the incremental-trip-check-in slice; the log-cadence half shipped, this durable-claim half is deferred.</dd>
+    </dl>
+  </section>
+
   <section id="F-214" data-f="F-214" data-priority="polish">
     <h3>F-214: Fold pending bunker digs into the shared trip bag</h3>
     <dl>

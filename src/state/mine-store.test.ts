@@ -4251,6 +4251,31 @@ describe("incremental trip check-ins", () => {
     );
   });
 
+  it("checks in on the cadence for a pure bunker-dig session", async () => {
+    // A player who drops into a banked bunker and digs generates only
+    // bunker-dig actions, never `move`, so the cadence must ride the shared
+    // logged-action seam or a whole dig session would never check in.
+    const fetchMock = signedInMine(["down"]);
+    vi.stubGlobal("fetch", fetchMock);
+    const bunker = createBunker({
+      col: START_COL - 3,
+      row: 1,
+      width: 7,
+      height: 5,
+    });
+
+    for (let i = 0; i < TRIP_CHECKPOINT_ACTION_INTERVAL + 2; i++) {
+      expect(
+        useMineStore.getState().recordBankedBunkerDig(bunker, START_COL, 5, 1),
+      ).toBe(true);
+    }
+    await flush();
+
+    expect(
+      fetchMock.mock.calls.some(([url]) => url === "/api/account/trip"),
+    ).toBe(true);
+  });
+
   it("does not check in for a guest session", async () => {
     const fetchMock = signedInMine(["down"]);
     useMineStore.setState((state) => ({

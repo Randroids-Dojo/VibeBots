@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="checkin-cadence-covers-bunker-digs" data-date="2026-07-20">
+    <h3>Cover bunker digs in the check-in cadence, and drop a redundant serialize</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code>. A quality pass over the two same-day slices below.</dd>
+      <dt>PR</dt><dd>None. A <code>/simplify</code> review found the check-in cadence hung only off the <code>move</code> reducer, but a first-person bunker dig session logs <code>bunker-dig</code> actions through <code>recordBankedBunkerDig</code> and never <code>move</code>, so a pure in-bunker session (the case the cadence comment names) checked in zero times. It corrects the just-shipped "long dig session survives a reload" claim, which held only for surface sessions.</dd>
+      <dt>Changed</dt><dd><code>src/state/mine-store.ts</code>: the cadence now rides a shared <code>checkpointTripOnCadence</code> hook called from both <code>move</code> and <code>recordBankedBunkerDig</code>, so every logged trip action advances it. <code>checkpointTripInBackground</code> now uploads the snapshot directly instead of calling <code>persistCurrentTrip</code> a second time, dropping one redundant full-trip <code>JSON.stringify</code> and local-storage write per check-in (the reducer already persisted). Minor: hoisted a doubly-built action string in <code>recordBankedBunkerDig</code>, and in <code>src/app/api/mine/bank/route.ts</code> merged the coupled <code>bunkerHolder</code> and <code>bankedBunkerSettle</code> locals into one <code>bankedSettle</code> object. A new test proves a pure bunker-dig session checks in.</dd>
+      <dt>Verification</dt><dd>Full unit suite green (1776, +1). Typecheck, Biome, dash, <code>git diff --check</code> clean. No behavior change beyond bunker digs now advancing the check-in cadence; no new schema, route, version, or package bump.</dd>
+      <dt>Assumptions</dt><dd>Deliberately not fixed in this pass (noted in the review): the <code>bunker</code> mutable-holder vs <code>bunkerFootprint</code> context split (order-dependent loot write-back makes the holder defensible), extracting a <code>validateBankedBunkerDigs</code> helper (already route-tested, and F-214 reworks the seam), and the private <code>dugKey</code> vs <code>cellKey</code> duplication (cross-module export for a format string).</dd>
+      <dt>GDD coverage</dt><dd>No coverage row change.</dd>
+      <dt>Followups</dt><dd>None new. Tips (Rule 13) and stamps (Rule 14): none, background reliability.</dd>
+    </dl>
+  </article>
+
   <article data-slice="incremental-trip-checkins" data-date="2026-07-20">
     <h3>Check the in-flight trip in to the server as you play</h3>
     <dl>

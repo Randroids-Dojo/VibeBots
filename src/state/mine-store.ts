@@ -510,6 +510,14 @@ function pendingBunkerPayload(
 // pageshow) can fire in bursts and every probe is a network roundtrip.
 export const FRESHNESS_PROBE_MIN_INTERVAL_MS = 10_000;
 
+// Incremental server check-ins: how many logged trip actions between
+// background uploads of the in-flight trip to the account checkpoint, so a
+// long dig session (especially inside a bunker) survives a reload or a swap
+// to another device without banking. A claim fires one immediately on top of
+// this cadence. Every action would be a network roundtrip per dig; this keeps
+// at most one upload per this many actions.
+export const TRIP_CHECKPOINT_ACTION_INTERVAL = 25;
+
 /** Same-browser tabs share save updates instantly, no push needed. */
 export const SAVE_SYNC_CHANNEL = "vibebots-save-sync";
 
@@ -633,6 +641,25 @@ export const useMineStore = create<MineSessionState>((set, get) => {
   const clearAccountTripCheckpoint = () => {
     if (get().accountSync.mode === "guest") return;
     void clearRemoteAccountTrip();
+  };
+  // A background upload of the in-flight trip to the account checkpoint, fired
+  // on the action cadence and right after a bunker claim. Best-effort by
+  // design: the local trip stays the authority, so a failed or stale upload
+  // never blocks digging. Guests have no checkpoint row (they persist
+  // locally), and the in-flight guard keeps a burst of actions from stacking
+  // uploads. A stale result means another device advanced the world; the
+  // first-move freshness probe and the bank's own re-validation own that
+  // conflict, so this stays quiet rather than interrupting play.
+  let tripCheckpointInFlight = false;
+  const checkpointTripInBackground = () => {
+    if (get().accountSync.mode === "guest") return;
+    if (tripCheckpointInFlight) return;
+    tripCheckpointInFlight = true;
+    void storeAccountTripCheckpoint()
+      .catch(() => {})
+      .finally(() => {
+        tripCheckpointInFlight = false;
+      });
   };
   // Drops this device's local trip and adopts the cloud world, gear, and
   // save slots. Used after a cloud load and whenever another device
@@ -806,6 +833,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         // A trip is starting: catch a save that advanced on another
         // device while real progress on this one is still tiny.
         if (moves.length === 1) void get().checkWorldFreshness();
+        // Incremental server check-in on the action cadence, so a long
+        // session survives a reload without banking. `moves` already has this
+        // action pushed, so its length is the running action count.
+        else if (moves.length % TRIP_CHECKPOINT_ACTION_INTERVAL === 0) {
+          checkpointTripInBackground();
+        }
       }
       return result;
     },
@@ -1557,6 +1590,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         shopNote: "bunker claimed; bank at surface to save it",
       });
       persistCurrentTrip();
+      // Claiming a bunker is exactly the progress worth not losing to a
+      // reload, so it checks in immediately rather than waiting for the
+      // action cadence.
+      checkpointTripInBackground();
       return true;
     },
 

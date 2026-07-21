@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="incremental-trip-checkins" data-date="2026-07-20">
+    <h3>Check the in-flight trip in to the server as you play</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, rebased on current <code>origin/main</code>. Direct commit to <code>main</code> at the user's standing instruction.</dd>
+      <dt>PR</dt><dd>None. Answers the user's ask that a bunker claim and dig progress reach the server as they happen, not only at the surface bank, so a reload or a swap to another device does not lose them. Investigation found the storage layer already exists (<code>mine_trip_checkpoints</code> table + <code>PUT/GET/DELETE /api/account/trip</code>, which persists the raw in-flight trip log against the unchanged world with a seed/trip-count staleness guard and no vibes credited); only the trigger cadence was missing, so this is a small client change rather than a new table or route.</dd>
+      <dt>Changed</dt><dd><code>src/state/mine-store.ts</code>: a fire-and-forget <code>checkpointTripInBackground</code> helper (reusing the existing <code>storeAccountTripCheckpoint</code>) that skips guests, guards against overlapping uploads, and swallows failures so the local trip stays authoritative. It fires immediately when a bunker is claimed (<code>claimPendingBunker</code>) and every <code>TRIP_CHECKPOINT_ACTION_INTERVAL</code> (25) logged actions from the <code>move</code> reducer. Three mine-store tests: a claim checks in, the action cadence checks in without ever calling the bank, and a guest session checks in never.</dd>
+      <dt>Verification</dt><dd>Full unit suite green (1775, +3). Typecheck, Biome, dash, and <code>git diff --check</code> clean. No new schema, route, dependency, <code>MINE_VERSION</code>, or package bump; the checkpoint route and table already shipped.</dd>
+      <dt>Assumptions</dt><dd>Best-effort by design: a failed or stale background check-in never blocks digging, because the local trip and the bank's own re-validation remain the authority. A stale result (another device advanced the world) is left to the existing first-move freshness probe and the bank conflict flow rather than interrupting play, keeping one consistent conflict path (RULE 7). Only signed-in players have a checkpoint row; guests persist locally, unchanged.</dd>
+      <dt>GDD coverage</dt><dd>No coverage row change; a reliability improvement over existing persistence.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-215">F-215</a> tracks the larger unshipped piece the user gestured at: persisting a claim into the durable <code>bunkers</code> row mid-trip (banked-while-underground) and surviving a death, both of which need a validated mid-trip checkpoint replay and a claim mode-switch, beyond this log-cadence slice. Tips reviewed (Rule 13): none, no new player-facing mine rule or control. Stamps reviewed (Rule 14): none, a background durability change.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-ore-into-trip-bag" data-date="2026-07-20">
     <h3>Bunker ore rides the trip bag and pays at the surface</h3>
     <dl>

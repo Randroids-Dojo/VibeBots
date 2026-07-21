@@ -144,6 +144,7 @@ test.describe("fire tv sessions", () => {
     const menuBox = await menu.boundingBox();
     if (!menuBox) throw new Error("settings menu has no bounding box");
     expect(menuBox.x).toBeGreaterThanOrEqual(safeX);
+    expect(menuBox.y).toBeGreaterThanOrEqual(safeY);
     expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(
       viewport.width - safeX + 1,
     );
@@ -204,8 +205,12 @@ test("desktop sessions never see the TV deck and keep a full-bleed shell", async
   await expect(shell).toHaveAttribute("data-tv-safe-area", "off");
   const box = await shell.boundingBox();
   if (!box) throw new Error("mine shell has no bounding box");
+  const viewport = page.viewportSize();
+  if (!viewport) throw new Error("viewport size unavailable");
   expect(Math.round(box.x)).toBe(0);
   expect(Math.round(box.y)).toBe(0);
+  expect(Math.round(box.width)).toBe(viewport.width);
+  expect(Math.round(box.height)).toBe(viewport.height);
 });
 
 test("gamepad D-pad digs and releases through the shared cadence", async ({

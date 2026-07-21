@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-21-0.1.281-fire-tv-safe-area";
+export const RELEASE_NOTICE_ID = "2026-07-21-0.1.282-fire-tv-safe-area";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.281",
+      version: "0.1.282",
       date: "2026-07-21",
       title: "The mine fits on your TV screen",
       intro:
@@ -18,6 +18,23 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "A pause menu taller than the screen scrolls instead of losing its bottom buttons past the edge.",
+        },
+      ],
+    },
+    {
+      version: "0.1.281",
+      date: "2026-07-20",
+      title: "Fresh-claim bunker ore counts too",
+      intro:
+        "Ore you dig in a bunker you just claimed now banks with the rest of your haul, and your cash-out screen counts it instead of quietly showing none.",
+      changes: [
+        {
+          build,
+          text: "A freshly claimed bunker used to settle its ore into a bag of its own at the surface. Now it fills the same cargo bag as everything else you dig, so a claim-and-dig trip carries and banks as one haul, just like digging a bunker you already own.",
+        },
+        {
+          build,
+          text: "That also fixes a bunker-only cash-out that could read 'Sold no resources' while still adding vibes for that ore: the screen now names what you actually banked.",
         },
       ],
     },

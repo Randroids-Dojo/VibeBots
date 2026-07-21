@@ -28,9 +28,9 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-21-0.1.281-fire-tv-safe-area");
+    expect(release.noticeId).toBe("2026-07-21-0.1.282-fire-tv-safe-area");
     expect(latestNote).toMatchObject({
-      version: "0.1.281",
+      version: "0.1.282",
       title: "The mine fits on your TV screen",
       intro:
         "TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
@@ -38,6 +38,22 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "On a TV the whole mine plays inside a screen-safe frame, so the settings menu, the remote deck, and every button sit where the TV can actually show them.",
       "A pause menu taller than the screen scrolls instead of losing its bottom buttons past the edge.",
+    ]);
+  });
+
+  it("keeps the archived fresh-claim-ore note complete", () => {
+    const release = getAppRelease();
+    const claimNote = release.notes.find((note) => note.version === "0.1.281");
+
+    expect(claimNote).toMatchObject({
+      version: "0.1.281",
+      title: "Fresh-claim bunker ore counts too",
+      intro:
+        "Ore you dig in a bunker you just claimed now banks with the rest of your haul, and your cash-out screen counts it instead of quietly showing none.",
+    });
+    expect(claimNote?.changes.map((change) => change.text)).toEqual([
+      "A freshly claimed bunker used to settle its ore into a bag of its own at the surface. Now it fills the same cargo bag as everything else you dig, so a claim-and-dig trip carries and banks as one haul, just like digging a bunker you already own.",
+      "That also fixes a bunker-only cash-out that could read 'Sold no resources' while still adding vibes for that ore: the screen now names what you actually banked.",
     ]);
   });
 

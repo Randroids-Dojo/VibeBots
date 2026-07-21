@@ -43,12 +43,13 @@ import {
   placeBasePart,
   proposedBunkerFootprint,
   STARTER_BASE_PART_INVENTORY,
-  settleBunkerDig,
 } from "@/sim/bunker";
-import { deriveBunkerBlockSeed } from "@/sim/bunker-blocks";
+import {
+  bunkerSpawnPocketCells,
+  deriveBunkerBlockSeed,
+} from "@/sim/bunker-blocks";
 import {
   applyAction,
-  carriedValue,
   cellAt,
   createMine,
   elevatorColumn,
@@ -743,13 +744,12 @@ export async function POST(request: Request): Promise<Response> {
       { status: 409 },
     );
   }
-  // A banked bunker's digs ride the shared trip bag: each `bunker-dig` action
-  // credits the same bag as mine ore during replay, and pays only here at the
-  // surface (F-116 trip-bag model). Load the banked bunker so the replay has
-  // its block seed, and validate every logged dig against the durable dug set
-  // and the settled watermark so a cell pays at most once and a stale or
-  // forged log cannot mint ore. Pending claims keep their own settle path
-  // below and never emit bunker-dig, so these two never overlap.
+  // Bunker digs ride the shared trip bag: each `bunker-dig` action credits the
+  // same bag as mine ore during replay and pays only here at the surface. The
+  // holder threaded into the replay is either this trip's fresh pending claim
+  // (F-214) or the player's existing banked bunker (F-116); a trip is one or
+  // the other (one bunker per player), never both. Each path validates the
+  // logged digs against its own ground truth so a forged log cannot mint ore.
   const bunkerDigCells = actions
     .map((action) => parseBunkerDigAction(action))
     .filter((cell): cell is { col: number; row: number; depth: number } =>
@@ -757,16 +757,47 @@ export async function POST(request: Request): Promise<Response> {
     );
   const dugKey = (cell: { col: number; row: number; depth: number }) =>
     `${cell.col},${cell.row},${cell.depth}`;
-  // The banked-bunker settle context: the mutable bunker holder threaded into
-  // the replay (its ore banks into the shared bag) plus the watermark bounds
-  // written back atomically. Null when this trip dug no banked cells; set as
-  // one unit so the both-present invariant is a single null check.
-  let bankedSettle: {
-    holder: { current: BunkerState };
-    settledDug: number;
-    dugLength: number;
-  } | null = null;
-  if (bunkerDigCells.length > 0) {
+  // The bunker whose ore this trip banks, as the mutable holder the replay
+  // credits into. Null when the trip dug no bunker cells.
+  let digHolder: { current: BunkerState } | null = null;
+  // For a banked bunker only: the watermark bounds written back atomically so
+  // a cell pays at most once across trips. A fresh pending claim needs none of
+  // this (all its digs settle this one trip).
+  let bankedSettle: { settledDug: number; dugLength: number } | null = null;
+  if (pendingBunker?.ok) {
+    // Fresh pending claim: any digs target the bunker just claimed this trip.
+    // Its dug chain is adjacency-validated above, so require its non-pocket
+    // dug cells to match the logged bunker-dig actions EXACTLY (both ways).
+    // Every claimed dig must carry a bunker-dig action that credits its ore
+    // into the shared bag, and every bunker-dig action must be a real claimed
+    // dig, so a forged action cannot credit an undug cell and a claim cannot
+    // bank cells whose ore was never carried.
+    const validated = pendingBunker.bunker;
+    const pocket = new Set(
+      bunkerSpawnPocketCells(validated.footprint).map(dugKey),
+    );
+    const claimed = new Set(
+      validated.dug.map(dugKey).filter((key) => !pocket.has(key)),
+    );
+    const logged = new Set(bunkerDigCells.map(dugKey));
+    const consistent =
+      claimed.size === logged.size &&
+      [...logged].every((key) => claimed.has(key));
+    if (!consistent) {
+      logMineCashOutEvent({
+        code: "cash_out_failed",
+        severity: "warn",
+        ...playerLogContext,
+        detail: "bunker dig out of sync with the pending claim",
+      });
+      return Response.json(
+        { error: "bunker dig out of sync; reopen the bunker" },
+        { status: 409 },
+      );
+    }
+    // A pocket-only claim (no real digs) credits nothing and needs no holder.
+    if (claimed.size > 0) digHolder = { current: validated };
+  } else if (bunkerDigCells.length > 0) {
     const loaded = await loadBankedBunkerForSettle(sql, playerId);
     if (!loaded) {
       logMineCashOutEvent({
@@ -780,8 +811,8 @@ export async function POST(request: Request): Promise<Response> {
         { status: 409 },
       );
     }
-    // Only cells dug this trip (at or past the watermark) are eligible. Cells
-    // below it were already sold; cells never dug are not in the set at all.
+    // Only cells dug this trip (at or past the watermark) are eligible.
+    // Cells below it were already sold; cells never dug are not in the set.
     const unsold = new Set(
       loaded.storedDug.slice(loaded.settledDug).map(dugKey),
     );
@@ -798,8 +829,8 @@ export async function POST(request: Request): Promise<Response> {
         { status: 409 },
       );
     }
+    digHolder = { current: loaded.bunker };
     bankedSettle = {
-      holder: { current: loaded.bunker },
       settledDug: loaded.settledDug,
       dugLength: loaded.storedDug.length,
     };
@@ -810,7 +841,7 @@ export async function POST(request: Request): Promise<Response> {
     gear,
     replayConsumables,
     replayBaseDiff,
-    { bunkerFootprint: replayBunkerFootprint, bunker: bankedSettle?.holder },
+    { bunkerFootprint: replayBunkerFootprint, bunker: digHolder },
   );
   const railReconciliation =
     ownedRow.elevator_depth > 0 && ownedElevatorColumn !== null
@@ -834,23 +865,18 @@ export async function POST(request: Request): Promise<Response> {
       replayCharges.plank - (railReconciliation?.refunded.plank ?? 0),
     ),
   };
-  const validatedBunker = pendingBunker?.ok ? pendingBunker.bunker : null;
   const bunkerInventory = pendingBunker?.ok ? pendingBunker.inventory : null;
-  // Settle the pending bunker's ore into a fresh gear-sized bag (F-116):
-  // what fits banks as vibes, the rest persists as collectible loot on the
-  // saved bunker. A fresh bag keeps the credit deterministic and
-  // independent of how mine and bunker digging interleaved, and caps
-  // bunker ore to one bagful per bank so digging cannot outpace surface
-  // mining. The pre-mined spawn pocket never pays.
-  let claimedBunker = validatedBunker;
-  let bunkerHaulVibes = 0;
-  if (validatedBunker) {
-    const bunkerBag = createMine(parsed.data.seed, gear);
-    claimedBunker = settleBunkerDig(bunkerBag, validatedBunker);
-    bunkerHaulVibes = carriedValue(bunkerBag.miner);
-  }
+  // The bunker persisted for a fresh pending claim (F-214). Its ore already
+  // banked into the SHARED trip bag during replay through the bunker-dig
+  // actions, so there is no separate settle here and no extra vibes to add:
+  // the credit is already in trip.bankedCredits. The dig holder carries any
+  // overflow loot the digs spilled; when the claim dug nothing beyond the
+  // spawn pocket the holder is null and the validated bunker is stored as-is.
+  const claimedBunker = pendingBunker?.ok
+    ? (digHolder?.current ?? pendingBunker.bunker)
+    : null;
   const hasPendingBunker = claimedBunker !== null;
-  const bankedCreditsTotal = trip.bankedCredits + bunkerHaulVibes;
+  const bankedCreditsTotal = trip.bankedCredits;
   if (replayStock.usedLegacySupportSnapshot) {
     logMineCashOutEvent({
       code: "legacy_support_reconciled",
@@ -919,7 +945,7 @@ export async function POST(request: Request): Promise<Response> {
       ON CONFLICT (player_id, part_id)
       DO UPDATE SET count = player_parts.count + EXCLUDED.count
     ), claimed_bunker AS (
-      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot, layout_version)
+      INSERT INTO bunkers (player_id, footprint, parts, dug, block_seed, loot, layout_version, settled_dug)
       SELECT
         ${playerId},
         ${JSON.stringify(claimedBunker?.footprint ?? {})}::jsonb,
@@ -927,7 +953,10 @@ export async function POST(request: Request): Promise<Response> {
         ${JSON.stringify(claimedBunker?.dug ?? [])}::jsonb,
         ${claimedBunker?.blockSeed ?? null},
         ${JSON.stringify(claimedBunker?.loot ?? [])}::jsonb,
-        ${BUNKER_LAYOUT_VERSION}
+        ${BUNKER_LAYOUT_VERSION},
+        -- A fresh claim's digs all settle into the shared bag this trip, so
+        -- the watermark covers the whole dug set and no cell re-pays later.
+        ${claimedBunker?.dug?.length ?? 0}
       WHERE ${hasPendingBunker} AND EXISTS (SELECT 1 FROM world)
       ON CONFLICT (player_id) DO NOTHING
       RETURNING player_id
@@ -944,7 +973,7 @@ export async function POST(request: Request): Promise<Response> {
     ), banked_settle AS (
       UPDATE bunkers
       SET settled_dug = ${bankedSettle?.dugLength ?? 0},
-          loot = ${JSON.stringify(bankedSettle?.holder.current.loot ?? [])}::jsonb,
+          loot = ${JSON.stringify(digHolder?.current.loot ?? [])}::jsonb,
           updated_at = now()
       WHERE ${bankedSettle !== null}
         AND player_id = ${playerId}

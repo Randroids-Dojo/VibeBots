@@ -48,7 +48,8 @@ test("mine shows the latest release note once to a fresh browser", async ({
   await expect(dialog.getByLabel("Release notes")).toBeVisible();
   const notes = dialog.locator("[data-release-note]");
   const recentReleaseNotes = [
-    ["0.1.281", "The mine fits on your TV screen"],
+    ["0.1.282", "The mine fits on your TV screen"],
+    ["0.1.281", "Fresh-claim bunker ore counts too"],
     ["0.1.280", "Bunker ore rides home in your bag"],
     ["0.1.279", "Bunker blocks take real swings"],
     ["0.1.278", "Walk onto the floors you place"],

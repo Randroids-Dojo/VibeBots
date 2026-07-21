@@ -748,7 +748,17 @@ describe("POST /api/mine/bank", () => {
     });
 
     const res = await post({
-      moves: ["down", "down", "down", "down", "down"],
+      // The dug cell rides a bunker-dig action in the log (F-214), so its ore
+      // banks into the shared bag; the payload dug set must match those
+      // actions exactly.
+      moves: [
+        "down",
+        "down",
+        "down",
+        "down",
+        "down",
+        `bunker-dig:${START_COL - 1},5,3`,
+      ],
       pendingBunker: {
         claimCol: START_COL,
         claimRow: 5,
@@ -848,6 +858,37 @@ describe("POST /api/mine/bank", () => {
 
     const res = await post({
       moves: ["down", "bunker-dig:" + `${START_COL},1,1`],
+    });
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "bunker dig out of sync; reopen the bunker",
+    });
+  });
+
+  it("rejects a pending claim whose logged digs do not match its dug set", async () => {
+    // F-214: a bunker-dig action for a cell the claim did not excavate would
+    // credit undug ore into the shared bag, so the payload dug set and the
+    // logged digs must match exactly.
+    mockSql(ownedBase, { diff: pendingBunkerBaseDiff(), bunkerClaimed: true });
+
+    const res = await post({
+      // Logs a dig for a cell absent from the claim's dug set below.
+      moves: [
+        "down",
+        "down",
+        "down",
+        "down",
+        "down",
+        `bunker-dig:${START_COL},5,1`,
+      ],
+      pendingBunker: {
+        claimCol: START_COL,
+        claimRow: 5,
+        claimedAtMoveCount: 5,
+        dug: [{ col: START_COL - 1, row: 5, depth: 3 }],
+        parts: [],
+      },
     });
 
     expect(res.status).toBe(409);

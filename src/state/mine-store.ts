@@ -1696,22 +1696,28 @@ export const useMineStore = create<MineSessionState>((set, get) => {
     },
 
     excavatePendingBunkerCell: (col, row, depth) => {
-      const pending = get().pendingBunker;
-      if (!pending || get().cashOut.state === "pending") return false;
+      const { mine, moves, tick, cashOut, pendingBunker: pending } = get();
+      if (!pending || cashOut.state === "pending") return false;
       const dug = excavateBunkerCell(pending.bunker, col, row, depth);
       if (!dug.ok) return false;
-      // Bunker ore is kept OUT of the live mine bag so it never changes
-      // how much surface ore fits (that would diverge from the server's
-      // mine-only replay). The block's ore is settled separately at bank
-      // against a fresh bag (F-116); the HUD previews it via
-      // pendingBunkerHaulValue.
+      // Bunker digging is part of the trip (F-214): the drop rides the SAME
+      // shared bag as mine ore via a logged bunker-dig action, positioned in
+      // the log so client and server rebuild the identical bag, and pays only
+      // at the surface bank. This matches the banked path; the holder is the
+      // just-dug pending bunker, and any overflow spills to its loot.
+      const holder = { current: dug.bunker };
+      const action = bunkerDigAction({ col, row, depth });
+      const result = applyAction(mine, action, { bunker: holder });
+      if (!result.ok) return false;
+      moves.push(action);
       set({
-        pendingBunker: {
-          ...pending,
-          bunker: dug.bunker,
-        },
+        pendingBunker: { ...pending, bunker: holder.current },
+        tick: tick + 1,
+        lastResult: result,
+        lastAction: null,
       });
       persistCurrentTrip();
+      checkpointTripOnCadence(moves.length);
       return true;
     },
 

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="pending-bunker-digs-shared-bag" data-date="2026-07-20">
+    <h3>Fresh-claim bunker digs bank with your haul (F-214)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, rebased on current <code>origin/main</code>. Direct commit to <code>main</code> at the user's standing instruction.</dd>
+      <dt>PR</dt><dd>None. Completes the "count bunker mining as part of the trip" theme the user asked for: the banked path shipped in 0.1.280, this brings the PENDING (unbanked) claim path onto the same shared-bag model, and it fixes a real F-181 truthfulness bug (a bunker-only cash-out could read <q>Sold no resources for N vibes</q>).</dd>
+      <dt>Changed</dt><dd><code>src/state/mine-store.ts</code>: <code>excavatePendingBunkerCell</code> now runs the dig through <code>applyAction</code> with the pending-bunker holder and pushes a logged <code>bunker-dig</code> action, so the ore credits the SAME shared cargo bag as mine ore (positioned in the log for identical client/server replay) and pays only at the surface. <code>src/app/api/mine/bank/route.ts</code>: threads the validated pending bunker as the replay holder (mutually exclusive with the banked path), drops the separate-bag <code>settleBunkerDig</code> settle and <code>bunkerHaulVibes</code>, requires the claim's non-pocket dug cells to match the logged digs exactly (anti-cheat), and inserts the fresh claim's row with <code>settled_dug</code> = dug length. <code>MINE_VERSION</code> 57 to 58. Release note (0.1.281), tests, and the F-214/F-181/F-150/Q-023 ledger reconciliation.</dd>
+      <dt>Verification</dt><dd>Full unit suite green (1778); new coverage: the pending dig logs its action and pays no instant vibes (mine-store), and the bank rejects a pending claim whose logged digs do not match its dug set (route). Typecheck, Biome, dash, and <code>git diff --check</code> clean. The bank atomic SQL is covered by query-string route mocks as before (real-database proof stays F-212).</dd>
+      <dt>Assumptions</dt><dd>Kept the payload dug field (its adjacency chain is still validated) plus a bidirectional consistency check against the logged digs, rather than deriving dug from the log and dropping the field, which stays a later simplification. Pending and banked never collide at bank (one bunker per player), so a single holder covers both. A fresh claim's digs all settle this trip, so <code>settled_dug</code> = dug length prevents any re-pay.</dd>
+      <dt>GDD coverage</dt><dd>No REQ row flips, but F-150 and F-181 (both blocks-release, bunker ore accounting truthfulness) are now down to the overflow-loot path only, reconciled in FOLLOWUPS with the remaining work pointed at <a href="FOLLOWUPS.html#F-213">F-213</a>.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-213">F-213</a> (fold overflow-loot collection into the shared bag) is now the last bunker-ore path still crediting vibes directly. Tips (Rule 13): the bunker-ore tip already teaches bag-and-carry and holds for both paths, no change. Stamps (Rule 14): none, an economy consistency fix. Triage note: the newest scheduled Full E2E (run 29734723001, head predating this work) was red with the known software-rendering flakes plus a shard timeout cascade; the two previously-unnamed <code>mine-bunker-fp.spec.ts</code> failures pass locally in ~30s each and are added to the CI_WORKFLOW flake list (F-132 owns the broader stabilization).</dd>
+    </dl>
+  </article>
+
   <article data-slice="checkin-cadence-covers-bunker-digs" data-date="2026-07-20">
     <h3>Cover bunker digs in the check-in cadence, and drop a redundant serialize</h3>
     <dl>

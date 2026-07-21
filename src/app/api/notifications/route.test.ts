@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-20-0.1.280-bunker-ore-trip-bag",
+      releaseNoticeId: "2026-07-20-0.1.281-fresh-claim-ore",
       releaseSummary:
-        "Bunker ore rides home in your bag: Ore you dig inside your bunker now goes into your cargo bag instead of paying out on the spot, so you carry it up and bank it with the rest of your haul.",
+        "Fresh-claim bunker ore counts too: Ore you dig in a bunker you just claimed now banks with the rest of your haul, and your cash-out screen counts it instead of quietly showing none.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-20-0.1.280-bunker-ore-trip-bag",
+      releaseNoticeId: "2026-07-20-0.1.281-fresh-claim-ore",
       attempted: 2,
       sent: 1,
       expired: 1,

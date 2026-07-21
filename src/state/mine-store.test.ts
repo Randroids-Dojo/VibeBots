@@ -2140,6 +2140,30 @@ describe("mine store upgrade flow", () => {
     });
   });
 
+  it("logs pending bunker digs into the trip so their ore rides the shared bag (F-214)", () => {
+    const mine = clearedBunkerMine();
+    useMineStore.setState({
+      mine,
+      seed: 123,
+      consumables: STARTING_CONSUMABLES,
+      moves: ["down", "down", "down", "down", "down"] as MineAction[],
+      tick: 5,
+    });
+
+    expect(store().claimPendingBunker(START_COL, 5)).toBe(true);
+    const col = START_COL - 1;
+    const row = 5;
+    const before = store().moves.length;
+    expect(store().excavatePendingBunkerCell(col, row, 3)).toBe(true);
+    // The dig is a logged trip action now, positioned in the mine log so the
+    // server rebuilds the identical shared bag; it no longer settles into a
+    // separate fresh bag at bank.
+    expect(store().moves).toContain(`bunker-dig:${col},${row},3`);
+    expect(store().moves.length).toBe(before + 1);
+    // No instant vibes: bunker ore pays only at the surface bank.
+    expect(store().mine.miner.bankedCredits).toBe(mine.miner.bankedCredits);
+  });
+
   it("resets a pending bunker locally through the sim reset (F-093)", () => {
     const mine = clearedBunkerMine();
     useMineStore.setState({

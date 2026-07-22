@@ -170,22 +170,30 @@ jobs:
     name: Full E2E (${{ matrix.shard_name }})
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full_e2e == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          - shard: "1/4"
-            shard_name: 1-of-4
-          - shard: "2/4"
-            shard_name: 2-of-4
-          - shard: "3/4"
-            shard_name: 3-of-4
-          - shard: "4/4"
-            shard_name: 4-of-4
+          - shard: "1/8"
+            shard_name: 1-of-8
+          - shard: "2/8"
+            shard_name: 2-of-8
+          - shard: "3/8"
+            shard_name: 3-of-8
+          - shard: "4/8"
+            shard_name: 4-of-8
+          - shard: "5/8"
+            shard_name: 5-of-8
+          - shard: "6/8"
+            shard_name: 6-of-8
+          - shard: "7/8"
+            shard_name: 7-of-8
+          - shard: "8/8"
+            shard_name: 8-of-8
     steps:
       # Anchor for the internal Playwright deadline (F-131). The whole job has a
-      # 20-minute budget; the deadline is computed from how much of it remains
+      # 30-minute budget; the deadline is computed from how much of it remains
       # right before the tests run, so a slow or hung shard fails with a report
       # instead of being cancelled at the job deadline with zero evidence.
       - name: Record job start
@@ -225,7 +233,7 @@ jobs:
           OVERRIDE_MS: ${{ inputs.full_e2e_global_timeout_ms }}
         run: |
           set -euo pipefail
-          job_budget_s=$(( 20 * 60 ))     # matches this job's timeout-minutes: 20
+          job_budget_s=$(( 30 * 60 ))     # matches this job's timeout-minutes: 30
           reserve_s=150                    # teardown + HTML/JSON report + artifact upload
           # Minimum non-zero deadline. Its only job is to stay above 0, because
           # Playwright treats globalTimeout: 0 as "unlimited", which would put
@@ -264,7 +272,13 @@ jobs:
       - name: Full E2E smoke tests
         env:
           E2E_GLOBAL_TIMEOUT_MS: ${{ steps.e2e_deadline.outputs.ms }}
-        run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
+        # Two workers on the 4-vCPU runner (Playwright's own CI default) run the
+        # software-rendered suite about twice as fast without over-subscribing
+        # the CPU that the SwiftShader GL fallback already leans on. With 8
+        # shards and a 30-minute budget this lets each shard finish its ~26
+        # tests (retries included) instead of the whole matrix timing out and
+        # cascading unrelated specs to red (F-131/F-132).
+        run: pnpm test:e2e --project=chromium --fully-parallel --workers=2 --shard=${{ matrix.shard }}
 
       # Guarantee the failure upload is never empty (F-131). The HTML reporter
       # writes playwright-report/index.html on a normal or global-timeout

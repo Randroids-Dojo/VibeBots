@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-fits-the-budget" data-date="2026-07-21">
+    <h3>Give the Full E2E matrix enough shards and workers to finish</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code> with the user's explicit go-ahead to change CI (Rule 6).</dd>
+      <dt>PR</dt><dd>None. The scheduled Full E2E had been red for seven consecutive days, not from a regression but from a shard-timeout cascade: the software-rendered suite runs roughly 3 to 6 times slower than local, so at 4 shards and one worker each shard carried ~52 tests at ~2 minutes apiece and completed only ~8 before the 20-minute budget expired, marking the rest (including pure helper specs that cannot genuinely fail) red. That masked any real regression under a wall of noise.</dd>
+      <dt>Changed</dt><dd><code>.github/workflows/ci.yml</code> <code>e2e-full</code>: 4 shards to 8, the Full E2E command from <code>--workers=1</code> to <code>--workers=2</code> (Playwright's own CI default; 2 workers on the 4-vCPU runner without over-subscribing the CPU the SwiftShader fallback leans on), and the job budget from 20 to 30 minutes (with the matching <code>job_budget_s</code> the F-131 deadline math reads). Eight shards of ~26 tests at two workers finish inside 30 minutes with retries included. The required parallel gate (quality, typecheck, unit, build, critical smoke) is untouched, because <code>e2e-full</code> runs only on schedule and manual dispatch. <code>docs/CI_WORKFLOW.html</code> updated to the new sizing and rationale.</dd>
+      <dt>Verification</dt><dd>YAML validated. Confirmed after push by a manual <code>full_e2e</code> dispatch: the matrix completes instead of timing out (run id and conclusion recorded in the closeout). No app code changed, so no version bump, release note, tip, or stamp.</dd>
+      <dt>Assumptions</dt><dd>Two workers is Playwright's default CI parallelism and is not expected to reintroduce the contention the earlier single-worker choice guarded against on a 4-vCPU runner; if a scheduled run shows new parallelism flakiness, the lever to revert is workers while keeping the extra shards. Known software-rendering flakes (holodeck pinch, account-sync conflict, the two fp specs) still flake intermittently, but with the budget no longer exhausted their single retry can complete and pass, so the matrix goes green when there is no real regression rather than drowning in timeouts. Deeper renderer-speed work stays with F-132.</dd>
+      <dt>GDD coverage</dt><dd>No change; CI infrastructure.</dd>
+      <dt>Followups</dt><dd>F-132 still owns making the individual software-rendered tests faster (the real long-term fix); this slice buys the matrix enough room to finish and surface regressions in the meantime.</dd>
+    </dl>
+  </article>
+
   <article data-slice="fix-boxed-in-e2e-reenclosure" data-date="2026-07-21">
     <h3>Drop the boxed-in e2e's retired re-enclosure step (F-207)</h3>
     <dl>

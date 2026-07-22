@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-217 Restore dependency installs in remote agent sessions</title>
+<meta name="dot-title" content="F-217 Restore dependency installs in remote agent sessions">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-21T21:31:30.000000-05:00">
+</head>
+<body>
+<article>
+<h1>F-217 Restore dependency installs in remote agent sessions</h1>
+<section id="description">
+F-217: A remote Claude Code session cannot run pnpm install because its GitHub credentials are scoped to this repository only, so fetching the tag-pinned @randroids-dojo/vibekit github dependency from codeload.github.com returns 403 and the install aborts. Without node_modules no typecheck, lint, unit test, build, Playwright run, or dependency bump can execute there, which stalls the autonomous loop; the Next.js 16.2.11 bump detected 2026-07-22 was deferred for exactly this reason. Unblock by granting remote sessions read access to Randroids-Dojo/VibeKit, publishing VibeKit to a registry the egress policy allows, or vendoring the pinned tarball, then prove a fresh remote session completes install, typecheck, and the unit suite, and land the deferred Next.js bump through the normal ledger procedure. VibeKit release detection also needs a scope-safe Detect-new there (gh is absent and the VibeKit repo is outside session scope).
+</section>
+</article>
+</body>
+</html>

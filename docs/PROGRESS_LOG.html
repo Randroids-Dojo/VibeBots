@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-one-worker-sixteen-shards" data-date="2026-07-21">
+    <h3>Revert Full E2E to one worker; the two-worker change caused the failures</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code> with the user's standing go-ahead on the CI fix.</dd>
+      <dt>PR</dt><dd>None. A correction: a comprehensive scan of the two full-matrix dispatches showed the failure scope was ~60 unique tests, not the ~10 an earlier under-sampled look reported, and that the two-worker sizing was the cause, not just a revealer.</dd>
+      <dt>What was wrong</dt><dd>The 8-shard, 2-worker resize fixed the timeout cascade, but a full scan of dispatch 29885827771 (~68 unique failures) and 29889999826 (~59, after the DPR cap) showed they were dominated by mine, elevator, viewport, and fp specs failing with multi-minute <em>timeouts</em> (for example "Test timeout of 240000ms exceeded" on tests that finish in ~30s locally). The tell: <code>mine-core.spec.ts</code> "mine actions begin immediately" fails in the two-worker Full matrix but PASSES at one worker in the required Critical gate, same test and same CI. That is CPU starvation from two SwiftShader renders sharing the 4-vCPU runner, exactly the contention risk flagged when two workers were introduced. Trading the timeout cascade for two-worker contention swapped one red for a bigger one.</dd>
+      <dt>Changed</dt><dd><code>.github/workflows/ci.yml</code> <code>e2e-full</code>: reverted the Full E2E command to <code>--workers=1</code>, doubled the matrix from 8 to 16 shards so each carries ~13 tests, and raised the budget to 35 minutes so a single-worker shard still fits (retries included). The software-fallback DPR cap stays (it speeds the one-worker path too). <code>docs/CI_WORKFLOW.html</code> updated to the corrected sizing and the contention finding.</dd>
+      <dt>Verification</dt><dd>YAML valid. Effect confirmed by a manual <code>full_e2e</code> dispatch (run id and unique-failure count recorded in the follow-up); expectation is that the contention timeouts clear, leaving only the handful of genuine software-rendering flakes (holodeck pinch, account-sync conflict, a couple of fp pixel/telemetry specs) that need F-132's renderer-speed work.</dd>
+      <dt>Assumptions</dt><dd>Sixteen single-worker shards of ~13 tests fit the 35-minute budget without the original 4-shard timeout, because the load per shard is a quarter of the original and there is no worker contention. If a shard still times out, the lever is more shards, never more workers.</dd>
+      <dt>Followups</dt><dd>F-132 owns the residual genuine flakes. Correcting my own scope estimate (~10 to ~60) is the honest record here.</dd>
+    </dl>
+  </article>
+
   <article data-slice="cap-dpr-on-software-fallback" data-date="2026-07-21">
     <h3>Cap the pixel ratio to 1 on the software GL fallback (F-132, path 1)</h3>
     <dl>

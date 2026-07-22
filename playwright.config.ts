@@ -32,11 +32,14 @@ if (!Number.isInteger(workerCount) || workerCount < 1) {
 
 export default defineConfig({
   testDir: "tests/e2e",
-  // The per-test cap. Local runs finish well under this; CI's SwiftShader
-  // software renderer is several times slower, so a generous ceiling keeps a
-  // slow-but-correct render (scene compile, first paint, camera settle) from
-  // tripping the cap. Tests that need even longer raise it themselves.
-  timeout: process.env.CI ? 120_000 : 60_000,
+  // The per-test cap stays at 60s. Raising it to 120s on CI was measured to
+  // backfire: a few slow-but-correct software renders passed, but the two
+  // shards holding clusters of slow tests then let each linger to 120s and
+  // ran past the 35-minute shard budget into a global timeout, re-masking
+  // their real results. Keeping 60s means every shard completes; the handful
+  // of genuinely-slow renders stay with F-132 (per-test or more-shards work),
+  // where the fix does not risk timing out a whole shard.
+  timeout: 60_000,
   // A whole-suite deadline that ends before the CI job deadline so a slow or
   // hung shard fails (and uploads its report) instead of being cancelled with no
   // evidence (F-131). Unset locally and for Critical E2E, so those run

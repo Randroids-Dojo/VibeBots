@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-revert-120s-timeout" data-date="2026-07-22">
+    <h3>Revert the 120s CI per-test cap; it timed out two shards</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code>.</dd>
+      <dt>PR</dt><dd>None. The dispatch that added the 120s cap and <code>--disable-dev-shm-usage</code> (run 29893356785) dropped unique failures from 30 to 25, but two shards (holding clusters of slow tests) let each slow test linger to 120s and ran past the 35-minute budget into a global timeout ("Timed out waiting 1901s"), re-masking their real results. Net that is worse than the stable 60s state, so the cap is reverted.</dd>
+      <dt>Changed</dt><dd><code>playwright.config.ts</code>: per-test timeout back to a flat 60s (dropped the CI 120s). Kept <code>--disable-dev-shm-usage</code> on CI (a pure win against the SwiftShader shm-exhaustion crashes) and the earlier one-worker / 16-shard / DPR-cap settings.</dd>
+      <dt>Where the F-132 path-1 work landed</dt><dd>Full trajectory of unique Full E2E failures on the completing matrix: 68 (4 shards, 2 workers) to 59 (software-fallback DPR cap) to 30 (one worker, 16 shards, the big drop, contention removed), with the shm crash fix knocking a few more off inside that. Every shard completes in 6 to 15 minutes at this sizing. The stable endpoint is roughly 25 to 30 genuinely software-rendering-limited failures (slow renders that still miss a 60s cap, occasional SwiftShader crashes, and canvas pixel/telemetry assertions that do not settle under the software fallback), spread across the fp and mine 3D specs.</dd>
+      <dt>Assessment</dt><dd>The timeout cascade and the two-worker contention (the two things making the matrix uniformly red and masked) are fixed; the matrix now completes and shows the truth. Closing the residual ~25 to green is deeper F-132 work with real cost tradeoffs: many more shards so each holds no slow cluster, GPU-enabled runners, per-test render/assertion hardening, or accepting a documented flaky-tier. That is a decision to surface, not to keep grinding blind (each iteration is a ~30-minute dispatch and the failures do not reproduce on a fast local machine even under the E2E_SOFTWARE_GL CI-sim mode added this session).</dd>
+      <dt>Followups</dt><dd>F-132 owns the residual. No product code changed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="full-e2e-timeout-and-shm" data-date="2026-07-22">
     <h3>Full E2E: raise the CI per-test cap and stop the SwiftShader shm crashes</h3>
     <dl>

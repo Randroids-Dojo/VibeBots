@@ -33,6 +33,7 @@ import {
   shouldFireFpLongPress,
   shouldFireFpTapAct,
 } from "./bunker-fp-press";
+import { formatRaidCooldown, raidCooldownMsLeft } from "./bunker-fp-raid";
 import { getFpRaidHudSnapshot, subscribeFpRaidHud } from "./bunker-fp-raid-hud";
 import {
   type FpTargetInfo,
@@ -107,6 +108,11 @@ function FpBoxedInHint() {
     </button>
   );
 }
+
+/** How long the raid's win/loss banner stays up after the settled raid
+ * clears from the store, so even a seconds-long raid ends with a readable
+ * verdict instead of the HUD snapping straight back to the build tools. */
+const RAID_RESULT_HOLD_MS = 6000;
 
 /** Per-platform tutorial copy: coarse pointers teach the touch
  * gestures, everyone else the mouse and keyboard (Rule 10: all text
@@ -263,6 +269,7 @@ export function BunkerFpHud({
   onStartLiveRaid,
   raidTierCeiling,
   raidStartAllowed,
+  nextRaidAvailableAtMs,
 }: {
   inventory: BasePartInventory;
   tool: BunkerToolAction;
@@ -296,6 +303,10 @@ export function BunkerFpHud({
   raidTierCeiling: number;
   /** False while the bunker is a mid-trip claim (raids need it banked). */
   raidStartAllowed: boolean;
+  /** Server clock (ms) when the raid cooldown ends; null when a raid may
+   * start now. While it is in the future the Start control gives way to a
+   * live countdown instead of a button that would silently 409. */
+  nextRaidAvailableAtMs: number | null;
 }) {
   const [coarse, setCoarse] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -313,6 +324,45 @@ export function BunkerFpHud({
   useEffect(() => {
     if (!raidActive) setAbandonArmed(false);
   }, [raidActive]);
+  // Hold the win/loss banner for a beat after the raid clears. The resolve
+  // response drops `activeLiveRaid` almost immediately after the outcome
+  // settles, which used to erase "Bunker held!"/"Bunker breached!" within a
+  // network round-trip; a raid that ends fast then read as ending for no
+  // reason. The live panel keeps priority while a raid runs.
+  const [heldRaidOutcome, setHeldRaidOutcome] = useState<"won" | "lost" | null>(
+    null,
+  );
+  useEffect(() => {
+    if (raidActive) {
+      setHeldRaidOutcome(raid.outcome === "active" ? null : raid.outcome);
+    }
+  }, [raidActive, raid.outcome]);
+  useEffect(() => {
+    if (raidActive || heldRaidOutcome === null) return;
+    const timer = setTimeout(
+      () => setHeldRaidOutcome(null),
+      RAID_RESULT_HOLD_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [raidActive, heldRaidOutcome]);
+  // One-second countdown tick while the raid cooldown runs; the interval
+  // stops itself once the deadline passes so an idle HUD stops re-rendering.
+  const [cooldownNowMs, setCooldownNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (nextRaidAvailableAtMs === null) return;
+    setCooldownNowMs(Date.now());
+    if (nextRaidAvailableAtMs <= Date.now()) return;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setCooldownNowMs(now);
+      if (now >= nextRaidAvailableAtMs) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [nextRaidAvailableAtMs]);
+  const cooldownMsLeft = raidCooldownMsLeft(
+    nextRaidAvailableAtMs,
+    cooldownNowMs,
+  );
   const [raidTier, setRaidTier] = useState(1);
   const pickedTier = Math.min(raidTier, Math.max(1, raidTierCeiling));
   const js = useRef(createJoystick());
@@ -581,6 +631,26 @@ export function BunkerFpHud({
         </div>
       ) : (
         <>
+          {heldRaidOutcome !== null && (
+            <div
+              className="bunker-fp-raid-panel"
+              data-testid="bunker-fp-raid-panel"
+              role="status"
+            >
+              <strong
+                className={
+                  heldRaidOutcome === "won"
+                    ? "bunker-fp-raid-result bunker-fp-raid-won"
+                    : "bunker-fp-raid-result bunker-fp-raid-lost"
+                }
+                data-testid="bunker-fp-raid-result"
+              >
+                {heldRaidOutcome === "won"
+                  ? "Bunker held!"
+                  : "Bunker breached!"}
+              </strong>
+            </div>
+          )}
           <FpTargetLabel />
           <FpBoxedInHint />
           <BunkerFpTutorial coarse={coarse} />
@@ -687,45 +757,58 @@ export function BunkerFpHud({
             className="bunker-fp-raid-start"
             data-testid="bunker-fp-raid-start"
           >
-            {raidTierCeiling > 1 && (
-              <span className="bunker-fp-raid-tier">
-                <button
-                  type="button"
-                  aria-label="Lower raid tier"
-                  disabled={pickedTier <= 1}
-                  onClick={() => setRaidTier(Math.max(1, pickedTier - 1))}
-                >
-                  -
-                </button>
-                <span data-testid="bunker-fp-raid-tier">{`Tier ${pickedTier}`}</span>
-                <button
-                  type="button"
-                  aria-label="Raise raid tier"
-                  disabled={pickedTier >= raidTierCeiling}
-                  onClick={() =>
-                    setRaidTier(Math.min(raidTierCeiling, pickedTier + 1))
-                  }
-                >
-                  +
-                </button>
+            {cooldownMsLeft > 0 ? (
+              <span
+                className="bunker-fp-raid-cooldown"
+                data-testid="bunker-fp-raid-cooldown"
+                role="status"
+                title="The Clankers regroup between raids"
+              >
+                {`Next raid in ${formatRaidCooldown(cooldownMsLeft)}`}
               </span>
+            ) : (
+              <>
+                {raidTierCeiling > 1 && (
+                  <span className="bunker-fp-raid-tier">
+                    <button
+                      type="button"
+                      aria-label="Lower raid tier"
+                      disabled={pickedTier <= 1}
+                      onClick={() => setRaidTier(Math.max(1, pickedTier - 1))}
+                    >
+                      -
+                    </button>
+                    <span data-testid="bunker-fp-raid-tier">{`Tier ${pickedTier}`}</span>
+                    <button
+                      type="button"
+                      aria-label="Raise raid tier"
+                      disabled={pickedTier >= raidTierCeiling}
+                      onClick={() =>
+                        setRaidTier(Math.min(raidTierCeiling, pickedTier + 1))
+                      }
+                    >
+                      +
+                    </button>
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="bunker-fp-raid-start-button"
+                  data-testid="bunker-fp-raid-start-button"
+                  disabled={!raidStartAllowed}
+                  title={
+                    raidStartAllowed
+                      ? undefined
+                      : "Bank the bunker at the surface first"
+                  }
+                  onClick={() => onStartLiveRaid(pickedTier)}
+                >
+                  {raidTierCeiling > 1
+                    ? `Start raid (T${pickedTier})`
+                    : "Start raid"}
+                </button>
+              </>
             )}
-            <button
-              type="button"
-              className="bunker-fp-raid-start-button"
-              data-testid="bunker-fp-raid-start-button"
-              disabled={!raidStartAllowed}
-              title={
-                raidStartAllowed
-                  ? undefined
-                  : "Bank the bunker at the surface first"
-              }
-              onClick={() => onStartLiveRaid(pickedTier)}
-            >
-              {raidTierCeiling > 1
-                ? `Start raid (T${pickedTier})`
-                : "Start raid"}
-            </button>
           </div>
           <button
             type="button"

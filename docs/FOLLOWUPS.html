@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-218" data-f="F-218" data-priority="blocks-release">
+    <h3>F-218: Stage the live raid opening so the wave is visible and survivable</h3>
+    <dl>
+      <dt>Context</dt><dd>User playtest 2026-07-22: <q>I never see the clankers when I'm in the bunker and the time ends immediately.</q> A pure-sim repro (Node driver over <code>createLiveRaid</code>/<code>stepLiveRaid</code>: fresh 7x5 claim, only the 3x3x3 spawn pocket dug, player standing on the pocket floor at depth 0) ends the 180-second raid LOST at tick 20 of 1080, about 3.3 seconds in. The wave spawns 1 to 4 cells outside the footprint on the depth-0 approach ring, walks the open approach around the claim, enters the open pocket, and the first contact kills the miner. The Clankers are invisible for nearly the entire approach because they travel outside the dug interior, so the fight reads as <q>the timer ended for no reason.</q> The verdict banner and cooldown countdown (package 0.1.283) made the OUTCOME readable; the opening pacing still loses an undefended bunker in seconds with nothing to see or do.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. Kill-on-contact, the energy model, and the client-run raid are GDD contract; the exact numbers are explicitly provisional (<q>meant to be tuned in playtests</q>), and this playtest is the tuning evidence.</dd>
+      <dt>Unblock condition</dt><dd>Stage the opening so the player can see the threat and react before it can kill: spawn the wave at the far edge of the approach ring instead of 1 cell out, stagger Clanker activation so arrivals spread across the opening seconds, and make the approach observable from inside (audio cue, HUD proximity hint, or a visible entry moment). Keep kill-on-contact and the energy model. Recommended default: spawn at <code>APPROACH_MARGIN</code> distance and activate one Clanker per action window. Prove with a sim-level test that a stationary fresh-claim player survives past the first visible entry, and with the raid e2e that a visible Clanker precedes the first possible loss.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-07-22 by the raid-cooldown-clarity slice (package 0.1.283). Dot <code>VibeBots-f-218-stage-35695d31</code>.</dd>
+    </dl>
+  </section>
+
   <section id="F-217" data-f="F-217" data-priority="blocks-release">
     <h3>F-217: Restore dependency installs in remote agent sessions</h3>
     <dl>

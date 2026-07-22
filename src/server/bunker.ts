@@ -618,6 +618,15 @@ export async function loadBunkerView(
     raid_version: unknown;
     started_at: string | Date;
   }>;
+  // Newest raid start regardless of settlement, for the cooldown the HUD
+  // shows: the same row the start route's own gate reads, so the countdown
+  // and the 409 it prevents can never disagree.
+  const cooldownRows = (await sql`
+    SELECT started_at
+    FROM bunker_raids
+    WHERE player_id = ${playerId}
+    ORDER BY started_at DESC
+    LIMIT 1`) as Array<{ started_at: string | Date }>;
   const player = playerRows[0] ?? {
     emeralds: 0,
     track_xp: 0,
@@ -649,10 +658,19 @@ export async function loadBunkerView(
   const bunker = parsedBunker
     ? await backfillMissingBlockSeed(sql, playerId, parsedBunker)
     : null;
+  const lastRaidStartMs = cooldownRows[0]
+    ? new Date(cooldownRows[0].started_at).getTime()
+    : Number.NaN;
+  const cooldownEndsMs =
+    lastRaidStartMs + BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
   return {
     bunker,
     inventory: await ensureStarterBaseParts(sql, playerId),
     activeLiveRaid,
+    nextRaidAvailableAtMs:
+      Number.isFinite(cooldownEndsMs) && cooldownEndsMs > Date.now()
+        ? cooldownEndsMs
+        : null,
     revision: Number.isFinite(revisionValue) ? revisionValue : 0,
     player: {
       balance: player.emeralds,

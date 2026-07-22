@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-21-0.1.282-fire-tv-safe-area";
+export const RELEASE_NOTICE_ID = "2026-07-22-0.1.283-raid-cooldown-clarity";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.283",
+      date: "2026-07-22",
+      title: "Raids say how they ended and when the next one starts",
+      intro:
+        "A raid now ends with its verdict on screen, and the Start raid button shows the real wait before the Clankers come back instead of silently doing nothing.",
+      changes: [
+        {
+          build,
+          text: "When your raid settles, 'Bunker held!' or 'Bunker breached!' stays up for a moment instead of vanishing the instant the server confirms it. Even a raid that ends fast now tells you how it ended.",
+        },
+        {
+          build,
+          text: "Raids recharge on a shared cooldown, but the button never said so: pressing Start raid again just did nothing. While the Clankers regroup, the button becomes a countdown to the next raid.",
+        },
+      ],
+    },
     {
       version: "0.1.282",
       date: "2026-07-21",

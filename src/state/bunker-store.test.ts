@@ -92,6 +92,7 @@ describe("bunker store", () => {
       bunker: null,
       inventory: { ...EMPTY_BASE_PART_INVENTORY },
       activeLiveRaid: null,
+      nextRaidAvailableAtMs: null,
       player: null,
       revision: 0,
       lastRaidReward: null,
@@ -178,6 +179,22 @@ describe("bunker store", () => {
     expect(body).not.toBeNull();
     expect(mockedStartLive).toHaveBeenCalledWith(1);
     expect(useBunkerStore.getState().activeLiveRaid).toEqual(liveRaid);
+  });
+
+  it("adopts the raid cooldown deadline and clears it when absent", async () => {
+    const deadline = Date.now() + 4 * 60 * 60 * 1000;
+    mockedLoad.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { ...view, nextRaidAvailableAtMs: deadline },
+    });
+    await useBunkerStore.getState().loadBunker();
+    expect(useBunkerStore.getState().nextRaidAvailableAtMs).toBe(deadline);
+
+    // A response from a server predating the field resets to "can start".
+    mockedLoad.mockResolvedValue({ ok: true, status: 200, body: view });
+    await useBunkerStore.getState().loadBunker();
+    expect(useBunkerStore.getState().nextRaidAvailableAtMs).toBeNull();
   });
 
   it("resolves a live raid and adopts the settled view", async () => {

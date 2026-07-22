@@ -239,6 +239,64 @@ describe("loadBunkerView live raid discrimination", () => {
     expect(view.activeLiveRaid).toBeNull();
   });
 
+  it("exposes the raid cooldown deadline from the newest start, settled or not", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T01:00:00.000Z"));
+    // The raid settled an hour ago; the 4h cooldown still runs from its
+    // start, so the view carries the deadline the HUD counts down to.
+    const startedAt = new Date("2026-07-15T00:00:00.000Z");
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT started_at"))
+        return [{ started_at: startedAt.toISOString() }];
+      return [];
+    });
+
+    const view = await loadBunkerView(sql as never, "player-1");
+
+    expect(view.activeLiveRaid).toBeNull();
+    expect(view.nextRaidAvailableAtMs).toBe(
+      startedAt.getTime() + 4 * 60 * 60 * 1000,
+    );
+  });
+
+  it("reports no cooldown once the window has passed, and none with no raids", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T05:00:00.001Z"));
+    const staleSql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
+      if (query.includes("SELECT snapshot")) return [];
+      if (query.includes("SELECT started_at"))
+        return [
+          { started_at: new Date("2026-07-15T00:00:00.000Z").toISOString() },
+        ];
+      return [];
+    });
+    expect(
+      (await loadBunkerView(staleSql as never, "player-1"))
+        .nextRaidAvailableAtMs,
+    ).toBeNull();
+
+    const emptySql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
+      return [];
+    });
+    expect(
+      (await loadBunkerView(emptySql as never, "player-1"))
+        .nextRaidAvailableAtMs,
+    ).toBeNull();
+  });
+
   it("settles a past-grace live raid as a forfeit loss on load", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T01:00:00.000Z"));

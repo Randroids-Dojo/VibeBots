@@ -24,18 +24,34 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fire-tv-safe-area note complete", () => {
+  it("keeps the latest raid-cooldown-clarity note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-21-0.1.282-fire-tv-safe-area");
+    expect(release.noticeId).toBe("2026-07-22-0.1.283-raid-cooldown-clarity");
     expect(latestNote).toMatchObject({
+      version: "0.1.283",
+      title: "Raids say how they ended and when the next one starts",
+      intro:
+        "A raid now ends with its verdict on screen, and the Start raid button shows the real wait before the Clankers come back instead of silently doing nothing.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "When your raid settles, 'Bunker held!' or 'Bunker breached!' stays up for a moment instead of vanishing the instant the server confirms it. Even a raid that ends fast now tells you how it ended.",
+      "Raids recharge on a shared cooldown, but the button never said so: pressing Start raid again just did nothing. While the Clankers regroup, the button becomes a countdown to the next raid.",
+    ]);
+  });
+
+  it("keeps the archived fire-tv-safe-area note complete", () => {
+    const release = getAppRelease();
+    const tvNote = release.notes.find((note) => note.version === "0.1.282");
+
+    expect(tvNote).toMatchObject({
       version: "0.1.282",
       title: "The mine fits on your TV screen",
       intro:
         "TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(tvNote?.changes.map((change) => change.text)).toEqual([
       "On a TV the whole mine plays inside a screen-safe frame, so the settings menu, the remote deck, and every button sit where the TV can actually show them.",
       "A pause menu taller than the screen scrolls instead of losing its bottom buttons past the edge.",
     ]);

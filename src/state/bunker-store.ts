@@ -48,6 +48,9 @@ export interface BunkerStoreState {
    * (Q-024 option D). The client fights it in the first-person canvas and
    * resolves it. */
   activeLiveRaid: LiveRaidActiveView | null;
+  /** Server clock (ms) when the raid cooldown ends, or null when a raid
+   * may start now; drives the HUD's Start-button/countdown swap. */
+  nextRaidAvailableAtMs: number | null;
   player: BunkerPlayerProgress | null;
   /** Last server revision the store has adopted (F-122). Banked edits echo
    * it as `expectedRevision` and the store drops any response that would
@@ -157,6 +160,7 @@ function applyResponse(
     bunker: body.bunker,
     inventory: body.inventory,
     activeLiveRaid: body.activeLiveRaid ?? null,
+    nextRaidAvailableAtMs: body.nextRaidAvailableAtMs ?? null,
     player: body.player,
     revision: body.revision,
     lastRaidReward: body.reward ?? null,
@@ -200,6 +204,7 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
   activeLiveRaid: null,
+  nextRaidAvailableAtMs: null,
   player: null,
   revision: 0,
   lastRaidReward: null,

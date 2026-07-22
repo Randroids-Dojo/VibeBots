@@ -329,6 +329,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Player levels unlock higher raid tiers: bigger waves, tougher bites, more XP.",
   "Tip: Inside your bunker, Start raid drops you into a live first-person fight. The Clankers hunt you through the halls, and stopping one drops XP to walk over.",
   "Tip: Leaving a live raid forfeits it: press Escape or tap Leave raid in the HUD. You cannot slip out and re-enter to retry, so hold your ground.",
+  "Tip: The Clankers regroup for hours after a raid, win or lose. The Start raid spot counts down to the next one.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",
@@ -1185,6 +1186,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
   const collectBunkerLootRemote = useBunkerStore((s) => s.collectLoot);
   const activeBunkerLiveRaid = useBunkerStore((s) => s.activeLiveRaid);
   const startBunkerLiveRaid = useBunkerStore((s) => s.startLiveRaid);
+  const bunkerNextRaidAvailableAtMs = useBunkerStore(
+    (s) => s.nextRaidAvailableAtMs,
+  );
   const resolveBunkerLiveRaid = useBunkerStore((s) => s.resolveLiveRaid);
   const forfeitBunkerLiveRaid = useBunkerStore((s) => s.forfeitLiveRaid);
   const repairBunker = useBunkerStore((s) => s.repairBunker);
@@ -3745,9 +3749,18 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onOpenStatus={openStatusFromFp}
           player={bunkerPlayer}
           onExit={exitFpBunker}
-          onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
+          onStartLiveRaid={(tier) =>
+            void startBunkerLiveRaid(tier).then((result) => {
+              // A rejected start (e.g. a cooldown this client had not seen
+              // because another device raided) resyncs the view, so the
+              // Start button flips to the authoritative countdown instead
+              // of silently doing nothing.
+              if (result === null) void loadBunker();
+            })
+          }
           raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
           raidStartAllowed={!pendingBunkerActive}
+          nextRaidAvailableAtMs={bunkerNextRaidAvailableAtMs}
         />
       )}
       {!fpBunkerActive && mineSceneReady && (

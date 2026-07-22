@@ -37,6 +37,7 @@ import {
   validSlotsFor,
 } from "@/state/workshop-store";
 import { setDatasetNumber } from "./dataset-diagnostics";
+import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -874,6 +875,7 @@ export default function WorkshopCanvas({
       dpr={dpr}
       shadows
     >
+      <FallbackDprCap />
       <WorkshopScene />
       <MenuLift lift={menuLift} />
       <PerfProbeBridge source="workshop" />

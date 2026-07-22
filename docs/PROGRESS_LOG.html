@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="cap-dpr-on-software-fallback" data-date="2026-07-21">
+    <h3>Cap the pixel ratio to 1 on the software GL fallback (F-132, path 1)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code>. First render-cost slice of the F-132 path-1 work (make the app render within the software fallback's limits so the Full E2E assertions hold), chosen by the user over quarantining the flaky specs.</dd>
+      <dt>PR</dt><dd>None. Investigation found the expensive passes (PMREM environment, shadows, postprocessing) are ALREADY gated off the non-WebGPU backend (<code>studio-environment.tsx</code>, <code>arena-canvas.tsx</code>, <code>holodeck-canvas.tsx</code>), so the untapped lever was device pixel ratio: it was gated on the pointer tier (up to 2x), not the backend, so headless CI (fine-pointer, GPU-weak) rendered the SwiftShader fallback at 2x DPR, roughly 4x the fill work per frame. That stalls frames and flakes the timing-sensitive smoke (camera gestures not settling, sim ticks not advancing inside a test's wall-clock window).</dd>
+      <dt>Changed</dt><dd>New <code>src/components/fallback-dpr-cap.tsx</code>: a Canvas child that reads the resolved renderer and, only on the non-WebGPU backend, drops the pixel ratio to 1 (<code>state.setDpr(1)</code>). Added to all five 3D canvases (arena, holodeck, workshop, mine, bunker-fp). The WebGPU backend keeps its full tier DPR, so capable devices and phones lose nothing; the weakest devices (and CI) get faster frames. Also added an env-gated CI-sim mode to <code>playwright.config.ts</code> (<code>E2E_SOFTWARE_GL=1</code> forces the SwiftShader path locally) so software-rendering flakes can be reproduced and fixed without a 30-minute dispatch, the reproduction tool the graphics-capability work had been missing.</dd>
+      <dt>Verification</dt><dd>Typecheck, Biome, build clean. Under the new <code>E2E_SOFTWARE_GL=1</code> mode the previously-failing arena, holodeck, workshop, and fp specs (including the pixel-based "renders dirt, rock, ore, not one flat gray") all pass locally at DPR 1, so the cap does not break any assertion. Real effect on the CI runner's frame rate is measured by a manual <code>full_e2e</code> dispatch (run id and shard pass counts recorded in the follow-up).</dd>
+      <dt>Assumptions</dt><dd>My 16-core machine renders SwiftShader fast enough that the CI slowness flakes do not reproduce even under <code>E2E_SOFTWARE_GL</code>, so this cap is a sound, high-leverage reduction rather than a locally-proven fix for each failing test. It targets the shared cause (fill cost on the weak runner); tests whose flake is a brittle timing ASSUMPTION rather than frame rate (arena's tick assertion assumes a match outlasts its 700ms sample, but matches resolve in ~90 ticks) will need their own robustness fix and are not claimed fixed here.</dd>
+      <dt>GDD coverage</dt><dd>No change; a rendering-capability perf gate, invisible on capable devices.</dd>
+      <dt>Followups</dt><dd>F-132 continues: the dispatch measures how many flakes the DPR cap clears; the residual brittle-timing assertions (arena tick, camera-gesture windows) get robustness fixes next. No player-facing change, so no release note, tip, or stamp.</dd>
+    </dl>
+  </article>
+
   <article data-slice="full-e2e-dispatch-outcome" data-date="2026-07-21">
     <h3>Full E2E capacity fix: dispatch outcome (cascade gone, flakes remain)</h3>
     <dl>

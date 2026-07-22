@@ -63,6 +63,7 @@ import {
 } from "@/sim/mine";
 import { useMineStore } from "@/state/mine-store";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
+import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
   type GraphicsFeatures,
   graphicsFeaturesFor,
@@ -2794,6 +2795,7 @@ export default function MineCanvas(props: MineCanvasProps) {
       gl={createWebGPU}
       shadows={features.shadows ? "soft" : false}
     >
+      <FallbackDprCap />
       <MineScene
         {...props}
         graphicsFeatures={features}

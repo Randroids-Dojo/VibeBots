@@ -86,5 +86,27 @@ export default defineConfig({
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
         },
       },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        browserName: "chromium",
+        // CI-sim: force the SwiftShader software GL path that headless Linux
+        // CI runners fall back to (no GPU), so the software-rendering flakes
+        // that only surface in the Full E2E matrix can be reproduced and
+        // fixed locally (F-132). Off by default; set E2E_SOFTWARE_GL=1.
+        ...(process.env.E2E_SOFTWARE_GL
+          ? {
+              launchOptions: {
+                args: [
+                  "--use-gl=angle",
+                  "--use-angle=swiftshader",
+                  "--disable-gpu",
+                ],
+              },
+            }
+          : {}),
+      },
+    },
+  ],
 });

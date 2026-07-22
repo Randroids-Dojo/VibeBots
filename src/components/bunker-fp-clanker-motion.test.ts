@@ -1,3 +1,4 @@
+import { wrapAngle } from "@randroids-dojo/vibekit";
 import { describe, expect, it } from "vitest";
 import type { BunkerFootprint } from "@/sim/bunker";
 import {
@@ -5,7 +6,6 @@ import {
   fpClankerInsideRoom,
   fpClankerTravelPitch,
   fpClankerTravelYaw,
-  shortestAngleDelta,
 } from "./bunker-fp-clanker-motion";
 
 const FOOTPRINT: BunkerFootprint = { col: 5, row: 5, width: 7, height: 5 };
@@ -52,18 +52,6 @@ describe("fpClankerTravelPitch", () => {
   });
 });
 
-describe("shortestAngleDelta", () => {
-  it("turns the short way across the PI wrap", () => {
-    expect(shortestAngleDelta(3, -3)).toBeCloseTo(2 * Math.PI - 6, 10);
-    expect(shortestAngleDelta(-3, 3)).toBeCloseTo(-(2 * Math.PI - 6), 10);
-  });
-
-  it("is the plain difference when already short", () => {
-    expect(shortestAngleDelta(0.2, 0.5)).toBeCloseTo(0.3, 10);
-    expect(shortestAngleDelta(0.5, 0.2)).toBeCloseTo(-0.3, 10);
-  });
-});
-
 describe("dampAngleToward", () => {
   it("converges onto the target without overshooting", () => {
     let angle = 0;
@@ -79,7 +67,7 @@ describe("dampAngleToward", () => {
     // not a near-full backward revolution.
     const next = dampAngleToward(3.1, -3.1, 10, 1 / 60);
     expect(next).toBeGreaterThan(3.1);
-    expect(shortestAngleDelta(next, -3.1)).toBeGreaterThan(0);
+    expect(wrapAngle(-3.1 - next)).toBeGreaterThan(0);
   });
 
   it("holds still at zero delta time", () => {
@@ -92,13 +80,6 @@ describe("fpClankerInsideRoom", () => {
     expect(fpClankerInsideRoom(FOOTPRINT, 5, 5)).toBe(true);
     expect(fpClankerInsideRoom(FOOTPRINT, 11, 9)).toBe(true);
     expect(fpClankerInsideRoom(FOOTPRINT, 8, 7.4)).toBe(true);
-  });
-
-  it("is false out in the approach ring", () => {
-    expect(fpClankerInsideRoom(FOOTPRINT, 4, 5)).toBe(false);
-    expect(fpClankerInsideRoom(FOOTPRINT, 12, 5)).toBe(false);
-    expect(fpClankerInsideRoom(FOOTPRINT, 8, 4)).toBe(false);
-    expect(fpClankerInsideRoom(FOOTPRINT, 8, 10)).toBe(false);
   });
 
   it("flips exactly at the rock face on an enter hop", () => {

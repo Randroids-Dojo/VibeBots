@@ -3,6 +3,7 @@
 import { useFrame } from "@react-three/fiber";
 import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import {
+  BoxGeometry,
   Color,
   type Group,
   InstancedMesh,
@@ -10,6 +11,7 @@ import {
   MeshStandardMaterial,
   OctahedronGeometry,
   Quaternion,
+  SphereGeometry,
   Vector3,
 } from "three/webgpu";
 import {
@@ -30,13 +32,11 @@ import {
   animateClankerBody,
   ClankerBody,
   type ClankerParts,
-  setGroupMaterialOpacity,
+  driveDissipatingGroup,
 } from "./clanker-visual";
 import {
   CLANKER_BURST_VISIBLE_SECONDS,
-  dissipatingOpacity,
   transientAnimationActive,
-  transientAnimationProgress,
 } from "./mine-transient-animation";
 
 /** The biggest wave the raid can field (tier cap), so the render pool is
@@ -56,6 +56,12 @@ const FP_CLANKER_FLOOR_LIFT = 0.32;
  * room's rock face (entering from the exterior approach, or tunneling back
  * out to flank). Short: it covers the crossing, not the walk. */
 const FP_EMERGE_DUST_SECONDS = 0.45;
+
+// Shared burrow-dust geometries (one per shape, like the mine's block
+// geometries): the materials stay per-slot because each slot's dust
+// fades independently, but the shapes carry no per-slot state.
+const FP_DUST_PUFF_GEOMETRY = new SphereGeometry(0.26, 10, 7);
+const FP_DUST_SHARD_GEOMETRY = new BoxGeometry(0.11, 0.07, 0.08);
 
 /** Fixed shard offsets for the burrow dust, world-unit scale 1. */
 const FP_DUST_SHARDS = [
@@ -104,8 +110,16 @@ interface FpClankerSlot {
   pitchAngle: number;
 }
 
+function resetSlot(slot: FpClankerSlot): void {
+  slot.deathElapsed = -1;
+  slot.dustElapsed = -1;
+  slot.inRoom = -1;
+  slot.yawAngle = 0;
+  slot.pitchAngle = 0;
+}
+
 function createSlot(): FpClankerSlot {
-  return {
+  const slot: FpClankerSlot = {
     group: { current: null },
     yaw: { current: null },
     pitch: { current: null },
@@ -119,20 +133,15 @@ function createSlot(): FpClankerSlot {
       sensor: { current: null },
       eye: { current: null },
     },
-    deathElapsed: -1,
-    dustElapsed: -1,
-    inRoom: -1,
+    // Clock and pose idle values are owned by resetSlot (single source).
+    deathElapsed: 0,
+    dustElapsed: 0,
+    inRoom: 0,
     yawAngle: 0,
     pitchAngle: 0,
   };
-}
-
-function resetSlot(slot: FpClankerSlot): void {
-  slot.deathElapsed = -1;
-  slot.dustElapsed = -1;
-  slot.inRoom = -1;
-  slot.yawAngle = 0;
-  slot.pitchAngle = 0;
+  resetSlot(slot);
+  return slot;
 }
 
 /**
@@ -265,22 +274,15 @@ export function FpClankerLayer({
           slot.dustElapsed = -1;
         } else {
           slot.dustElapsed += delta;
-          const dustActive = transientAnimationActive(
-            slot.dustElapsed,
-            FP_EMERGE_DUST_SECONDS,
-          );
-          dust.visible = dustActive;
-          if (dustActive) {
-            const progress = transientAnimationProgress(
+          if (
+            !driveDissipatingGroup(
+              dust,
               slot.dustElapsed,
               FP_EMERGE_DUST_SECONDS,
-            );
-            dust.scale.setScalar(0.35 + progress * 0.85);
-            setGroupMaterialOpacity(
-              dust,
-              dissipatingOpacity(slot.dustElapsed, FP_EMERGE_DUST_SECONDS),
-            );
-          } else {
+              0.35,
+              0.85,
+            )
+          ) {
             slot.dustElapsed = -1;
           }
         }
@@ -305,14 +307,10 @@ export function FpClankerLayer({
         const z = -depthF;
         if (slot.inRoom >= 0 && inRoom !== slot.inRoom) {
           // Crossing the rock face: kick a dust puff at the crossing point
-          // so the body reads as burrowing through, not ghosting.
+          // so the body reads as burrowing through, not ghosting. The dust
+          // block above renders it from the next frame.
           slot.dustElapsed = 0;
-          if (dust) {
-            dust.position.set(x, y, z);
-            dust.scale.setScalar(0.35);
-            setGroupMaterialOpacity(dust, 1);
-            dust.visible = true;
-          }
+          if (dust) dust.position.set(x, y, z);
         }
         slot.inRoom = inRoom;
         group.visible = inRoom === 1;
@@ -338,7 +336,6 @@ export function FpClankerLayer({
         drawn += 1;
         if (slot.parts.body.current) slot.parts.body.current.visible = true;
         group.position.set(x, y, z);
-        group.scale.setScalar(FP_CLANKER_SCALE);
         const yawGroup = slot.yaw.current;
         if (yawGroup) yawGroup.rotation.y = slot.yawAngle;
         const pitchGroup = slot.pitch.current;
@@ -369,33 +366,23 @@ export function FpClankerLayer({
           worldY(view.toRow) + FP_CLANKER_FLOOR_LIFT,
           -view.toDepth,
         );
-        group.scale.setScalar(FP_CLANKER_SCALE);
         slot.deathElapsed += delta;
-        const active = transientAnimationActive(
-          slot.deathElapsed,
-          CLANKER_BURST_VISIBLE_SECONDS,
-        );
-        group.visible = active;
-        if (active) drawn += 1;
-        if (slot.parts.body.current) slot.parts.body.current.visible = false;
         const burst = slot.burst.current;
-        if (burst) {
-          burst.visible = active;
-          if (active) {
-            const progress = transientAnimationProgress(
+        const active = burst
+          ? driveDissipatingGroup(
+              burst,
+              slot.deathElapsed,
+              CLANKER_BURST_VISIBLE_SECONDS,
+              0.6,
+              1.05,
+            )
+          : transientAnimationActive(
               slot.deathElapsed,
               CLANKER_BURST_VISIBLE_SECONDS,
             );
-            burst.scale.setScalar(0.6 + progress * 1.05);
-            setGroupMaterialOpacity(
-              burst,
-              dissipatingOpacity(
-                slot.deathElapsed,
-                CLANKER_BURST_VISIBLE_SECONDS,
-              ),
-            );
-          }
-        }
+        group.visible = active;
+        if (active) drawn += 1;
+        if (slot.parts.body.current) slot.parts.body.current.visible = false;
       }
     }
 
@@ -436,7 +423,7 @@ export function FpClankerLayer({
       {slots.map((slot, index) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: fixed-size pool, stable order.
         <group key={`fp-clanker:${index}`}>
-          <group ref={slot.group} visible={false}>
+          <group ref={slot.group} visible={false} scale={FP_CLANKER_SCALE}>
             <group ref={slot.yaw}>
               <group ref={slot.pitch}>
                 <group rotation={[FP_CLANKER_TILT_X, 0, 0]}>
@@ -455,8 +442,7 @@ export function FpClankerLayer({
               sibling of the body group so it stays visible while the body
               is still buried on the far side of the face. */}
           <group ref={slot.dust} visible={false}>
-            <mesh>
-              <sphereGeometry args={[0.26, 10, 7]} />
+            <mesh geometry={FP_DUST_PUFF_GEOMETRY}>
               <meshStandardMaterial
                 color="#8a8177"
                 roughness={0.95}
@@ -467,10 +453,10 @@ export function FpClankerLayer({
             {FP_DUST_SHARDS.map((shard) => (
               <mesh
                 key={`dust:${shard.x}:${shard.y}`}
+                geometry={FP_DUST_SHARD_GEOMETRY}
                 position={[shard.x, shard.y, shard.z]}
                 rotation={[shard.angle, 0.3, shard.angle * 0.7]}
               >
-                <boxGeometry args={[0.11, 0.07, 0.08]} />
                 <meshStandardMaterial
                   color="#6f675c"
                   roughness={0.9}

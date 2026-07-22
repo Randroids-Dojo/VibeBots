@@ -1,3 +1,4 @@
+import { wrapAngle } from "@randroids-dojo/vibekit";
 import type { BunkerFootprint } from "@/sim/bunker";
 
 /**
@@ -16,11 +17,10 @@ import type { BunkerFootprint } from "@/sim/bunker";
  */
 
 /** How fast a body turns toward its travel heading, per second. High
- * enough to settle well inside one 1/3 s hop, low enough that a corner
- * reads as a turn instead of a snap. */
+ * enough to settle well inside one hop window (FP_RAID_ACTION_SECONDS
+ * in bunker-fp-raid.ts, 1/3 s today; retune this if that changes), low
+ * enough that a corner reads as a turn instead of a snap. */
 export const FP_CLANKER_TURN_RATE = 10;
-
-const TWO_PI = Math.PI * 2;
 
 /**
  * Yaw that faces the +x-authored body along the horizontal travel
@@ -54,19 +54,11 @@ export function fpClankerTravelPitch(
   return Math.atan2(dy, Math.sqrt(dx * dx + dz * dz));
 }
 
-/** Wraps an angle difference to (-PI, PI] so damping always turns the
- * short way around. */
-export function shortestAngleDelta(from: number, to: number): number {
-  let diff = (to - from) % TWO_PI;
-  if (diff > Math.PI) diff -= TWO_PI;
-  if (diff <= -Math.PI) diff += TWO_PI;
-  return diff;
-}
-
 /**
  * Frame-rate-independent exponential approach of `current` toward
- * `target` along the shortest arc. Returns the new angle; the caller
- * stores it as the next frame's `current`.
+ * `target` along the shortest arc (vibekit's `wrapAngle` maps the
+ * difference to (-PI, PI]). Returns the new angle; the caller stores
+ * it as the next frame's `current`.
  */
 export function dampAngleToward(
   current: number,
@@ -74,7 +66,7 @@ export function dampAngleToward(
   ratePerSecond: number,
   deltaSeconds: number,
 ): number {
-  const diff = shortestAngleDelta(current, target);
+  const diff = wrapAngle(target - current);
   const step = 1 - Math.exp(-ratePerSecond * Math.max(0, deltaSeconds));
   return current + diff * step;
 }

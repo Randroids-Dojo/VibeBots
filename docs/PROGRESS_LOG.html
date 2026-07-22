@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-thirty-two-shards" data-date="2026-07-22">
+    <h3>Full E2E to 32 shards so slow clusters cannot run a shard long</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code> under the user's CI go-ahead (chose "more shards" over GPU runners, per-test hardening, or a flaky tier).</dd>
+      <dt>PR</dt><dd>None. At 16 single-worker shards the matrix completed and unique failures fell to ~30, but two shards that happened to hold clusters of the slow software-rendered specs ran the full budget while the rest finished in 6 to 15 minutes. Doubling to 32 shards (~6 tests each) spreads those slow specs out so no single shard carries a cluster, keeping every shard well inside the 35-minute budget without raising the per-test cap (which was measured to backfire).</dd>
+      <dt>Changed</dt><dd><code>.github/workflows/ci.yml</code> <code>e2e-full</code> matrix: 16 to 32 shards, one worker, 35-minute budget unchanged. <code>docs/CI_WORKFLOW.html</code> updated with the full sizing history and the rule: scale by shards, never workers or a bigger per-test cap, when the software renderer is the bottleneck. Everything else (DPR cap, <code>--disable-dev-shm-usage</code>, 60s per-test cap) stays.</dd>
+      <dt>Verification</dt><dd>YAML valid. Effect measured by a manual <code>full_e2e</code> dispatch (run id and unique-failure count recorded in the follow-up). Expectation: the slow-render timeout failures that only fail because a shard ran long clear, leaving the genuinely software-rendering-limited assertions (canvas pixel/telemetry that miss under SwiftShader, occasional GPU crashes) as the true residual for F-132.</dd>
+      <dt>Assumptions</dt><dd>Playwright shards by test order deterministically, so the two slow clusters that landed together at 16 shards split across more shards at 32. Thirty-two shard jobs exceed the account's concurrency cap and queue in waves, which lengthens wall-clock but not correctness (nightly). The per-shard checkout/build overhead is paid 32 times, which is wasteful but bounded; sharing a build artifact across shards is a later optimization, out of scope here.</dd>
+      <dt>Followups</dt><dd>F-132 owns whatever survives 32 shards. No product code changed.</dd>
+    </dl>
+  </article>
+
   <article data-slice="full-e2e-revert-120s-timeout" data-date="2026-07-22">
     <h3>Revert the 120s CI per-test cap; it timed out two shards</h3>
     <dl>

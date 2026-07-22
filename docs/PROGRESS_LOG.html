@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-timeout-and-shm" data-date="2026-07-22">
+    <h3>Full E2E: raise the CI per-test cap and stop the SwiftShader shm crashes</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code> under the user's CI go-ahead.</dd>
+      <dt>PR</dt><dd>None. Continues the F-132 path-1 work after the one-worker/16-shard fix. The one-worker dispatch (run 29891610727) dropped unique failures from 59 to 30 and completed every shard in 6 to 15 minutes (well under budget, no timeouts), confirming the contention was the big cause. A failure-mode scan of the residual 30 showed two dominant, config-fixable causes: 24 tests hitting the 60-second per-test cap (slow-but-correct renders under SwiftShader) and 9 browser CRASHES (the classic small-<code>/dev/shm</code> exhaustion the software renderer trips on the 3D scenes).</dd>
+      <dt>Changed</dt><dd><code>playwright.config.ts</code>: the per-test timeout is now 120s on CI (60s locally), so a slow-but-correct software render is not capped mid-paint; and the Chromium launch args add <code>--disable-dev-shm-usage</code> on CI, writing shared memory to <code>/tmp</code> instead of the tiny <code>/dev/shm</code> so the GPU process stops crashing. Both are standard CI-stability settings, scoped to CI (local runs keep the 60s cap and default args).</dd>
+      <dt>Verification</dt><dd>Typecheck, Biome clean; a local smoke confirms the config still runs. The CI effect (how far the 30 residual failures drop) is measured by a manual <code>full_e2e</code> dispatch recorded in the follow-up. The trajectory so far: 68 unique failures (4 shards, 2 workers) to 59 (DPR cap) to 30 (one worker, 16 shards), and this slice targets the 24 timeout and 9 crash failures inside that 30.</dd>
+      <dt>Assumptions</dt><dd>The 60s-cap failures are slow-but-correct (the render eventually settles), so more headroom lets them pass; a genuinely stuck test would still fail at 120s and is a real defect to chase separately. 120s per test still fits the 35-minute shard budget because only a few tests are slow and one-worker shards ran 6 to 15 minutes. If crashes persist after <code>--disable-dev-shm-usage</code>, the next lever is a software-GL stability flag, not more time.</dd>
+      <dt>Followups</dt><dd>F-132 owns whatever survives (canvas pixel/telemetry assertions that miss under the software renderer). No product code changed, so no release note, tip, or stamp.</dd>
+    </dl>
+  </article>
+
   <article data-slice="full-e2e-one-worker-sixteen-shards" data-date="2026-07-21">
     <h3>Revert Full E2E to one worker; the two-worker change caused the failures</h3>
     <dl>

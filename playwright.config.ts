@@ -32,7 +32,11 @@ if (!Number.isInteger(workerCount) || workerCount < 1) {
 
 export default defineConfig({
   testDir: "tests/e2e",
-  timeout: 60_000,
+  // The per-test cap. Local runs finish well under this; CI's SwiftShader
+  // software renderer is several times slower, so a generous ceiling keeps a
+  // slow-but-correct render (scene compile, first paint, camera settle) from
+  // tripping the cap. Tests that need even longer raise it themselves.
+  timeout: process.env.CI ? 120_000 : 60_000,
   // A whole-suite deadline that ends before the CI job deadline so a slow or
   // hung shard fails (and uploads its report) instead of being cancelled with no
   // evidence (F-131). Unset locally and for Critical E2E, so those run
@@ -91,21 +95,23 @@ export default defineConfig({
       name: "chromium",
       use: {
         browserName: "chromium",
-        // CI-sim: force the SwiftShader software GL path that headless Linux
-        // CI runners fall back to (no GPU), so the software-rendering flakes
-        // that only surface in the Full E2E matrix can be reproduced and
-        // fixed locally (F-132). Off by default; set E2E_SOFTWARE_GL=1.
-        ...(process.env.E2E_SOFTWARE_GL
-          ? {
-              launchOptions: {
-                args: [
-                  "--use-gl=angle",
-                  "--use-angle=swiftshader",
-                  "--disable-gpu",
-                ],
-              },
-            }
-          : {}),
+        // Chromium launch args:
+        // - On CI, --disable-dev-shm-usage: the runner's /dev/shm is small, and
+        //   the SwiftShader software renderer exhausts it and crashes the GPU
+        //   process under the 3D scenes; writing shared memory to /tmp instead
+        //   trades a little speed for stability (this was crashing shards).
+        // - E2E_SOFTWARE_GL forces the SwiftShader path locally so the CI-only
+        //   software-rendering behavior can be reproduced and fixed without a
+        //   30-minute dispatch (F-132). Off by default.
+        ...(() => {
+          const args = [
+            ...(process.env.CI ? ["--disable-dev-shm-usage"] : []),
+            ...(process.env.E2E_SOFTWARE_GL
+              ? ["--use-gl=angle", "--use-angle=swiftshader", "--disable-gpu"]
+              : []),
+          ];
+          return args.length ? { launchOptions: { args } } : {};
+        })(),
       },
     },
   ],

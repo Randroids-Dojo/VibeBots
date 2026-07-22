@@ -30,6 +30,17 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-infra-tuning-exhausted" data-date="2026-07-22">
+    <h3>Full E2E: infra tuning is exhausted; ~29 consistent software-render failures remain</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>backlog-hygiene</code>, direct commit to <code>main</code>. Records the 32-shard dispatch outcome and the definitive diagnosis, no config change.</dd>
+      <dt>PR</dt><dd>None. The 32-shard dispatch (run 29941310538) completed every shard inside the budget (max 24 minutes, no timeouts), confirming more shards removes the slow-cluster shard timeouts. But unique failures did NOT fall (30 at 16 shards to 36 here), because the residual is not timeout-driven.</dd>
+      <dt>The diagnosis</dt><dd>Comparing the 16-shard and 32-shard failing sets: 29 tests fail in BOTH runs (both attempts each), with only a ~7-test flaky fringe that differs by run. So the residual is ~29 CONSISTENT failures, not a large flaky pool. They are heavily the 3D-scene specs (<code>mine-bunker-fp</code> x12, <code>mine-warp-elevator</code> x4, <code>mine-bunker</code> x3, plus scattered mine-core/viewport/ui/nav) and all pass locally in under a minute, including under the <code>E2E_SOFTWARE_GL</code> CI-sim mode: they fail only on the CI runner's actual SwiftShader-on-4-vCPU, via 60-second render timeouts, occasional GPU crashes, and canvas pixel/telemetry assertions that never settle.</dd>
+      <dt>Where this leaves it</dt><dd>Infrastructure tuning is done and successful at what it can do: the matrix went from a 7-day timeout cascade that masked everything to a clean-completing 32-shard, one-worker matrix with no contention and no shard timeouts, so failures are now true and characterized. The ~29 consistent failures are a rendering-capability wall that sharding, worker count, per-test cap, the DPR cap, and the shm-crash fix cannot move. Green requires one of: GPU-enabled runners (the real fix, the tests would pass on a real GPU, but self-hosted or paid GPU runner infra), per-test rendering/assertion hardening for the software fallback (large, and it does not reproduce on a fast local machine so every iteration is a ~30-minute dispatch), or a documented non-blocking flaky-graphics tier (fast, trades coverage). This is a cost/ownership decision to surface, not to keep grinding.</dd>
+      <dt>Followups</dt><dd>F-132 owns the rendering-capability wall. The full config and trajectory are in <code>docs/CI_WORKFLOW.html</code>; the levers and their measured effects are in memory so the next attempt does not re-run the same dispatches.</dd>
+    </dl>
+  </article>
+
   <article data-slice="full-e2e-thirty-two-shards" data-date="2026-07-22">
     <h3>Full E2E to 32 shards so slow clusters cannot run a shard long</h3>
     <dl>

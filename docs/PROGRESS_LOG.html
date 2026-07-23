@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="next-16-2-11-security-upgrade" data-date="2026-07-23">
+    <h3>Next.js security fixes land without an application migration</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/deps/next-16.2.10-to-16.2.11</code></dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/291">#291</a></dd>
+      <dt>Changed</dt><dd>The mandatory Dependency Upgrade Gate detected Next.js <code>16.2.11</code> over the exact <code>16.2.10</code> pin. This isolated dependency slice applies the official security-only patch, refreshes its transitive lockfile graph, and updates <code>docs/DEPENDENCY_LEDGER.html</code>. The version-specific upgrade guide requires no codemod for this patch. React, React DOM, VibeKit, Rapier, three, fiber, and every application source file remain unchanged.</dd>
+      <dt>Verification</dt><dd><code>pnpm install</code> completed with the tag-pinned VibeKit dependency. The 200-case Playwright inventory remains 129 functional, 61 render, 3 visual, and 7 soak. <code>pnpm typecheck</code>, all 1,832 Vitest cases, <code>pnpm build</code> on Next.js 16.2.11, four Critical E2E cases, dash, sim-purity, and whitespace checks passed. Full lint exits 0 with the four existing warnings and three infos.</dd>
+      <dt>Assumptions</dt><dd>The official 16.2.11 release notes identify security fixes without an application migration, so a focused exact-version bump is safer than running unrelated codemods or changing React peers.</dd>
+      <dt>GDD coverage</dt><dd>No row or GDD build-log change. This is framework security maintenance with no game-rule, deterministic-version, package-version, release-note, tip, or stamp change.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-217">F-217</a> remains open because a successful install in this local environment does not restore repository access inside scope-limited remote sessions. Dot <code>VibeBots-upgrade-next-js-30815d0f</code> remains active through PR review and exact-main production verification.</dd>
+    </dl>
+  </article>
   <article data-slice="building-escape-readiness" data-date="2026-07-23">
     <h3>Building Escape waits for its route handler instead of racing it</h3>
     <dl>

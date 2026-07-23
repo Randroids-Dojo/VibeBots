@@ -12,6 +12,25 @@
 
 <main id="questions">
   <section data-date="2026-07-23" data-status="resolved">
+    <h2>Planned Stage 1 through Stage 7 merge authority</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 2 and authorized administrator squash merges for the planned CI rewrite Stage 1 through Stage 7 pull requests only.</dd>
+      <dt>Required gates</dt><dd>Each exact pull-request head must have green required checks, an approved CodeRabbit review, no actionable review threads, and a Ready Vercel preview. An ordinary merge must be attempted first and rejected by branch policy before the administrator path is eligible.</dd>
+      <dt>Boundary</dt><dd>The authorization covers only the staged migration described in <code>docs/ci-rewrite-prompt.md</code>. It does not authorize force pushes, branch deletion, secret changes, ruleset changes, unrelated work, or bypassing a technical or review failure.</dd>
+      <dt>Status</dt><dd>Resolved. Apply these gates independently to each planned stage and verify exact main plus production after every merge.</dd>
+    </dl>
+  </section>
+  <section data-date="2026-07-23" data-status="resolved">
+    <h2>Next.js 16.2.11 security update merge policy deadlock</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized exactly one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/291">PR #291</a>.</dd>
+      <dt>Evidence</dt><dd>Exact head <code>d4f98f19ed891953c7b4823841113047ee896c48</code> passed Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, and Vercel. CodeRabbit approved the exact head, Copilot reported no comments, and no actionable review threads remained.</dd>
+      <dt>Policy result</dt><dd>GitHub reported the pull request mergeable but blocked by base-branch policy and rejected the ordinary squash merge.</dd>
+      <dt>Resolution</dt><dd>PR #291 was administrator-squash merged as <code>0cc90e8ac6ee8ab0e6e9e41d62c176f40b7afd7a</code>. Exact-main CI run <code>30033536276</code> and CodeQL run <code>30033532050</code> passed. Production deployment <code>dpl_8x1AryYG7WLBQTqnB1qU2a865BS4</code> is Ready on the same SHA, owns the canonical production aliases, serves healthy root, mine, and version responses, and returned no error or fatal runtime logs.</dd>
+      <dt>Status</dt><dd>Resolved. This one-pull-request authorization is consumed.</dd>
+    </dl>
+  </section>
+  <section data-date="2026-07-23" data-status="resolved">
     <h2>Full E2E repair merge policy deadlock</h2>
     <dl>
       <dt>Decision</dt><dd>The owner selected option 1 and authorized exactly one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/290">PR #290</a>.</dd>

@@ -1636,6 +1636,23 @@ button[data-bag-full-flash="true"] {
   cursor: default;
 }
 
+/* Replaces the Start button while the raid cooldown runs: same footprint,
+ * clearly not pressable. */
+.bunker-fp-raid-cooldown {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid rgba(245, 113, 90, 0.45);
+  border-radius: 999px;
+  background: rgba(22, 10, 12, 0.85);
+  color: #ffd6cc;
+  font-weight: 800;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 /* Passive glance chips under the bag (F-119: vibes, level, XP, and
  * beacon cap moved out of the Upkeep sheet onto the HUD). Never
  * interactive; the touch look zone keeps its pointer events. */

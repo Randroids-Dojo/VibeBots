@@ -2667,6 +2667,10 @@ const LIVE_RAID_START = {
 const LIVE_RAID_RESOLVED = {
   ...FP_BUNKER_VIEW,
   activeLiveRaid: null,
+  // The settled raid starts the 4h cooldown, so the HUD swaps the Start
+  // button for a countdown (computed at fulfill time, safely in the future
+  // for the whole test run).
+  nextRaidAvailableAtMs: Date.now() + 4 * 60 * 60 * 1000,
   reward: {
     survived: false,
     vibesGained: 0,
@@ -2787,10 +2791,22 @@ test(
       .poll(() => resolveBodies.length, { timeout: 120_000 })
       .toBeGreaterThan(0);
 
-    // Once settled the view clears the raid and the start control returns.
-    await expect(page.getByTestId("bunker-fp-raid-start-button")).toBeVisible({
+    // Once settled the view clears the raid. The verdict banner holds on
+    // screen for a beat instead of vanishing with the resolve response, and
+    // because the settled view carries the cooldown deadline, the Start
+    // control is replaced by the countdown, not a button that would 409.
+    await expect(page.getByTestId("bunker-fp-raid-result")).toBeVisible({
       timeout: 20_000,
     });
+    await expect(page.getByTestId("bunker-fp-raid-cooldown")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByTestId("bunker-fp-raid-cooldown")).toContainText(
+      "Next raid in",
+    );
+    await expect(page.getByTestId("bunker-fp-raid-start-button")).toHaveCount(
+      0,
+    );
   },
 );
 

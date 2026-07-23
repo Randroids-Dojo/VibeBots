@@ -53,6 +53,8 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.285", "Clanker invasions come in waves you can fight"],
+      ["0.1.284", "Raids say how they ended and when the next one starts"],
       ["0.1.283", "Watch the Clankers break into your bunker"],
       ["0.1.282", "The mine fits on your TV screen"],
       ["0.1.281", "Fresh-claim bunker ore counts too"],

@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { apiErrorCode, BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
+import {
+  apiErrorCode,
+  BUNKER_RAID_COOLDOWN_CODE,
+  BUNKER_REVISION_CONFLICT_CODE,
+} from "@/lib/api-codes";
 import type {
   BunkerPlayerProgress,
   BunkerRouteResponse,
@@ -48,6 +52,9 @@ export interface BunkerStoreState {
    * (Q-024 option D). The client fights it in the first-person canvas and
    * resolves it. */
   activeLiveRaid: LiveRaidActiveView | null;
+  /** Server clock (ms) when the raid cooldown ends, or null when a raid
+   * may start now; drives the HUD's Start-button/countdown swap. */
+  nextRaidAvailableAtMs: number | null;
   player: BunkerPlayerProgress | null;
   /** Last server revision the store has adopted (F-122). Banked edits echo
    * it as `expectedRevision` and the store drops any response that would
@@ -129,13 +136,20 @@ function serializeEdit<T>(task: () => Promise<T>): Promise<T> {
 }
 
 /**
- * A revision-conflict 409 carries the full authoritative view (the server
- * spreads it into the error body under {@link BUNKER_REVISION_CONFLICT_CODE}),
- * so the client resyncs to it instead of just showing an error. Branching on
- * the shared code keeps this from guessing at the body shape (F-068, F-122).
+ * Some 409s carry the full authoritative view spread into the error body
+ * (a revision conflict, or a raid start bounced off a cooldown this client
+ * had not seen), so the client resyncs to it instead of just showing an
+ * error. Branching on the shared codes keeps this from guessing at the
+ * body shape (F-068, F-122).
  */
 function conflictResyncView(body: unknown): BunkerRouteResponse | null {
-  if (apiErrorCode(body) !== BUNKER_REVISION_CONFLICT_CODE) return null;
+  const code = apiErrorCode(body);
+  if (
+    code !== BUNKER_REVISION_CONFLICT_CODE &&
+    code !== BUNKER_RAID_COOLDOWN_CODE
+  ) {
+    return null;
+  }
   return body as BunkerRouteResponse;
 }
 
@@ -157,6 +171,7 @@ function applyResponse(
     bunker: body.bunker,
     inventory: body.inventory,
     activeLiveRaid: body.activeLiveRaid ?? null,
+    nextRaidAvailableAtMs: body.nextRaidAvailableAtMs ?? null,
     player: body.player,
     revision: body.revision,
     lastRaidReward: body.reward ?? null,
@@ -200,6 +215,7 @@ export const useBunkerStore = create<BunkerStoreState>((set, get) => ({
   bunker: null,
   inventory: { ...EMPTY_BASE_PART_INVENTORY },
   activeLiveRaid: null,
+  nextRaidAvailableAtMs: null,
   player: null,
   revision: 0,
   lastRaidReward: null,

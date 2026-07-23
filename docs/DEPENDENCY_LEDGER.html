@@ -85,6 +85,7 @@
         <ul>
           <li>Use the official upgrade guide and codemods (<code>next upgrade</code>); check route handler and caching semantics changes.</li>
           <li>Verify <code>transpilePackages</code> (VibeKit) and the dynamic <code>ssr: false</code> canvas import still behave after the bump.</li>
+          <li>2026-07-22: the gate detected 16.2.11 over the pinned 16.2.10. Bump deferred: the remote session that detected it cannot fetch the VibeKit github dependency (403, repository outside the session's credential scope), so install, typecheck, tests, and build cannot run there. Tracked by <a href="FOLLOWUPS.html#F-217">F-217</a>; the gate re-fires in a capable environment.</li>
         </ul>
       </dd>
     </dl>

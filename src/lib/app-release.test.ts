@@ -24,18 +24,55 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest clanker-breach-visuals note complete", () => {
+  it("keeps the latest staged-clanker-invasion note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-22-0.1.283-clanker-breach-visuals");
+    expect(release.noticeId).toBe("2026-07-22-0.1.285-staged-clanker-invasion");
     expect(latestNote).toMatchObject({
+      version: "0.1.285",
+      title: "Clanker invasions come in waves you can fight",
+      intro:
+        "A raid now opens with a few quiet seconds, then the Clankers burrow in one at a time, and one surfacing under your feet can be dodged instead of ending the raid on the spot.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The whole wave used to attack at once, seconds after you pressed Start. Now nothing moves for the opening moments, then attackers activate one at a time, so the assault builds instead of landing as a pile.",
+      "A Clanker needs a moment to pull itself together where it breaks in, so one erupting under your feet is a dodge, not an instant loss. Once it has its legs, contact is still deadly.",
+      "XP from Clankers that ran out of battery inside the surrounding rock no longer glints where you could never walk.",
+    ]);
+  });
+
+  it("keeps the archived raid-cooldown-clarity note complete", () => {
+    const release = getAppRelease();
+    const cooldownNote = release.notes.find(
+      (note) => note.version === "0.1.284",
+    );
+
+    expect(cooldownNote).toMatchObject({
+      version: "0.1.284",
+      title: "Raids say how they ended and when the next one starts",
+      intro:
+        "A raid now ends with its verdict on screen, and the Start raid button shows the real wait before the Clankers come back instead of silently doing nothing.",
+    });
+    expect(cooldownNote?.changes.map((change) => change.text)).toEqual([
+      "When your raid settles, 'Bunker held!' or 'Bunker breached!' stays up for a moment instead of vanishing the instant the server confirms it. Even a raid that ends fast now tells you how it ended.",
+      "Raids recharge on a shared cooldown, but the button never said so: pressing Start raid again just did nothing. While the Clankers regroup, the button becomes a countdown to the next raid.",
+    ]);
+  });
+
+  it("keeps the archived clanker-breach-visuals note complete", () => {
+    const release = getAppRelease();
+    const visualsNote = release.notes.find(
+      (note) => note.version === "0.1.283",
+    );
+
+    expect(visualsNote).toMatchObject({
       version: "0.1.283",
       title: "Watch the Clankers break into your bunker",
       intro:
         "Bunker raids now show the assault: the wave stays hidden while it tunnels through the rock around your claim, appears right where it breaks in, and crawls your rooms in every direction to reach you.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(visualsNote?.changes.map((change) => change.text)).toEqual([
       "A raiding Clanker used to be drawn inside solid rock and glide through your walls like a ghost. Now it stays out of sight until it actually tunnels into your bunker, so the first you see of the wave is it breaking in through your own openings.",
       "Clankers read their route now: each one faces the way it is walking, noses up a wall it climbs, and noses down at you when it drops toward your cell.",
       "A stopped Clanker's self-destruct burst now pops exactly on the cell where it died instead of a step behind its last move.",

@@ -42,6 +42,15 @@ export interface BunkerView {
    * clients built before live raids landed.
    */
   activeLiveRaid?: LiveRaidActiveView | null;
+  /**
+   * Server clock (ms) when the raid cooldown ends and the next raid may
+   * start, or null when one may start now. The cooldown runs from the last
+   * raid's start (including one still in flight), mirroring the start
+   * route's own gate, so the HUD can show a countdown instead of a Start
+   * button that silently 409s. Optional for wire-compat with clients built
+   * before the cooldown was exposed.
+   */
+  nextRaidAvailableAtMs?: number | null;
   player: BunkerPlayerProgress;
   /**
    * Optimistic-concurrency counter for banked bunker edits (F-122). Every

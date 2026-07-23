@@ -1,9 +1,47 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-22-0.1.283-clanker-breach-visuals";
+export const RELEASE_NOTICE_ID = "2026-07-22-0.1.285-staged-clanker-invasion";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.285",
+      date: "2026-07-22",
+      title: "Clanker invasions come in waves you can fight",
+      intro:
+        "A raid now opens with a few quiet seconds, then the Clankers burrow in one at a time, and one surfacing under your feet can be dodged instead of ending the raid on the spot.",
+      changes: [
+        {
+          build,
+          text: "The whole wave used to attack at once, seconds after you pressed Start. Now nothing moves for the opening moments, then attackers activate one at a time, so the assault builds instead of landing as a pile.",
+        },
+        {
+          build,
+          text: "A Clanker needs a moment to pull itself together where it breaks in, so one erupting under your feet is a dodge, not an instant loss. Once it has its legs, contact is still deadly.",
+        },
+        {
+          build,
+          text: "XP from Clankers that ran out of battery inside the surrounding rock no longer glints where you could never walk.",
+        },
+      ],
+    },
+    {
+      version: "0.1.284",
+      date: "2026-07-22",
+      title: "Raids say how they ended and when the next one starts",
+      intro:
+        "A raid now ends with its verdict on screen, and the Start raid button shows the real wait before the Clankers come back instead of silently doing nothing.",
+      changes: [
+        {
+          build,
+          text: "When your raid settles, 'Bunker held!' or 'Bunker breached!' stays up for a moment instead of vanishing the instant the server confirms it. Even a raid that ends fast now tells you how it ended.",
+        },
+        {
+          build,
+          text: "Raids recharge on a shared cooldown, but the button never said so: pressing Start raid again just did nothing. While the Clankers regroup, the button becomes a countdown to the next raid.",
+        },
+      ],
+    },
     {
       version: "0.1.283",
       date: "2026-07-22",

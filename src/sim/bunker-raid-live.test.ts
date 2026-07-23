@@ -16,10 +16,13 @@ import {
   BUNKER_RAID_LIVE_VERSION,
   collectLiveRaidPickup,
   createLiveRaid,
+  LIVE_CLANKER_ACTIVATION_STAGGER_TICKS,
   LIVE_CLANKER_BASE_ENERGY,
+  LIVE_CLANKER_BREACH_HOLD_TICKS,
   LIVE_CLANKER_ENERGY_PER_TIER,
   LIVE_RAID_DURATION_TICKS,
   LIVE_RAID_EXPIRY_GRACE_TICKS,
+  LIVE_RAID_ONSET_TICKS,
   LIVE_RAID_SURVIVE_VIBES_BASE,
   LIVE_RAID_SURVIVE_VIBES_PER_TIER,
   type LiveRaidCell,
@@ -138,6 +141,94 @@ describe("createLiveRaid", () => {
   });
 });
 
+describe("staged wave onset (F-218)", () => {
+  it("staggers each Clanker's activation tick from the onset window", () => {
+    const bunker = makeBunker([{ col: 8, row: 7, depth: 0 }]);
+    const raid = createLiveRaid(bunker, 2);
+    raid.clankers.forEach((clanker, index) => {
+      expect(clanker.inertUntilTick).toBe(
+        LIVE_RAID_ONSET_TICKS + index * LIVE_CLANKER_ACTIVATION_STAGGER_TICKS,
+      );
+    });
+  });
+
+  it("holds inactive Clankers at spawn with no movement or energy drain", () => {
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const raid = createLiveRaid(makeBunker(corridor), 1);
+    const spawns = raid.clankers.map((c) => ({ col: c.col, row: c.row }));
+    stepTimes(raid, player, LIVE_RAID_ONSET_TICKS - 1);
+    raid.clankers.forEach((clanker, index) => {
+      expect(clanker.col).toBe(spawns[index].col);
+      expect(clanker.row).toBe(spawns[index].row);
+      expect(clanker.energy).toBe(LIVE_CLANKER_BASE_ENERGY + 1 * 20);
+    });
+    expect(raid.breached).toBe(false);
+    // One action tick past its activation, the lead has moved or spent.
+    stepTimes(raid, player, 3);
+    const lead = raid.clankers[0];
+    const moved =
+      lead.col !== spawns[0].col ||
+      lead.row !== spawns[0].row ||
+      lead.energy < LIVE_CLANKER_BASE_ENERGY + 20;
+    expect(moved).toBe(true);
+    // The last of the wave is still waiting untouched at its spawn.
+    const tail = raid.clankers[raid.clankers.length - 1];
+    expect(tail.col).toBe(spawns[spawns.length - 1].col);
+    expect(tail.energy).toBe(LIVE_CLANKER_BASE_ENERGY + 20);
+  });
+
+  it("holds a breaching Clanker at its entry cell instead of killing on the same hop", () => {
+    // The player stands ON the perimeter dug cell the lead Clanker enters
+    // through: the worst case that used to be an invisible same-tick kill.
+    const player: LiveRaidCell = { col: 5, row: 5, depth: 0 };
+    const raid = createLiveRaid(makeBunker([{ col: 5, row: 5, depth: 0 }]), 1);
+    stepTimes(raid, player, LIVE_RAID_ONSET_TICKS);
+    // The lead's first action hop burrows in (a breach), but the emergence
+    // hold means the miner is still alive with the Clanker surfacing.
+    expect(raid.breached).toBe(true);
+    expect(raid.outcome).toBe("active");
+    const lead = raid.clankers[0];
+    expect(lead.col).toBe(5);
+    expect(lead.row).toBe(5);
+    expect(lead.inertUntilTick).toBe(
+      raid.tick + LIVE_CLANKER_BREACH_HOLD_TICKS,
+    );
+    // A player who stays put through the hold is then killed on contact.
+    stepTimes(raid, player, LIVE_CLANKER_BREACH_HOLD_TICKS + 2);
+    expect(raid.outcome).toBe("lost");
+  });
+
+  it("gives an undefended fresh claim a witnessable invasion before it can lose", () => {
+    // The fresh-claim shape that used to lose in ~3 seconds: only the
+    // authored 3x3x3 spawn pocket dug, player standing on the pocket floor.
+    const pocket: DugBunkerCell[] = [];
+    for (let z = 0; z < 3; z++)
+      for (let y = 0; y < 3; y++)
+        for (let dx = -1; dx <= 1; dx++)
+          pocket.push({ col: 8 + dx, row: 9 - y, depth: z });
+    const player: LiveRaidCell = { col: 8, row: 9, depth: 0 };
+    const raid = createLiveRaid(makeBunker(pocket), 1);
+    // Nothing can happen during the onset window.
+    stepTimes(raid, player, LIVE_RAID_ONSET_TICKS);
+    expect(raid.outcome).toBe("active");
+    expect(raid.breached).toBe(false);
+    // The invasion then unfolds: the claim is breached (the moment the
+    // render layer shows the emergence) strictly before the stationary
+    // player can be reached, so the entry is witnessable.
+    let breachedTick = -1;
+    while (raid.outcome === "active" && raid.tick < LIVE_RAID_DURATION_TICKS) {
+      stepLiveRaid(raid, player);
+      if (breachedTick < 0 && raid.breached) breachedTick = raid.tick;
+    }
+    expect(raid.outcome).toBe("lost");
+    expect(breachedTick).toBeGreaterThan(LIVE_RAID_ONSET_TICKS);
+    expect(raid.tick).toBeGreaterThan(breachedTick);
+  });
+});
+
 describe("connectivity and outcomes", () => {
   it("survives when no dug opening reaches the player (sealed rock is safe)", () => {
     // A single isolated interior cell: no path from the mine approach.
@@ -183,8 +274,9 @@ describe("walls and chewing", () => {
     const bunker = makeBunker(dug, [part("wall-panel", 5, 5, 1)]);
     const raid = createLiveRaid(bunker, 1);
     const startDurability = BASE_PART_CATALOG["wall-panel"].durability;
-    // A few action ticks: the lead Clanker descends to the wall and bites it.
-    stepTimes(raid, player, 12);
+    // Past the staged onset plus a few action ticks: the lead Clanker
+    // activates, descends to the wall, and bites it.
+    stepTimes(raid, player, LIVE_RAID_ONSET_TICKS + 12);
     const wall = liveRaidPartWear(raid).find(
       (p) => p.col === 5 && p.row === 5 && p.depth === 1,
     );
@@ -215,10 +307,12 @@ describe("spikes", () => {
       1,
     );
     const noSpike = createLiveRaid(makeBunker(shaft), 1);
-    // Step to a point where the lead Clanker has crossed depth 2 but not yet
-    // reached the player at depth 4.
-    stepTimes(withSpike, player, 8);
-    stepTimes(noSpike, player, 8);
+    // Step past the staged onset and the lead's breach hold to a point
+    // where it has crossed depth 2 but not yet reached the player at
+    // depth 4.
+    const crossed = LIVE_RAID_ONSET_TICKS + LIVE_CLANKER_BREACH_HOLD_TICKS + 5;
+    stepTimes(withSpike, player, crossed);
+    stepTimes(noSpike, player, crossed);
     expect(withSpike.outcome).toBe("active");
     const leadWith = withSpike.clankers[0];
     const leadNo = noSpike.clankers[0];

@@ -15,6 +15,9 @@
 <section id="description">
 Repair the broken src/app/(auth)/sign-in/AGENTS.md link so it resolves to the repository-root slice-discipline rule, then audit every tracked AGENTS.md symlink from its own directory. Add a dependency-free check that fails on missing, outside-repository, wrong-depth, and wrong-rule targets, including nested paths with spaces or parentheses. Integrate it into an existing local quality command without changing CI workflow configuration. Acceptance requires every tracked AGENTS link to resolve to its intended checked-in rule, pnpm lint to emit no broken-symlink warning, negative fixtures to fail, and root-walk coverage for src, tests, docs, and docs/gdd to remain intact.
 </section>
+<section id="progress-2026-07-23">
+2026-07-23 (backlog-work session): link repaired to four levels, audit landed as scripts/check-agents-links.sh (pnpm check:agents-links, also the agents-links gate of pnpm verify), five fixtures pass in scripts/check-agents-links.selftest.sh, and the audit passes on the repository. Remaining: a pnpm lint run in a dependency-capable environment to confirm the Biome dereferenced-symlink warning is gone (F-217 blocks installs remotely).
+</section>
 </article>
 </body>
 </html>

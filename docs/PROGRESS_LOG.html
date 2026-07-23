@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="agents-symlink-repair-audit" data-date="2026-07-23">
+    <h3>Path-scoped agent rules load again in the sign-in tree, with a link audit to keep them loading</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code> (remote Claude Code session), stacked on the canonical-local-verifier slice.</dd>
+      <dt>PR</dt><dd>Pending user direction (designated-branch session).</dd>
+      <dt>Changed</dt><dd>F-188. <code>src/app/(auth)/sign-in/AGENTS.md</code> now points four levels up (<code>../../../../.claude/rules/slice-discipline.md</code>); the old three-level link resolved under <code>src/</code> and was broken, so Biome warned <code>internalError/fs: Dereferenced symlink</code> on every full lint and Codex could not load slice discipline in that tree. New dependency-free audit <code>scripts/check-agents-links.sh</code> (<code>pnpm check:agents-links</code>) verifies every tracked <code>AGENTS.md</code> symlink from its own directory: NUL-delimited enumeration (spaces and parentheses safe), broken or wrong-depth targets, outside-repository targets, wrong path-scoped rule per directory, and lost links for the covered <code>src</code>, <code>tests</code>, <code>docs</code>, <code>docs/gdd</code> trees. Wired as the <code>agents-links</code> gate of <code>pnpm verify</code>; no CI workflow file touched. Fixtures in <code>scripts/check-agents-links.selftest.sh</code>.</dd>
+      <dt>Verification</dt><dd>Selftest: all 5 fixture cases pass with statuses captured directly (valid repo including a parenthesized path with a space; wrong-depth broken link named; outside-repository target named; wrong-rule target named; missing tracked link for an existing covered directory). Real audit on the repository passes after the repair, and <code>pnpm verify</code> shows the new gate PASS alongside dashes, git-diff-check, and sim-purity. Dash check and <code>git diff --check</code> clean. <code>pnpm lint</code> confirmation that the Biome dereferenced-symlink warning is gone still needs a dependency-capable environment (F-217).</dd>
+      <dt>Assumptions</dt><dd>The expected-rule map is directory-based (docs to ledger-append-only, docs/gdd to gdd-build-log, everything else slice-discipline), matching AGENTS.md Rule 2; a future path-scoped rule needs one new case in <code>expected_rule</code>.</dd>
+      <dt>GDD coverage</dt><dd>No row change; process tooling only.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-188">F-188</a> gains the delivery record; open pending the lint confirmation above. Tips (Rule 13): no version bump, reviewed, no changes. Stamps (Rule 14): none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="canonical-local-verifier" data-date="2026-07-23">
     <h3>One canonical local verifier that cannot report a masked failure as green</h3>
     <dl>

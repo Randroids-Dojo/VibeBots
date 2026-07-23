@@ -1,0 +1,141 @@
+{
+  "schemaVersion": 1,
+  "id": "GOLDEN-COMBAT-0001",
+  "kind": "combat",
+  "seed": 0,
+  "stepCount": 900,
+  "simVersion": 5,
+  "designInputs": [
+    {
+      "name": "Rammer",
+      "parts": [
+        {
+          "iid": "core",
+          "partId": "core-cube"
+        },
+        {
+          "iid": "wheel-l",
+          "partId": "drive-wheel"
+        },
+        {
+          "iid": "wheel-r",
+          "partId": "drive-wheel"
+        },
+        {
+          "iid": "spike",
+          "partId": "ram-spike"
+        }
+      ],
+      "connections": [
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-left",
+          "childIid": "wheel-l",
+          "childConnector": "hub"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-right",
+          "childIid": "wheel-r",
+          "childConnector": "hub"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "front",
+          "childIid": "spike",
+          "childConnector": "mount"
+        }
+      ]
+    },
+    {
+      "name": "Brawler",
+      "parts": [
+        {
+          "iid": "core",
+          "partId": "core-cube"
+        },
+        {
+          "iid": "wheel-l",
+          "partId": "drive-wheel"
+        },
+        {
+          "iid": "wheel-r",
+          "partId": "drive-wheel"
+        },
+        {
+          "iid": "plate",
+          "partId": "frame-plate"
+        }
+      ],
+      "connections": [
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-left",
+          "childIid": "wheel-l",
+          "childConnector": "hub"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-right",
+          "childIid": "wheel-r",
+          "childConnector": "hub"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "top",
+          "childIid": "plate",
+          "childConnector": "bottom"
+        }
+      ]
+    }
+  ],
+  "actionLog": [],
+  "expected": {
+    "snapshotHash": "8a99c01b32684138",
+    "outcomes": {
+      "rewards": [
+        {
+          "outcome": "win",
+          "credits": 196,
+          "trackXp": 98
+        },
+        {
+          "outcome": "loss",
+          "credits": 70,
+          "trackXp": 32
+        }
+      ],
+      "status": {
+        "over": true,
+        "winner": 0,
+        "reason": "timeout",
+        "scores": [
+          {
+            "damageDealt": 96.69359046936034,
+            "damageTaken": 45.07393550872803,
+            "partsRemaining": 4,
+            "partCount": 4,
+            "healthRemaining": 444.926064491272,
+            "healthTotal": 490,
+            "pressureTicks": 28,
+            "mobileAtEnd": true,
+            "total": 239.49164203341044
+          },
+          {
+            "damageDealt": 45.07393550872803,
+            "damageTaken": 96.69359046936034,
+            "partsRemaining": 4,
+            "partCount": 4,
+            "healthRemaining": 343.30640953063966,
+            "healthTotal": 440,
+            "pressureTicks": 29,
+            "mobileAtEnd": true,
+            "total": 78.27192809576941
+          }
+        ]
+      },
+      "tick": 900
+    }
+  },
+  "manifestId": "goldens-20260723183653897"
+}

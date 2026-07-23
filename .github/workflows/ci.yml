@@ -92,7 +92,7 @@ jobs:
 
   unit:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -101,7 +101,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.22.1
           cache: pnpm
 
       - name: Install dependencies
@@ -109,6 +109,9 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+      - name: Deterministic goldens
+        run: pnpm test:goldens
 
   build:
     name: Build

@@ -11,14 +11,44 @@
 </header>
 
 <main id="questions">
-  <section data-date="2026-07-22" data-status="pending">
+  <section data-date="2026-07-23" data-status="resolved">
+    <h2>Planned Stage 1 through Stage 7 merge authority</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 2 and authorized administrator squash merges for the planned CI rewrite Stage 1 through Stage 7 pull requests only.</dd>
+      <dt>Required gates</dt><dd>Each exact pull-request head must have green required checks, an approved CodeRabbit review, no actionable review threads, and a Ready Vercel preview. An ordinary merge must be attempted first and rejected by branch policy before the administrator path is eligible.</dd>
+      <dt>Boundary</dt><dd>The authorization covers only the staged migration described in <code>docs/ci-rewrite-prompt.md</code>. It does not authorize force pushes, branch deletion, secret changes, ruleset changes, unrelated work, or bypassing a technical or review failure.</dd>
+      <dt>Status</dt><dd>Resolved. Apply these gates independently to each planned stage and verify exact main plus production after every merge.</dd>
+    </dl>
+  </section>
+  <section data-date="2026-07-23" data-status="resolved">
+    <h2>Next.js 16.2.11 security update merge policy deadlock</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized exactly one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/291">PR #291</a>.</dd>
+      <dt>Evidence</dt><dd>Exact head <code>d4f98f19ed891953c7b4823841113047ee896c48</code> passed Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, and Vercel. CodeRabbit approved the exact head, Copilot reported no comments, and no actionable review threads remained.</dd>
+      <dt>Policy result</dt><dd>GitHub reported the pull request mergeable but blocked by base-branch policy and rejected the ordinary squash merge.</dd>
+      <dt>Resolution</dt><dd>PR #291 was administrator-squash merged as <code>0cc90e8ac6ee8ab0e6e9e41d62c176f40b7afd7a</code>. Exact-main CI run <code>30033536276</code> and CodeQL run <code>30033532050</code> passed. Production deployment <code>dpl_8x1AryYG7WLBQTqnB1qU2a865BS4</code> is Ready on the same SHA, owns the canonical production aliases, serves healthy root, mine, and version responses, and returned no error or fatal runtime logs.</dd>
+      <dt>Status</dt><dd>Resolved. This one-pull-request authorization is consumed.</dd>
+    </dl>
+  </section>
+  <section data-date="2026-07-23" data-status="resolved">
+    <h2>Full E2E repair merge policy deadlock</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized exactly one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/290">PR #290</a>.</dd>
+      <dt>Evidence</dt><dd>Exact head <code>c978acd6e27d02222f05a3bcceefea77ec2a556c</code> passed Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, and Vercel. CodeRabbit approved the exact head, Copilot reported no comments, and no actionable review threads remained.</dd>
+      <dt>Policy result</dt><dd>GitHub reported the pull request mergeable but blocked by base-branch policy and rejected the ordinary squash merge. The earlier administrator authorization applied only to PR #288 and had already been consumed.</dd>
+      <dt>Resolution</dt><dd>PR #290 was administrator-squash merged as <code>4c9636702fcb9da894722adbd5230c33faf49d7b</code>. Exact-main CI run <code>30024430861</code> and CodeQL run <code>30024429615</code> passed. Production deployment <code>dpl_DJ5imgp7p7ynYPR1xfhCDqiu2ovP</code> is Ready on the same SHA, owns the production aliases, serves healthy version and mine responses, and returned no error or fatal runtime logs.</dd>
+      <dt>Status</dt><dd>Resolved. This administrator-merge authorization is consumed and does not extend to Stage 1 or later pull requests.</dd>
+    </dl>
+  </section>
+  <section data-date="2026-07-22" data-status="resolved">
     <h2>Stage 0 merge policy deadlock</h2>
     <dl>
-      <dt>Question</dt><dd>Should the owner authorize one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">PR #288</a>, or change the repository setting so the normal squash merge can complete?</dd>
-      <dt>Evidence</dt><dd>Exact head <code>e3bbab524d3eb07fe6df885337a5481a787e552e</code> passes Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, Copilot review with no new comments, and a Ready Vercel preview. All review threads are resolved. Current <code>origin/main</code> is an ancestor of the head, so the PR is not behind or conflicting.</dd>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">PR #288</a>.</dd>
+      <dt>Evidence</dt><dd>Final exact head <code>079a5c899236ef179ceb927e95d67d8ea561969e</code> passed Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, Copilot review with no new comments, and a Ready Vercel preview. All review threads were resolved, and the then-current <code>origin/main</code> was an ancestor of the head.</dd>
       <dt>Policy result</dt><dd>The active main ruleset permits squash only and requires zero approvals, but GitHub reports <code>BLOCKED</code> and rejects the ordinary squash merge as prohibited by base-branch policy. GitHub suggests auto-merge, but auto-merge is disabled for this repository. The remaining CLI option is an administrator merge, which the autonomous-migration authority explicitly does not authorize.</dd>
-      <dt>Recommended</dt><dd>Authorize the one administrator squash merge after confirming the exact head is still green. If policy repair is preferred, enable auto-merge or correct the rule that keeps a fully green, mergeable PR blocked, then use the ordinary squash path.</dd>
-      <dt>Status</dt><dd>Pending owner decision. Stage 1 stays gated because the staged plan requires Stage 0 to merge and verify before the next branch starts.</dd>
+      <dt>Decision result</dt><dd>The owner authorized one administrator squash merge after the final exact-head revalidation. No branch rule or repository setting was changed.</dd>
+      <dt>Resolution</dt><dd>PR #288 was revalidated at exact head <code>079a5c899236ef179ceb927e95d67d8ea561969e</code> and administrator-squash merged as <code>a697876501179390e98b0277f67382b9232668e6</code>. Exact-main CI run <code>30007724086</code> and CodeQL run <code>30007723586</code> passed. Production deployment <code>dpl_GY2nZfpn6wkpDawVyRi5qAzYpgji</code> is Ready and Promoted on the same SHA, serves the canonical domain, and returned healthy version, mine-page, and performance-insights responses with no observed 5xx logs.</dd>
+      <dt>Status</dt><dd>Resolved. The one administrator-merge authorization is consumed and does not extend to later stages.</dd>
     </dl>
   </section>
   <section data-date="2026-07-22" data-status="resolved">

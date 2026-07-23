@@ -14,6 +14,8 @@
     "lint": "biome ci .",
     "format": "biome format --write .",
     "test": "vitest run",
+    "test:goldens": "vitest run --config vitest.goldens.config.ts tests/goldens/goldens.test.ts tests/goldens/version-policy.test.ts",
+    "test:goldens:update": "node scripts/update-goldens.mjs",
     "test:e2e": "playwright test",
     "test:e2e:critical": "playwright test --grep \"(?=.*@critical)(?=.*@functional)\"",
     "ci:inventory": "node scripts/ci-inventory.mjs",

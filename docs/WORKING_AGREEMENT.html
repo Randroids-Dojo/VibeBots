@@ -39,6 +39,13 @@
     <li>GDD, coverage, followup, or open-question updates.</li>
     <li>Any known limitations or blocked checks.</li>
   </ul>
+  <p>Attribution preflight (F-211, Rule 4):</p>
+  <ul>
+    <li>Before merge, run <code>pnpm check:attribution</code> (scans the merge-base-to-head commit range; also the <code>attribution</code> gate of <code>pnpm verify</code>).</li>
+    <li>Supply the squash subject and body explicitly, never from defaults, and validate the prepared text with <code>bash scripts/check-attribution.sh --message-file &lt;path&gt;</code>. PR titles and bodies can be validated the same way.</li>
+    <li>After the squash lands, verify the published commit with <code>bash scripts/check-attribution.sh --commit &lt;main-sha&gt;</code>.</li>
+    <li>The scan covers metadata only. Author and committer identity are out of scope unless the user separately expands the policy.</li>
+  </ul>
   <p>After opening a PR:</p>
   <ul>
     <li>Read flat comments, reviews, and threaded inline comments.</li>

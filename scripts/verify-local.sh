@@ -99,6 +99,9 @@ else
   if [ -f scripts/check-agents-links.sh ]; then
     run_gate agents-links bash scripts/check-agents-links.sh
   fi
+  if [ -f scripts/check-attribution.sh ] && git rev-parse -q --verify origin/main >/dev/null 2>&1; then
+    run_gate attribution bash scripts/check-attribution.sh
+  fi
 
   # Gates below need installed dependencies. A missing toolchain is a failed
   # verification, not a silent skip: report NOT-RUN and exit nonzero. Check

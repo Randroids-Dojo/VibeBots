@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="attribution-preflight" data-date="2026-07-23">
+    <h3>Commit and squash metadata now has an executable no-AI-attribution gate</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code> (remote Claude Code session), stacked on the agents-symlink slice.</dd>
+      <dt>PR</dt><dd>Pending user direction (designated-branch session).</dd>
+      <dt>Changed</dt><dd>F-211. <code>scripts/check-attribution.sh</code> scans commit-message metadata for prohibited AI attribution in three modes: the pushed range (<code>pnpm check:attribution</code>, default <code>origin/main..HEAD</code>, also the <code>attribution</code> gate of <code>pnpm verify</code>), a prepared message file for squash or PR text (<code>--message-file</code>), and the published main commit afterward (<code>--commit</code>). Case-insensitive patterns cover AI co-author trailers, generated-with footers, the robot-emoji footer, <code>noreply@anthropic.com</code>, and AI-assistance phrasing; human co-author trailers and gameplay wording like <q>bot AI</q> stay green by design. Operator squash procedure documented in <code>docs/WORKING_AGREEMENT.html</code>. Fixtures in <code>scripts/check-attribution.selftest.sh</code>.</dd>
+      <dt>Verification</dt><dd>All 7 fixture cases pass with exit statuses captured directly (clean human commit with human co-author, Claude trailer case variant, generated-with footer, robot-emoji footer, dirty squash file, clean squash file, dirty published commit). The real range scan over this branch's two prior slice commits is clean. An earlier fixture defect was caught by the fixtures themselves: the checker originally <code>cd</code>-ed to the script's repository, so fixture repos were never scanned; it now operates on the caller's working directory. Dash check and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>Metadata only, per the followup: author and committer identity are untouched pending a separate user decision. Published history with old trailers is left as is; the gate is future-facing. The bare word <q>AI</q> alone is not flagged because gameplay commits legitimately discuss bot AI; the fixtures pin that choice.</dd>
+      <dt>GDD coverage</dt><dd>No row change; process tooling only.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-211">F-211</a> gains the delivery record; closable once this branch merges and a PR number exists for the Resolved pair. Tips (Rule 13): no version bump, reviewed, no changes. Stamps (Rule 14): none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="agents-symlink-repair-audit" data-date="2026-07-23">
     <h3>Path-scoped agent rules load again in the sign-in tree, with a link audit to keep them loading</h3>
     <dl>

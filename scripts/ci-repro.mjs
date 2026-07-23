@@ -47,6 +47,8 @@ const dockerArgs = [
   "--env",
   `GITHUB_SHA=${commitSha}`,
   "--env",
+  `CI_CASE_COMMIT_SHA=${commitSha}`,
+  "--env",
   "HOME=/tmp/vibebots-home",
   "--env",
   "DATABASE_URL=",
@@ -83,7 +85,7 @@ const dockerArgs = [
 
 console.log(`Commit: ${commitSha}`);
 console.log(`Runtime: ${image}`);
-console.log(`Inner command: ${dockerArgs.map(shellQuote).join(" ")}`);
+console.log(`Inner command: docker ${dockerArgs.map(shellQuote).join(" ")}`);
 
 try {
   const result = spawnSync("docker", dockerArgs, { stdio: "inherit" });

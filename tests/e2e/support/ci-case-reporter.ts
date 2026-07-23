@@ -50,7 +50,8 @@ export default class CiCaseReporter implements Reporter {
       `${JSON.stringify(
         {
           schemaVersion: 1,
-          commitSha: process.env.GITHUB_SHA ?? null,
+          commitSha:
+            process.env.CI_CASE_COMMIT_SHA ?? process.env.GITHUB_SHA ?? null,
           status: result.status,
           records: this.records,
         },

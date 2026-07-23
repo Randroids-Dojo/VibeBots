@@ -217,6 +217,7 @@ jobs:
 
       - name: Run functional shadow shard
         env:
+          CI_CASE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           CI_CASE_RESULTS_PATH: playwright-report/runtime-shadow-hosted.json
         run: pnpm test:e2e --grep "@functional" --project=chromium --fully-parallel --workers=1 --shard=1/8
 
@@ -249,6 +250,7 @@ jobs:
 
       - name: Run functional shadow shard
         env:
+          CI_CASE_COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           CI_CASE_RESULTS_PATH: playwright-report/runtime-shadow-pinned.json
         run: pnpm test:e2e --grep "@functional" --project=chromium --fully-parallel --workers=1 --shard=1/8
 

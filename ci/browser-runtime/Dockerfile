@@ -14,7 +14,7 @@ COPY --from=node-runtime /usr/local/lib/node_modules/pnpm /usr/local/lib/node_mo
 
 ENV CI=true
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PNPM_STORE_DIR=/pnpm/store
+ENV npm_config_store_dir=/pnpm/store
 
 RUN ln -s ../lib/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm \
   && ln -s ../lib/node_modules/pnpm/bin/pnpx.cjs /usr/local/bin/pnpx \

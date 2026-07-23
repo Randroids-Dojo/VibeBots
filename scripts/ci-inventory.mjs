@@ -80,11 +80,14 @@ const validation = validateInventory(collectCases(report), quarantine, {
   sourceByLocation: testCallSources(report),
 });
 const summary = summarizeInventory(validation.cases);
+const commitSha =
+  process.env.CI_CASE_COMMIT_SHA ??
+  execFileSync("git", ["rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
 const artifact = {
   schemaVersion: 1,
-  commitSha: execFileSync("git", ["rev-parse", "HEAD"], {
-    encoding: "utf8",
-  }).trim(),
+  commitSha,
   generatedAt: new Date().toISOString(),
   discoveryDurationMs: Date.now() - startedAt,
   summary,

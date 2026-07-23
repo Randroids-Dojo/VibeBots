@@ -10,15 +10,15 @@ LABEL org.opencontainers.image.source="https://github.com/Randroids-Dojo/VibeBot
 LABEL org.opencontainers.image.description="Pinned VibeBots Playwright CI runtime"
 
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
-COPY --from=node-runtime /usr/local/bin/pnpm /usr/local/bin/pnpm
-COPY --from=node-runtime /usr/local/bin/pnpx /usr/local/bin/pnpx
 COPY --from=node-runtime /usr/local/lib/node_modules/pnpm /usr/local/lib/node_modules/pnpm
 
 ENV CI=true
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PNPM_STORE_DIR=/pnpm/store
 
-RUN node --version | grep -Fx "v22.22.1" \
+RUN ln -s ../lib/node_modules/pnpm/bin/pnpm.cjs /usr/local/bin/pnpm \
+  && ln -s ../lib/node_modules/pnpm/bin/pnpx.cjs /usr/local/bin/pnpx \
+  && node --version | grep -Fx "v22.22.1" \
   && pnpm --version | grep -Fx "10.30.3"
 
 WORKDIR /workspace

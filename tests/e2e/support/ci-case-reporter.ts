@@ -27,9 +27,10 @@ export default class CiCaseReporter implements Reporter {
     );
     this.records.push({
       caseId: caseId ?? null,
-      capability: tags.find((tag) =>
-        ["@functional", "@render", "@visual", "@soak"].includes(tag),
-      ),
+      capability:
+        tags.find((tag) =>
+          ["@functional", "@render", "@visual", "@soak"].includes(tag),
+        ) ?? null,
       policyTags: tags.filter((tag) =>
         ["@critical", "@preview", "@serial"].includes(tag),
       ),

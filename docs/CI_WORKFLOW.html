@@ -33,7 +33,7 @@
       <li><code>build</code>: production Next build.</li>
       <li><code>e2e-critical</code>: sharded Playwright smoke over the critical routes.</li>
     </ul>
-    <p>The critical smoke set lives in <code>package.json</code> as <code>pnpm test:e2e:critical</code>. It covers latest release notes, save-slot load refresh, explicit bunker claim entry, and the deterministic mine dig loop. Render-dependent fatal-fall and mine-motion assertions remain in the render tier instead of the required software-rendered gate.</p>
+    <p>The critical smoke set lives in <code>package.json</code> as <code>pnpm test:e2e:critical</code>. It covers account sign-in entry, latest release notes, save-slot load refresh, and the deterministic mine dig loop. Render-dependent bunker-claim entry, fatal-fall, and mine-motion assertions remain in the render tier instead of the required software-rendered gate.</p>
     <p>E2E shards use Playwright's test-level sharding with ONE worker per shard, for both Critical and Full E2E. The parallelism comes from separate shard jobs, never workers inside a runner, because the software-rendered suite is CPU-bound: two workers on the 4-vCPU runner make each SwiftShader render compete for CPU and starve rendering-dependent tests into multi-minute timeouts (a two-worker Full E2E dispatch failed ~60 tests, including specs that pass at one worker in the required Critical gate). The Full E2E matrix instead uses many shards (see Full Smoke below) so each shard is small enough to finish at one worker inside the budget.</p>
   </section>
 
@@ -49,8 +49,8 @@
     <h2>Stable Case Inventory</h2>
     <p>Every Playwright case carries exactly one stable <code>case-id</code> annotation and exactly one capability tag: <code>@functional</code>, <code>@render</code>, <code>@visual</code>, or <code>@soak</code>. Titles, filenames, and line numbers remain descriptive context only. They do not control CI routing.</p>
     <p><code>pnpm ci:inventory</code> discovers the live Playwright suite and validates missing or duplicate IDs, missing or multiple capabilities, unknown tags, pixel assertions inside <code>@functional</code>, <code>@critical</code> outside <code>@functional</code>, stale quarantine entries, quarantine capability drift, and expired or overlong quarantine deadlines. The command has no hardcoded test count. Its count comes from Playwright discovery, so adding or removing a case changes the inventory instead of bypassing it.</p>
-    <p>The Stage 0 baseline contains 200 cases: 130 functional, 60 render, 3 visual, and 7 soak. CI uploads the generated inventory with discovery timing. Browser jobs also emit one bounded timing record per case attempt so later duration-based sharding uses measured stable identities.</p>
-    <p>The required Critical E2E command selects <code>@critical</code> and <code>@functional</code> together. Its four Stage 0 cases are <code>E2E-MINE-BUNKER-0001</code>, <code>E2E-MINE-CORE-0002</code>, <code>E2E-MINE-SAVE-SLOTS-0002</code>, and <code>E2E-RELEASE-NOTIFICATIONS-0001</code>. Pixel, renderer, and elapsed-frame assertions cannot enter the required subset through a title edit.</p>
+    <p>The Stage 0 baseline contains 200 cases: 129 functional, 61 render, 3 visual, and 7 soak. CI uploads the generated inventory with discovery timing. Browser jobs also emit one bounded timing record per case attempt so later duration-based sharding uses measured stable identities.</p>
+    <p>The required Critical E2E command selects <code>@critical</code> and <code>@functional</code> together. Its four Stage 0 cases are <code>E2E-ACCOUNT-0001</code>, <code>E2E-MINE-CORE-0002</code>, <code>E2E-MINE-SAVE-SLOTS-0002</code>, and <code>E2E-RELEASE-NOTIFICATIONS-0001</code>. Pixel, renderer, and elapsed-frame assertions cannot enter the required subset through a title edit.</p>
   </section>
 
   <section id="scheduled-run-visibility">

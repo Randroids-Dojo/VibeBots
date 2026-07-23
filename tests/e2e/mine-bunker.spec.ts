@@ -63,7 +63,7 @@ async function placeWallInFp(page: Page): Promise<void> {
 
 test(
   "mine requires an explicit bunker claim mode before showing the claim panel",
-  ciCase("E2E-MINE-BUNKER-0001", "@functional", ["@critical"]),
+  ciCase("E2E-MINE-BUNKER-0001", "@render"),
   async ({ page }) => {
     await installGamepadBackControl(page);
     await page.route("**/api/bunker", async (route) => {

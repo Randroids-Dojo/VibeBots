@@ -17,7 +17,7 @@ async function expectClerkRouteOrNoKeyFallback(
 
 test(
   "sign-in route serves Clerk or falls back without keys",
-  ciCase("E2E-ACCOUNT-0001", "@functional"),
+  ciCase("E2E-ACCOUNT-0001", "@functional", ["@critical"]),
   async ({ request }) => {
     await expectClerkRouteOrNoKeyFallback(request, "/sign-in");
   },

@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stable-inventory-review-correction" data-date="2026-07-22">
+    <h3>Critical routing drops the renderer-hostage bunker claim case</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-0-test-inventory</code></dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">#288</a>, review correction</dd>
+      <dt>Changed</dt><dd>The first PR-head required run supplied the capability evidence the initial Stage 0 entry lacked: <code>E2E-MINE-BUNKER-0001</code> exhausted both attempts while its DOM interactions waited behind the software-rendered mine scene. It moves from <code>@functional @critical</code> to <code>@render</code>. GPU-independent <code>E2E-ACCOUNT-0001</code> now protects account sign-in entry in the critical set. The corrected 200-case inventory is 129 functional, 61 render, 3 visual, and 7 soak.</dd>
+      <dt>Verification</dt><dd>Required run <code>29973275760</code> retained both bunker-claim attempts and their screenshot, error context, retry trace, and timing records instead of hiding the red result. Inventory, Quality, types, 1,805 units, build, CodeQL, the other Critical shard, and Vercel all passed on that head. The correction will rerun the tag-routed four-case gate with the same job and artifact policy.</dd>
+      <dt>Assumptions</dt><dd>The capability contract is environmental trust, not assertion syntax. A test that asserts DOM state still belongs in <code>@render</code> when a software-rendered scene can monopolize the page before the assertion completes.</dd>
+      <dt>GDD coverage</dt><dd>No rows or GDD build logs change. This is a CI classification correction with no product, version, release-note, tip, or stamp change.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> retains the bunker-claim recurrence. Its additive correction supersedes the initial functional-classification inference without changing the preserved run evidence.</dd>
+    </dl>
+  </article>
   <article data-slice="ci-stable-playwright-inventory" data-date="2026-07-22">
     <h3>Playwright routing now follows stable case metadata</h3>
     <dl>

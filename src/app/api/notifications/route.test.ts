@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-22-0.1.283-clanker-breach-visuals",
+      releaseNoticeId: "2026-07-22-0.1.285-staged-clanker-invasion",
       releaseSummary:
-        "Watch the Clankers break into your bunker: Bunker raids now show the assault: the wave stays hidden while it tunnels through the rock around your claim, appears right where it breaks in, and crawls your rooms in every direction to reach you.",
+        "Clanker invasions come in waves you can fight: A raid now opens with a few quiet seconds, then the Clankers burrow in one at a time, and one surfacing under your feet can be dodged instead of ending the raid on the spot.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-22-0.1.283-clanker-breach-visuals",
+      releaseNoticeId: "2026-07-22-0.1.285-staged-clanker-invasion",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -396,6 +396,12 @@ export function FpClankerLayer({
         for (let p = 0; p < pickups.length; p += 1) {
           const pickup = pickups[p];
           if (pickup.collected) continue;
+          // A Clanker that drained out in the approach dropped its pickup
+          // inside shell rock, where the player can never walk: draw
+          // nothing there (integer cell centers, so the room test holds).
+          if (!fpClankerInsideRoom(footprint, pickup.col, pickup.row)) {
+            continue;
+          }
           if (count >= FP_XP_CAPACITY) break;
           xpPosition.set(
             worldX(pickup.col),

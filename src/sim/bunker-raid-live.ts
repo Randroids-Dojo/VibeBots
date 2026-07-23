@@ -63,6 +63,29 @@ export const LIVE_RAID_DURATION_TICKS =
 export const LIVE_CLANKER_MOVE_PERIOD_TICKS = 2;
 
 /**
+ * Staged wave onset (F-218): a raid used to lose an undefended fresh claim
+ * in ~3 seconds, with the whole approach happening inside solid rock where
+ * the player can see nothing. The wave now arrives as an invasion the
+ * player can watch and fight: nothing acts for the onset window, then one
+ * more Clanker activates per stagger interval, so they burrow in one after
+ * another instead of all landing at once. A waiting Clanker is inert: it
+ * neither moves nor drains energy (it is not yet in the fight), though a
+ * turret with line of sight may still pick it off at the wall.
+ */
+export const LIVE_RAID_ONSET_TICKS = LIVE_RAID_TICKS_PER_SECOND * 6;
+export const LIVE_CLANKER_ACTIVATION_STAGGER_TICKS = Math.floor(
+  LIVE_RAID_TICKS_PER_SECOND * 2.5,
+);
+
+/**
+ * A Clanker that just burrowed into the claim holds at its entry cell for
+ * this long before it can act again: the emergence is a real event the
+ * player can see and dodge, never a same-hop kill through the floor. The
+ * render layer's breach animation fits inside this window.
+ */
+export const LIVE_CLANKER_BREACH_HOLD_TICKS = 5;
+
+/**
  * Energy budget model (dev direction 2026-07-15: steps AND actions cost
  * energy, so distance and defenses both drain Clankers). Values are
  * provisional and meant to be tuned in playtests; the mechanics, not the
@@ -114,6 +137,12 @@ export interface LiveRaidClanker {
   /** Tick the Clanker died on, or -1 while alive (for death animation). */
   deathTick: number;
   death: LiveClankerDeath | null;
+  /** The Clanker is inert (no move, no kill, no energy spend) until this
+   * tick. Seeded by the staggered wave onset (F-218) so the invasion
+   * arrives one attacker at a time, and re-armed for the breach hold when
+   * the Clanker burrows into the claim, so an emergence is watchable and
+   * dodgeable instead of a same-hop kill. */
+  inertUntilTick: number;
 }
 
 /** A turret defending the bunker: fixed cell and remaining ammo. */
@@ -237,6 +266,8 @@ export function createLiveRaid(
       hits: 0,
       deathTick: -1,
       death: null,
+      inertUntilTick:
+        LIVE_RAID_ONSET_TICKS + i * LIVE_CLANKER_ACTIVATION_STAGGER_TICKS,
     });
   }
   const parts: LiveRaidPart[] = bunker.parts
@@ -487,21 +518,34 @@ function stepOneClanker(
   }
 
   // Move into the open cell.
+  const wasInside = containsBunkerCell(
+    state.footprint,
+    clanker.col,
+    clanker.row,
+  );
   if (!spendEnergy(state, clanker, LIVE_MOVE_ENERGY_COST)) return;
   clanker.col = best.col;
   clanker.row = best.row;
   clanker.depth = best.depth;
   // Entering the footprint counts as a breach, even if the Clanker dies to
   // a spike on the very cell it entered: the claim was no longer sealed.
-  if (containsBunkerCell(state.footprint, best.col, best.row)) {
-    state.breached = true;
-  }
+  const nowInside = containsBunkerCell(state.footprint, best.col, best.row);
+  if (nowInside) state.breached = true;
 
   // Crossing a live spike drains extra energy and consumes a spike use.
   const spike = livePartAt(state, best.col, best.row, best.depth);
   if (spike && spike.partId === "floor-spikes") {
     spike.durability -= 1;
     if (!spendEnergy(state, clanker, LIVE_SPIKE_ENERGY_COST)) return;
+  }
+
+  // The hop that burrows into the claim is the emergence: the Clanker
+  // holds there while it surfaces (F-218) and cannot kill on this hop, so
+  // breaching through the floor under the player's feet is dodgeable
+  // instead of an invisible same-tick death.
+  if (nowInside && !wasInside) {
+    clanker.inertUntilTick = state.tick + LIVE_CLANKER_BREACH_HOLD_TICKS;
+    return;
   }
 
   if (
@@ -626,6 +670,10 @@ export function stepLiveRaid(
     const field = playerCostField(state, player);
     for (const clanker of state.clankers) {
       if (!clanker.alive) continue;
+      // Inert: still burrowing in (staged onset) or finishing its breach
+      // emergence (F-218). It holds in place, spends nothing, and cannot
+      // reach the player yet.
+      if (state.tick < clanker.inertUntilTick) continue;
       stepOneClanker(state, clanker, player, field);
       if (state.minerKilled) break;
     }

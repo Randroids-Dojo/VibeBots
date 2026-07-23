@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-216 Collect bunker overflow loot into the trip bag</title>
+<meta name="dot-title" content="F-216 Collect bunker overflow loot into the trip bag">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-21T21:31:00.000000-05:00">
+</head>
+<body>
+<article>
+<h1>F-216 Collect bunker overflow loot into the trip bag</h1>
+<section id="description">
+F-216: When a bunker dig overflows the shared cargo bag, the excess drops as a per-cell loot pile whose first-person walk-over collection (collectBunkerLoot) still credits vibes straight to the balance, the instant-payout shortcut the trip-bag economy (packages 0.1.280 and 0.1.281) removed from digging. Turn loot pickup into a logged trip action that credits the shared bag at its replay position (respecting shared capacity), validate the collected pile against the durable bunker loot server-side, clear the pile atomically, stop crediting vibes directly, and lose the carried loot with the bag on a cave-in like every other chunk. This item was originally minted 2026-07-20 as a duplicate F-213 in collision with the Web Push validation followup, which keeps F-213; the ledger identity correction is recorded in docs/FOLLOWUPS.html under F-216.
+</section>
+</article>
+</body>
+</html>

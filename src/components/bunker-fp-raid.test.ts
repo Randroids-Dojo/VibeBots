@@ -8,9 +8,11 @@ import {
   FP_RAID_ACTION_SECONDS,
   FP_RAID_TICK_SECONDS,
   type FpRaidRuntime,
+  formatRaidCooldown,
   fpRaidEnded,
   fpRaidInterpFactor,
   fpRaidReport,
+  raidCooldownMsLeft,
 } from "./bunker-fp-raid";
 
 const FOOTPRINT: BunkerFootprint = { col: 5, row: 5, width: 7, height: 5 };
@@ -240,5 +242,31 @@ describe("fpRaidReport", () => {
     const report = fpRaidReport(runtime);
     expect(report.outcome).toBe("lost");
     expect(report.minerKilled).toBe(true);
+  });
+});
+
+describe("raid cooldown helpers", () => {
+  it("computes the clamped time left until the next raid", () => {
+    expect(raidCooldownMsLeft(10_000, 4_000)).toBe(6_000);
+    // At or past the deadline nothing remains.
+    expect(raidCooldownMsLeft(10_000, 10_000)).toBe(0);
+    expect(raidCooldownMsLeft(10_000, 15_000)).toBe(0);
+    // No deadline (no prior raid) means a raid can start now.
+    expect(raidCooldownMsLeft(null, 4_000)).toBe(0);
+  });
+
+  it("formats the countdown with its two largest units", () => {
+    expect(formatRaidCooldown(4 * 60 * 60 * 1000)).toBe("4h 0m");
+    expect(formatRaidCooldown(3 * 60 * 60 * 1000 + 59 * 60 * 1000)).toBe(
+      "3h 59m",
+    );
+    expect(formatRaidCooldown(59 * 60 * 1000 + 30 * 1000)).toBe("59m 30s");
+    expect(formatRaidCooldown(45 * 1000)).toBe("45s");
+    expect(formatRaidCooldown(0)).toBe("0s");
+  });
+
+  it("rounds seconds up so a live countdown never shows zero early", () => {
+    expect(formatRaidCooldown(1)).toBe("1s");
+    expect(formatRaidCooldown(59_001)).toBe("1m 0s");
   });
 });

@@ -186,3 +186,30 @@ export function fpRaidEnded(runtime: FpRaidRuntime): boolean {
 export function fpRaidReport(runtime: FpRaidRuntime): LiveRaidOutcomeReport {
   return liveRaidOutcomeReport(runtime.state);
 }
+
+/**
+ * Milliseconds until the next raid may start, clamped at zero. A null
+ * deadline (no prior raid) means a raid can start now.
+ */
+export function raidCooldownMsLeft(
+  nextAvailableAtMs: number | null,
+  nowMs: number,
+): number {
+  if (nextAvailableAtMs === null) return 0;
+  return Math.max(0, nextAvailableAtMs - nowMs);
+}
+
+/**
+ * Compact label for the raid-cooldown chip: the two largest nonzero
+ * units, seconds-only under a minute. Seconds are rounded up so the chip
+ * never reads a zero while time actually remains.
+ */
+export function formatRaidCooldown(msLeft: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(msLeft / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}

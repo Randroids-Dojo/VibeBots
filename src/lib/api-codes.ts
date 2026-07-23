@@ -30,6 +30,15 @@ export const BUNKER_REVISION_CONFLICT_CODE = "bunker-revision-conflict";
 export const BUNKER_LAYOUT_INCOMPATIBLE_CODE = "bunker-layout-incompatible";
 
 /**
+ * A raid start was rejected because the shared cooldown is still running.
+ * The 409 body carries the authoritative view (including
+ * `nextRaidAvailableAtMs`), so a client that had not seen the cooldown
+ * (another device raided) adopts the real countdown instead of a silent
+ * no-op.
+ */
+export const BUNKER_RAID_COOLDOWN_CODE = "bunker-raid-cooldown";
+
+/**
  * Stable low-cardinality reasons an elevator rail buy can be rejected with
  * (F-121). The old generic 409 folded insufficient balance, stale rail
  * ownership, and concurrent checkpoint loss into one prose string. Each reason

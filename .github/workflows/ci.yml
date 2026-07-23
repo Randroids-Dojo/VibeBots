@@ -183,7 +183,7 @@ jobs:
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-critical-${{ matrix.shard_name }}
           path: playwright-report/
@@ -386,7 +386,7 @@ jobs:
       # deadline, so this upload actually runs and the evidence survives (F-131).
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-full-${{ matrix.shard_name }}
           path: |
@@ -435,7 +435,7 @@ jobs:
           UPDATE_VISUAL_BASELINES: "1"
 
       - name: Upload baselines artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: visual-baselines
           path: tests/e2e/visual-baselines.spec.ts-snapshots/

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "imageRepository": "ghcr.io/randroids-dojo/vibebots-ci",
+  "imageDigest": "sha256:f30825a19dda3d1dcf5647e1c0d18535c4b5cbba8c46ff1b5890dfa4e55a57c4",
+  "sourceCommit": "5135f980a0f5a9252b7a197e8f6ef8b648a7cf4a",
+  "platforms": ["linux/amd64", "linux/arm64"],
+  "baseImages": {
+    "node": "node:22.22.1-bookworm-slim@sha256:4f77a690f2f8946ab16fe1e791a3ac0667ae1c3575c3e4d0d4589e9ed5bfaf3d",
+    "playwright": "mcr.microsoft.com/playwright:v1.60.0-noble@sha256:9bd26ad900bb5e0f4dee75839e957a89ae89c2b7ab1e76050e559790e946b948"
+  },
+  "toolchain": {
+    "ubuntu": "24.04",
+    "node": "22.22.1",
+    "pnpm": "10.30.3",
+    "playwright": "1.60.0"
+  }
+}

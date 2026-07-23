@@ -192,6 +192,114 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
+  runtime-shadow-hosted:
+    name: Runtime Shadow (hosted)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Run functional shadow shard
+        env:
+          CI_CASE_RESULTS_PATH: playwright-report/runtime-shadow-hosted.json
+        run: pnpm test:e2e --grep "@functional" --project=chromium --fully-parallel --workers=1 --shard=1/8
+
+      - name: Upload hosted shadow results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-shadow-hosted
+          path: playwright-report/runtime-shadow-hosted.json
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime-shadow-pinned:
+    name: Runtime Shadow (pinned)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    container:
+      image: ghcr.io/randroids-dojo/vibebots-ci@sha256:f30825a19dda3d1dcf5647e1c0d18535c4b5cbba8c46ff1b5890dfa4e55a57c4
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Run functional shadow shard
+        env:
+          CI_CASE_RESULTS_PATH: playwright-report/runtime-shadow-pinned.json
+        run: pnpm test:e2e --grep "@functional" --project=chromium --fully-parallel --workers=1 --shard=1/8
+
+      - name: Upload pinned shadow results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-shadow-pinned
+          path: playwright-report/runtime-shadow-pinned.json
+          retention-days: 14
+          if-no-files-found: error
+
+  runtime-shadow-compare:
+    name: Runtime Shadow Comparison
+    if: always()
+    needs:
+      - runtime-shadow-hosted
+      - runtime-shadow-pinned
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download hosted shadow results
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-shadow-hosted
+          path: runtime-shadow/hosted
+
+      - name: Download pinned shadow results
+        uses: actions/download-artifact@v4
+        with:
+          name: runtime-shadow-pinned
+          path: runtime-shadow/pinned
+
+      - name: Compare discovery, outcomes, and durations
+        run: |
+          node scripts/ci-shadow-compare.mjs \
+            --hosted runtime-shadow/hosted/runtime-shadow-hosted.json \
+            --pinned runtime-shadow/pinned/runtime-shadow-pinned.json \
+            --output runtime-shadow/comparison.json
+
+      - name: Upload runtime comparison
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-shadow-comparison
+          path: runtime-shadow/comparison.json
+          retention-days: 14
+          if-no-files-found: error
+
   e2e-full:
     name: Full E2E (${{ matrix.shard_name }})
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full_e2e == 'true') }}

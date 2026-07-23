@@ -70,3 +70,12 @@ jobs:
           echo "### Browser runtime" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "\`$TAG@$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Make repository runtime publicly pullable
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            --method PATCH \
+            /orgs/${{ github.repository_owner }}/packages/container/vibebots-ci \
+            -f visibility=public

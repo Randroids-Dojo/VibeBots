@@ -12,6 +12,7 @@ import {
 
 const loaded = loadVectors();
 const manifests = loadManifests();
+const kinds = ["combat", "economy", "mining", "replay", "world"];
 
 describe("deterministic golden vectors", () => {
   it("uses unique stable IDs and complete versioned inputs", () => {
@@ -20,11 +21,17 @@ describe("deterministic golden vectors", () => {
     for (const { vector } of loaded) {
       expect(vector.schemaVersion).toBe(1);
       expect(vector.id).toMatch(/^GOLDEN-[A-Z]+-\d{4}$/);
+      expect(kinds).toContain(vector.kind);
       expect(Number.isInteger(vector.seed)).toBe(true);
       expect(Number.isInteger(vector.stepCount)).toBe(true);
       expect(vector.stepCount).toBeGreaterThan(0);
+      expect(Number.isInteger(vector.simVersion)).toBe(true);
       expect(Array.isArray(vector.actionLog)).toBe(true);
+      expect(
+        vector.actionLog.every((action) => typeof action === "string"),
+      ).toBe(true);
       if (["economy", "mining", "replay"].includes(vector.kind)) {
+        expect(Number.isInteger(vector.mineVersion)).toBe(true);
         expect(vector.actionLog.length).toBe(vector.stepCount);
       }
       validateManifestLink(vector, manifests);

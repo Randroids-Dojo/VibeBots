@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="building-escape-readiness" data-date="2026-07-23">
+    <h3>Building Escape waits for its route handler instead of racing it</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/current-full-e2e-regressions</code></dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/290">#290</a></dd>
+      <dt>Changed</dt><dd>The shared <code>BackToMine</code> control now advertises <code>Escape</code> through <code>aria-keyshortcuts</code> and exposes <code>data-escape-ready="true"</code> only after its window handler is attached. <code>E2E-MINE-KEYBOARD-CONTROLS-0001</code> waits on that readiness contract after entering the Workshop, so a route URL update cannot race the destination's passive effect and discard the first Escape press. The handler and product behavior are unchanged after readiness; no timeout was widened and no assertion was removed.</dd>
+      <dt>Verification</dt><dd>Exact-main manual Full E2E run <a href="https://github.com/Randroids-Dojo/VibeBots/actions/runs/30008144077">30008144077</a> completed all 32 shards on <code>a6978765</code>: 18 passed and 14 failed, with 30 final failed cases and two retry recoveries. Thirty-one of the 32 affected cases had already failed an attempt in exact-main run <code>29972059570</code>; the only other case, paid base return, remains owned by F-196/F-200 and passed locally. The Escape case reproduced locally before the change and passed after it. Six other affected functional cases passed together with one worker both normally and with <code>E2E_SOFTWARE_GL=1</code>; the stratum and held-Up cases also passed focused. The full four-case Critical E2E set passed. Also green: 1,832 Vitest cases, production build, typecheck, inventory, dash, sim-purity, focused Biome, full lint with the four existing warnings and three infos, and <code>git diff --check</code>.</dd>
+      <dt>Assumptions</dt><dd>The repeated 29-case residual after removing this readiness race remains the already diagnosed F-132 GitHub SwiftShader capability wall. This slice does not call that wall resolved, add blanket time, or move any test between capability tiers.</dd>
+      <dt>GDD coverage</dt><dd>No row or GDD build-log change. This is route-input readiness and CI harness repair; game rules, deterministic versions, package version, release notes, tips, and stamps are unchanged.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> gains the exact-main classification evidence. The repair Dot remains active through PR review and exact-main verification.</dd>
+    </dl>
+  </article>
   <article data-slice="ci-stable-inventory-review-correction" data-date="2026-07-22">
     <h3>Critical routing drops the renderer-hostage bunker claim case</h3>
     <dl>

@@ -301,7 +301,9 @@ export function validateManifestLink(
   manifests: GoldenChangeManifest[],
 ): void {
   if (!vector.expected || !vector.manifestId) {
-    throw new Error(`${vector.id} has no generated golden or manifest link`);
+    throw new Error(
+      `${vector.id} has no generated golden or manifest link. Run pnpm test:goldens:update -- --reason <text>.`,
+    );
   }
   const manifest = manifests.find((entry) => entry.id === vector.manifestId);
   const change = manifest?.changes.find(

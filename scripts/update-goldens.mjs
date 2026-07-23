@@ -17,6 +17,8 @@ const result = spawnSync(
     "exec",
     "vitest",
     "run",
+    "--config",
+    "vitest.goldens.config.ts",
     "tests/goldens/update-runner.test.ts",
     "--reporter=verbose",
   ],

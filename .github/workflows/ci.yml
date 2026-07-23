@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload Playwright case inventory
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-case-inventory-${{ github.sha }}
           path: playwright-report/case-inventory.json
@@ -174,7 +174,7 @@ jobs:
 
       - name: Upload Critical E2E case timings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-critical-timings-${{ matrix.shard_name }}
           path: playwright-report/ci-case-results.json
@@ -359,7 +359,7 @@ jobs:
 
       - name: Upload Full E2E case timings
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-full-timings-${{ matrix.shard_name }}
           path: playwright-report/ci-case-results.json

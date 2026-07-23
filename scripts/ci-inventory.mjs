@@ -3,18 +3,12 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import ts from "typescript";
+import { outputPathFromArgs } from "./ci-inventory-args.mjs";
 import {
   collectCases,
   summarizeInventory,
   validateInventory,
 } from "./ci-inventory-lib.mjs";
-
-function outputPathFromArgs(args) {
-  const index = args.indexOf("--output");
-  if (index === -1) return null;
-  if (!args[index + 1]) throw new Error("--output requires a file path");
-  return path.resolve(args[index + 1]);
-}
 
 function testCallSources(report) {
   const locations = new Set();

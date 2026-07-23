@@ -235,7 +235,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     container:
-      image: ghcr.io/randroids-dojo/vibebots-ci@sha256:f30825a19dda3d1dcf5647e1c0d18535c4b5cbba8c46ff1b5890dfa4e55a57c4
+      image: ghcr.io/randroids-dojo/vibebots-ci@sha256:57e3df8c39e0aba97f698dc0ec0afa615e26124919ac44594b135241d9483691
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

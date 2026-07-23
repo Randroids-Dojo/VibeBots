@@ -9,6 +9,7 @@ import {
   summarizeInventory,
   validateInventory,
 } from "./ci-inventory-lib.mjs";
+import { fileFromSourceLocation } from "./ci-source-location.mjs";
 
 function testCallSources(report) {
   const locations = new Set();
@@ -21,11 +22,11 @@ function testCallSources(report) {
   for (const suite of report.suites ?? []) visitSuite(suite);
 
   const sourceByLocation = new Map();
-  const files = [
-    ...new Set([...locations].map((entry) => entry.split(":")[0])),
-  ];
+  const files = [...new Set([...locations].map(fileFromSourceLocation))];
   for (const file of files) {
-    const filePath = path.join("tests/e2e", file);
+    const filePath = path.isAbsolute(file)
+      ? file
+      : path.join("tests/e2e", file);
     const source = readFileSync(filePath, "utf8");
     const sourceFile = ts.createSourceFile(
       file,

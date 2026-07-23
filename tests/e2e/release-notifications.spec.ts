@@ -23,17 +23,17 @@ test(
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
     await expect(dialog).toContainText(
-      "the wave stays hidden while it tunnels through the rock around your claim",
+      "A raid now opens with a few quiet seconds",
     );
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").first()).toContainText(
-      "stays out of sight until it actually tunnels into your bunker",
+      "nothing moves for the opening moments",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "faces the way it is walking",
+      "one erupting under your feet is a dodge",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "pops exactly on the cell where it died",
+      "no longer glints where you could never walk",
     );
 
     await page.mouse.click(8, 8);

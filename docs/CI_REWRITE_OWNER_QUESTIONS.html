@@ -11,6 +11,16 @@
 </header>
 
 <main id="questions">
+  <section data-date="2026-07-23" data-status="resolved">
+    <h2>Full E2E repair merge policy deadlock</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized exactly one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/290">PR #290</a>.</dd>
+      <dt>Evidence</dt><dd>Exact head <code>c978acd6e27d02222f05a3bcceefea77ec2a556c</code> passed Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, and Vercel. CodeRabbit approved the exact head, Copilot reported no comments, and no actionable review threads remained.</dd>
+      <dt>Policy result</dt><dd>GitHub reported the pull request mergeable but blocked by base-branch policy and rejected the ordinary squash merge. The earlier administrator authorization applied only to PR #288 and had already been consumed.</dd>
+      <dt>Resolution</dt><dd>PR #290 was administrator-squash merged as <code>4c9636702fcb9da894722adbd5230c33faf49d7b</code>. Exact-main CI run <code>30024430861</code> and CodeQL run <code>30024429615</code> passed. Production deployment <code>dpl_DJ5imgp7p7ynYPR1xfhCDqiu2ovP</code> is Ready on the same SHA, owns the production aliases, serves healthy version and mine responses, and returned no error or fatal runtime logs.</dd>
+      <dt>Status</dt><dd>Resolved. This administrator-merge authorization is consumed and does not extend to Stage 1 or later pull requests.</dd>
+    </dl>
+  </section>
   <section data-date="2026-07-22" data-status="resolved">
     <h2>Stage 0 merge policy deadlock</h2>
     <dl>

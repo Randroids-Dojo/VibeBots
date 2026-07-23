@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-21-0.1.282-fire-tv-safe-area";
+export const RELEASE_NOTICE_ID = "2026-07-22-0.1.283-clanker-breach-visuals";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.283",
+      date: "2026-07-22",
+      title: "Watch the Clankers break into your bunker",
+      intro:
+        "Bunker raids now show the assault: the wave stays hidden while it tunnels through the rock around your claim, appears right where it breaks in, and crawls your rooms in every direction to reach you.",
+      changes: [
+        {
+          build,
+          text: "A raiding Clanker used to be drawn inside solid rock and glide through your walls like a ghost. Now it stays out of sight until it actually tunnels into your bunker, so the first you see of the wave is it breaking in through your own openings.",
+        },
+        {
+          build,
+          text: "Clankers read their route now: each one faces the way it is walking, noses up a wall it climbs, and noses down at you when it drops toward your cell.",
+        },
+        {
+          build,
+          text: "A stopped Clanker's self-destruct burst now pops exactly on the cell where it died instead of a step behind its last move.",
+        },
+      ],
+    },
     {
       version: "0.1.282",
       date: "2026-07-21",

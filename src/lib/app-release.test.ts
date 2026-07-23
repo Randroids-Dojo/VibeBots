@@ -24,11 +24,28 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest fire-tv-safe-area note complete", () => {
+  it("keeps the latest clanker-breach-visuals note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-21-0.1.282-fire-tv-safe-area");
+    expect(release.noticeId).toBe("2026-07-22-0.1.283-clanker-breach-visuals");
+    expect(latestNote).toMatchObject({
+      version: "0.1.283",
+      title: "Watch the Clankers break into your bunker",
+      intro:
+        "Bunker raids now show the assault: the wave stays hidden while it tunnels through the rock around your claim, appears right where it breaks in, and crawls your rooms in every direction to reach you.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A raiding Clanker used to be drawn inside solid rock and glide through your walls like a ghost. Now it stays out of sight until it actually tunnels into your bunker, so the first you see of the wave is it breaking in through your own openings.",
+      "Clankers read their route now: each one faces the way it is walking, noses up a wall it climbs, and noses down at you when it drops toward your cell.",
+      "A stopped Clanker's self-destruct burst now pops exactly on the cell where it died instead of a step behind its last move.",
+    ]);
+  });
+
+  it("keeps the archived fire-tv-safe-area note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.282");
+
     expect(latestNote).toMatchObject({
       version: "0.1.282",
       title: "The mine fits on your TV screen",

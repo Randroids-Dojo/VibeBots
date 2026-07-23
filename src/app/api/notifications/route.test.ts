@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-21-0.1.282-fire-tv-safe-area",
+      releaseNoticeId: "2026-07-22-0.1.283-clanker-breach-visuals",
       releaseSummary:
-        "The mine fits on your TV screen: TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
+        "Watch the Clankers break into your bunker: Bunker raids now show the assault: the wave stays hidden while it tunnels through the rock around your claim, appears right where it breaks in, and crawls your rooms in every direction to reach you.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-21-0.1.282-fire-tv-safe-area",
+      releaseNoticeId: "2026-07-22-0.1.283-clanker-breach-visuals",
       attempted: 2,
       sent: 1,
       expired: 1,

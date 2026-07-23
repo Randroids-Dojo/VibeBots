@@ -188,15 +188,14 @@ export function fpRaidReport(runtime: FpRaidRuntime): LiveRaidOutcomeReport {
 }
 
 /**
- * Milliseconds until the next raid may start, clamped at zero. Null
- * deadline (no prior raid, or the server predates the cooldown field)
- * means a raid can start now.
+ * Milliseconds until the next raid may start, clamped at zero. A null
+ * deadline (no prior raid) means a raid can start now.
  */
 export function raidCooldownMsLeft(
-  nextAvailableAtMs: number | null | undefined,
+  nextAvailableAtMs: number | null,
   nowMs: number,
 ): number {
-  if (typeof nextAvailableAtMs !== "number") return 0;
+  if (nextAvailableAtMs === null) return 0;
   return Math.max(0, nextAvailableAtMs - nowMs);
 }
 

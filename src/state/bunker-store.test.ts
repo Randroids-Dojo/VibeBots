@@ -181,6 +181,30 @@ describe("bunker store", () => {
     expect(useBunkerStore.getState().activeLiveRaid).toEqual(liveRaid);
   });
 
+  it("resyncs to the view a cooldown-rejected start carries", async () => {
+    // Another device raided, so this client's Start press bounces off the
+    // cooldown 409. The body carries the authoritative view; the store
+    // adopts it (flipping the HUD to the countdown) and reports failure.
+    const deadline = Date.now() + 3 * 60 * 60 * 1000;
+    mockedStartLive.mockResolvedValue({
+      ok: false,
+      status: 409,
+      body: {
+        ...view,
+        nextRaidAvailableAtMs: deadline,
+        error: "raid cooldown active: 3h remaining",
+        code: "bunker-raid-cooldown",
+      },
+    });
+
+    const body = await useBunkerStore.getState().startLiveRaid(1);
+
+    expect(body).toBeNull();
+    const state = useBunkerStore.getState();
+    expect(state.status).toBe("ready");
+    expect(state.nextRaidAvailableAtMs).toBe(deadline);
+  });
+
   it("adopts the raid cooldown deadline and clears it when absent", async () => {
     const deadline = Date.now() + 4 * 60 * 60 * 1000;
     mockedLoad.mockResolvedValue({

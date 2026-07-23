@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { apiErrorCode, BUNKER_REVISION_CONFLICT_CODE } from "@/lib/api-codes";
+import {
+  apiErrorCode,
+  BUNKER_RAID_COOLDOWN_CODE,
+  BUNKER_REVISION_CONFLICT_CODE,
+} from "@/lib/api-codes";
 import type {
   BunkerPlayerProgress,
   BunkerRouteResponse,
@@ -132,13 +136,20 @@ function serializeEdit<T>(task: () => Promise<T>): Promise<T> {
 }
 
 /**
- * A revision-conflict 409 carries the full authoritative view (the server
- * spreads it into the error body under {@link BUNKER_REVISION_CONFLICT_CODE}),
- * so the client resyncs to it instead of just showing an error. Branching on
- * the shared code keeps this from guessing at the body shape (F-068, F-122).
+ * Some 409s carry the full authoritative view spread into the error body
+ * (a revision conflict, or a raid start bounced off a cooldown this client
+ * had not seen), so the client resyncs to it instead of just showing an
+ * error. Branching on the shared codes keeps this from guessing at the
+ * body shape (F-068, F-122).
  */
 function conflictResyncView(body: unknown): BunkerRouteResponse | null {
-  if (apiErrorCode(body) !== BUNKER_REVISION_CONFLICT_CODE) return null;
+  const code = apiErrorCode(body);
+  if (
+    code !== BUNKER_REVISION_CONFLICT_CODE &&
+    code !== BUNKER_RAID_COOLDOWN_CODE
+  ) {
+    return null;
+  }
   return body as BunkerRouteResponse;
 }
 

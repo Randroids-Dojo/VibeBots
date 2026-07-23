@@ -3750,15 +3750,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
           onOpenStatus={openStatusFromFp}
           player={bunkerPlayer}
           onExit={exitFpBunker}
-          onStartLiveRaid={(tier) =>
-            void startBunkerLiveRaid(tier).then((result) => {
-              // A rejected start (e.g. a cooldown this client had not seen
-              // because another device raided) resyncs the view, so the
-              // Start button flips to the authoritative countdown instead
-              // of silently doing nothing.
-              if (result === null) void loadBunker();
-            })
-          }
+          onStartLiveRaid={(tier) => void startBunkerLiveRaid(tier)}
           raidTierCeiling={maxBunkerRaidTier(bunkerPlayer?.overallLevel ?? 1)}
           raidStartAllowed={!pendingBunkerActive}
           nextRaidAvailableAtMs={bunkerNextRaidAvailableAtMs}

@@ -251,10 +251,8 @@ describe("raid cooldown helpers", () => {
     // At or past the deadline nothing remains.
     expect(raidCooldownMsLeft(10_000, 10_000)).toBe(0);
     expect(raidCooldownMsLeft(10_000, 15_000)).toBe(0);
-    // No deadline (no prior raid, or a server predating the field) means
-    // a raid can start now.
+    // No deadline (no prior raid) means a raid can start now.
     expect(raidCooldownMsLeft(null, 4_000)).toBe(0);
-    expect(raidCooldownMsLeft(undefined, 4_000)).toBe(0);
   });
 
   it("formats the countdown with its two largest units", () => {

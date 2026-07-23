@@ -1,5 +1,6 @@
 import {
   BUNKER_LAYOUT_INCOMPATIBLE_CODE,
+  BUNKER_RAID_COOLDOWN_CODE,
   BUNKER_REVISION_CONFLICT_CODE,
 } from "@/lib/api-codes";
 import type { BunkerView, LiveRaidActiveView } from "@/lib/bunker-api-types";
@@ -607,26 +608,22 @@ export async function loadBunkerView(
     revision: unknown;
     layout_version: unknown;
   }>;
+  // The newest raid row serves double duty: it is the active raid when its
+  // result is unsettled (only the newest row can be, since a start is gated
+  // on no active raid), and its started_at anchors the cooldown either way.
+  // One row, one query, so the HUD countdown and the start gate's 409 read
+  // the same truth by construction.
   const raidRows = (await sql`
-    SELECT snapshot, raid_version, started_at
+    SELECT snapshot, raid_version, started_at, result
     FROM bunker_raids
     WHERE player_id = ${playerId}
-      AND result IS NULL
     ORDER BY started_at DESC
     LIMIT 1`) as Array<{
     snapshot: unknown;
     raid_version: unknown;
     started_at: string | Date;
+    result: unknown;
   }>;
-  // Newest raid start regardless of settlement, for the cooldown the HUD
-  // shows: the same row the start route's own gate reads, so the countdown
-  // and the 409 it prevents can never disagree.
-  const cooldownRows = (await sql`
-    SELECT started_at
-    FROM bunker_raids
-    WHERE player_id = ${playerId}
-    ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ started_at: string | Date }>;
   const player = playerRows[0] ?? {
     emeralds: 0,
     track_xp: 0,
@@ -637,6 +634,7 @@ export async function loadBunkerView(
   const raidRow = raidRows[0];
   const isLiveRaidRow =
     raidRow !== undefined &&
+    raidRow.result == null &&
     Number(raidRow.raid_version) === BUNKER_RAID_LIVE_VERSION;
   let activeLiveRaid: LiveRaidActiveView | null = null;
   if (isLiveRaidRow) {
@@ -658,17 +656,16 @@ export async function loadBunkerView(
   const bunker = parsedBunker
     ? await backfillMissingBlockSeed(sql, playerId, parsedBunker)
     : null;
-  const lastRaidStartMs = cooldownRows[0]
-    ? new Date(cooldownRows[0].started_at).getTime()
-    : Number.NaN;
-  const cooldownEndsMs =
-    lastRaidStartMs + BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
+  const cooldownEndsMs = raidRow
+    ? new Date(raidRow.started_at).getTime() +
+      BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000
+    : null;
   return {
     bunker,
     inventory: await ensureStarterBaseParts(sql, playerId),
     activeLiveRaid,
     nextRaidAvailableAtMs:
-      Number.isFinite(cooldownEndsMs) && cooldownEndsMs > Date.now()
+      cooldownEndsMs !== null && cooldownEndsMs > Date.now()
         ? cooldownEndsMs
         : null,
     revision: Number.isFinite(revisionValue) ? revisionValue : 0,
@@ -1456,25 +1453,23 @@ export async function startLiveRaid(
       error: `tier ${tier} unlocks at player level ${tier}`,
     };
   }
-  const recentRows = (await sql`
-    SELECT started_at
-    FROM bunker_raids
-    WHERE player_id = ${playerId}
-    ORDER BY started_at DESC
-    LIMIT 1`) as Array<{ started_at: string | Date }>;
-  const lastStartedAt = recentRows[0]?.started_at;
-  if (lastStartedAt) {
-    const cooldownMs = BUNKER_RAID_COOLDOWN_HOURS * 60 * 60 * 1000;
-    const remainingMs =
-      new Date(lastStartedAt).getTime() + cooldownMs - Date.now();
-    if (remainingMs > 0) {
-      const remainingHours = Math.ceil(remainingMs / (60 * 60 * 1000));
-      return {
-        ok: false,
-        status: 409,
-        error: `raid cooldown active: ${remainingHours}h remaining`,
-      };
-    }
+  // The cooldown gate reads the deadline the view just computed (from the
+  // newest raid row), so the HUD countdown and this 409 share one source.
+  // The rejection carries the authoritative view: a client that had not
+  // seen the cooldown (another device raided) adopts the countdown through
+  // the same resync path as a revision conflict, instead of a silent no-op.
+  const availableAtMs = view.nextRaidAvailableAtMs;
+  if (typeof availableAtMs === "number" && availableAtMs > Date.now()) {
+    const remainingHours = Math.ceil(
+      (availableAtMs - Date.now()) / (60 * 60 * 1000),
+    );
+    return {
+      ok: false,
+      status: 409,
+      error: `raid cooldown active: ${remainingHours}h remaining`,
+      code: BUNKER_RAID_COOLDOWN_CODE,
+      body: { ...view },
+    };
   }
   // A stale past-grace live row was already settled as a forfeit loss by the
   // loadBunkerView call above (F-105), so no cleanup is needed here before

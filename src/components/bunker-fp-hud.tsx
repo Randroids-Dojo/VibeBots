@@ -345,19 +345,28 @@ export function BunkerFpHud({
     );
     return () => clearTimeout(timer);
   }, [raidActive, heldRaidOutcome]);
-  // One-second countdown tick while the raid cooldown runs; the interval
-  // stops itself once the deadline passes so an idle HUD stops re-rendering.
+  // Countdown tick at display granularity: the chip shows whole minutes
+  // above an hour, so an hours-long cooldown re-renders once a minute
+  // instead of every second, and the final hour counts seconds. The chain
+  // stops itself once the deadline passes so an idle HUD stops rendering.
   const [cooldownNowMs, setCooldownNowMs] = useState(() => Date.now());
   useEffect(() => {
     if (nextRaidAvailableAtMs === null) return;
     setCooldownNowMs(Date.now());
-    if (nextRaidAvailableAtMs <= Date.now()) return;
-    const timer = setInterval(() => {
-      const now = Date.now();
-      setCooldownNowMs(now);
-      if (now >= nextRaidAvailableAtMs) clearInterval(timer);
-    }, 1000);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      const remaining = nextRaidAvailableAtMs - Date.now();
+      if (remaining <= 0) return;
+      timer = setTimeout(
+        () => {
+          setCooldownNowMs(Date.now());
+          schedule();
+        },
+        remaining > 60 * 60 * 1000 ? 60 * 1000 : 1000,
+      );
+    };
+    schedule();
+    return () => clearTimeout(timer);
   }, [nextRaidAvailableAtMs]);
   const cooldownMsLeft = raidCooldownMsLeft(
     nextRaidAvailableAtMs,

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { BUNKER_RAID_COOLDOWN_CODE } from "@/lib/api-codes";
 import { BUNKER_LAYOUT_VERSION } from "@/sim/bunker";
 import {
   BUNKER_RAID_LIVE_VERSION,
@@ -95,6 +96,51 @@ describe("startLiveRaid (F-108)", () => {
     expect(frozen?.bunker.parts[0]?.durability).toBe(88);
     // Start applies no wear, so it never writes the bunkers table.
     expect(queries.some((q) => q.includes("UPDATE bunkers"))).toBe(false);
+  });
+
+  it("rejects a start inside the cooldown window with the view attached", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-15T01:00:00.000Z"));
+    // The last raid settled but started only an hour ago: the gate reads
+    // the deadline the view computed and ships that view in the 409 body,
+    // so a stale client adopts the countdown instead of a silent no-op.
+    const sql = vi.fn(async (strings: TemplateStringsArray) => {
+      const query = strings.join(" ");
+      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
+        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
+      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
+      if (query.includes("SELECT snapshot"))
+        return [
+          {
+            snapshot: liveSnapshot(88, "live-done"),
+            raid_version: BUNKER_RAID_LIVE_VERSION,
+            started_at: new Date("2026-07-15T00:00:00.000Z").toISOString(),
+            result: { outcome: "lost" },
+          },
+        ];
+      if (query.includes("SELECT part_id, count")) return [];
+      return [];
+    });
+
+    const result = await startLiveRaid(sql as never, "player-1", 1);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.status).toBe(409);
+    expect(result.error).toBe("raid cooldown active: 3h remaining");
+    expect(result.code).toBe(BUNKER_RAID_COOLDOWN_CODE);
+    expect(
+      (result.body as { nextRaidAvailableAtMs?: number })
+        ?.nextRaidAvailableAtMs,
+    ).toBe(new Date("2026-07-15T04:00:00.000Z").getTime());
+    // No raid row was inserted for the rejected start.
+    expect(
+      sql.mock.calls.some(([strings]) =>
+        (strings as TemplateStringsArray)
+          .join(" ")
+          .includes("INSERT INTO bunker_raids"),
+      ),
+    ).toBe(false);
   });
 
   it("rejects a start while a live raid is already active", async () => {
@@ -243,18 +289,19 @@ describe("loadBunkerView live raid discrimination", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T01:00:00.000Z"));
     // The raid settled an hour ago; the 4h cooldown still runs from its
-    // start, so the view carries the deadline the HUD counts down to.
+    // start, so the view carries the deadline the HUD counts down to (from
+    // the same newest-row query that drives active-raid discrimination).
     const startedAt = new Date("2026-07-15T00:00:00.000Z");
-    const sql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
-        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT started_at"))
-        return [{ started_at: startedAt.toISOString() }];
-      return [];
-    });
+    const sql = vi.fn(
+      baseSql([
+        {
+          snapshot: liveSnapshot(88, "live-settled"),
+          raid_version: BUNKER_RAID_LIVE_VERSION,
+          started_at: startedAt.toISOString(),
+          result: { outcome: "lost" },
+        },
+      ]),
+    );
 
     const view = await loadBunkerView(sql as never, "player-1");
 
@@ -267,30 +314,22 @@ describe("loadBunkerView live raid discrimination", () => {
   it("reports no cooldown once the window has passed, and none with no raids", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-15T05:00:00.001Z"));
-    const staleSql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
-        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
-      if (query.includes("SELECT snapshot")) return [];
-      if (query.includes("SELECT started_at"))
-        return [
-          { started_at: new Date("2026-07-15T00:00:00.000Z").toISOString() },
-        ];
-      return [];
-    });
+    const staleSql = vi.fn(
+      baseSql([
+        {
+          snapshot: liveSnapshot(88, "live-old"),
+          raid_version: BUNKER_RAID_LIVE_VERSION,
+          started_at: new Date("2026-07-15T00:00:00.000Z").toISOString(),
+          result: { outcome: "won" },
+        },
+      ]),
+    );
     expect(
       (await loadBunkerView(staleSql as never, "player-1"))
         .nextRaidAvailableAtMs,
     ).toBeNull();
 
-    const emptySql = vi.fn(async (strings: TemplateStringsArray) => {
-      const query = strings.join(" ");
-      if (query.includes("SELECT emeralds, track_xp, defense_xp"))
-        return [{ emeralds: 100, track_xp: 500, defense_xp: 500 }];
-      if (query.includes("SELECT footprint, parts")) return [bunkerRow(88)];
-      return [];
-    });
+    const emptySql = vi.fn(baseSql([]));
     expect(
       (await loadBunkerView(emptySql as never, "player-1"))
         .nextRaidAvailableAtMs,

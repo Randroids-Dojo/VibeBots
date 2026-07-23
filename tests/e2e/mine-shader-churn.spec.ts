@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { ciCase } from "./support/ci-case";
 import {
   descendLadderShaft,
   dismissReleaseNotes,
@@ -47,50 +48,54 @@ async function climbTo(page: Page, depth: number): Promise<void> {
   }
 }
 
-test("stratum crossings do not recompile shader programs", async ({ page }) => {
-  test.setTimeout(180_000);
-  await page.addInitScript(() => {
-    window.__programCreates = 0;
-    const wrap = (proto: {
-      createProgram: (this: unknown) => WebGLProgram;
-    }) => {
-      const original = proto.createProgram;
-      proto.createProgram = function (this: unknown) {
-        window.__programCreates = (window.__programCreates ?? 0) + 1;
-        return original.call(this);
+test(
+  "stratum crossings do not recompile shader programs",
+  ciCase("E2E-MINE-SHADER-CHURN-0001", "@soak"),
+  async ({ page }) => {
+    test.setTimeout(180_000);
+    await page.addInitScript(() => {
+      window.__programCreates = 0;
+      const wrap = (proto: {
+        createProgram: (this: unknown) => WebGLProgram;
+      }) => {
+        const original = proto.createProgram;
+        proto.createProgram = function (this: unknown) {
+          window.__programCreates = (window.__programCreates ?? 0) + 1;
+          return original.call(this);
+        };
       };
-    };
-    wrap(WebGL2RenderingContext.prototype);
-  });
-  await routeLadderShaftWorld(page, 2026071101, 30);
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
+      wrap(WebGL2RenderingContext.prototype);
+    });
+    await routeLadderShaftWorld(page, 2026071101, 30);
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
 
-  // Let the material warm-up finish: the load pays every compile once.
-  const warmed = await settledProgramCount(page);
-  expect(warmed).toBeGreaterThan(0);
+    // Let the material warm-up finish: the load pays every compile once.
+    const warmed = await settledProgramCount(page);
+    expect(warmed).toBeGreaterThan(0);
 
-  // First crossing of the Clay Beds boundary (row 12) may create a few
-  // programs for brand-new grid buckets (each InstancedMesh gets unique
-  // shader source, so no warm list can cover them), but those compile in
-  // the background on the grid's pending layer, never as a frame stall,
-  // and never as the whole pipeline set (the fog-object rekey recompiled
-  // ~60 programs here).
-  await descendLadderShaft(page, 16);
-  const afterFirstCrossing = await settledProgramCount(page);
-  console.log(
-    `programs: warmed=${warmed} firstCrossingDelta=${afterFirstCrossing - warmed}`,
-  );
-  expect(afterFirstCrossing - warmed).toBeLessThanOrEqual(3);
+    // First crossing of the Clay Beds boundary (row 12) may create a few
+    // programs for brand-new grid buckets (each InstancedMesh gets unique
+    // shader source, so no warm list can cover them), but those compile in
+    // the background on the grid's pending layer, never as a frame stall,
+    // and never as the whole pipeline set (the fog-object rekey recompiled
+    // ~60 programs here).
+    await descendLadderShaft(page, 16);
+    const afterFirstCrossing = await settledProgramCount(page);
+    console.log(
+      `programs: warmed=${warmed} firstCrossingDelta=${afterFirstCrossing - warmed}`,
+    );
+    expect(afterFirstCrossing - warmed).toBeLessThanOrEqual(3);
 
-  // Re-crossing the same boundary in both directions must be free: the
-  // 0.1.206 regression recompiled the full pipeline set on EVERY pass.
-  await climbTo(page, 8);
-  await descendLadderShaft(page, 16);
-  await climbTo(page, 8);
-  const afterRecrossings = await settledProgramCount(page);
-  console.log(
-    `programs: recrossingsDelta=${afterRecrossings - afterFirstCrossing}`,
-  );
-  expect(afterRecrossings - afterFirstCrossing).toBeLessThanOrEqual(2);
-});
+    // Re-crossing the same boundary in both directions must be free: the
+    // 0.1.206 regression recompiled the full pipeline set on EVERY pass.
+    await climbTo(page, 8);
+    await descendLadderShaft(page, 16);
+    await climbTo(page, 8);
+    const afterRecrossings = await settledProgramCount(page);
+    console.log(
+      `programs: recrossingsDelta=${afterRecrossings - afterFirstCrossing}`,
+    );
+    expect(afterRecrossings - afterFirstCrossing).toBeLessThanOrEqual(2);
+  },
+);

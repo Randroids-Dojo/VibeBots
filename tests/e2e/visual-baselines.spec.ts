@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { ciCase } from "./support/ci-case";
 import { digTo, dismissReleaseNotes, START_COL } from "./support/mine-helpers";
 
 /**
@@ -71,12 +72,19 @@ async function openPausedHolodeck(
 const BLOCK_ROW_CLIP = { x: 250, y: 280, width: 770, height: 280 };
 
 const SCENES: ReadonlyArray<{
+  caseId: string;
   name: string;
   scenario: string;
   gallerySet?: string;
 }> = [
-  { name: "gallery-terrain", scenario: "block-gallery", gallerySet: "terrain" },
   {
+    caseId: "E2E-VISUAL-BASELINES-0001",
+    name: "gallery-terrain",
+    scenario: "block-gallery",
+    gallerySet: "terrain",
+  },
+  {
+    caseId: "E2E-VISUAL-BASELINES-0002",
     name: "gallery-ores-classic",
     scenario: "block-gallery",
     gallerySet: "ores-classic",
@@ -84,23 +92,27 @@ const SCENES: ReadonlyArray<{
 ];
 
 for (const scene of SCENES) {
-  test(`visual baseline: ${scene.name}`, async ({ page }) => {
-    test.skip(
-      !sceneBaselineExists(scene.name) && !updatingSnapshots(),
-      "no committed baseline for this scene on this platform yet",
-    );
-    test.setTimeout(120_000);
-    await openPausedHolodeck(page, scene.scenario, scene.gallerySet);
-    await expect(page).toHaveScreenshot(`${scene.name}.png`, {
-      clip: BLOCK_ROW_CLIP,
-      // Software rasterizers dither slightly across driver updates; the
-      // ratio is loose enough to absorb that and tight enough that a
-      // material or lighting break (whole surfaces changing) still fails.
-      maxDiffPixelRatio: 0.02,
-      // Software-GL captures are slow; give the stability check room.
-      timeout: 30_000,
-    });
-  });
+  test(
+    `visual baseline: ${scene.name}`,
+    ciCase(scene.caseId, "@visual"),
+    async ({ page }) => {
+      test.skip(
+        !sceneBaselineExists(scene.name) && !updatingSnapshots(),
+        "no committed baseline for this scene on this platform yet",
+      );
+      test.setTimeout(120_000);
+      await openPausedHolodeck(page, scene.scenario, scene.gallerySet);
+      await expect(page).toHaveScreenshot(`${scene.name}.png`, {
+        clip: BLOCK_ROW_CLIP,
+        // Software rasterizers dither slightly across driver updates; the
+        // ratio is loose enough to absorb that and tight enough that a
+        // material or lighting break (whole surfaces changing) still fails.
+        maxDiffPixelRatio: 0.02,
+        // Software-GL captures are slow; give the stability check room.
+        timeout: 30_000,
+      });
+    },
+  );
 }
 
 /** The banked-claim fixture the fp e2e suite drives: deterministic
@@ -151,68 +163,72 @@ const FP_CORRIDOR_PITCH = -0.2;
  * the one-shot test hook so the capture never depends on spawn-default
  * drift.
  */
-test("visual baseline: bunker-fp-corridor", async ({ page }) => {
-  test.skip(
-    !sceneBaselineExists("bunker-fp-corridor") && !updatingSnapshots(),
-    "no committed baseline for this scene on this platform yet",
-  );
-  test.setTimeout(180_000);
-  await page.route("**/api/bunker", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(FP_BASELINE_VIEW),
+test(
+  "visual baseline: bunker-fp-corridor",
+  ciCase("E2E-VISUAL-BASELINES-0003", "@visual"),
+  async ({ page }) => {
+    test.skip(
+      !sceneBaselineExists("bunker-fp-corridor") && !updatingSnapshots(),
+      "no committed baseline for this scene on this platform yet",
+    );
+    test.setTimeout(180_000);
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(FP_BASELINE_VIEW),
+      });
     });
-  });
-  // The progressive tutorial (F-097) is DOM chrome, not this scene's
-  // subject: mark it done so its cards never drift into the clip.
-  await page.addInitScript(() => {
-    localStorage.setItem("vibebots-bunker-fp-tutorial-done", "1");
-  });
-  await page.goto("/mine");
-  await dismissReleaseNotes(page);
-  await digTo(page, 1);
-  await page.getByTestId("bunker-fp-enter").click();
-  const status = page.getByLabel("Mine status");
-  await expect(status).toHaveAttribute("data-fp-mode", "1");
-  const canvas = page.locator("canvas");
-  await expect
-    .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+    // The progressive tutorial (F-097) is DOM chrome, not this scene's
+    // subject: mark it done so its cards never drift into the clip.
+    await page.addInitScript(() => {
+      localStorage.setItem("vibebots-bunker-fp-tutorial-done", "1");
+    });
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-fp-mode", "1");
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+    await expect(status).toHaveAttribute("data-scene-painted", "true", {
       timeout: 45_000,
-    })
-    .not.toBeNull();
-  await expect(status).toHaveAttribute("data-scene-painted", "true", {
-    timeout: 45_000,
-  });
-  // Pin the aim: down the open claim row, slightly floorward.
-  await page.evaluate(
-    ([yaw, pitch]) => {
-      (
-        window as unknown as {
-          __vibebotsFp?: { setYaw?: number; setPitch?: number };
-        }
-      ).__vibebotsFp = { setYaw: yaw, setPitch: pitch };
-    },
-    [FP_CORRIDOR_YAW, FP_CORRIDOR_PITCH] as const,
-  );
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
-      timeout: 10_000,
-    })
-    .toBeCloseTo(FP_CORRIDOR_YAW, 1);
-  await expect
-    .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
-      timeout: 10_000,
-    })
-    .toBeCloseTo(FP_CORRIDOR_PITCH, 1);
-  // Let the compile-gated first frames and lighting settle.
-  await page.waitForTimeout(2_000);
-  await expect(page).toHaveScreenshot("bunker-fp-corridor.png", {
-    clip: FP_CORRIDOR_CLIP,
-    // Headless runs cannot hold pointer lock, so the resume hint stays
-    // up mid-frame; mask it (DOM copy is not this baseline's subject).
-    mask: [page.locator(".bunker-fp-resume-hint")],
-    maxDiffPixelRatio: 0.02,
-    timeout: 30_000,
-  });
-});
+    });
+    // Pin the aim: down the open claim row, slightly floorward.
+    await page.evaluate(
+      ([yaw, pitch]) => {
+        (
+          window as unknown as {
+            __vibebotsFp?: { setYaw?: number; setPitch?: number };
+          }
+        ).__vibebotsFp = { setYaw: yaw, setPitch: pitch };
+      },
+      [FP_CORRIDOR_YAW, FP_CORRIDOR_PITCH] as const,
+    );
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-fp-yaw")), {
+        timeout: 10_000,
+      })
+      .toBeCloseTo(FP_CORRIDOR_YAW, 1);
+    await expect
+      .poll(async () => Number(await canvas.getAttribute("data-fp-pitch")), {
+        timeout: 10_000,
+      })
+      .toBeCloseTo(FP_CORRIDOR_PITCH, 1);
+    // Let the compile-gated first frames and lighting settle.
+    await page.waitForTimeout(2_000);
+    await expect(page).toHaveScreenshot("bunker-fp-corridor.png", {
+      clip: FP_CORRIDOR_CLIP,
+      // Headless runs cannot hold pointer lock, so the resume hint stays
+      // up mid-frame; mask it (DOM copy is not this baseline's subject).
+      mask: [page.locator(".bunker-fp-resume-hint")],
+      maxDiffPixelRatio: 0.02,
+      timeout: 30_000,
+    });
+  },
+);

@@ -23,6 +23,7 @@ pnpm lint             # biome ci
 pnpm build            # production build
 pnpm test:e2e:critical # critical Playwright smoke for every CI push
 pnpm test:e2e         # playwright smoke, local defaults to 2 file-level workers (run pnpm build first)
+pnpm ci:inventory     # validate and list stable Playwright case metadata
 pnpm check:dashes     # AGENTS.md Rule 1 (no em/en-dashes)
 pnpm check:purity     # src/sim determinism contract
 pnpm ops:check-account-env # non-secret Clerk readiness preflight
@@ -193,6 +194,7 @@ vars, and public and server deprecated after redirect env vars unset.
 - `docs/research/account-sync-google-signin.html`, `docs/research/account-sync-clerk-vercel-setup.html`, `docs/research/account-link-vibekit-extraction.html`: optional Google sign-in design, Clerk setup checklist, and VibeKit extraction contract
 - `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts
 - `docs/CI_WORKFLOW.html`: parallel CI, critical smoke, full smoke, and superseded-run policy
+- `docs/ci-rewrite-prompt.md`, `docs/CI_REWRITE_OWNER_QUESTIONS.html`: staged CI migration design and owner decisions that would otherwise pause it
 - `docs/RELEASE_NOTES.html`: versioned release notes
 - `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`: continuity ledgers
 - `.dots/`: task backlog (HTML Dots, `dot-html` CLI)

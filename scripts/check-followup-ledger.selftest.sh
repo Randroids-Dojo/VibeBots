@@ -225,6 +225,15 @@ run_check "$WORK/successor.html" "$WORK/successor.out"
 assert successor-misuse nonzero "$WORK/successor.out" "self-referential successor edge F-001"
 assert successor-dangling nonzero "$WORK/successor.out" "successor edge target F-404 is not a primary"
 
+# Case 13: a pinned current-truth correction that is present passes, a
+# missing one and a lost phrase fail.
+run_check "$WORK/valid.html" "$WORK/correction-ok.out" --grandfathered F-002,F-006 --known F-003 --correction "F-002:F-005:see F-005"
+assert correction-present zero "$WORK/correction-ok.out" "followup ledger check passed"
+run_check "$WORK/valid.html" "$WORK/correction-missing.out" --grandfathered F-002,F-006 --known F-003 --correction "F-001:F-005:anything"
+assert correction-missing nonzero "$WORK/correction-missing.out" "missing current-truth correction dt for F-001"
+run_check "$WORK/valid.html" "$WORK/correction-phrase.out" --grandfathered F-002,F-006 --known F-003 --correction "F-002:F-005:absent phrase"
+assert correction-phrase nonzero "$WORK/correction-phrase.out" 'lost its pinned phrase "absent phrase"'
+
 echo
 if [ "$FAILED" -gt 0 ]; then
   echo "followup ledger selftest: $FAILED of $CASES cases FAILED"

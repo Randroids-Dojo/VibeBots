@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="elevator-closeout-correction-validated" data-date="2026-07-23">
+    <h3>The elevator closeout correction is now pinned current truth, in the ledger and the archived Dot</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code> (remote Claude Code session), stacked on the followup-priority-pointers slice.</dd>
+      <dt>PR</dt><dd>Pending user direction (designated-branch session).</dd>
+      <dt>Changed</dt><dd>F-180 with F-149 (shared delivery). The F-123 sequence correction pointer (committed 2026-07-15: the visible call begins first, the accepted entry move and full-turn finalization run after arrival, boarding or travel afterward) is now a pinned current-truth requirement in <code>scripts/check-followup-ledger.mjs</code>: the check fails if the correction dt disappears, loses its <code>data-f-ref</code>/<code>data-f-successor</code> pair, or drops the sequence phrase, and the successor edge already validates to exactly one primary on each end with unique identities. The archived Dot <code>.dots/archive/VibeBots-f-123-cap-3b1d0917.html</code> gains an append-only <code>close-reason-correction-2026-07-23</code> section stating the corrected order; its original close metadata is untouched.</dd>
+      <dt>Verification</dt><dd>All 16 ledger fixtures pass (three new: pinned correction present, missing correction dt, lost phrase); the real check passes with the F-123 pin active. Dash check and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>F-180 asks for the close-reason correction <q>through dot-html-supported state handling</q>, but the CLI has no history-preserving reopen path (recorded in F-149's tooling note) and is not installed in remote sessions; the append-only correction section inside the archived Dot is the honest equivalent and is recorded as a deviation in the F-180 delivery record.</dd>
+      <dt>GDD coverage</dt><dd>No row change; ledger tooling.</dd>
+      <dt>Followups</dt><dd>Delivery records appended to <a href="FOLLOWUPS.html#F-180">F-180</a> and <a href="FOLLOWUPS.html#F-149">F-149</a>; both closable with the PR number once this branch merges. Tips (Rule 13): no version bump, reviewed, no changes. Stamps (Rule 14): none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="followup-priority-pointers" data-date="2026-07-23">
     <h3>Current followup priorities are now machine-readable without touching historical placement</h3>
     <dl>

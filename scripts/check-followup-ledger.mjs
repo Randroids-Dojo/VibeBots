@@ -54,6 +54,14 @@ const KNOWN_POST_CUTOFF = new Set(
   "F-161 F-163 F-197 F-209 F-212 F-214 F-215 F-216".split(/\s+/),
 );
 
+// Current-truth corrections that must stay present and accurate: each entry
+// requires a correction dt with the given data-f-ref and data-f-successor
+// whose dd contains the pinned phrase (F-180/F-149: the elevator closeout
+// sequence correction).
+const CURRENT_TRUTH_CORRECTIONS = [
+  { ref: "F-123", successor: "F-149", phrase: "calls the car first" },
+];
+
 const BUCKETS = ["blocks-release", "nice-to-have", "polish"];
 const CLOSURE_EXCEPTION_ID = "F-033-closure-2026-06-25";
 
@@ -61,15 +69,20 @@ const args = process.argv.slice(2);
 let file = "docs/FOLLOWUPS.html";
 let grandfathered = GRANDFATHERED;
 let knownPostCutoff = KNOWN_POST_CUTOFF;
+let corrections = CURRENT_TRUTH_CORRECTIONS;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--file") {
     file = args[++i];
     grandfathered = new Set();
     knownPostCutoff = new Set();
+    corrections = [];
   } else if (args[i] === "--grandfathered") {
     grandfathered = new Set(args[++i].split(",").filter(Boolean));
   } else if (args[i] === "--known") {
     knownPostCutoff = new Set(args[++i].split(",").filter(Boolean));
+  } else if (args[i] === "--correction") {
+    const [ref, successor, ...phrase] = args[++i].split(":");
+    corrections = corrections.concat([{ ref, successor, phrase: phrase.join(":") }]);
   } else {
     console.error(`unknown argument: ${args[i]}`);
     process.exit(2);
@@ -226,6 +239,19 @@ for (const m of html.matchAll(/<[a-zA-Z][^>]*data-f-successor="([^"]+)"[^>]*>/g)
   if (!primaries.has(successor)) errors.push(`successor edge target ${successor} is not a primary`);
   if (successorSources.has(ref)) errors.push(`duplicate successor mapping for source ${ref}`);
   successorSources.add(ref);
+}
+
+// Pinned current-truth corrections must exist and carry their phrase.
+for (const c of corrections) {
+  const re = new RegExp(
+    `<dt[^>]*data-f-ref="${c.ref}"[^>]*data-f-successor="${c.successor}"[^>]*>[\\s\\S]*?</dt>\\s*<dd>([\\s\\S]*?)</dd>`,
+  );
+  const m = html.match(re);
+  if (!m) {
+    errors.push(`missing current-truth correction dt for ${c.ref} (successor ${c.successor})`);
+  } else if (!m[1].includes(c.phrase)) {
+    errors.push(`current-truth correction for ${c.ref} lost its pinned phrase "${c.phrase}"`);
+  }
 }
 
 for (const n of notes) console.log(`note: ${n}`);

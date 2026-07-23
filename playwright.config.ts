@@ -6,6 +6,7 @@ import { parsePlaywrightWorkerCount } from "./src/lib/playwright-workers";
 const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const configuredPort = process.env.PLAYWRIGHT_PORT ?? process.env.PORT;
 const configuredWorkers = process.env.PLAYWRIGHT_WORKERS;
+const ciCaseResultsPath = process.env.CI_CASE_RESULTS_PATH;
 const defaultPort =
   3100 +
   (Number.parseInt(
@@ -17,6 +18,17 @@ const localPort = Number(configuredPort ?? defaultPort);
 const localHost = process.env.PLAYWRIGHT_HOST ?? "127.0.0.1";
 const localBaseUrl = `http://${localHost}:${localPort}`;
 const workerCount = parsePlaywrightWorkerCount(configuredWorkers);
+const ciReporters: (readonly [string] | readonly [string, unknown])[] = [
+  ["list"],
+  ["html", { open: "never" }],
+  ["json", { outputFile: "playwright-report/results.json" }],
+];
+if (ciCaseResultsPath) {
+  ciReporters.push([
+    "./tests/e2e/support/ci-case-reporter.ts",
+    { outputFile: ciCaseResultsPath },
+  ]);
+}
 
 if (!Number.isInteger(localPort) || localPort < 1 || localPort > 65535) {
   throw new Error(
@@ -50,13 +62,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   // The JSON reporter gives a bounded machine-readable partial result for a
   // timed-out shard; the HTML report and traces carry the full evidence (F-131).
-  reporter: process.env.CI
-    ? [
-        ["list"],
-        ["html", { open: "never" }],
-        ["json", { outputFile: "playwright-report/results.json" }],
-      ]
-    : "list",
+  reporter: process.env.CI ? ciReporters : "list",
   use: {
     baseURL: configuredBaseUrl ?? localBaseUrl,
     // Trace is captured on the retry of a failed test; a screenshot is captured

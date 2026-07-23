@@ -30,6 +30,30 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stable-inventory-review-correction" data-date="2026-07-22">
+    <h3>Critical routing drops the renderer-hostage bunker claim case</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-0-test-inventory</code></dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">#288</a>, review correction</dd>
+      <dt>Changed</dt><dd>The first PR-head required run supplied the capability evidence the initial Stage 0 entry lacked: <code>E2E-MINE-BUNKER-0001</code> exhausted both attempts while its DOM interactions waited behind the software-rendered mine scene. It moves from <code>@functional @critical</code> to <code>@render</code>. GPU-independent <code>E2E-ACCOUNT-0001</code> now protects account sign-in entry in the critical set. The corrected 200-case inventory is 129 functional, 61 render, 3 visual, and 7 soak.</dd>
+      <dt>Verification</dt><dd>Required run <code>29973275760</code> retained both bunker-claim attempts and their screenshot, error context, retry trace, and timing records instead of hiding the red result. Inventory, Quality, types, 1,805 units, build, CodeQL, the other Critical shard, and Vercel all passed on that head. The correction will rerun the tag-routed four-case gate with the same job and artifact policy.</dd>
+      <dt>Assumptions</dt><dd>The capability contract is environmental trust, not assertion syntax. A test that asserts DOM state still belongs in <code>@render</code> when a software-rendered scene can monopolize the page before the assertion completes.</dd>
+      <dt>GDD coverage</dt><dd>No rows or GDD build logs change. This is a CI classification correction with no product, version, release-note, tip, or stamp change.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> retains the bunker-claim recurrence. Its additive correction supersedes the initial functional-classification inference without changing the preserved run evidence.</dd>
+    </dl>
+  </article>
+  <article data-slice="ci-stable-playwright-inventory" data-date="2026-07-22">
+    <h3>Playwright routing now follows stable case metadata</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-0-test-inventory</code></dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">#288</a></dd>
+      <dt>Changed</dt><dd>Stage 0 of <code>docs/ci-rewrite-prompt.md</code> assigns all 200 discovered Playwright cases one explicit stable <code>case-id</code> annotation and one capability tag. The reviewed baseline is 130 <code>@functional</code>, 60 <code>@render</code>, 3 <code>@visual</code>, and 7 <code>@soak</code>. <code>pnpm ci:inventory</code> discovers the live suite instead of trusting a hardcoded count, rejects invalid identity, capability, pixel, critical, and quarantine state, and writes a reviewable JSON artifact. Critical E2E now selects <code>@critical</code> and <code>@functional</code> metadata instead of title text. CI uploads the inventory plus bounded per-attempt timing records while leaving the existing Full E2E matrix otherwise unchanged. <code>docs/CI_REWRITE_OWNER_QUESTIONS.html</code> preserves the owner's autonomous-migration authority and approval boundaries without interrupting implementation.</dd>
+      <dt>Verification</dt><dd><code>pnpm lint</code> exits 0 with the four pre-existing warnings and three infos; <code>pnpm typecheck</code>, all 1,805 Vitest cases, <code>pnpm build</code>, dash, sim-purity, whitespace, workflow-syntax, and inventory checks pass. Inventory unit coverage proves title edits preserve identity and routing plus invalid metadata, source matching, pixel boundaries, quarantine expiry, stale entries, overlong lifetimes, and invalid calendar dates fail closed. The four critical cases pass on isolated port 45731 with four timing records. A TypeScript AST comparison verified all 26 spec files differ from <code>origin/main</code> only by CI metadata and the visual-baseline case IDs. Current-main Full E2E run <a href="https://github.com/Randroids-Dojo/VibeBots/actions/runs/29972059570">29972059570</a> completed every shard: 17 green, 15 red with 33 final failures, and retained artifacts for every red shard; the result is recorded under F-132.</dd>
+      <dt>Assumptions</dt><dd>The initial capability classification follows the contract in the CI rewrite plan: DOM, route, API, store, accessibility, and deterministic data probes are functional; visible pixels, camera travel, rendered motion, and renderer health are render; reviewed composition baselines are visual; prolonged or statistical runs are soak. The old title grep's render-dependent fatal-fall and mine-motion cases remain in <code>@render</code>; four player-visible functional paths carry <code>@critical</code>. Next.js 16.2.11 remains available over the 16.2.10 pin, but the active red CI work keeps that upgrade in its required separate slice.</dd>
+      <dt>GDD coverage</dt><dd>No rows change and no GDD build log changes. This slice changes CI metadata, validation, and evidence only; product code, package version, release notes, mine tips, and stamps are unchanged.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> remains open for the real-renderer capability wall. The Stage 0 Dot remains active until PR #288 is merged and verified; the parent staged-migration Dot remains active for Stages 1 through 7. No owner question blocks Stage 0.</dd>
+    </dl>
+  </article>
   <article data-slice="merge-main-reconcile-clanker-presentation" data-date="2026-07-22">
     <h3>Merge main: adopt PR #285's Clanker presentation, keep the staged invasion sim</h3>
     <dl>

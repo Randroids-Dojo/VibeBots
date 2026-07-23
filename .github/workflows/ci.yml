@@ -52,6 +52,18 @@ jobs:
       - name: Sim purity check
         run: bash scripts/check-sim-purity.sh
 
+      - name: Playwright case inventory
+        run: pnpm ci:inventory -- --output playwright-report/case-inventory.json
+
+      - name: Upload Playwright case inventory
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-case-inventory-${{ github.sha }}
+          path: playwright-report/case-inventory.json
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Whitespace check
         run: git diff --check
 
@@ -156,11 +168,22 @@ jobs:
         run: pnpm exec playwright install chromium --with-deps
 
       - name: Critical E2E smoke tests
+        env:
+          CI_CASE_RESULTS_PATH: playwright-report/ci-case-results.json
         run: pnpm test:e2e:critical --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
+
+      - name: Upload Critical E2E case timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-critical-timings-${{ matrix.shard_name }}
+          path: playwright-report/ci-case-results.json
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-critical-${{ matrix.shard_name }}
           path: playwright-report/
@@ -320,6 +343,7 @@ jobs:
       - name: Full E2E smoke tests
         env:
           E2E_GLOBAL_TIMEOUT_MS: ${{ steps.e2e_deadline.outputs.ms }}
+          CI_CASE_RESULTS_PATH: playwright-report/ci-case-results.json
         # ONE worker per shard. A brief experiment with two workers made every
         # SwiftShader render compete for the 4-vCPU runner's CPU and starved
         # rendering-dependent tests into multi-minute timeouts (~60 failed,
@@ -332,6 +356,15 @@ jobs:
         # a bigger per-test cap, when the software renderer is the bottleneck
         # (F-131/F-132).
         run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
+
+      - name: Upload Full E2E case timings
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-full-timings-${{ matrix.shard_name }}
+          path: playwright-report/ci-case-results.json
+          retention-days: 14
+          if-no-files-found: warn
 
       # Guarantee the failure upload is never empty (F-131). The HTML reporter
       # writes playwright-report/index.html on a normal or global-timeout
@@ -353,7 +386,7 @@ jobs:
       # deadline, so this upload actually runs and the evidence survives (F-131).
       - name: Upload Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-full-${{ matrix.shard_name }}
           path: |
@@ -402,7 +435,7 @@ jobs:
           UPDATE_VISUAL_BASELINES: "1"
 
       - name: Upload baselines artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: visual-baselines
           path: tests/e2e/visual-baselines.spec.ts-snapshots/

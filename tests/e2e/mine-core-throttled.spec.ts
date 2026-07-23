@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ciCase } from "./support/ci-case";
 import {
   awaitMineSceneReady,
   dismissReleaseNotes,
@@ -32,65 +33,69 @@ import {
 
 const THROTTLE = Number(process.env.F127_THROTTLE ?? "8");
 
-test("mine input registers under CPU starvation (F-127)", async ({ page }) => {
-  const client = await page.context().newCDPSession(page);
-  if (THROTTLE > 1) {
-    await client.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE });
-  }
+test(
+  "mine input registers under CPU starvation (F-127)",
+  ciCase("E2E-MINE-CORE-THROTTLED-0001", "@soak"),
+  async ({ page }) => {
+    const client = await page.context().newCDPSession(page);
+    if (THROTTLE > 1) {
+      await client.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE });
+    }
 
-  const canvas = page.locator("canvas");
-  const status = page.getByLabel("Mine status");
+    const canvas = page.locator("canvas");
+    const status = page.getByLabel("Mine status");
 
-  await test.step("mine loads and paints under throttle", async () => {
-    await page.goto("/mine");
-    await dismissReleaseNotes(page);
-    await awaitMineSceneReady(page);
-    await expect(status).toHaveAttribute("data-scene-painted", "true", {
-      timeout: 40_000,
-    });
-    // Canvas readiness: it exposes a numeric miner position.
-    await expect(canvas).toHaveAttribute("data-miner-x", /^-?\d/, {
-      timeout: 20_000,
-    });
-  });
-
-  const initialX = Number(await canvas.getAttribute("data-miner-x"));
-  const initialDistance = Number(
-    await status.getAttribute("data-horizontal-distance"),
-  );
-
-  await test.step("ArrowRight registers and glides under throttle", async () => {
-    await page.keyboard.press("ArrowRight");
-    // Acceptance through the discrete store signal, correct on the next commit
-    // and stable, on a budget that absorbs the throttled round-trip latency.
-    await expect(status).toHaveAttribute(
-      "data-horizontal-distance",
-      String(initialDistance + 1),
-      { timeout: 20_000 },
-    );
-    // Smooth motion (not a snap): at least one in-flight frame.
-    await expect
-      .poll(
-        async () =>
-          Number(await canvas.getAttribute("data-miner-motion-frames")),
-        { timeout: 20_000 },
-      )
-      .toBeGreaterThan(0);
-    // The rendered miner glides to and rests at the new column.
-    await expect
-      .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+    await test.step("mine loads and paints under throttle", async () => {
+      await page.goto("/mine");
+      await dismissReleaseNotes(page);
+      await awaitMineSceneReady(page);
+      await expect(status).toHaveAttribute("data-scene-painted", "true", {
+        timeout: 40_000,
+      });
+      // Canvas readiness: it exposes a numeric miner position.
+      await expect(canvas).toHaveAttribute("data-miner-x", /^-?\d/, {
         timeout: 20_000,
-      })
-      .toBeGreaterThan(initialX + 0.85);
-  });
+      });
+    });
 
-  await test.step("a second ArrowRight also registers", async () => {
-    await page.waitForTimeout(700);
-    await page.keyboard.press("ArrowRight");
-    await expect(status).toHaveAttribute(
-      "data-horizontal-distance",
-      String(initialDistance + 2),
-      { timeout: 20_000 },
+    const initialX = Number(await canvas.getAttribute("data-miner-x"));
+    const initialDistance = Number(
+      await status.getAttribute("data-horizontal-distance"),
     );
-  });
-});
+
+    await test.step("ArrowRight registers and glides under throttle", async () => {
+      await page.keyboard.press("ArrowRight");
+      // Acceptance through the discrete store signal, correct on the next commit
+      // and stable, on a budget that absorbs the throttled round-trip latency.
+      await expect(status).toHaveAttribute(
+        "data-horizontal-distance",
+        String(initialDistance + 1),
+        { timeout: 20_000 },
+      );
+      // Smooth motion (not a snap): at least one in-flight frame.
+      await expect
+        .poll(
+          async () =>
+            Number(await canvas.getAttribute("data-miner-motion-frames")),
+          { timeout: 20_000 },
+        )
+        .toBeGreaterThan(0);
+      // The rendered miner glides to and rests at the new column.
+      await expect
+        .poll(async () => Number(await canvas.getAttribute("data-miner-x")), {
+          timeout: 20_000,
+        })
+        .toBeGreaterThan(initialX + 0.85);
+    });
+
+    await test.step("a second ArrowRight also registers", async () => {
+      await page.waitForTimeout(700);
+      await page.keyboard.press("ArrowRight");
+      await expect(status).toHaveAttribute(
+        "data-horizontal-distance",
+        String(initialDistance + 2),
+        { timeout: 20_000 },
+      );
+    });
+  },
+);

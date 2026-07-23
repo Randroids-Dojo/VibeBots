@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ciCase } from "./support/ci-case";
 import {
   createMine,
   DEFAULT_GEAR,
@@ -19,163 +20,168 @@ import {
 //   pnpm exec playwright test bunker-arc-capture
 const OUT = process.env.PLAYTEST_CAPTURE_DIR;
 
-test("bunker arc capture run", async ({ page }) => {
-  test.skip(!OUT, "capture-only driver: set PLAYTEST_CAPTURE_DIR to run");
-  test.setTimeout(180_000);
-  const shot = (name: string) =>
-    page.screenshot({ path: `${OUT}/bunker-arc-${name}.png` });
+test(
+  "bunker arc capture run",
+  ciCase("E2E-BUNKER-ARC-0001", "@soak"),
+  async ({ page }) => {
+    test.skip(!OUT, "capture-only driver: set PLAYTEST_CAPTURE_DIR to run");
+    test.setTimeout(180_000);
+    const shot = (name: string) =>
+      page.screenshot({ path: `${OUT}/bunker-arc-${name}.png` });
 
-  const mine = createMine(7171, DEFAULT_GEAR, STARTING_CONSUMABLES);
-  for (let row = 1; row <= 5; row++) {
-    for (let offset = -3; offset <= 3; offset++) {
-      setCell(mine, START_COL + offset, row, { kind: "empty" });
+    const mine = createMine(7171, DEFAULT_GEAR, STARTING_CONSUMABLES);
+    for (let row = 1; row <= 5; row++) {
+      for (let offset = -3; offset <= 3; offset++) {
+        setCell(mine, START_COL + offset, row, { kind: "empty" });
+      }
+      setCell(mine, START_COL, row, { kind: "empty", ladder: true });
     }
-    setCell(mine, START_COL, row, { kind: "empty", ladder: true });
-  }
-  const damagedParts = [-3, -2, -1, 1, 2, 3].map((offset) => ({
-    partId: "wall-panel",
-    col: START_COL + offset,
-    row: 2,
-    durability: offset === -3 ? 45 : 90,
-  }));
-  const view = {
-    bunker: {
-      footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
-      layoutVersion: 1,
-      parts: damagedParts,
-      skin: "steelworks",
-      skinsOwned: [] as string[],
-    },
-    inventory: {
-      "wall-panel": 2,
-      "floor-panel": 2,
-      "roof-panel": 2,
-      "door-panel": 1,
-      "basic-turret": 0,
-      "floor-spikes": 0,
-    },
-    player: {
-      balance: 250,
-      trackXp: 40,
-      defenseXp: 120,
-      overallLevel: 2,
-      levelCap: 100,
-      progressXp: 20,
-      neededXp: 80,
-      nextLevelXp: 200,
-      beaconLimit: 3,
-    },
-  };
-  let current = structuredClone(view);
-  await page.route("**/api/mine/world", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        activeSlot: 1,
-        seed: 7171,
-        tripIndex: 0,
-        diff: exportDiff(mine),
-      }),
-    }),
-  );
-  await page.route("**/api/bunker", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(current),
-    }),
-  );
-  await page.route("**/api/bunker/repair", (route) => {
-    current = structuredClone(current);
-    current.bunker.parts = current.bunker.parts.map((part) => ({
-      ...part,
-      durability: 90,
+    const damagedParts = [-3, -2, -1, 1, 2, 3].map((offset) => ({
+      partId: "wall-panel",
+      col: START_COL + offset,
+      row: 2,
+      durability: offset === -3 ? 45 : 90,
     }));
-    // Parts-only cost now the core is gone (F-118): the one wall at 45/90
-    // durability (price 6) repairs for ceil(0.5 * 6 * 0.5) = 2 vibes.
-    current.player = { ...current.player, balance: current.player.balance - 2 };
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(current),
-    });
-  });
-  await page.route("**/api/bunker/skin", (route) => {
-    const { skinId } = route.request().postDataJSON() as { skinId: string };
-    current = structuredClone(current);
-    current.bunker.skin = skinId;
-    if (
-      skinId !== "steelworks" &&
-      !current.bunker.skinsOwned.includes(skinId)
-    ) {
-      current.bunker.skinsOwned = [...current.bunker.skinsOwned, skinId];
+    const view = {
+      bunker: {
+        footprint: { col: START_COL - 3, row: 1, width: 7, height: 5 },
+        layoutVersion: 1,
+        parts: damagedParts,
+        skin: "steelworks",
+        skinsOwned: [] as string[],
+      },
+      inventory: {
+        "wall-panel": 2,
+        "floor-panel": 2,
+        "roof-panel": 2,
+        "door-panel": 1,
+        "basic-turret": 0,
+        "floor-spikes": 0,
+      },
+      player: {
+        balance: 250,
+        trackXp: 40,
+        defenseXp: 120,
+        overallLevel: 2,
+        levelCap: 100,
+        progressXp: 20,
+        neededXp: 80,
+        nextLevelXp: 200,
+        beaconLimit: 3,
+      },
+    };
+    let current = structuredClone(view);
+    await page.route("**/api/mine/world", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          activeSlot: 1,
+          seed: 7171,
+          tripIndex: 0,
+          diff: exportDiff(mine),
+        }),
+      }),
+    );
+    await page.route("**/api/bunker", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(current),
+      }),
+    );
+    await page.route("**/api/bunker/repair", (route) => {
+      current = structuredClone(current);
+      current.bunker.parts = current.bunker.parts.map((part) => ({
+        ...part,
+        durability: 90,
+      }));
+      // Parts-only cost now the core is gone (F-118): the one wall at 45/90
+      // durability (price 6) repairs for ceil(0.5 * 6 * 0.5) = 2 vibes.
       current.player = {
         ...current.player,
-        balance: current.player.balance - (skinId === "gilded" ? 120 : 80),
+        balance: current.player.balance - 2,
       };
-    }
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(current),
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(current),
+      });
     });
-  });
+    await page.route("**/api/bunker/skin", (route) => {
+      const { skinId } = route.request().postDataJSON() as { skinId: string };
+      current = structuredClone(current);
+      current.bunker.skin = skinId;
+      if (
+        skinId !== "steelworks" &&
+        !current.bunker.skinsOwned.includes(skinId)
+      ) {
+        current.bunker.skinsOwned = [...current.bunker.skinsOwned, skinId];
+        current.player = {
+          ...current.player,
+          balance: current.player.balance - (skinId === "gilded" ? 120 : 80),
+        };
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(current),
+      });
+    });
 
-  await page.setViewportSize({ width: 390, height: 760 });
-  await page.goto("/mine");
-  await shot("01-release-note");
-  await dismissReleaseNotes(page);
-  await digTo(page, 2);
-  await page.waitForTimeout(600);
-  await shot("02-claim-steelworks");
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/mine");
+    await shot("01-release-note");
+    await dismissReleaseNotes(page);
+    await digTo(page, 2);
+    await page.waitForTimeout(600);
+    await shot("02-claim-steelworks");
 
-  // Standing inside the claim, the Upkeep sheet opens as an overlay
-  // over the live first-person canvas (F-119): enter once, then the fp
-  // Upkeep button opens and reopens the sheet in place.
-  const enterClaim = async () => {
-    await page.getByTestId("bunker-fp-enter").click();
-    await expect(page.getByLabel("Mine status")).toHaveAttribute(
-      "data-fp-mode",
-      "1",
-    );
-  };
-  const openSheetFromClaim = async () => {
-    await page.getByTestId("bunker-fp-status").click();
+    // Standing inside the claim, the Upkeep sheet opens as an overlay
+    // over the live first-person canvas (F-119): enter once, then the fp
+    // Upkeep button opens and reopens the sheet in place.
+    const enterClaim = async () => {
+      await page.getByTestId("bunker-fp-enter").click();
+      await expect(page.getByLabel("Mine status")).toHaveAttribute(
+        "data-fp-mode",
+        "1",
+      );
+    };
+    const openSheetFromClaim = async () => {
+      await page.getByTestId("bunker-fp-status").click();
+      await expect(
+        page.getByRole("region", { name: "Bunker upkeep" }),
+      ).toBeVisible();
+    };
+    await enterClaim();
+    await openSheetFromClaim();
+    const builder = page.getByRole("region", { name: "Bunker upkeep" });
+    await expect(builder).toBeVisible();
+    await page.waitForTimeout(400);
+    await shot("03-sheet-damaged");
+
+    const repair = builder.getByRole("button", { name: /Repair bunker/ });
+    await repair.click();
+    await expect(repair).toHaveCount(0);
+    await shot("04-repaired");
+
+    const picker = builder.getByRole("group", { name: "Bunker skins" });
+    await picker.getByRole("button", { name: "Verdant (80v)" }).click();
     await expect(
-      page.getByRole("region", { name: "Bunker upkeep" }),
-    ).toBeVisible();
-  };
-  await enterClaim();
-  await openSheetFromClaim();
-  const builder = page.getByRole("region", { name: "Bunker upkeep" });
-  await expect(builder).toBeVisible();
-  await page.waitForTimeout(400);
-  await shot("03-sheet-damaged");
+      picker.getByRole("button", { name: "Verdant" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await builder.getByRole("button", { name: "Close" }).click();
+    await page.waitForTimeout(600);
+    await shot("05-skin-verdant-world");
 
-  const repair = builder.getByRole("button", { name: /Repair bunker/ });
-  await repair.click();
-  await expect(repair).toHaveCount(0);
-  await shot("04-repaired");
-
-  const picker = builder.getByRole("group", { name: "Bunker skins" });
-  await picker.getByRole("button", { name: "Verdant (80v)" }).click();
-  await expect(picker.getByRole("button", { name: "Verdant" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await builder.getByRole("button", { name: "Close" }).click();
-  await page.waitForTimeout(600);
-  await shot("05-skin-verdant-world");
-
-  await openSheetFromClaim();
-  await expect(builder).toBeVisible();
-  await picker.getByRole("button", { name: "Gilded (120v)" }).click();
-  await expect(picker.getByRole("button", { name: "Gilded" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await builder.getByRole("button", { name: "Close" }).click();
-  await page.waitForTimeout(600);
-  await shot("06-skin-gilded-world");
-});
+    await openSheetFromClaim();
+    await expect(builder).toBeVisible();
+    await picker.getByRole("button", { name: "Gilded (120v)" }).click();
+    await expect(
+      picker.getByRole("button", { name: "Gilded" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await builder.getByRole("button", { name: "Close" }).click();
+    await page.waitForTimeout(600);
+    await shot("06-skin-gilded-world");
+  },
+);

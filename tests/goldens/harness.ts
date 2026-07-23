@@ -305,7 +305,10 @@ export function validateManifestLink(
       `${vector.id} has no generated golden or manifest link. Run pnpm test:goldens:update -- --reason <text>.`,
     );
   }
-  const manifest = manifests.find((entry) => entry.id === vector.manifestId);
+  const manifestIndex = manifests.findIndex(
+    (entry) => entry.id === vector.manifestId,
+  );
+  const manifest = manifests[manifestIndex];
   const change = manifest?.changes.find(
     (entry) => entry.vectorId === vector.id,
   );
@@ -316,6 +319,70 @@ export function validateManifestLink(
   }
   if (!manifest.reason.trim()) {
     throw new Error(`${manifest.id} has an empty golden update reason`);
+  }
+  if (change.kind !== vector.kind) {
+    throw new Error(`${vector.id} kind does not match its golden manifest`);
+  }
+  const laterChange = manifests
+    .slice(manifestIndex + 1)
+    .flatMap((entry) => entry.changes)
+    .find((entry) => entry.vectorId === vector.id);
+  if (laterChange) {
+    throw new Error(`${vector.id} does not link to its latest golden manifest`);
+  }
+  const previousChange = manifests
+    .slice(0, manifestIndex)
+    .flatMap((entry) => entry.changes)
+    .filter((entry) => entry.vectorId === vector.id)
+    .at(-1);
+  if (previousChange) {
+    if (
+      change.oldSnapshotHash !== previousChange.newSnapshotHash ||
+      stableStringify(change.oldOutcomes) !==
+        stableStringify(previousChange.newOutcomes)
+    ) {
+      throw new Error(
+        `${vector.id} prior result does not continue its golden manifest history`,
+      );
+    }
+    if (
+      change.versionDecision.from !== previousChange.versionDecision.to ||
+      change.versionDecision.to <= previousChange.versionDecision.to
+    ) {
+      throw new Error(
+        `${vector.id} manifest version does not advance its prior version`,
+      );
+    }
+  } else if (
+    change.oldSnapshotHash !== null ||
+    change.oldOutcomes !== null ||
+    change.versionDecision.from !== null
+  ) {
+    throw new Error(`${vector.id} initial golden manifest has prior state`);
+  }
+  const priorResult: JsonValue =
+    change.oldSnapshotHash === null || change.oldOutcomes === null
+      ? null
+      : {
+          snapshotHash: change.oldSnapshotHash,
+          outcomes: change.oldOutcomes,
+        };
+  const nextResult: JsonValue = {
+    snapshotHash: change.newSnapshotHash,
+    outcomes: change.newOutcomes,
+  };
+  const recordedFields =
+    priorResult === null
+      ? ["$"]
+      : fieldDifferences(priorResult, nextResult).map(
+          (difference) => difference.path,
+        );
+  if (
+    stableStringify(change.changedFields) !== stableStringify(recordedFields)
+  ) {
+    throw new Error(
+      `${vector.id} changed fields do not match its golden manifest history`,
+    );
   }
   if (
     change.newSnapshotHash !== vector.expected.snapshotHash ||

@@ -4,7 +4,9 @@ import { MINE_VERSION } from "../../src/sim/mine/consumables";
 import {
   assessVersionPolicy,
   fieldDifferences,
+  type GoldenChangeManifest,
   type GoldenVector,
+  validateManifestLink,
 } from "./harness";
 
 function vector(overrides: Partial<GoldenVector> = {}): GoldenVector {
@@ -52,6 +54,63 @@ describe("golden version policy", () => {
     expect(
       assessVersionPolicy(vector({ simVersion: SIM_VERSION - 1 }), false),
     ).toMatchObject({ kind: "warning" });
+  });
+
+  it("rejects a hand-edited baseline whose manifest version did not advance", () => {
+    const manifests: GoldenChangeManifest[] = [
+      {
+        id: "initial",
+        createdAt: "2026-07-22T00:00:00.000Z",
+        reason: "Initial baseline",
+        changes: [
+          {
+            vectorId: "GOLDEN-WORLD-9999",
+            kind: "world",
+            changedFields: ["$"],
+            oldSnapshotHash: null,
+            newSnapshotHash: "old",
+            oldOutcomes: null,
+            newOutcomes: { value: 1 },
+            versionDecision: {
+              constant: "SIM_VERSION",
+              from: null,
+              to: SIM_VERSION,
+            },
+          },
+        ],
+      },
+      {
+        id: "manual-edit",
+        createdAt: "2026-07-23T00:00:00.000Z",
+        reason: "Manually replace expected output",
+        changes: [
+          {
+            vectorId: "GOLDEN-WORLD-9999",
+            kind: "world",
+            changedFields: ["$.outcomes.value", "$.snapshotHash"],
+            oldSnapshotHash: "old",
+            newSnapshotHash: "new",
+            oldOutcomes: { value: 1 },
+            newOutcomes: { value: 2 },
+            versionDecision: {
+              constant: "SIM_VERSION",
+              from: SIM_VERSION,
+              to: SIM_VERSION,
+            },
+          },
+        ],
+      },
+    ];
+
+    expect(() =>
+      validateManifestLink(
+        vector({
+          expected: { snapshotHash: "new", outcomes: { value: 2 } },
+          manifestId: "manual-edit",
+        }),
+        manifests,
+      ),
+    ).toThrow("manifest version does not advance");
   });
 
   it("reports nested semantic changes by field path", () => {

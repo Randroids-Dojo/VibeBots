@@ -33,6 +33,9 @@ Main c84a4403 places polish F-161 inside Nice To Have after cutoff ac99bcf1. The
 <section id="successor-reference-semantics-pr-223-full-review">
 This section supersedes the earlier instruction to introduce a successor attribute later. data-f-successor is allowed only on a non-primary correction dt that also carries data-f-ref. data-f-ref identifies the one historical primary being corrected, while data-f-successor identifies the one current substantive owner for navigation only. Both source and target must be distinct valid F-IDs, and each must resolve to exactly one primary plus one matching HTML Dot on the target base or exact head. The mapping is unique per source and must not be malformed, dangling, self-referential, cyclic, duplicated, or conflicting. It never creates primary, priority, dependency, closeout, or merge authority. Validate new and surviving post-cutoff edges after every head or base movement. Cover the valid F-123 to F-149 edge plus missing source, missing target, missing Dot, self edge, cycle, duplicate, conflicting target, primary placement, and standalone priority-pointer misuse.
 </section>
+<section id="progress-2026-07-23">
+2026-07-23 (backlog-work session): pointer layer and validator delivered. Per-bucket priority-pointers navs in docs/FOLLOWUPS.html expose all 78 audited container mismatches; scripts/check-followup-ledger.mjs (pnpm check:followups, followup-ledger gate of pnpm verify) validates uniqueness, targets, bucket agreement, the F-033 exception, data-f-successor discipline, and grandfathering (70 at cutoff plus 8 recorded post-cutoff, Q-031). Thirteen fixtures pass. Closable with the PR number once the branch merges.
+</section>
 </article>
 </body>
 </html>

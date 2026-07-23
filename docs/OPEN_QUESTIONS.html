@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-031" data-status="open">
+    <h3>Q-031: Should committed post-cutoff followup misplacements fail the ledger check forever?</h3>
+    <dl>
+      <dt>Context</dt><dd>F-157/F-178 pin the grandfathered container-mismatch baseline at 70 (cutoff <code>ac99bcf1</code>) and say to fail on any additional post-cutoff mismatch, while also saying to keep F-161 as a failing post-cutoff case. The 2026-07-23 audit found seven more post-cutoff placements already committed on main (F-163, F-197, F-209, F-212, F-214, F-215, F-216), all created before any validator existed. A check that hard-fails on committed, unmovable history would be permanently red, which trains everyone to ignore it.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Recorded-violation list: the validator names F-161 plus the seven audited placements on every run, requires each to be pointer-covered, and hard-fails only on mismatches outside the two explicit lists. The list grows only by an explicit ledger decision.</li>
+          <li>Hard-fail on all eight forever, making <code>pnpm check:followups</code> permanently red until a policy change.</li>
+          <li>Expand the grandfathered allowlist to include the eight, hiding them from the report.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It keeps the check green-when-clean and loud about recorded history without rewriting it, honors the F-157 instruction not to expand the historical allowlist, and still fails closed on any new misplacement. B makes the gate useless as a gate; C silently forgives what F-157 explicitly says to keep visible. Shipped under A in the priority-pointer slice; revisit if the user prefers B or C.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-030" data-status="open">
     <h3>Q-030: Should bunker ore pay out per swing or when the block breaks?</h3>
     <dl>

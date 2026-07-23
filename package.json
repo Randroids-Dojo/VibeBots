@@ -29,6 +29,7 @@
     "check:dashes": "bash scripts/check-dashes.sh",
     "check:agents-links": "bash scripts/check-agents-links.sh",
     "check:attribution": "bash scripts/check-attribution.sh",
+    "check:followups": "node scripts/check-followup-ledger.mjs",
     "check:purity": "bash scripts/check-sim-purity.sh",
     "ops:check-account-env": "node scripts/check-account-env.mjs",
     "ops:repair-support": "node scripts/repair-mine-support-stock.mjs",

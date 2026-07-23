@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="followup-priority-pointers" data-date="2026-07-23">
+    <h3>Current followup priorities are now machine-readable without touching historical placement</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code> (remote Claude Code session), stacked on the attribution-preflight slice.</dd>
+      <dt>PR</dt><dd>Pending user direction (designated-branch session).</dd>
+      <dt>Changed</dt><dd>F-178 with F-157 (shared delivery). Each named priority bucket in <code>docs/FOLLOWUPS.html</code> gains an append-only <code>nav data-role="priority-pointers"</code> block of non-primary pointers (<code>data-role="priority-pointer"</code>, <code>data-f-ref</code>, no <code>data-f</code>, no <code>id</code>) exposing every primary whose authoritative <code>data-priority</code> matches that bucket but whose historical placement differs: 78 pointers total (27 blocks-release, 16 nice-to-have, 35 polish). New validator <code>scripts/check-followup-ledger.mjs</code> (<code>pnpm check:followups</code>, also the <code>followup-ledger</code> gate of <code>pnpm verify</code>) enforces primary and pointer uniqueness, target integrity, bucket agreement, the F-033 closure exception, <code>data-f-successor</code> discipline, and placement grandfathering: exactly the 70 mismatches at cutoff <code>ac99bcf1</code> plus a recorded post-cutoff list (F-161 and the seven audited 2026-07-15 to 2026-07-22 placements F-163, F-197, F-209, F-212, F-214, F-215, F-216), failing on anything else.</dd>
+      <dt>Verification</dt><dd>Validator on the real ledger: 207 primaries, 78 mismatches, 78 pointers, zero errors, with the eight recorded violations named in output. All 13 fixtures pass in <code>scripts/check-followup-ledger.selftest.sh</code> (valid ledger with grandfathered, recorded, outside, and successor cases; deliberately misplaced post-cutoff entry; uncovered mismatch; pointer identity attributes; dangling pointer; wrong-bucket pointer; duplicate primary; duplicate id; duplicate pointer; redundant pointer; non-primary <code>data-f</code>; self and dangling successor edges). Dash check and <code>git diff --check</code> clean; section tags balanced.</dd>
+      <dt>Assumptions</dt><dd>Recorded-violation semantics per Q-031 recommended default A: committed post-cutoff misplacements are named on every run and must be pointer-covered, but only unrecorded mismatches hard-fail, since a permanently red gate stops gating. Pointers live physically inside their authoritative bucket rather than in a separate index so container logic validates them identically to primaries.</dd>
+      <dt>GDD coverage</dt><dd>No row change; ledger tooling.</dd>
+      <dt>Followups</dt><dd>Delivery records appended to <a href="FOLLOWUPS.html#F-178">F-178</a> and <a href="FOLLOWUPS.html#F-157">F-157</a>; both closable with the PR number once this branch merges (Dot-existence scanning stays with F-156). Added <code>Q-031</code>. Tips (Rule 13): no version bump, reviewed, no changes. Stamps (Rule 14): none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="attribution-preflight" data-date="2026-07-23">
     <h3>Commit and squash metadata now has an executable no-AI-attribution gate</h3>
     <dl>

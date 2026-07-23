@@ -79,13 +79,14 @@
       <dt>Why watched</dt><dd>framework; majors and minors both move App Router, Turbopack, and caching behavior.</dd>
       <dt>Source</dt><dd><a href="https://github.com/vercel/next.js/releases">next.js releases</a></dd>
       <dt>Pin format</dt><dd>npm exact version.</dd>
-      <dt>Currently pinned</dt><dd><code>16.2.10</code></dd>
+      <dt>Currently pinned</dt><dd><code>16.2.11</code></dd>
       <dt>Detect-new</dt><dd><code>npm view next dist-tags.latest</code></dd>
       <dt>Migration notes</dt><dd>
         <ul>
           <li>Use the official upgrade guide and codemods (<code>next upgrade</code>); check route handler and caching semantics changes.</li>
           <li>Verify <code>transpilePackages</code> (VibeKit) and the dynamic <code>ssr: false</code> canvas import still behave after the bump.</li>
           <li>2026-07-22: the gate detected 16.2.11 over the pinned 16.2.10. Bump deferred: the remote session that detected it cannot fetch the VibeKit github dependency (403, repository outside the session's credential scope), so install, typecheck, tests, and build cannot run there. Tracked by <a href="FOLLOWUPS.html#F-217">F-217</a>; the gate re-fires in a capable environment.</li>
+          <li>2026-07-23: a capable local environment installed 16.2.11. This patch contains security fixes only, so no codemod or application migration was required. F-217 remains open for remote-session credential restoration.</li>
         </ul>
       </dd>
     </dl>

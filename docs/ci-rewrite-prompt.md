@@ -235,7 +235,7 @@ Exit when the artifact SHA guard is proven, functional discovery is complete, p9
 
 ### Stage 4: exact-SHA Vercel preview smoke
 
-Add trusted preview protection bypass, exact deployment-SHA matching, and the small `@preview @functional` set. Start advisory, prove fork pull requests cannot read the bypass secret, then add it to `Required CI` if p95 completion keeps the total gate below ten minutes. If Vercel queue time makes that impossible, keep preview smoke as a separately required environment check with a documented release policy rather than slowing every source check.
+Add trusted preview protection bypass, exact deployment-SHA matching, and the small `@preview @functional` set. Start advisory, prove fork pull requests cannot read the bypass secret, then add it to `Required CI` if p95 completion keeps the total gate below ten minutes. If Vercel queue time makes that impossible, keep preview smoke advisory in branch protection and enforce a fresh green result through the documented release policy. Do not add a second required branch context.
 
 Exit when the smoke fails against a deliberately broken preview asset or route and refuses a deployment for the wrong SHA.
 

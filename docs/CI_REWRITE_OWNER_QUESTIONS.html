@@ -11,14 +11,15 @@
 </header>
 
 <main id="questions">
-  <section data-date="2026-07-22" data-status="pending">
+  <section data-date="2026-07-22" data-status="resolved">
     <h2>Stage 0 merge policy deadlock</h2>
     <dl>
-      <dt>Question</dt><dd>Should the owner authorize one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">PR #288</a>, or change the repository setting so the normal squash merge can complete?</dd>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized one administrator squash merge for <a href="https://github.com/Randroids-Dojo/VibeBots/pull/288">PR #288</a>.</dd>
       <dt>Evidence</dt><dd>Exact head <code>e3bbab524d3eb07fe6df885337a5481a787e552e</code> passes Quality, Typecheck, Unit Tests, Build, both Critical E2E shards, CodeQL, CodeRabbit, Copilot review with no new comments, and a Ready Vercel preview. All review threads are resolved. Current <code>origin/main</code> is an ancestor of the head, so the PR is not behind or conflicting.</dd>
       <dt>Policy result</dt><dd>The active main ruleset permits squash only and requires zero approvals, but GitHub reports <code>BLOCKED</code> and rejects the ordinary squash merge as prohibited by base-branch policy. GitHub suggests auto-merge, but auto-merge is disabled for this repository. The remaining CLI option is an administrator merge, which the autonomous-migration authority explicitly does not authorize.</dd>
       <dt>Recommended</dt><dd>Authorize the one administrator squash merge after confirming the exact head is still green. If policy repair is preferred, enable auto-merge or correct the rule that keeps a fully green, mergeable PR blocked, then use the ordinary squash path.</dd>
-      <dt>Status</dt><dd>Pending owner decision. Stage 1 stays gated because the staged plan requires Stage 0 to merge and verify before the next branch starts.</dd>
+      <dt>Resolution</dt><dd>PR #288 was revalidated at exact head <code>079a5c899236ef179ceb927e95d67d8ea561969e</code> and administrator-squash merged as <code>a697876501179390e98b0277f67382b9232668e6</code>. Exact-main CI run <code>30007724086</code> and CodeQL run <code>30007723586</code> passed. Production deployment <code>dpl_GY2nZfpn6wkpDawVyRi5qAzYpgji</code> is Ready and Promoted on the same SHA, serves the canonical domain, and returned healthy version, mine-page, and performance-insights responses with no observed 5xx logs.</dd>
+      <dt>Status</dt><dd>Resolved. The one administrator-merge authorization is consumed and does not extend to later stages.</dd>
     </dl>
   </section>
   <section data-date="2026-07-22" data-status="resolved">

@@ -67,6 +67,8 @@ jobs:
           TAG: ${{ steps.image.outputs.tag }}
         run: |
           test -n "$DIGEST"
-          echo "### Browser runtime" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "\`$TAG@$DIGEST\`" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Browser runtime"
+            echo ""
+            echo "\`$TAG@$DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"

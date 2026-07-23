@@ -32,6 +32,13 @@ if (!Number.isInteger(workerCount) || workerCount < 1) {
 
 export default defineConfig({
   testDir: "tests/e2e",
+  // The per-test cap stays at 60s. Raising it to 120s on CI was measured to
+  // backfire: a few slow-but-correct software renders passed, but the two
+  // shards holding clusters of slow tests then let each linger to 120s and
+  // ran past the 35-minute shard budget into a global timeout, re-masking
+  // their real results. Keeping 60s means every shard completes; the handful
+  // of genuinely-slow renders stay with F-132 (per-test or more-shards work),
+  // where the fix does not risk timing out a whole shard.
   timeout: 60_000,
   // A whole-suite deadline that ends before the CI job deadline so a slow or
   // hung shard fails (and uploads its report) instead of being cancelled with no
@@ -86,5 +93,29 @@ export default defineConfig({
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
         },
       },
-  projects: [{ name: "chromium", use: { browserName: "chromium" } }],
+  projects: [
+    {
+      name: "chromium",
+      use: {
+        browserName: "chromium",
+        // Chromium launch args:
+        // - On CI, --disable-dev-shm-usage: the runner's /dev/shm is small, and
+        //   the SwiftShader software renderer exhausts it and crashes the GPU
+        //   process under the 3D scenes; writing shared memory to /tmp instead
+        //   trades a little speed for stability (this was crashing shards).
+        // - E2E_SOFTWARE_GL forces the SwiftShader path locally so the CI-only
+        //   software-rendering behavior can be reproduced and fixed without a
+        //   30-minute dispatch (F-132). Off by default.
+        ...(() => {
+          const args = [
+            ...(process.env.CI ? ["--disable-dev-shm-usage"] : []),
+            ...(process.env.E2E_SOFTWARE_GL
+              ? ["--use-gl=angle", "--use-angle=swiftshader", "--disable-gpu"]
+              : []),
+          ];
+          return args.length ? { launchOptions: { args } } : {};
+        })(),
+      },
+    },
+  ],
 });

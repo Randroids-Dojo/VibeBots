@@ -23,6 +23,7 @@ import { useHolodeckStore } from "@/state/holodeck-store";
 import { CanvasDrawCallProbe } from "./canvas-draw-call-probe";
 import { StartFramesWhenCompiled } from "./compile-gate";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
+import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
   type GraphicsFeatures,
   graphicsFeaturesFor,
@@ -612,6 +613,7 @@ export default function HolodeckCanvas() {
         gl={createWebGPU}
         shadows={features.shadows ? "soft" : false}
       >
+        <FallbackDprCap />
         <StartFramesWhenCompiled onCompiled={startFrames} />
         <HolodeckScene features={features} view={view} />
         <PerfProbeBridge source="holodeck" />

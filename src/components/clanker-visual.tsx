@@ -4,6 +4,11 @@ import { RoundedBox } from "@react-three/drei";
 import type { RefObject } from "react";
 import type { Group, Material, Mesh } from "three/webgpu";
 import type { ClankerKind } from "@/sim/bunker";
+import {
+  dissipatingOpacity,
+  transientAnimationActive,
+  transientAnimationProgress,
+} from "./mine-transient-animation";
 
 /**
  * Shared Clanker body: the render-only geometry, the per-frame body
@@ -76,6 +81,35 @@ function applyGroupChildOpacity(child: object) {
 export function setGroupMaterialOpacity(group: Group, opacity: number) {
   groupTraversalOpacity = opacity;
   group.traverse(applyGroupChildOpacity);
+}
+
+/**
+ * Drives one frame of a dissipating puff (the Clanker death burst, the
+ * burrow dust): shows the group while the age is inside the duration,
+ * growing its scale and fading its materials with progress. Returns
+ * whether the puff is still active. Scalar args and the shared opacity
+ * traversal, so it is safe on the frame path.
+ */
+export function driveDissipatingGroup(
+  group: Group,
+  ageSeconds: number,
+  durationSeconds: number,
+  baseScale: number,
+  scaleGrowth: number,
+): boolean {
+  const active = transientAnimationActive(ageSeconds, durationSeconds);
+  group.visible = active;
+  if (active) {
+    group.scale.setScalar(
+      baseScale +
+        transientAnimationProgress(ageSeconds, durationSeconds) * scaleGrowth,
+    );
+    setGroupMaterialOpacity(
+      group,
+      dissipatingOpacity(ageSeconds, durationSeconds),
+    );
+  }
+  return active;
 }
 
 /** The animated part refs of one clanker, grouped so the per-frame

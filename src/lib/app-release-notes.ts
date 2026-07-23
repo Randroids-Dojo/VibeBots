@@ -1,32 +1,32 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-22-0.1.284-visible-clanker-invasion";
+export const RELEASE_NOTICE_ID = "2026-07-22-0.1.285-staged-clanker-invasion";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.284",
+      version: "0.1.285",
       date: "2026-07-22",
-      title: "Clanker raids are invasions you can see",
+      title: "Clanker invasions come in waves you can fight",
       intro:
-        "Raids used to be lost to attackers you never saw. Now the Clankers burrow into your bunker one at a time, erupt through your walls and floors where you can watch them surface, and hunt you through your halls in all three dimensions.",
+        "A raid now opens with a few quiet seconds, then the Clankers burrow in one at a time, and one surfacing under your feet can be dodged instead of ending the raid on the spot.",
       changes: [
         {
           build,
-          text: "A raid opens with a few quiet seconds, then the wave arrives one Clanker at a time. Each one bursts into the room with a burrow blast where it breaks through, instead of the whole pack landing at once out of nowhere.",
+          text: "The whole wave used to attack at once, seconds after you pressed Start. Now nothing moves for the opening moments, then attackers activate one at a time, so the assault builds instead of landing as a pile.",
         },
         {
           build,
-          text: "A surfacing Clanker needs a moment to pull itself together before it can strike, so one erupting under your feet is a thing you dodge, not an instant loss. Once it has its legs it chases you through the dug halls, up, down, and around.",
+          text: "A Clanker needs a moment to pull itself together where it breaks in, so one erupting under your feet is a dodge, not an instant loss. Once it has its legs, contact is still deadly.",
         },
         {
           build,
-          text: "XP from Clankers that died out in the surrounding rock no longer glints where you could never walk.",
+          text: "XP from Clankers that ran out of battery inside the surrounding rock no longer glints where you could never walk.",
         },
       ],
     },
     {
-      version: "0.1.283",
+      version: "0.1.284",
       date: "2026-07-22",
       title: "Raids say how they ended and when the next one starts",
       intro:
@@ -39,6 +39,27 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "Raids recharge on a shared cooldown, but the button never said so: pressing Start raid again just did nothing. While the Clankers regroup, the button becomes a countdown to the next raid.",
+        },
+      ],
+    },
+    {
+      version: "0.1.283",
+      date: "2026-07-22",
+      title: "Watch the Clankers break into your bunker",
+      intro:
+        "Bunker raids now show the assault: the wave stays hidden while it tunnels through the rock around your claim, appears right where it breaks in, and crawls your rooms in every direction to reach you.",
+      changes: [
+        {
+          build,
+          text: "A raiding Clanker used to be drawn inside solid rock and glide through your walls like a ghost. Now it stays out of sight until it actually tunnels into your bunker, so the first you see of the wave is it breaking in through your own openings.",
+        },
+        {
+          build,
+          text: "Clankers read their route now: each one faces the way it is walking, noses up a wall it climbs, and noses down at you when it drops toward your cell.",
+        },
+        {
+          build,
+          text: "A stopped Clanker's self-destruct burst now pops exactly on the cell where it died instead of a step behind its last move.",
         },
       ],
     },

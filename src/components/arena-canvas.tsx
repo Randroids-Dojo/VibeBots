@@ -56,6 +56,7 @@ import {
 import { PART_CATALOG } from "@/sim/parts";
 import { matchResultHash } from "@/sim/resolve";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
+import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -795,6 +796,7 @@ export default function ArenaCanvas({
         gl={createWebGPU}
         shadows={features.shadows ? "soft" : false}
       >
+        <FallbackDprCap />
         <color attach="background" args={["#0b0e14"]} />
         <ArenaScene
           designs={designs}

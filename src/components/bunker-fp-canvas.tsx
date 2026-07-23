@@ -121,6 +121,7 @@ import {
   type BunkerToolAction,
 } from "./bunker-tool-types";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
+import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -2048,6 +2049,7 @@ export default function BunkerFpCanvas({
       gl={createWebGPU}
       shadows={false}
     >
+      <FallbackDprCap />
       <BunkerFpScene
         bunker={bunker}
         entry={entry}

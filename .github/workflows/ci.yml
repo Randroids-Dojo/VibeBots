@@ -170,30 +170,78 @@ jobs:
     name: Full E2E (${{ matrix.shard_name }})
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full_e2e == 'true') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
         include:
-          - shard: "1/8"
-            shard_name: 1-of-8
-          - shard: "2/8"
-            shard_name: 2-of-8
-          - shard: "3/8"
-            shard_name: 3-of-8
-          - shard: "4/8"
-            shard_name: 4-of-8
-          - shard: "5/8"
-            shard_name: 5-of-8
-          - shard: "6/8"
-            shard_name: 6-of-8
-          - shard: "7/8"
-            shard_name: 7-of-8
-          - shard: "8/8"
-            shard_name: 8-of-8
+          - shard: "1/32"
+            shard_name: 1-of-32
+          - shard: "2/32"
+            shard_name: 2-of-32
+          - shard: "3/32"
+            shard_name: 3-of-32
+          - shard: "4/32"
+            shard_name: 4-of-32
+          - shard: "5/32"
+            shard_name: 5-of-32
+          - shard: "6/32"
+            shard_name: 6-of-32
+          - shard: "7/32"
+            shard_name: 7-of-32
+          - shard: "8/32"
+            shard_name: 8-of-32
+          - shard: "9/32"
+            shard_name: 9-of-32
+          - shard: "10/32"
+            shard_name: 10-of-32
+          - shard: "11/32"
+            shard_name: 11-of-32
+          - shard: "12/32"
+            shard_name: 12-of-32
+          - shard: "13/32"
+            shard_name: 13-of-32
+          - shard: "14/32"
+            shard_name: 14-of-32
+          - shard: "15/32"
+            shard_name: 15-of-32
+          - shard: "16/32"
+            shard_name: 16-of-32
+          - shard: "17/32"
+            shard_name: 17-of-32
+          - shard: "18/32"
+            shard_name: 18-of-32
+          - shard: "19/32"
+            shard_name: 19-of-32
+          - shard: "20/32"
+            shard_name: 20-of-32
+          - shard: "21/32"
+            shard_name: 21-of-32
+          - shard: "22/32"
+            shard_name: 22-of-32
+          - shard: "23/32"
+            shard_name: 23-of-32
+          - shard: "24/32"
+            shard_name: 24-of-32
+          - shard: "25/32"
+            shard_name: 25-of-32
+          - shard: "26/32"
+            shard_name: 26-of-32
+          - shard: "27/32"
+            shard_name: 27-of-32
+          - shard: "28/32"
+            shard_name: 28-of-32
+          - shard: "29/32"
+            shard_name: 29-of-32
+          - shard: "30/32"
+            shard_name: 30-of-32
+          - shard: "31/32"
+            shard_name: 31-of-32
+          - shard: "32/32"
+            shard_name: 32-of-32
     steps:
       # Anchor for the internal Playwright deadline (F-131). The whole job has a
-      # 30-minute budget; the deadline is computed from how much of it remains
+      # 35-minute budget; the deadline is computed from how much of it remains
       # right before the tests run, so a slow or hung shard fails with a report
       # instead of being cancelled at the job deadline with zero evidence.
       - name: Record job start
@@ -233,7 +281,7 @@ jobs:
           OVERRIDE_MS: ${{ inputs.full_e2e_global_timeout_ms }}
         run: |
           set -euo pipefail
-          job_budget_s=$(( 30 * 60 ))     # matches this job's timeout-minutes: 30
+          job_budget_s=$(( 35 * 60 ))     # matches this job's timeout-minutes: 35
           reserve_s=150                    # teardown + HTML/JSON report + artifact upload
           # Minimum non-zero deadline. Its only job is to stay above 0, because
           # Playwright treats globalTimeout: 0 as "unlimited", which would put
@@ -272,13 +320,18 @@ jobs:
       - name: Full E2E smoke tests
         env:
           E2E_GLOBAL_TIMEOUT_MS: ${{ steps.e2e_deadline.outputs.ms }}
-        # Two workers on the 4-vCPU runner (Playwright's own CI default) run the
-        # software-rendered suite about twice as fast without over-subscribing
-        # the CPU that the SwiftShader GL fallback already leans on. With 8
-        # shards and a 30-minute budget this lets each shard finish its ~26
-        # tests (retries included) instead of the whole matrix timing out and
-        # cascading unrelated specs to red (F-131/F-132).
-        run: pnpm test:e2e --project=chromium --fully-parallel --workers=2 --shard=${{ matrix.shard }}
+        # ONE worker per shard. A brief experiment with two workers made every
+        # SwiftShader render compete for the 4-vCPU runner's CPU and starved
+        # rendering-dependent tests into multi-minute timeouts (~60 failed,
+        # including specs that pass at one worker in the Critical gate), so the
+        # parallelism must come from separate shard jobs, not workers inside a
+        # runner. Thirty-two shards of ~6 tests at one worker keep even a shard
+        # that lands a cluster of the slow software-rendered specs well inside
+        # the 35-minute budget, so no shard times out (the 16-shard sizing had
+        # two shards with slow clusters run long). Add shards, never workers or
+        # a bigger per-test cap, when the software renderer is the bottleneck
+        # (F-131/F-132).
+        run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
 
       # Guarantee the failure upload is never empty (F-131). The HTML reporter
       # writes playwright-report/index.html on a normal or global-timeout

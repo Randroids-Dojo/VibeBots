@@ -224,38 +224,6 @@ describe("collectFpRaidPickup", () => {
   });
 });
 
-describe("breach visibility flags (F-218)", () => {
-  it("starts every Clanker outside the footprint and flags entry exactly once", () => {
-    const runtime = openRuntime();
-    expect(runtime.views.every((view) => !view.inside)).toBe(true);
-    expect(runtime.views.every((view) => !view.justEntered)).toBe(true);
-
-    const entries = new Map<string, number>();
-    let frames = 0;
-    while (!fpRaidEnded(runtime) && frames < 6000) {
-      advanceFpRaid(runtime, OPEN_PLAYER, FP_RAID_TICK_SECONDS);
-      for (const view of runtime.views) {
-        if (view.justEntered) {
-          entries.set(view.id, (entries.get(view.id) ?? 0) + 1);
-          // The entry flag always rides an inside destination.
-          expect(view.inside).toBe(true);
-        }
-      }
-      frames += 1;
-    }
-    // The open corridor is invaded, and each arrival flagged exactly once.
-    expect(entries.size).toBeGreaterThan(0);
-    for (const count of entries.values()) expect(count).toBe(1);
-  });
-
-  it("keeps a sealed raid's Clankers outside for their whole lives", () => {
-    const runtime = sealedRuntime();
-    driveToEnd(runtime, SEALED_PLAYER);
-    expect(runtime.views.every((view) => !view.inside)).toBe(true);
-    expect(runtime.views.every((view) => !view.justEntered)).toBe(true);
-  });
-});
-
 describe("fpRaidReport", () => {
   it("reports a sealed raid as a survived win", () => {
     const runtime = sealedRuntime();

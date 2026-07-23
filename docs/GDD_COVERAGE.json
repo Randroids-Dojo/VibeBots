@@ -882,6 +882,7 @@
         "src/components/mine-panel.tsx",
         "src/components/bunker-fp-raid.ts",
         "src/components/bunker-fp-clankers.tsx",
+        "src/components/bunker-fp-clanker-motion.ts",
         "src/components/bunker-fp-canvas.tsx"
       ],
       "testRefs": [
@@ -889,6 +890,7 @@
         "src/sim/bunker-raid-live.test.ts",
         "src/server/bunker.test.ts",
         "src/components/bunker-fp-raid.test.ts",
+        "src/components/bunker-fp-clanker-motion.test.ts",
         "tests/e2e/mine-bunker.spec.ts",
         "tests/e2e/mine-bunker-fp.spec.ts"
       ],

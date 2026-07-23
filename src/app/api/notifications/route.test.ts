@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-22-0.1.284-visible-clanker-invasion",
+      releaseNoticeId: "2026-07-22-0.1.285-staged-clanker-invasion",
       releaseSummary:
-        "Clanker raids are invasions you can see: Raids used to be lost to attackers you never saw. Now the Clankers burrow into your bunker one at a time, erupt through your walls and floors where you can watch them surface, and hunt you through your halls in all three dimensions.",
+        "Clanker invasions come in waves you can fight: A raid now opens with a few quiet seconds, then the Clankers burrow in one at a time, and one surfacing under your feet can be dodged instead of ending the raid on the spot.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-22-0.1.284-visible-clanker-invasion",
+      releaseNoticeId: "2026-07-22-0.1.285-staged-clanker-invasion",
       attempted: 2,
       sent: 1,
       expired: 1,

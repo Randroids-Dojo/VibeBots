@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Floating "back to the mine village" control for screens entered from
@@ -15,8 +15,10 @@ import { useEffect } from "react";
  */
 export function BackToMine() {
   const router = useRouter();
+  const linkRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
+    const link = linkRef.current;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (event.defaultPrevented) return;
@@ -43,13 +45,19 @@ export function BackToMine() {
       router.push("/mine");
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    link?.setAttribute("data-escape-ready", "true");
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      link?.removeAttribute("data-escape-ready");
+    };
   }, [router]);
 
   return (
     <Link
+      ref={linkRef}
       href="/mine"
       aria-label="Back to mine"
+      aria-keyshortcuts="Escape"
       style={{
         position: "absolute",
         top: 14,

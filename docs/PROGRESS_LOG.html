@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="backlog-session-closeout-questions" data-date="2026-07-23">
+    <h3>Backlog session closeout: user questions doc and the F-170 remote audit</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code> (remote Claude Code session), final slice of the 2026-07-23 backlog run.</dd>
+      <dt>PR</dt><dd>Pending user direction; question 5 in the new doc asks whether to open one for the branch's five shipped slices.</dd>
+      <dt>Changed</dt><dd>New <code>docs/QUESTIONS_2026-07-23.html</code> collects every decision only the user can make: the F-217 VibeKit access path (an in-session scope request was declined; installs remain impossible remotely), the F-132 Full E2E software-render wall decision (GPU runners, per-test hardening, or a flaky tier), Q-031 confirmation, the local-machine-only and admin-only items (F-170 P0 memory audit, rulesets F-148/F-152/F-179/F-183, operator preflights F-151/F-154/F-155/F-156/F-182/F-185/F-186/F-187/F-193/F-194, CI-approval items F-131/F-172), PR creation, and four possibly stale <code>data-priority</code> values. The F-170 Dot gains a remote-audit section: the container has no MEMORY.md registry or named memory files, repo-tracked rules are clean, and the only <code>--admin</code> text in the repository is descriptive incident history in ledgers and Dots, so the P0 corrective work must run on the machine hosting the Claude project memory.</dd>
+      <dt>Verification</dt><dd>Dash check, <code>git diff --check</code>, and the full dependency-free gate set of <code>pnpm verify</code> (dashes, git-diff-check, sim-purity, agents-links, attribution, followup-ledger all PASS; lint, typecheck, unit-tests NOT-RUN under F-217, verifier exits 1 as designed). Tag balance checked on every touched HTML file.</dd>
+      <dt>Assumptions</dt><dd>Session scope followed the designated-branch instruction (all slices as commits on one pushed branch, no PR without an explicit ask), which is the recorded deviation from the one-branch-per-slice loop for this run.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>No new F-IDs; the questions doc references existing ones. Session summary: F-189, F-188, F-211, F-178 with F-157, and F-180 with F-149 delivered as five commits; F-170 audited to its remote limit; scheduled-red triage and the dependency gate ran at loop start (Next.js 16.2.11 still deferred under F-217).</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-closeout-correction-validated" data-date="2026-07-23">
     <h3>The elevator closeout correction is now pinned current truth, in the ledger and the archived Dot</h3>
     <dl>

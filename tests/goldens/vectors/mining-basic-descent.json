@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "GOLDEN-MINING-0001",
+  "kind": "mining",
+  "seed": 31337,
+  "stepCount": 16,
+  "simVersion": 5,
+  "mineVersion": 58,
+  "gearInputs": {
+    "pickaxe": 5,
+    "battery": 3,
+    "cargo": 2,
+    "lantern": 2,
+    "elevator": 0,
+    "elevatorColumn": null,
+    "warpcoil": 1,
+    "blast": 1,
+    "elevatorSpeed": 1,
+    "fall": 2,
+    "recall": 1
+  },
+  "consumableInputs": {
+    "dynamite": 0,
+    "rope": 0,
+    "ladder": 0,
+    "plank": 0,
+    "beacon": 0
+  },
+  "actionLog": [
+    "down",
+    "down",
+    "down",
+    "down",
+    "down",
+    "down",
+    "right",
+    "right",
+    "left",
+    "down",
+    "down",
+    "left",
+    "down",
+    "right",
+    "down",
+    "left"
+  ],
+  "expected": {
+    "snapshotHash": "25d47d8c38e18ae2",
+    "outcomes": {
+      "collapsesSurvived": 0,
+      "granted": {
+        "dynamite": 0,
+        "rope": 0,
+        "ladder": 0,
+        "plank": 0,
+        "beacon": 0
+      },
+      "maxDepth": 8,
+      "moves": 16,
+      "roofRescues": 0,
+      "used": {
+        "dynamite": 0,
+        "rope": 0,
+        "ladder": 0,
+        "plank": 0,
+        "beacon": 0
+      },
+      "worldCells": 14
+    }
+  },
+  "manifestId": "goldens-20260723183653897"
+}

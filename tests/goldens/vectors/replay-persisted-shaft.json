@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "GOLDEN-REPLAY-0001",
+  "kind": "replay",
+  "seed": 211,
+  "stepCount": 8,
+  "simVersion": 5,
+  "mineVersion": 58,
+  "gearInputs": {
+    "pickaxe": 5,
+    "battery": 2,
+    "cargo": 1,
+    "lantern": 1,
+    "elevator": 0,
+    "elevatorColumn": null,
+    "warpcoil": 1,
+    "blast": 1,
+    "elevatorSpeed": 1,
+    "fall": 1,
+    "recall": 1
+  },
+  "consumableInputs": {
+    "dynamite": 0,
+    "rope": 0,
+    "ladder": 8,
+    "plank": 2,
+    "beacon": 0
+  },
+  "worldDiffInput": [
+    [
+      0,
+      1,
+      {
+        "kind": "empty",
+        "ladder": true
+      }
+    ],
+    [
+      0,
+      2,
+      {
+        "kind": "dirt",
+        "hp": 1
+      }
+    ],
+    [
+      1,
+      2,
+      {
+        "kind": "dirt",
+        "hp": 1
+      }
+    ]
+  ],
+  "actionLog": ["down", "down", "right", "left", "up", "up", "down", "abandon"],
+  "expected": {
+    "snapshotHash": "8f7169cb1f7eb33a",
+    "outcomes": {
+      "bagDrops": 0,
+      "bankedCredits": 0,
+      "bankedParts": [],
+      "collapsesSurvived": 0,
+      "elevatorRides": 0,
+      "granted": {
+        "dynamite": 0,
+        "rope": 0,
+        "ladder": 0,
+        "plank": 0,
+        "beacon": 0
+      },
+      "maxDepth": 2,
+      "moves": 8,
+      "payout": null,
+      "roofRescues": 0,
+      "used": {
+        "dynamite": 0,
+        "rope": 0,
+        "ladder": 1,
+        "plank": 0,
+        "beacon": 0
+      },
+      "worldCells": 3
+    }
+  },
+  "manifestId": "goldens-20260723183653897"
+}

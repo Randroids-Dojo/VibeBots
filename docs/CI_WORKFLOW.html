@@ -29,7 +29,7 @@
     <ul>
       <li><code>quality</code>: dash check, sim purity, whitespace check, and Biome lint.</li>
       <li><code>typecheck</code>: Next route type generation and TypeScript.</li>
-      <li><code>unit</code>: Vitest unit and route tests.</li>
+      <li><code>unit</code>: Vitest unit and route tests, followed by the deterministic golden suite.</li>
       <li><code>build</code>: production Next build.</li>
       <li><code>e2e-critical</code>: sharded Playwright smoke over the critical routes.</li>
     </ul>
@@ -53,6 +53,12 @@
     <p>The required Critical E2E command selects <code>@critical</code> and <code>@functional</code> together. Its four Stage 0 cases are <code>E2E-ACCOUNT-0001</code>, <code>E2E-MINE-CORE-0002</code>, <code>E2E-MINE-SAVE-SLOTS-0002</code>, and <code>E2E-RELEASE-NOTIFICATIONS-0001</code>. Pixel, renderer, and elapsed-frame assertions cannot enter the required subset through a title edit.</p>
   </section>
 
+  <section id="deterministic-goldens">
+    <h2>Deterministic Goldens</h2>
+    <p><code>pnpm test:goldens</code> runs versioned, browser-independent combat, mining, economy, replay, and world-snapshot vectors from <code>tests/goldens/vectors</code>. Every vector has a stable ID, seed, step count, action log, complete gear or design inputs where applicable, <code>SIM_VERSION</code>, <code>MINE_VERSION</code> for mine rules, a final FNV-1a snapshot hash, and selected semantic outcomes. A mismatch reports the vector inputs plus field paths and old and new values.</p>
+    <p>Golden output is updated only with <code>pnpm test:goldens:update -- --reason &lt;text&gt;</code>. The updater refuses an empty reason and refuses changed output while the relevant version constant is unchanged. Accepted updates append a machine-readable entry to <code>tests/goldens/change-manifest.json</code>, and each changed vector links to that entry. Tests reject a vector whose expected hash, semantic outcomes, or version no longer matches its manifest. A relevant version bump with no covered output change emits a review warning so unnecessary bumps or missing coverage stay visible.</p>
+  </section>
+
   <section id="scheduled-run-visibility">
     <h2>Scheduled Run Visibility (F-047)</h2>
     <p>A red nightly full-matrix run must be visible to the next agent without anyone listing workflow runs by hand. Rule 5 step 3 in <code>AGENTS.md</code> makes the check part of every slice start. Filter by <code>--event schedule</code> on the server rather than a client-side <code>select</code> over the default page: scheduled runs are rare, so a day of push and PR runs pushes the newest schedule run past the default 20-run page and a <code>select(.event == "schedule")</code> pipe then returns null (an empty result reads as "no red", the exact failure this gate exists to prevent). Also filter <code>--status completed</code>, so a queued or still-running schedule run (null conclusion) cannot mask an older completed red one:</p>
@@ -72,6 +78,8 @@
       <li><code>git diff --check</code></li>
       <li><code>pnpm typecheck</code></li>
       <li><code>pnpm test</code></li>
+      <li><code>pnpm test:goldens</code></li>
+      <li><code>pnpm test:goldens:update -- --reason &lt;text&gt;</code> only for intentional deterministic changes after the relevant version bump.</li>
       <li><code>pnpm lint</code></li>
       <li><code>pnpm build</code></li>
       <li><code>pnpm test:e2e:critical --project=chromium</code></li>

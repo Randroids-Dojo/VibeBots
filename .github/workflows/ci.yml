@@ -110,6 +110,9 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Deterministic goldens
+        run: pnpm test:goldens
+
   build:
     name: Build
     runs-on: ubuntu-latest

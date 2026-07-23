@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "GOLDEN-ECONOMY-0001",
+  "kind": "economy",
+  "seed": 7001,
+  "stepCount": 2,
+  "simVersion": 5,
+  "mineVersion": 58,
+  "gearInputs": {
+    "pickaxe": 1,
+    "battery": 1,
+    "cargo": 1,
+    "lantern": 1,
+    "elevator": 0,
+    "elevatorColumn": null,
+    "warpcoil": 1,
+    "blast": 1,
+    "elevatorSpeed": 1,
+    "fall": 1,
+    "recall": 1
+  },
+  "consumableInputs": {
+    "dynamite": 0,
+    "rope": 0,
+    "ladder": 1,
+    "plank": 0,
+    "beacon": 0
+  },
+  "worldDiffInput": [
+    [
+      0,
+      1,
+      {
+        "kind": "empty",
+        "drop": {
+          "coal": 2
+        }
+      }
+    ]
+  ],
+  "actionLog": ["down", "up"],
+  "expected": {
+    "snapshotHash": "e6e5965e88525bf7",
+    "outcomes": {
+      "bankedCredits": 2,
+      "bankedParts": [],
+      "payout": {
+        "ores": {
+          "coal": 2
+        },
+        "salvageCredits": 0,
+        "totalVibes": 2
+      }
+    }
+  },
+  "manifestId": "goldens-20260723183653897"
+}

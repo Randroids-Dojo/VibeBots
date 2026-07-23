@@ -1,0 +1,181 @@
+[
+  {
+    "id": "goldens-20260723183653897",
+    "createdAt": "2026-07-23T18:36:53.897Z",
+    "reason": "Initialize Stage 1 deterministic baselines",
+    "changes": [
+      {
+        "vectorId": "GOLDEN-COMBAT-0001",
+        "kind": "combat",
+        "changedFields": ["$"],
+        "oldSnapshotHash": null,
+        "newSnapshotHash": "8a99c01b32684138",
+        "oldOutcomes": null,
+        "newOutcomes": {
+          "rewards": [
+            {
+              "outcome": "win",
+              "credits": 196,
+              "trackXp": 98
+            },
+            {
+              "outcome": "loss",
+              "credits": 70,
+              "trackXp": 32
+            }
+          ],
+          "status": {
+            "over": true,
+            "winner": 0,
+            "reason": "timeout",
+            "scores": [
+              {
+                "damageDealt": 96.69359046936034,
+                "damageTaken": 45.07393550872803,
+                "partsRemaining": 4,
+                "partCount": 4,
+                "healthRemaining": 444.926064491272,
+                "healthTotal": 490,
+                "pressureTicks": 28,
+                "mobileAtEnd": true,
+                "total": 239.49164203341044
+              },
+              {
+                "damageDealt": 45.07393550872803,
+                "damageTaken": 96.69359046936034,
+                "partsRemaining": 4,
+                "partCount": 4,
+                "healthRemaining": 343.30640953063966,
+                "healthTotal": 440,
+                "pressureTicks": 29,
+                "mobileAtEnd": true,
+                "total": 78.27192809576941
+              }
+            ]
+          },
+          "tick": 900
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": null,
+          "to": 5
+        }
+      },
+      {
+        "vectorId": "GOLDEN-ECONOMY-0001",
+        "kind": "economy",
+        "changedFields": ["$"],
+        "oldSnapshotHash": null,
+        "newSnapshotHash": "e6e5965e88525bf7",
+        "oldOutcomes": null,
+        "newOutcomes": {
+          "bankedCredits": 2,
+          "bankedParts": [],
+          "payout": {
+            "ores": {
+              "coal": 2
+            },
+            "salvageCredits": 0,
+            "totalVibes": 2
+          }
+        },
+        "versionDecision": {
+          "constant": "MINE_VERSION",
+          "from": null,
+          "to": 58
+        }
+      },
+      {
+        "vectorId": "GOLDEN-MINING-0001",
+        "kind": "mining",
+        "changedFields": ["$"],
+        "oldSnapshotHash": null,
+        "newSnapshotHash": "25d47d8c38e18ae2",
+        "oldOutcomes": null,
+        "newOutcomes": {
+          "collapsesSurvived": 0,
+          "granted": {
+            "dynamite": 0,
+            "rope": 0,
+            "ladder": 0,
+            "plank": 0,
+            "beacon": 0
+          },
+          "maxDepth": 8,
+          "moves": 16,
+          "roofRescues": 0,
+          "used": {
+            "dynamite": 0,
+            "rope": 0,
+            "ladder": 0,
+            "plank": 0,
+            "beacon": 0
+          },
+          "worldCells": 14
+        },
+        "versionDecision": {
+          "constant": "MINE_VERSION",
+          "from": null,
+          "to": 58
+        }
+      },
+      {
+        "vectorId": "GOLDEN-REPLAY-0001",
+        "kind": "replay",
+        "changedFields": ["$"],
+        "oldSnapshotHash": null,
+        "newSnapshotHash": "8f7169cb1f7eb33a",
+        "oldOutcomes": null,
+        "newOutcomes": {
+          "bagDrops": 0,
+          "bankedCredits": 0,
+          "bankedParts": [],
+          "collapsesSurvived": 0,
+          "elevatorRides": 0,
+          "granted": {
+            "dynamite": 0,
+            "rope": 0,
+            "ladder": 0,
+            "plank": 0,
+            "beacon": 0
+          },
+          "maxDepth": 2,
+          "moves": 8,
+          "payout": null,
+          "roofRescues": 0,
+          "used": {
+            "dynamite": 0,
+            "rope": 0,
+            "ladder": 1,
+            "plank": 0,
+            "beacon": 0
+          },
+          "worldCells": 3
+        },
+        "versionDecision": {
+          "constant": "MINE_VERSION",
+          "from": null,
+          "to": 58
+        }
+      },
+      {
+        "vectorId": "GOLDEN-WORLD-0001",
+        "kind": "world",
+        "changedFields": ["$"],
+        "oldSnapshotHash": null,
+        "newSnapshotHash": "f0c31ac2f5e7bd1c",
+        "oldOutcomes": null,
+        "newOutcomes": {
+          "seed": 42,
+          "simVersion": 5,
+          "steps": 600
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": null,
+          "to": 5
+        }
+      }
+    ]
+  }
+]

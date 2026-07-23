@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import {
+  CI_CAPABILITY_TAGS,
+  CI_POLICY_TAGS,
+} from "../tests/e2e/support/ci-case";
+import {
+  CAPABILITY_TAGS,
   collectCases,
+  POLICY_TAGS,
   summarizeInventory,
   validateInventory,
 } from "./ci-inventory-lib.mjs";
@@ -31,6 +37,11 @@ function report({
 const emptyQuarantine = { schemaVersion: 1, entries: [] };
 
 describe("CI inventory", () => {
+  test("uses the canonical capability and policy tag sets", () => {
+    expect(CAPABILITY_TAGS).toEqual(CI_CAPABILITY_TAGS);
+    expect(POLICY_TAGS).toEqual(CI_POLICY_TAGS);
+  });
+
   test("collects stable metadata independently of the title", () => {
     const first = collectCases(report({ title: "before" }));
     const renamed = collectCases(report({ title: "after" }));

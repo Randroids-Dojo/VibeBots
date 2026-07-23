@@ -10,18 +10,45 @@ function argument(name) {
   return process.argv[index + 1];
 }
 
-function attempts(report) {
-  return new Map(
-    report.records.map((record) => [
-      `${record.caseId}#${record.attempt}`,
-      record,
-    ]),
-  );
+function attempts(report, label) {
+  if (!Array.isArray(report.records)) {
+    throw new Error(`${label} report must contain a records array`);
+  }
+  const result = new Map();
+  for (const record of report.records) {
+    if (
+      typeof record.caseId !== "string" ||
+      !record.caseId ||
+      !Number.isInteger(record.attempt) ||
+      record.attempt < 1
+    ) {
+      throw new Error(`${label} report contains an invalid case ID or attempt`);
+    }
+    const key = `${record.caseId}#${record.attempt}`;
+    if (result.has(key)) {
+      throw new Error(`${label} report contains duplicate attempt ${key}`);
+    }
+    result.set(key, record);
+  }
+  return result;
 }
 
 export function compareShadowReports(hosted, pinned) {
-  const hostedAttempts = attempts(hosted);
-  const pinnedAttempts = attempts(pinned);
+  if (
+    typeof hosted.commitSha !== "string" ||
+    !hosted.commitSha ||
+    typeof pinned.commitSha !== "string" ||
+    !pinned.commitSha
+  ) {
+    throw new Error("Both shadow reports must identify their source commit");
+  }
+  if (hosted.commitSha !== pinned.commitSha) {
+    throw new Error(
+      `Shadow report commits differ: hosted ${hosted.commitSha}, pinned ${pinned.commitSha}`,
+    );
+  }
+  const hostedAttempts = attempts(hosted, "Hosted");
+  const pinnedAttempts = attempts(pinned, "Pinned");
   const keys = [
     ...new Set([...hostedAttempts.keys(), ...pinnedAttempts.keys()]),
   ].sort();
@@ -56,12 +83,24 @@ export function compareShadowReports(hosted, pinned) {
         entry.hostedOutcome !== entry.pinnedOutcome,
     )
     .map((entry) => entry.key);
+  const executionFailures = [];
+  if (hosted.status !== "passed") {
+    executionFailures.push(`hosted:${hosted.status ?? "missing"}`);
+  }
+  if (pinned.status !== "passed") {
+    executionFailures.push(`pinned:${pinned.status ?? "missing"}`);
+  }
+  if (hostedAttempts.size === 0) executionFailures.push("hosted:no-cases");
+  if (pinnedAttempts.size === 0) executionFailures.push("pinned:no-cases");
 
   return {
     schemaVersion: 1,
     commitSha: hosted.commitSha,
+    hostedCommitSha: hosted.commitSha,
+    pinnedCommitSha: pinned.commitSha,
     hostedStatus: hosted.status,
     pinnedStatus: pinned.status,
+    executionFailures,
     missingFromHosted,
     missingFromPinned,
     outcomeMismatches,
@@ -91,7 +130,8 @@ if (process.argv[1]?.endsWith("ci-shadow-compare.mjs")) {
   if (
     report.missingFromHosted.length ||
     report.missingFromPinned.length ||
-    report.outcomeMismatches.length
+    report.outcomeMismatches.length ||
+    report.executionFailures.length
   ) {
     throw new Error(
       "Pinned runtime discovery or outcomes differ from the hosted runtime",

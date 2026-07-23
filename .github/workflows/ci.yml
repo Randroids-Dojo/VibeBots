@@ -236,9 +236,6 @@ jobs:
     timeout-minutes: 25
     container:
       image: ghcr.io/randroids-dojo/vibebots-ci@sha256:57e3df8c39e0aba97f698dc0ec0afa615e26124919ac44594b135241d9483691
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -275,13 +272,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download hosted shadow results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: runtime-shadow-hosted
           path: runtime-shadow/hosted
 
       - name: Download pinned shadow results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: runtime-shadow-pinned
           path: runtime-shadow/pinned

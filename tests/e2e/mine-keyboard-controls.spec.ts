@@ -41,6 +41,12 @@ test(
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/workshop$/);
 
+    // The URL changes before the destination's passive effects have to run.
+    // Wait on the handler's explicit readiness contract instead of racing it.
+    await expect(
+      page.getByRole("link", { name: "Back to mine" }),
+    ).toHaveAttribute("data-escape-ready", "true");
+
     // Escape returns to the mine hub (F-062).
     await page.keyboard.press("Escape");
     await expect(page).toHaveURL(/\/mine$/);

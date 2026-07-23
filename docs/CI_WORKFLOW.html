@@ -60,6 +60,14 @@
     <p>The required golden job runs on Ubuntu 24.04 with Node.js 22.22.1. Exact hashes and floating-point comparisons are authoritative only in that pinned CI environment; changing either pin is a reviewed baseline event.</p>
   </section>
 
+  <section id="pinned-browser-runtime">
+    <h2>Pinned Browser Runtime</h2>
+    <p>Browser CI can run in the reviewed multi-architecture image <code>ghcr.io/randroids-dojo/vibebots-ci@sha256:57e3df8c39e0aba97f698dc0ec0afa615e26124919ac44594b135241d9483691</code>. The Dockerfile pins Ubuntu 24.04, Node.js 22.22.1, pnpm 10.30.3, and Playwright 1.60.0, including exact base-image digests. The public package permits anonymous reproduction without exposing application secrets or storage. Its manifest resolves to amd64 <code>sha256:f855036c04ec0850a1862932b384ba9cf244c32c0ffd60cee53ba8eb4a561406</code> and arm64 <code>sha256:9f2f187c3ec2c779796174076ea8fcb210cc3386b011e82ce801b693182e9a22</code>. Organization policy still limits new packages to private visibility; it was temporarily relaxed only to publish this reviewed package, then restored.</p>
+    <p><code>pnpm ci:repro -- --case &lt;case-id&gt;</code> runs one functional case, while <code>pnpm ci:repro -- --shard &lt;n/m&gt;</code> runs one functional shard. The command refuses a dirty checkout, prints the exact source commit and immutable image digest, prints an executable <code>docker run</code> command, uses one Playwright worker, blanks secrets and persistent storage, and isolates home, dependencies, build output, and pnpm storage in disposable mounts. The only host prerequisites are Git, Node.js, pnpm, and a running Docker daemon.</p>
+    <p>Non-required <code>Runtime Shadow (hosted)</code> and <code>Runtime Shadow (pinned)</code> jobs exercise the same functional shard 1/8 with one worker. <code>Runtime Shadow Comparison</code> rejects missing case IDs or outcome mismatches and uploads the compared IDs, outcomes, and durations. Run <a href="https://github.com/Randroids-Dojo/VibeBots/actions/runs/30037448107">30037448107</a> compared 17 exact matches with hosted duration 75,280ms and pinned duration 50,186ms.</p>
+    <p>The reproducibility exit proof uses exact-main Full E2E run <a href="https://github.com/Randroids-Dojo/VibeBots/actions/runs/30008144077">30008144077</a>. Case <code>E2E-MINE-NAVIGATION-0001</code> failed both GitHub attempts on a <code>keyboard.press</code> timeout at <code>support/mine-helpers.ts:58</code> through <code>enterBuilding</code>. Running that stable case ID in the pinned image reproduced both failed attempts at the same helper and timeout, converting the remote failure into one exact local command.</p>
+  </section>
+
   <section id="scheduled-run-visibility">
     <h2>Scheduled Run Visibility (F-047)</h2>
     <p>A red nightly full-matrix run must be visible to the next agent without anyone listing workflow runs by hand. Rule 5 step 3 in <code>AGENTS.md</code> makes the check part of every slice start. Filter by <code>--event schedule</code> on the server rather than a client-side <code>select</code> over the default page: scheduled runs are rare, so a day of push and PR runs pushes the newest schedule run past the default 20-run page and a <code>select(.event == "schedule")</code> pipe then returns null (an empty result reads as "no red", the exact failure this gate exists to prevent). Also filter <code>--status completed</code>, so a queued or still-running schedule run (null conclusion) cannot mask an older completed red one:</p>
@@ -85,6 +93,8 @@
       <li><code>pnpm build</code></li>
       <li><code>pnpm test:e2e:critical --project=chromium</code></li>
       <li><code>pnpm ci:inventory</code></li>
+      <li><code>pnpm ci:repro -- --case E2E-MINE-NAVIGATION-0001</code> to reproduce one functional case in the pinned browser image.</li>
+      <li><code>pnpm ci:repro -- --shard 1/8</code> to reproduce one functional shard in the pinned browser image.</li>
       <li><code>pnpm test:e2e --project=chromium</code> for full local smoke with two file-level workers after a production build exists.</li>
     </ul>
   </section>

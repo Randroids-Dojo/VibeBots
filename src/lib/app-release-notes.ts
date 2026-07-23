@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-22-0.1.283-raid-cooldown-clarity";
+export const RELEASE_NOTICE_ID = "2026-07-22-0.1.284-visible-clanker-invasion";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.284",
+      date: "2026-07-22",
+      title: "Clanker raids are invasions you can see",
+      intro:
+        "Raids used to be lost to attackers you never saw. Now the Clankers burrow into your bunker one at a time, erupt through your walls and floors where you can watch them surface, and hunt you through your halls in all three dimensions.",
+      changes: [
+        {
+          build,
+          text: "A raid opens with a few quiet seconds, then the wave arrives one Clanker at a time. Each one bursts into the room with a burrow blast where it breaks through, instead of the whole pack landing at once out of nowhere.",
+        },
+        {
+          build,
+          text: "A surfacing Clanker needs a moment to pull itself together before it can strike, so one erupting under your feet is a thing you dodge, not an instant loss. Once it has its legs it chases you through the dug halls, up, down, and around.",
+        },
+        {
+          build,
+          text: "XP from Clankers that died out in the surrounding rock no longer glints where you could never walk.",
+        },
+      ],
+    },
     {
       version: "0.1.283",
       date: "2026-07-22",

@@ -45,6 +45,11 @@ const FP_CLANKER_TILT_X = -Math.PI / 2;
 const FP_CLANKER_SCALE = 0.62;
 const FP_CLANKER_FLOOR_LIFT = 0.32;
 
+/** How long a Clanker's breach emergence plays as it crosses into the
+ * room: the body scales up from the wall while a burrow burst flares and
+ * fades, so an arrival reads as an event instead of a pop-in (F-218). */
+const FP_BREACH_SECONDS = 0.7;
+
 const UP_AXIS = new Vector3(0, 1, 0);
 
 // Shared XP-pickup singletons and reused scratch (frame-loop rule: no
@@ -72,6 +77,9 @@ interface FpClankerSlot {
   burst: RefObject<Group | null>;
   parts: ClankerParts;
   deathElapsed: number;
+  /** Seconds since this Clanker breached into the room, or -1 when no
+   * emergence is playing (still outside, or long since arrived). */
+  breachElapsed: number;
 }
 
 function createSlot(): FpClankerSlot {
@@ -88,6 +96,7 @@ function createSlot(): FpClankerSlot {
       eye: { current: null },
     },
     deathElapsed: -1,
+    breachElapsed: -1,
   };
 }
 
@@ -193,10 +202,19 @@ export function FpClankerLayer({
       if (!view) {
         group.visible = false;
         slot.deathElapsed = -1;
+        slot.breachElapsed = -1;
         continue;
       }
       if (view.alive) {
         slot.deathElapsed = -1;
+        if (!view.inside) {
+          // Still burrowing through the mine rock outside the claim. All
+          // six room faces are solid, so there is nothing to draw yet.
+          group.visible = false;
+          slot.breachElapsed = -1;
+          continue;
+        }
+        if (view.justEntered) slot.breachElapsed = 0;
         group.visible = true;
         drawn += 1;
         if (slot.parts.body.current) slot.parts.body.current.visible = true;
@@ -210,7 +228,23 @@ export function FpClankerLayer({
         const y = fy + (ty - fy) * factor;
         const z = fz + (tz - fz) * factor;
         group.position.set(x, y + FP_CLANKER_FLOOR_LIFT, z);
-        group.scale.setScalar(FP_CLANKER_SCALE);
+        // Breach emergence: the body scales up out of the wall while the
+        // burrow burst flares and fades, then the clock disarms.
+        const burst = slot.burst.current;
+        if (slot.breachElapsed >= 0) {
+          slot.breachElapsed += delta;
+          const progress = Math.min(1, slot.breachElapsed / FP_BREACH_SECONDS);
+          group.scale.setScalar(FP_CLANKER_SCALE * (0.25 + 0.75 * progress));
+          if (burst) {
+            burst.visible = progress < 1;
+            burst.scale.setScalar(0.5 + progress * 0.9);
+            setGroupMaterialOpacity(burst, 1 - progress);
+          }
+          if (progress >= 1) slot.breachElapsed = -1;
+        } else {
+          group.scale.setScalar(FP_CLANKER_SCALE);
+          if (burst) burst.visible = false;
+        }
         const moving = tx !== fx || tz !== fz || ty !== fy;
         const yawGroup = slot.yaw.current;
         if (yawGroup && (tx !== fx || tz !== fz)) {
@@ -218,11 +252,12 @@ export function FpClankerLayer({
         }
         const wobble = slot.wobble.current;
         if (wobble) animateClankerBody(wobble, slot.parts, elapsed, moving, 0);
-        if (slot.burst.current) slot.burst.current.visible = false;
       } else {
+        slot.breachElapsed = -1;
         if (view.justDied && slot.deathElapsed < 0) slot.deathElapsed = 0;
-        if (slot.deathElapsed < 0) {
-          // Died before this layer saw the transition: just hide it.
+        if (slot.deathElapsed < 0 || !view.inside) {
+          // Died before this layer saw the transition, or died out in the
+          // rock where the burst could never be seen: just hide it.
           group.visible = false;
           continue;
         }
@@ -265,6 +300,16 @@ export function FpClankerLayer({
         for (let p = 0; p < pickups.length; p += 1) {
           const pickup = pickups[p];
           if (pickup.collected) continue;
+          // A Clanker that died out in the rock drops its pickup outside
+          // the claim, where the player can never walk: nothing to draw.
+          if (
+            pickup.col < footprint.col ||
+            pickup.col >= footprint.col + footprint.width ||
+            pickup.row < footprint.row ||
+            pickup.row >= footprint.row + footprint.height
+          ) {
+            continue;
+          }
           if (count >= FP_XP_CAPACITY) break;
           xpPosition.set(
             worldX(pickup.col),

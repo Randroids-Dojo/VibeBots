@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-21-0.1.282-fire-tv-safe-area",
+      releaseNoticeId: "2026-07-22-0.1.284-visible-clanker-invasion",
       releaseSummary:
-        "The mine fits on your TV screen: TVs crop the outer edges of the picture, which hung the pause menu half off the side of a Fire TV screen. TV sessions now keep everything inside the visible area.",
+        "Clanker raids are invasions you can see: Raids used to be lost to attackers you never saw. Now the Clankers burrow into your bunker one at a time, erupt through your walls and floors where you can watch them surface, and hunt you through your halls in all three dimensions.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-21-0.1.282-fire-tv-safe-area",
+      releaseNoticeId: "2026-07-22-0.1.284-visible-clanker-invasion",
       attempted: 2,
       sent: 1,
       expired: 1,

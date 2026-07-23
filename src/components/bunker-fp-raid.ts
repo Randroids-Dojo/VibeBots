@@ -1,4 +1,8 @@
-import type { BunkerState, ClankerKind } from "@/sim/bunker";
+import {
+  type BunkerState,
+  type ClankerKind,
+  containsBunkerCell,
+} from "@/sim/bunker";
 import {
   collectLiveRaidPickup,
   createLiveRaid,
@@ -50,6 +54,14 @@ export interface FpRaidClankerView {
   toDepth: number;
   deathTick: number;
   justDied: boolean;
+  /** The Clanker's destination cell is inside the claim footprint: it is in
+   * the room (or crossing the wall into it), not out in the mine rock. The
+   * render layer draws only inside Clankers, because everything outside the
+   * claim is solid rock the player cannot see through. */
+  inside: boolean;
+  /** True only on the advance where the hop crossed into the footprint, so
+   * the render layer fires the breach emergence exactly once. */
+  justEntered: boolean;
 }
 
 export interface FpRaidRuntime {
@@ -100,6 +112,8 @@ export function createFpRaidRuntime(
     toDepth: clanker.depth,
     deathTick: clanker.deathTick,
     justDied: false,
+    inside: containsBunkerCell(bunker.footprint, clanker.col, clanker.row),
+    justEntered: false,
   }));
   return { state, tickAccum: 0, views };
 }
@@ -119,6 +133,7 @@ export function advanceFpRaid(
 ): number {
   for (let index = 0; index < runtime.views.length; index += 1) {
     runtime.views[index].justDied = false;
+    runtime.views[index].justEntered = false;
   }
   if (runtime.state.outcome !== "active") return 0;
   runtime.tickAccum += deltaSeconds;
@@ -141,8 +156,15 @@ export function advanceFpRaid(
       for (let index = 0; index < runtime.views.length; index += 1) {
         const view = runtime.views[index];
         const wasAlive = view.alive;
+        const wasInside = view.inside;
         syncTo(view, runtime.state, index);
         if (wasAlive && !view.alive) view.justDied = true;
+        view.inside = containsBunkerCell(
+          runtime.state.footprint,
+          view.toCol,
+          view.toRow,
+        );
+        if (view.alive && view.inside && !wasInside) view.justEntered = true;
       }
     }
     ticks += 1;

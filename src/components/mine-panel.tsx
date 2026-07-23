@@ -330,6 +330,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Inside your bunker, Start raid drops you into a live first-person fight. The Clankers hunt you through the halls, and stopping one drops XP to walk over.",
   "Tip: Leaving a live raid forfeits it: press Escape or tap Leave raid in the HUD. You cannot slip out and re-enter to retry, so hold your ground.",
   "Tip: The Clankers regroup for hours after a raid, win or lose. The Start raid spot counts down to the next one.",
+  "Tip: A Clanker bursting through your wall needs a moment to get its legs. Keep moving; a surfacing one cannot strike yet.",
   "Tip: Your starter kit seals the player cell: floors below, roofs above, wall and door beside.",
   "Tip: Bunker skins are pure paint. A bought skin is yours forever and reselects free.",
   "Tip: Standing in your claim, Enter bunker is the way to build: walk it in first person.",

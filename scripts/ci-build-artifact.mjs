@@ -265,7 +265,9 @@ function verifyArtifact() {
   );
 }
 
-const command = process.argv[2];
+const commandArguments = process.argv.slice(2);
+if (commandArguments[0] === "--") commandArguments.shift();
+const command = commandArguments[0];
 if (command === "create") createArtifact();
 else if (command === "verify") verifyArtifact();
 else throw new Error("Usage: ci-build-artifact.mjs <create|verify> [options]");

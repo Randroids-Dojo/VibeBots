@@ -35,17 +35,25 @@ export function buildFunctionalShardPlan(
   }
   if (
     baseline.schemaVersion !== 1 ||
-    !baseline.durationsMs ||
-    !Number.isInteger(baseline.fallbackDurationMs)
+    typeof baseline.durationsMs !== "object" ||
+    baseline.durationsMs === null ||
+    Array.isArray(baseline.durationsMs) ||
+    !Number.isInteger(baseline.fallbackDurationMs) ||
+    baseline.fallbackDurationMs < 1
   ) {
     throw new Error("Duration baseline must use schema version 1");
   }
-  positiveInteger(shardCount, "shard count");
+  const validatedShardCount = positiveInteger(shardCount, "shard count");
   const functional = inventory.cases.filter(
     (testCase) => testCase.capability === "@functional",
   );
   if (functional.length === 0) {
     throw new Error("Inventory contains no functional cases");
+  }
+  if (validatedShardCount > functional.length) {
+    throw new Error(
+      `Shard count ${validatedShardCount} exceeds ${functional.length} functional cases`,
+    );
   }
   const ids = new Set();
   const weighted = functional.map((testCase) => {
@@ -82,7 +90,7 @@ export function buildFunctionalShardPlan(
       right.estimatedDurationMs - left.estimatedDurationMs ||
       left.caseId.localeCompare(right.caseId),
   );
-  const shards = Array.from({ length: shardCount }, (_, index) => ({
+  const shards = Array.from({ length: validatedShardCount }, (_, index) => ({
     index: index + 1,
     estimatedDurationMs: 0,
     cases: [],
@@ -111,7 +119,7 @@ export function buildFunctionalShardPlan(
     generatedAt: new Date().toISOString(),
     algorithm: "longest-processing-time-first",
     workerCount: 1,
-    shardCount,
+    shardCount: validatedShardCount,
     functionalCaseCount: functional.length,
     fallbackCaseCount: weighted.filter(
       (testCase) => testCase.timingSource === "fallback",
@@ -169,12 +177,15 @@ export function summarizeFunctionalResults(plan, reports) {
       seenAttempts.add(attemptKey);
       observed.add(record.caseId);
       outcomes[record.outcome] = (outcomes[record.outcome] ?? 0) + 1;
-      if (Number.isFinite(record.durationMs) && record.durationMs >= 0) {
-        shardDurations.set(
-          shardIndex,
-          shardDurations.get(shardIndex) + record.durationMs,
+      if (!Number.isFinite(record.durationMs) || record.durationMs < 0) {
+        throw new Error(
+          `Functional report contains an invalid duration for ${attemptKey}`,
         );
       }
+      shardDurations.set(
+        shardIndex,
+        shardDurations.get(shardIndex) + record.durationMs,
+      );
     }
   }
   const missingCaseIds = [...expected.keys()]

@@ -71,6 +71,19 @@ describe("functional shard planning", () => {
     expect(() => buildFunctionalShardPlan(inventory, baseline, 0)).toThrow(
       "positive integer",
     );
+    expect(() => buildFunctionalShardPlan(inventory, baseline, 4)).toThrow(
+      "exceeds 3 functional cases",
+    );
+    expect(() =>
+      buildFunctionalShardPlan(
+        inventory,
+        { ...baseline, fallbackDurationMs: 0 },
+        2,
+      ),
+    ).toThrow("Duration baseline");
+    expect(() =>
+      buildFunctionalShardPlan(inventory, { ...baseline, durationsMs: [] }, 2),
+    ).toThrow("Duration baseline");
   });
 
   test("proves complete discovery and computes observed p95", () => {
@@ -114,5 +127,26 @@ describe("functional shard planning", () => {
         },
       ]),
     ).toThrow("discovery is incomplete");
+  });
+
+  test("rejects missing, non-finite, or negative attempt durations", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    const reports = plan.shards.map((shard) => ({
+      schemaVersion: 1,
+      commitSha: plan.commitSha,
+      records: shard.cases.map((item) => ({
+        caseId: item.caseId,
+        attempt: 1,
+        outcome: "passed",
+        durationMs: item.estimatedDurationMs,
+      })),
+    }));
+    for (const durationMs of [undefined, Number.NaN, -1]) {
+      const invalid = structuredClone(reports);
+      invalid[0].records[0].durationMs = durationMs;
+      expect(() => summarizeFunctionalResults(plan, invalid)).toThrow(
+        "invalid duration",
+      );
+    }
   });
 });

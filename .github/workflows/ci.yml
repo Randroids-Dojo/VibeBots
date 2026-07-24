@@ -123,6 +123,8 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -132,14 +134,155 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: 22.22.1
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm build
+      - name: Discover browser cases
+        env:
+          CI_CASE_COMMIT_SHA: ${{ github.sha }}
+        run: pnpm ci:inventory -- --output playwright-report/ci-build/case-inventory.json
+
+      - name: Balance functional shards
+        run: |
+          pnpm ci:functional-plan -- \
+            --inventory playwright-report/ci-build/case-inventory.json \
+            --baseline ci/functional-duration-baseline.json \
+            --count 8 \
+            --output playwright-report/ci-build/functional-shards.json
+
+      - name: Build exact-SHA runtime artifact
+        run: |
+          pnpm ci:build-artifact -- create \
+            --sha "${{ github.sha }}" \
+            --inventory playwright-report/ci-build/case-inventory.json \
+            --shards playwright-report/ci-build/functional-shards.json \
+            --baseline ci/bundle-baseline.json \
+            --output "playwright-report/ci-build/vibebots-runtime-${{ github.sha }}.tar.gz"
+
+      - name: Upload exact-SHA runtime artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-build-${{ github.sha }}
+          path: playwright-report/ci-build/vibebots-runtime-${{ github.sha }}.tar.gz
+          retention-days: 3
+          if-no-files-found: error
+
+  functional-shadow:
+    name: Functional Shadow (${{ matrix.shard }}-of-8)
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    container:
+      image: ghcr.io/randroids-dojo/vibebots-ci@sha256:57e3df8c39e0aba97f698dc0ec0afa615e26124919ac44594b135241d9483691
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download exact-SHA runtime artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ci-build-${{ github.sha }}
+          path: playwright-report/ci-build-download
+
+      - name: Verify artifact SHA and extract runtime
+        run: |
+          pnpm ci:build-artifact -- verify \
+            --archive "playwright-report/ci-build-download/vibebots-runtime-${{ github.sha }}.tar.gz" \
+            --sha "${{ github.sha }}" \
+            --extract .
+
+      - name: Run duration-balanced functional shard
+        id: functional
+        continue-on-error: true
+        env:
+          CI_CASE_COMMIT_SHA: ${{ github.sha }}
+          CI_CASE_RESULTS_PATH: playwright-report/functional-shadow-${{ matrix.shard }}.json
+        run: |
+          pnpm ci:functional-run -- \
+            --plan functional-shards.json \
+            --sha "${{ github.sha }}" \
+            --index "${{ matrix.shard }}"
+
+      - name: Record advisory outcome
+        if: always()
+        run: |
+          echo "Functional shadow shard ${{ matrix.shard }} outcome: ${{ steps.functional.outcome }}"
+          echo "Test failures remain advisory during the five-mainline-commit overlap."
+
+      - name: Upload functional shadow results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: functional-shadow-${{ matrix.shard }}
+          path: playwright-report/functional-shadow-${{ matrix.shard }}.json
+          retention-days: 14
+          if-no-files-found: error
+
+  functional-shadow-summary:
+    name: Functional Shadow Summary
+    if: always() && needs.build.result == 'success'
+    needs:
+      - build
+      - functional-shadow
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.22.1
+
+      - name: Download exact-SHA runtime artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ci-build-${{ github.sha }}
+          path: playwright-report/ci-build-download
+
+      - name: Verify artifact SHA and extract plan
+        run: |
+          node scripts/ci-build-artifact.mjs verify \
+            --archive "playwright-report/ci-build-download/vibebots-runtime-${{ github.sha }}.tar.gz" \
+            --sha "${{ github.sha }}" \
+            --extract .
+
+      - name: Download functional shadow results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: functional-shadow-*
+          path: playwright-report/functional-shadow-results
+
+      - name: Verify complete functional discovery
+        run: |
+          node scripts/ci-functional-summary.mjs \
+            --plan functional-shards.json \
+            --results-dir playwright-report/functional-shadow-results \
+            --output playwright-report/functional-shadow-summary.json
+
+      - name: Upload functional shadow summary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: functional-shadow-summary
+          path: playwright-report/functional-shadow-summary.json
+          retention-days: 14
+          if-no-files-found: error
 
   e2e-critical:
     name: Critical E2E (${{ matrix.shard_name }})

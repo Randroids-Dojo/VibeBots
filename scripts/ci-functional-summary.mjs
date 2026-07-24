@@ -1,0 +1,50 @@
+#!/usr/bin/env node
+
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import path from "node:path";
+import { summarizeFunctionalResults } from "./ci-functional-shards.mjs";
+
+function argument(name) {
+  const index = process.argv.indexOf(name);
+  if (index === -1 || !process.argv[index + 1]) {
+    throw new Error(`${name} is required`);
+  }
+  return process.argv[index + 1];
+}
+
+function jsonFiles(root) {
+  const found = [];
+  for (const entry of readdirSync(root)) {
+    const candidate = path.join(root, entry);
+    if (statSync(candidate).isDirectory()) {
+      found.push(...jsonFiles(candidate));
+    } else if (candidate.endsWith(".json")) {
+      found.push(candidate);
+    }
+  }
+  return found.sort();
+}
+
+const plan = JSON.parse(readFileSync(argument("--plan"), "utf8"));
+const reportFiles = jsonFiles(argument("--results-dir"));
+if (reportFiles.length === 0) {
+  throw new Error("No functional shadow reports were downloaded");
+}
+const reports = reportFiles.map((file) =>
+  JSON.parse(readFileSync(file, "utf8")),
+);
+const summary = summarizeFunctionalResults(plan, reports);
+const output = argument("--output");
+mkdirSync(path.dirname(output), { recursive: true });
+writeFileSync(output, `${JSON.stringify(summary, null, 2)}\n`);
+console.log(
+  `Observed all ${summary.observedCaseCount} functional cases across ` +
+    `${plan.shardCount} shards; test-time p95 ${summary.p95TestDurationMs}ms`,
+);
+console.table(summary.shardDurations);

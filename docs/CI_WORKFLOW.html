@@ -30,7 +30,7 @@
       <li><code>quality</code>: dash check, sim purity, whitespace check, and Biome lint.</li>
       <li><code>typecheck</code>: Next route type generation and TypeScript.</li>
       <li><code>unit</code>: Vitest unit and route tests, followed by the deterministic golden suite.</li>
-      <li><code>build</code>: production Next build.</li>
+      <li><code>build</code>: one production Next build, exact-SHA runtime artifact, case inventory, duration-balanced functional plan, route inventory, and advisory bundle comparison.</li>
       <li><code>e2e-critical</code>: sharded Playwright smoke over the critical routes.</li>
     </ul>
     <p>The critical smoke set lives in <code>package.json</code> as <code>pnpm test:e2e:critical</code>. It covers account sign-in entry, latest release notes, save-slot load refresh, and the deterministic mine dig loop. Render-dependent bunker-claim entry, fatal-fall, and mine-motion assertions remain in the render tier instead of the required software-rendered gate.</p>
@@ -51,6 +51,14 @@
     <p><code>pnpm ci:inventory</code> discovers the live Playwright suite and validates missing or duplicate IDs, missing or multiple capabilities, unknown tags, pixel assertions inside <code>@functional</code>, <code>@critical</code> outside <code>@functional</code>, stale quarantine entries, quarantine capability drift, and expired or overlong quarantine deadlines. The command has no hardcoded test count. Its count comes from Playwright discovery, so adding or removing a case changes the inventory instead of bypassing it.</p>
     <p>The Stage 0 baseline contains 200 cases: 129 functional, 61 render, 3 visual, and 7 soak. CI uploads the generated inventory with discovery timing. Browser jobs also emit one bounded timing record per case attempt so later duration-based sharding uses measured stable identities.</p>
     <p>The required Critical E2E command selects <code>@critical</code> and <code>@functional</code> together. Its four Stage 0 cases are <code>E2E-ACCOUNT-0001</code>, <code>E2E-MINE-CORE-0002</code>, <code>E2E-MINE-SAVE-SLOTS-0002</code>, and <code>E2E-RELEASE-NOTIFICATIONS-0001</code>. Pixel, renderer, and elapsed-frame assertions cannot enter the required subset through a title edit.</p>
+  </section>
+
+  <section id="build-once-functional-shadow">
+    <h2>Build Once and Functional Shadow</h2>
+    <p>The required <code>Build</code> job runs on Node.js 22.22.1 and creates one compressed runtime artifact for <code>github.sha</code>. Artifact creation refuses a dirty checkout before running <code>next build</code>. The archive contains the production <code>.next</code> output without its disposable cache, <code>public</code>, <code>package.json</code>, <code>pnpm-lock.yaml</code>, <code>next.config.ts</code>, the exact case inventory, the functional shard plan, and <code>ci-build-manifest.json</code>. Retention is three days because this is a test input, not a release artifact.</p>
+    <p>The build manifest records the source SHA, clean state, lockfile SHA-256, pinned browser image digest, Node.js, pnpm, Next.js, Playwright, and Chromium versions, build timestamps and duration, all emitted routes, the runtime output size, and an advisory comparison against <code>ci/bundle-baseline.json</code>. Every consumer validates the archive path list, manifest schema, workflow SHA, lockfile hash, and browser image digest before replacing its local <code>.next</code> directory. A mismatch stops before Playwright starts.</p>
+    <p><code>ci/functional-duration-baseline.json</code> keys timings by stable case ID. The initial source is Full E2E run <a href="https://github.com/Randroids-Dojo/VibeBots/actions/runs/30008144077">30008144077</a>; a case uses its median successful attempt, while eleven cases with no successful sample use the existing 60-second per-test cap as a conservative fallback. <code>pnpm ci:functional-plan</code> applies deterministic longest-processing-time-first bin packing across eight shards. The Stage 3 plan covers 129 unique functional IDs and 129 unique test-level selectors exactly once, predicts 386,997ms to 388,080ms per shard, and uses one Playwright worker in the pinned software-rendered runtime.</p>
+    <p>The eight <code>Functional Shadow</code> jobs download and verify the one build artifact, install dependencies, and run exact <code>file:line</code> selectors from the reviewed plan. They never call <code>next build</code>. Test failures remain advisory during the minimum five-mainline-commit overlap, but missing reports, incomplete or duplicate discovery, a wrong commit, an invalid artifact, or other infrastructure failure remains red. <code>Functional Shadow Summary</code> combines every attempt, proves all 129 IDs were observed, reports outcomes and per-shard test time, and uploads a retained JSON summary. The existing Critical E2E job and scheduled Full E2E matrix remain unchanged during overlap.</p>
   </section>
 
   <section id="deterministic-goldens">
@@ -93,6 +101,8 @@
       <li><code>pnpm build</code></li>
       <li><code>pnpm test:e2e:critical --project=chromium</code></li>
       <li><code>pnpm ci:inventory</code></li>
+      <li><code>pnpm ci:functional-plan -- --inventory &lt;inventory.json&gt; --baseline ci/functional-duration-baseline.json --count 8 --output &lt;plan.json&gt;</code></li>
+      <li><code>pnpm ci:build-artifact -- verify --archive &lt;runtime.tar.gz&gt; --sha &lt;workflow-sha&gt; --extract .</code></li>
       <li><code>pnpm ci:repro -- --case E2E-MINE-NAVIGATION-0001</code> to reproduce one functional case in the pinned browser image.</li>
       <li><code>pnpm ci:repro -- --shard 1/8</code> to reproduce one functional shard in the pinned browser image.</li>
       <li><code>pnpm test:e2e --project=chromium</code> for full local smoke with two file-level workers after a production build exists.</li>

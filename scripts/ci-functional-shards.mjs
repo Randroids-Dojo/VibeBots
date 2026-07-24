@@ -43,22 +43,24 @@ export function buildFunctionalShardPlan(
   ) {
     throw new Error("Duration baseline must use schema version 1");
   }
-  for (const [caseId, durationMs] of Object.entries(baseline.durationsMs)) {
-    if (
-      durationMs !== null &&
-      (!Number.isInteger(durationMs) || durationMs < 1)
-    ) {
-      throw new Error(
-        `Duration baseline contains an invalid duration for ${caseId}`,
-      );
-    }
-  }
   const validatedShardCount = positiveInteger(shardCount, "shard count");
   const functional = inventory.cases.filter(
     (testCase) => testCase.capability === "@functional",
   );
   if (functional.length === 0) {
     throw new Error("Inventory contains no functional cases");
+  }
+  for (const testCase of functional) {
+    const durationMs = baseline.durationsMs[testCase.caseId];
+    if (
+      durationMs !== undefined &&
+      durationMs !== null &&
+      (!Number.isInteger(durationMs) || durationMs < 1)
+    ) {
+      throw new Error(
+        `Duration baseline contains an invalid duration for ${testCase.caseId}`,
+      );
+    }
   }
   if (validatedShardCount > functional.length) {
     throw new Error(

@@ -96,6 +96,16 @@ describe("functional shard planning", () => {
         ),
       ).toThrow("invalid duration for E2E-C-0001");
     }
+    expect(() =>
+      buildFunctionalShardPlan(
+        inventory,
+        {
+          ...baseline,
+          durationsMs: { ...baseline.durationsMs, "E2E-REMOVED-0001": "oops" },
+        },
+        2,
+      ),
+    ).not.toThrow();
   });
 
   test("proves complete discovery and computes observed p95", () => {

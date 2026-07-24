@@ -18,7 +18,11 @@ export default class CiCaseReporter implements Reporter {
 
   constructor(options: ReporterOptions = {}) {
     this.outputFile =
-      options.outputFile ?? "playwright-report/ci-case-results.json";
+      options.outputFile ??
+      path.join(
+        process.env.CI_REPRO_REPORT_DIR ?? "playwright-report",
+        "ci-case-results.json",
+      );
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {

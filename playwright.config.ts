@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import path from "node:path";
 import { defineConfig } from "@playwright/test";
 import { parseE2EGlobalTimeout } from "./src/lib/playwright-global-timeout";
 import { parsePlaywrightWorkerCount } from "./src/lib/playwright-workers";
@@ -7,6 +8,7 @@ const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const configuredPort = process.env.PLAYWRIGHT_PORT ?? process.env.PORT;
 const configuredWorkers = process.env.PLAYWRIGHT_WORKERS;
 const ciCaseResultsPath = process.env.CI_CASE_RESULTS_PATH;
+const reproReportDirectory = process.env.CI_REPRO_REPORT_DIR;
 const defaultPort =
   3100 +
   (Number.parseInt(
@@ -20,8 +22,23 @@ const localBaseUrl = `http://${localHost}:${localPort}`;
 const workerCount = parsePlaywrightWorkerCount(configuredWorkers);
 const ciReporters: (readonly [string] | readonly [string, unknown])[] = [
   ["list"],
-  ["html", { open: "never" }],
-  ["json", { outputFile: "playwright-report/results.json" }],
+  [
+    "html",
+    {
+      open: "never",
+      outputFolder: reproReportDirectory
+        ? path.join(reproReportDirectory, "html")
+        : "playwright-report",
+    },
+  ],
+  [
+    "json",
+    {
+      outputFile: reproReportDirectory
+        ? path.join(reproReportDirectory, "results.json")
+        : "playwright-report/results.json",
+    },
+  ],
 ];
 if (ciCaseResultsPath) {
   ciReporters.push([
@@ -63,6 +80,9 @@ export default defineConfig({
   // The JSON reporter gives a bounded machine-readable partial result for a
   // timed-out shard; the HTML report and traces carry the full evidence (F-131).
   reporter: process.env.CI ? ciReporters : "list",
+  outputDir: reproReportDirectory
+    ? path.join(reproReportDirectory, "test-results")
+    : "test-results",
   use: {
     baseURL: configuredBaseUrl ?? localBaseUrl,
     // Trace is captured on the retry of a failed test; a screenshot is captured

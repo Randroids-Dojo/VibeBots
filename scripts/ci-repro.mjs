@@ -31,7 +31,13 @@ const manifest = JSON.parse(
 );
 const image = pinnedRuntimeImage(manifest, options.imageDigest);
 const temporary = mkdtempSync(path.join(os.tmpdir(), "vibebots-ci-repro-"));
-for (const directory of ["home", "next", "node_modules", "pnpm-store"]) {
+for (const directory of [
+  "home",
+  "next",
+  "node_modules",
+  "pnpm-store",
+  "reports",
+]) {
   mkdirSync(path.join(temporary, directory));
 }
 
@@ -48,6 +54,10 @@ const dockerArgs = [
   `GITHUB_SHA=${commitSha}`,
   "--env",
   `CI_CASE_COMMIT_SHA=${commitSha}`,
+  "--env",
+  "CI_CASE_RESULTS_PATH=/tmp/vibebots-reports/ci-case-results.json",
+  "--env",
+  "CI_REPRO_REPORT_DIR=/tmp/vibebots-reports",
   "--env",
   "HOME=/tmp/vibebots-home",
   "--env",
@@ -74,6 +84,8 @@ const dockerArgs = [
   `${path.join(temporary, "node_modules")}:/workspace/node_modules`,
   "--volume",
   `${path.join(temporary, "pnpm-store")}:/pnpm/store`,
+  "--volume",
+  `${path.join(temporary, "reports")}:/tmp/vibebots-reports`,
   "--workdir",
   "/workspace",
   image,

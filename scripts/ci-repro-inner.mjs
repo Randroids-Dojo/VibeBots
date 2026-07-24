@@ -2,6 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { parseReproArgs, resolveFunctionalCase } from "./ci-repro-lib.mjs";
 
 function run(command, args, options = {}) {
@@ -38,7 +39,11 @@ function commandOutput(command, args) {
 }
 
 const options = parseReproArgs(process.argv.slice(2));
-const inventoryPath = "playwright-report/ci-repro-inventory.json";
+const reportDirectory = process.env.CI_REPRO_REPORT_DIR;
+if (!reportDirectory || !path.isAbsolute(reportDirectory)) {
+  throw new Error("CI_REPRO_REPORT_DIR must be an absolute container path");
+}
+const inventoryPath = path.join(reportDirectory, "ci-repro-inventory.json");
 
 console.log(
   `Runtime: Node ${process.version}, pnpm ${commandOutput("pnpm", ["--version"])}`,

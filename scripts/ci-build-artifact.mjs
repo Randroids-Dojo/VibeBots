@@ -17,6 +17,7 @@ import {
   assertSafeExtractionTarget,
   compareBundleOutput,
   directoryBytes,
+  isUnderNextCache,
   sha256File,
   verifyBuildManifest,
 } from "./ci-build-artifact-lib.mjs";
@@ -197,16 +198,9 @@ function createArtifact() {
   mkdirSync(path.dirname(output), { recursive: true });
   const staging = mkdtempSync(path.join(os.tmpdir(), "vibebots-ci-build-"));
   try {
-    const nextCache = path.resolve(".next/cache");
     cpSync(".next", path.join(staging, ".next"), {
       recursive: true,
-      filter: (source) => {
-        const resolvedSource = path.resolve(source);
-        return (
-          resolvedSource !== nextCache &&
-          !resolvedSource.startsWith(`${nextCache}${path.sep}`)
-        );
-      },
+      filter: (source) => !isUnderNextCache(source),
     });
     cpSync("public", path.join(staging, "public"), { recursive: true });
     for (const file of ["package.json", "pnpm-lock.yaml"]) {

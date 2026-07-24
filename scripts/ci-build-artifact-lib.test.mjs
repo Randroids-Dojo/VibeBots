@@ -3,6 +3,7 @@ import {
   assertCleanCheckout,
   assertSafeExtractionTarget,
   compareBundleOutput,
+  isUnderNextCache,
   verifyBuildManifest,
 } from "./ci-build-artifact-lib.mjs";
 
@@ -55,6 +56,13 @@ describe("CI build artifact contract", () => {
     expect(() =>
       assertSafeExtractionTarget("/Users/example", workspace, ["/safe-temp"]),
     ).toThrow("workspace or a temp directory");
+  });
+
+  test("excludes only the Next cache path and its descendants", () => {
+    expect(isUnderNextCache(".next/cache")).toBe(true);
+    expect(isUnderNextCache(".next/cache/images/example")).toBe(true);
+    expect(isUnderNextCache(".next/cache-manifest.json")).toBe(false);
+    expect(isUnderNextCache(".next/server")).toBe(false);
   });
 
   test("records route additions, removals, and byte deltas", () => {

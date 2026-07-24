@@ -38,6 +38,18 @@ export function assertSafeExtractionTarget(
   }
 }
 
+export function isUnderNextCache(
+  source,
+  nextCache = path.resolve(".next/cache"),
+) {
+  const resolvedSource = path.resolve(source);
+  const resolvedCache = path.resolve(nextCache);
+  return (
+    resolvedSource === resolvedCache ||
+    resolvedSource.startsWith(`${resolvedCache}${path.sep}`)
+  );
+}
+
 export function verifyBuildManifest(
   manifest,
   { expectedSha, lockfileHash, imageDigest },

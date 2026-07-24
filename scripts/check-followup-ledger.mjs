@@ -205,6 +205,20 @@ for (const m of html.matchAll(
   pointers.set(ref, { container });
 }
 
+// The recorded lists are not merely permissive: every recorded id must
+// still exist as a primary and still be misplaced, so a deleted or moved
+// baseline entry cannot vanish from validation silently.
+for (const f of [...grandfathered, ...knownPostCutoff]) {
+  const p = primaries.get(f);
+  if (!p) {
+    errors.push(`recorded mismatch ${f} is missing from the ledger`);
+  } else if (p.container === p.priority) {
+    errors.push(
+      `recorded mismatch ${f} is no longer misplaced; update the recorded lists`,
+    );
+  }
+}
+
 // Placement and pointer coverage.
 let mismatches = 0;
 for (const [f, p] of primaries) {
@@ -234,6 +248,7 @@ for (const [f, p] of primaries) {
 
 // data-f-successor discipline.
 const successorSources = new Set();
+const successorMap = new Map();
 for (const m of html.matchAll(
   /<[a-zA-Z][^>]*data-f-successor="([^"]+)"[^>]*>/g,
 )) {
@@ -256,6 +271,22 @@ for (const m of html.matchAll(
   if (successorSources.has(ref))
     errors.push(`duplicate successor mapping for source ${ref}`);
   successorSources.add(ref);
+  if (ref && ref !== successor) successorMap.set(ref, successor);
+}
+
+// Multi-node cycles are forbidden, not just self-references.
+for (const start of successorMap.keys()) {
+  let cur = successorMap.get(start);
+  const seen = new Set([start]);
+  while (cur !== undefined) {
+    if (cur === start) {
+      errors.push(`cyclic successor mapping involving ${start}`);
+      break;
+    }
+    if (seen.has(cur)) break;
+    seen.add(cur);
+    cur = successorMap.get(cur);
+  }
 }
 
 // Pinned current-truth corrections must exist and carry their phrase.

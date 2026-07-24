@@ -20,15 +20,19 @@ set -u
 
 # Case-insensitive extended-regex patterns. Ordinary human metadata must stay
 # green: a human co-author trailer, or gameplay wording like "bot AI", is not
-# attribution.
+# attribution. POSIX ERE has no portable \b (BSD grep treats it as a
+# backspace), so word boundaries are spelled as explicit non-word-character
+# groups; with grep -i the lowercase classes cover both cases.
+W='[^a-z0-9_]'
 PATTERNS=(
-  'co-authored-by:[^<]*\b(claude|anthropic|copilot|chatgpt|gpt|openai|gemini|cursor|codex)\b'
+  "co-authored-by: ?(claude|anthropic|copilot|chatgpt|gpt|openai|gemini|cursor|codex)(${W}|$)"
+  "co-authored-by:[^<]*${W}(claude|anthropic|copilot|chatgpt|gpt|openai|gemini|cursor|codex)(${W}|$)"
   'co-authored-by:.*(anthropic\.com|github\.copilot|openai\.com)'
-  'generated (with|by|using)[^.]*\b(claude|copilot|chatgpt|gpt|anthropic|gemini|cursor|codex|ai)\b'
-  '\bclaude (code|fable|opus|sonnet|haiku)\b'
-  '\banthropic\b'
-  '\bai[- ](assisted|assistance|generated|authored|written)\b'
-  '(written|authored|created|implemented) (with|by) (an? )?(ai|llm)\b'
+  "generated (with|by|using)[^.]*${W}(claude|copilot|chatgpt|gpt|anthropic|gemini|cursor|codex|ai)(${W}|$)"
+  "(^|${W})claude (code|fable|opus|sonnet|haiku)(${W}|$)"
+  "(^|${W})anthropic(${W}|$)"
+  "(^|${W})ai[- ](assisted|assistance|generated|authored|written)(${W}|$)"
+  "(^|${W})(written|authored|created|implemented) (with|by) (an? )?(ai|llm)(${W}|$)"
   'noreply@anthropic\.com'
   "$(printf '\xf0\x9f\xa4\x96')"
 )

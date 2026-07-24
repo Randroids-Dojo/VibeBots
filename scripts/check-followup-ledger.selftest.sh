@@ -265,6 +265,43 @@ HTML
 run_check "$WORK/succnondt.html" "$WORK/succnondt.out"
 assert successor-non-dt nonzero "$WORK/succnondt.out" "data-f-successor on a non-dt element"
 
+# Case 16: a recorded mismatch that is absent from the ledger fails.
+cat > "$WORK/recorded-missing.html" <<'HTML'
+<main>
+<section id="blocks-release"><h2>B</h2>
+  <section id="F-001" data-f="F-001" data-priority="blocks-release"><h3>x</h3></section>
+</section>
+<section id="nice-to-have"><h2>N</h2></section>
+<section id="polish"><h2>P</h2></section>
+</main>
+HTML
+run_check "$WORK/recorded-missing.html" "$WORK/recorded-missing.out" --grandfathered F-009
+assert recorded-missing nonzero "$WORK/recorded-missing.out" "recorded mismatch F-009 is missing from the ledger"
+
+# Case 17: a recorded mismatch that is correctly placed fails until the
+# recorded lists are updated.
+run_check "$WORK/recorded-missing.html" "$WORK/recorded-placed.out" --known F-001
+assert recorded-not-misplaced nonzero "$WORK/recorded-placed.out" "recorded mismatch F-001 is no longer misplaced"
+
+# Case 18: a two-node successor cycle fails even though neither edge is a
+# self-reference.
+cat > "$WORK/succcycle.html" <<'HTML'
+<main>
+<section id="blocks-release"><h2>B</h2>
+  <section id="F-001" data-f="F-001" data-priority="blocks-release"><h3>x</h3>
+    <dl><dt data-f-ref="F-001" data-f-successor="F-002">a</dt><dd>b</dd></dl>
+  </section>
+  <section id="F-002" data-f="F-002" data-priority="blocks-release"><h3>y</h3>
+    <dl><dt data-f-ref="F-002" data-f-successor="F-001">c</dt><dd>d</dd></dl>
+  </section>
+</section>
+<section id="nice-to-have"><h2>N</h2></section>
+<section id="polish"><h2>P</h2></section>
+</main>
+HTML
+run_check "$WORK/succcycle.html" "$WORK/succcycle.out"
+assert successor-cycle nonzero "$WORK/succcycle.out" "cyclic successor mapping involving F-001"
+
 # Pinned current-truth corrections: present passes, a
 # missing one and a lost phrase fail.
 run_check "$WORK/valid.html" "$WORK/correction-ok.out" --grandfathered F-002,F-006 --known F-003 --correction "F-002:F-005:see F-005"

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="pr-289-review-round-2" data-date="2026-07-24">
+    <h3>PR #289 review round 2: portable word boundaries, pinned baselines, cycle rejection</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code>, stacked on round 1 (<code>764ae5b</code>).</dd>
+      <dt>PR</dt><dd>#289. Three findings from the post-round-1 bot pass, all fixed.</dd>
+      <dt>Changed</dt><dd>check-attribution: <code>\b</code> is not a portable ERE word boundary (BSD grep on the operator's macOS treats it as backspace), so every boundary is now an explicit non-word-character group, with an added direct-after-colon trailer variant so <code>co-authored-by:claude</code> without a space still fails. check-followup-ledger: the grandfathered and recorded lists are no longer permissive-only; every recorded id must still exist as a primary and still be misplaced, so deleting or relocating a baseline entry cannot silently drop it from validation. Successor mappings now reject multi-node cycles, not just self-references.</dd>
+      <dt>Verification</dt><dd>All four selftest suites pass with three new fixtures (recorded id missing, recorded id no longer misplaced, two-node successor cycle): 7 + 5 + 8 + 22 = 42 cases. Real ledger check green (78/78). Boundary spot-checks: a <code>CLAUDE</code> trailer file fails, a message mentioning <q>claudette</q> stays clean. Dash check and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>GNU grep honored <code>\b</code>, so the remote selftests never caught the portability gap; the explicit groups behave identically on both greps.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>None new. Tips and stamps: no version bump, reviewed, no changes.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-289-review-round-1" data-date="2026-07-24">
     <h3>PR #289 review round: fail-closed gate registration, safer parsing, formatter compliance</h3>
     <dl>

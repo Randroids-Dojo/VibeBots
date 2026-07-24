@@ -110,7 +110,9 @@ describe("functional shard planning", () => {
   test("rejects wrong commits, duplicates, and incomplete discovery", () => {
     const plan = buildFunctionalShardPlan(inventory, baseline, 2);
     expect(() =>
-      summarizeFunctionalResults(plan, [{ commitSha: "wrong", records: [] }]),
+      summarizeFunctionalResults(plan, [
+        { schemaVersion: 1, commitSha: "wrong", records: [] },
+      ]),
     ).toThrow("does not match plan");
     expect(() =>
       summarizeFunctionalResults(plan, [
@@ -125,6 +127,20 @@ describe("functional shard planning", () => {
             },
           ],
         },
+      ]),
+    ).toThrow("discovery is incomplete");
+  });
+
+  test("rejects unsupported report schemas while accepting legacy reports", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    expect(() =>
+      summarizeFunctionalResults(plan, [
+        { schemaVersion: 2, commitSha: plan.commitSha, records: [] },
+      ]),
+    ).toThrow("unsupported schema version 2");
+    expect(() =>
+      summarizeFunctionalResults(plan, [
+        { commitSha: plan.commitSha, records: [] },
       ]),
     ).toThrow("discovery is incomplete");
   });

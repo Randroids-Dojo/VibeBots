@@ -30,8 +30,14 @@ function jsonFiles(root) {
     }
     if (entry.isDirectory()) {
       found.push(...jsonFiles(candidate));
-    } else if (entry.isFile() && candidate.endsWith(".json")) {
-      found.push(candidate);
+    } else if (entry.isFile()) {
+      if (candidate.endsWith(".json")) {
+        found.push(candidate);
+      }
+    } else {
+      throw new Error(
+        "Functional shadow results contain a special filesystem entry",
+      );
     }
   }
   return found.sort();

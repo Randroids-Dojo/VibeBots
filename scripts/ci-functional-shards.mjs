@@ -152,6 +152,11 @@ export function summarizeFunctionalResults(plan, reports) {
   const outcomes = {};
   const shardDurations = new Map(plan.shards.map((shard) => [shard.index, 0]));
   for (const report of reports) {
+    if (report.schemaVersion !== undefined && report.schemaVersion !== 1) {
+      throw new Error(
+        `Functional report uses unsupported schema version ${report.schemaVersion}`,
+      );
+    }
     if (report.commitSha !== plan.commitSha) {
       throw new Error(
         `Functional report commit ${report.commitSha ?? "missing"} does not match plan ${plan.commitSha}`,

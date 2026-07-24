@@ -6,7 +6,8 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$HERE/check-agents-links.sh"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/agents-links-selftest.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/agents-links-selftest.XXXXXX") || exit 2
+trap 'rm -rf "$WORK"' EXIT
 CASES=0
 FAILED=0
 

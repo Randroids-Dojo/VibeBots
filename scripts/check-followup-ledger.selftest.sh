@@ -6,7 +6,8 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$HERE/check-followup-ledger.mjs"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/followup-ledger-selftest.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/followup-ledger-selftest.XXXXXX") || exit 2
+trap 'rm -rf "$WORK"' EXIT
 CASES=0
 FAILED=0
 
@@ -225,7 +226,46 @@ run_check "$WORK/successor.html" "$WORK/successor.out"
 assert successor-misuse nonzero "$WORK/successor.out" "self-referential successor edge F-001"
 assert successor-dangling nonzero "$WORK/successor.out" "successor edge target F-404 is not a primary"
 
-# Case 13: a pinned current-truth correction that is present passes, a
+# Case 13: an unclosed section is caught.
+cat > "$WORK/unclosed.html" <<'HTML'
+<main>
+<section id="blocks-release"><h2>B</h2>
+  <section id="F-001" data-f="F-001" data-priority="blocks-release"><h3>x</h3>
+</main>
+HTML
+run_check "$WORK/unclosed.html" "$WORK/unclosed.out"
+assert unclosed-section nonzero "$WORK/unclosed.out" "unclosed <section> tag(s)"
+
+# Case 14: a priority pointer without data-f-ref fails.
+cat > "$WORK/noref.html" <<'HTML'
+<main>
+<section id="blocks-release"><h2>B</h2></section>
+<section id="nice-to-have"><h2>N</h2>
+  <p data-role="priority-pointer">no target</p>
+</section>
+<section id="polish"><h2>P</h2></section>
+</main>
+HTML
+run_check "$WORK/noref.html" "$WORK/noref.out"
+assert pointer-no-ref nonzero "$WORK/noref.out" "priority-pointer without data-f-ref"
+
+# Case 15: data-f-successor on a non-dt element fails.
+cat > "$WORK/succnondt.html" <<'HTML'
+<main>
+<section id="blocks-release"><h2>B</h2>
+  <section id="F-001" data-f="F-001" data-priority="blocks-release"><h3>x</h3>
+    <p data-f-ref="F-001" data-f-successor="F-002">bad host element</p>
+  </section>
+  <section id="F-002" data-f="F-002" data-priority="blocks-release"><h3>y</h3></section>
+</section>
+<section id="nice-to-have"><h2>N</h2></section>
+<section id="polish"><h2>P</h2></section>
+</main>
+HTML
+run_check "$WORK/succnondt.html" "$WORK/succnondt.out"
+assert successor-non-dt nonzero "$WORK/succnondt.out" "data-f-successor on a non-dt element"
+
+# Pinned current-truth corrections: present passes, a
 # missing one and a lost phrase fail.
 run_check "$WORK/valid.html" "$WORK/correction-ok.out" --grandfathered F-002,F-006 --known F-003 --correction "F-002:F-005:see F-005"
 assert correction-present zero "$WORK/correction-ok.out" "followup ledger check passed"

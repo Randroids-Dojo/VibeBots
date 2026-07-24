@@ -6,7 +6,8 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CHECK="$HERE/check-attribution.sh"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/attribution-selftest.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/attribution-selftest.XXXXXX") || exit 2
+trap 'rm -rf "$WORK"' EXIT
 CASES=0
 FAILED=0
 
@@ -109,7 +110,14 @@ bash "$CHECK" --message-file "$WORK/squash-clean.txt" > "$WORK/squash-clean.out"
 CHECK_STATUS=$?
 assert squash-clean zero "$WORK/squash-clean.out" "attribution: clean"
 
-# Case 7: published-commit mode flags a dirty merge commit.
+# Case 7: the zero-argument default range (origin/main..HEAD) works and is
+# clean for a clean branch commit.
+git -C "$R" update-ref refs/remotes/origin/main main
+(cd "$R" && bash "$CHECK") > "$WORK/default-range.out" 2>&1
+CHECK_STATUS=$?
+assert default-range zero "$WORK/default-range.out" "attribution: clean"
+
+# Case 8: published-commit mode flags a dirty merge commit.
 git -C "$R" checkout -q main
 git -C "$R" -c user.name="Randy Lutcavich" -c user.email="randy@example.com" \
   commit -q --allow-empty -m "Add spike hazards (#301)" -m "Co-authored-by: Claude <noreply@anthropic.com>"

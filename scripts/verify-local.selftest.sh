@@ -7,9 +7,10 @@
 # verifier through a formatter.
 set -u
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 VERIFIER="scripts/verify-local.sh"
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/verify-selftest.XXXXXX")
+WORK=$(mktemp -d "${TMPDIR:-/tmp}/verify-selftest.XXXXXX") || exit 2
+trap 'rm -rf "$WORK"' EXIT
 CASES=0
 FAILED=0
 
@@ -22,7 +23,6 @@ run_case() {
   printf '%s\n' "$@" > "$gates"
   VERIFY_GATES_FILE="$gates" bash "$VERIFIER" > "$out" 2>&1
   local status=$?
-  CASE_STATUS=$status
   CASE_OUT=$out
   if [ "$expected" = "zero" ] && [ "$status" -ne 0 ]; then
     fail_case "$name" "expected exit 0, got $status"

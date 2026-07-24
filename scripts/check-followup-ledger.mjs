@@ -82,7 +82,9 @@ for (let i = 0; i < args.length; i++) {
     knownPostCutoff = new Set(args[++i].split(",").filter(Boolean));
   } else if (args[i] === "--correction") {
     const [ref, successor, ...phrase] = args[++i].split(":");
-    corrections = corrections.concat([{ ref, successor, phrase: phrase.join(":") }]);
+    corrections = corrections.concat([
+      { ref, successor, phrase: phrase.join(":") },
+    ]);
   } else {
     console.error(`unknown argument: ${args[i]}`);
     process.exit(2);
@@ -97,8 +99,10 @@ try {
   process.exit(2);
 }
 
+// Require a whitespace boundary before the attribute name so e.g. asking
+// for id cannot match data-testid, and data-f cannot match data-f-ref.
 const attr = (tag, name) => {
-  const m = tag.match(new RegExp(`${name}="([^"]*)"`));
+  const m = tag.match(new RegExp(`\\s${name}="([^"]*)"`));
   return m ? m[1] : null;
 };
 
@@ -164,7 +168,7 @@ for (const s of sections) {
 
 // Global id uniqueness.
 const ids = new Map();
-for (const m of html.matchAll(/<[a-zA-Z][^>]*\bid="([^"]+)"[^>]*>/g)) {
+for (const m of html.matchAll(/<[a-zA-Z][^>]*\sid="([^"]+)"[^>]*>/g)) {
   const id = m[1];
   if (ids.has(id)) errors.push(`duplicate document id "${id}"`);
   ids.set(id, m.index);
@@ -172,7 +176,9 @@ for (const m of html.matchAll(/<[a-zA-Z][^>]*\bid="([^"]+)"[^>]*>/g)) {
 
 // Priority pointers (any element).
 const pointers = new Map(); // target -> {container}
-for (const m of html.matchAll(/<[a-zA-Z][^>]*data-role="priority-pointer"[^>]*>/g)) {
+for (const m of html.matchAll(
+  /<[a-zA-Z][^>]*data-role="priority-pointer"[^>]*>/g,
+)) {
   const tag = m[0];
   const ref = attr(tag, "data-f-ref");
   if (!ref) {
@@ -210,19 +216,27 @@ for (const [f, p] of primaries) {
         `post-cutoff placement violation: ${f} (data-priority ${p.priority}) sits ${p.container === "outside" ? "outside every bucket" : `under ${p.container}`}`,
       );
     } else if (knownPostCutoff.has(f)) {
-      notes.push(`recorded post-cutoff violation: ${f} under ${p.container}, authoritative ${p.priority}`);
+      notes.push(
+        `recorded post-cutoff violation: ${f} under ${p.container}, authoritative ${p.priority}`,
+      );
     }
     if (!pointers.has(f)) {
-      errors.push(`misplaced primary ${f} has no priority pointer exposing ${p.priority}`);
+      errors.push(
+        `misplaced primary ${f} has no priority pointer exposing ${p.priority}`,
+      );
     }
   } else if (pointers.has(f)) {
-    errors.push(`redundant priority pointer: ${f} already sits under ${p.priority}`);
+    errors.push(
+      `redundant priority pointer: ${f} already sits under ${p.priority}`,
+    );
   }
 }
 
 // data-f-successor discipline.
 const successorSources = new Set();
-for (const m of html.matchAll(/<[a-zA-Z][^>]*data-f-successor="([^"]+)"[^>]*>/g)) {
+for (const m of html.matchAll(
+  /<[a-zA-Z][^>]*data-f-successor="([^"]+)"[^>]*>/g,
+)) {
   const tag = m[0];
   const successor = m[1];
   const ref = attr(tag, "data-f-ref");
@@ -235,22 +249,29 @@ for (const m of html.matchAll(/<[a-zA-Z][^>]*data-f-successor="([^"]+)"[^>]*>/g)
     continue;
   }
   if (ref === successor) errors.push(`self-referential successor edge ${ref}`);
-  if (!primaries.has(ref)) errors.push(`successor edge source ${ref} is not a primary`);
-  if (!primaries.has(successor)) errors.push(`successor edge target ${successor} is not a primary`);
-  if (successorSources.has(ref)) errors.push(`duplicate successor mapping for source ${ref}`);
+  if (!primaries.has(ref))
+    errors.push(`successor edge source ${ref} is not a primary`);
+  if (!primaries.has(successor))
+    errors.push(`successor edge target ${successor} is not a primary`);
+  if (successorSources.has(ref))
+    errors.push(`duplicate successor mapping for source ${ref}`);
   successorSources.add(ref);
 }
 
 // Pinned current-truth corrections must exist and carry their phrase.
 for (const c of corrections) {
   const re = new RegExp(
-    `<dt[^>]*data-f-ref="${c.ref}"[^>]*data-f-successor="${c.successor}"[^>]*>[\\s\\S]*?</dt>\\s*<dd>([\\s\\S]*?)</dd>`,
+    `<dt\\b(?=[^>]*data-f-ref="${c.ref}")(?=[^>]*data-f-successor="${c.successor}")[^>]*>[\\s\\S]*?</dt>\\s*<dd>([\\s\\S]*?)</dd>`,
   );
   const m = html.match(re);
   if (!m) {
-    errors.push(`missing current-truth correction dt for ${c.ref} (successor ${c.successor})`);
+    errors.push(
+      `missing current-truth correction dt for ${c.ref} (successor ${c.successor})`,
+    );
   } else if (!m[1].includes(c.phrase)) {
-    errors.push(`current-truth correction for ${c.ref} lost its pinned phrase "${c.phrase}"`);
+    errors.push(
+      `current-truth correction for ${c.ref} lost its pinned phrase "${c.phrase}"`,
+    );
   }
 }
 

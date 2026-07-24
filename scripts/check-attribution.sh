@@ -56,11 +56,17 @@ trap 'rm -f "$TMP"' EXIT
 FAIL=0
 
 if [ "${1:-}" = "--message-file" ]; then
-  [ -z "${2:-}" ] || [ ! -f "${2:-}" ] && { echo "usage: --message-file <path>" >&2; exit 2; }
+  if [ -z "${2:-}" ] || [ ! -f "${2:-}" ]; then
+    echo "usage: --message-file <path>" >&2
+    exit 2
+  fi
   cp "$2" "$TMP"
   scan_text "message file $2" "$TMP" || FAIL=1
 elif [ "${1:-}" = "--commit" ]; then
-  [ -z "${2:-}" ] && { echo "usage: --commit <sha>" >&2; exit 2; }
+  if [ -z "${2:-}" ]; then
+    echo "usage: --commit <sha>" >&2
+    exit 2
+  fi
   git rev-parse -q --verify "$2^{commit}" >/dev/null || { echo "unknown commit: $2" >&2; exit 2; }
   git log -n1 --format=%B "$2" >"$TMP"
   scan_text "commit $2" "$TMP" || FAIL=1

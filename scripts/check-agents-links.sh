@@ -16,7 +16,9 @@ cd "$ROOT" || exit 2
 ROOT="$(pwd -P)"
 
 fail=0
-found=""
+# Newline-delimited list of tracked AGENTS symlink paths, with a leading
+# newline so coverage matches are anchored on both sides of each path.
+found=$'\n'
 
 expected_rule() {
   case "$1" in
@@ -61,7 +63,7 @@ for want in src/AGENTS.md tests/AGENTS.md docs/AGENTS.md docs/gdd/AGENTS.md; do
   dir="${want%/AGENTS.md}"
   if [ -d "$dir" ]; then
     case "$found" in
-      *"$want"$'\n'*) ;;
+      *$'\n'"$want"$'\n'*) ;;
       *)
         echo "MISSING LINK: $dir exists but $want is not a tracked symlink"
         fail=1

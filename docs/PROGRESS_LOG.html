@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="pr-289-review-round-1" data-date="2026-07-24">
+    <h3>PR #289 review round: fail-closed gate registration, safer parsing, formatter compliance</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/feature-backlog-work-uciupe</code>, rebased twice onto moving <code>main</code> (through the goldens, browser-pin, build-once CI stages and the Next.js 16.2.11 bump; <code>package.json</code> and progress-log conflicts resolved additively both times).</dd>
+      <dt>PR</dt><dd>#289. Addresses the Copilot and CodeRabbit review threads on heads <code>01895a5</code>/<code>1db6432</code> plus the red Quality format check.</dd>
+      <dt>Changed</dt><dd>verify-local: the three script gates (agents-links, attribution, followup-ledger) now register as <code>NOT-RUN</code> instead of silently vanishing when their script or the <code>origin/main</code> ref is missing (the review's major finding); <code>skip_gate</code> writes its reason to a per-gate log so first-failure diagnostics stay uniform; fixture-supplied gate names are sanitized before becoming log filenames; <code>cd</code> guarded. check-followup-ledger: attribute lookups now require a whitespace boundary (<code>id</code> can no longer match <code>data-testid</code>, <code>data-f</code> cannot match <code>data-f-ref</code>), the global id scan is anchored the same way, the current-truth correction lookup accepts either attribute order via lookaheads, and the file is reformatted to Biome's output (the Quality failure). check-attribution: <code>--message-file</code>/<code>--commit</code> argument validation rewritten as explicit conditionals (the previous compound was correct under shell left-associativity but read as a precedence trap). check-agents-links: root-walk coverage matching is anchored on both sides so an unrelated path suffix cannot mask a missing link. Selftests: cleanup traps on all four suites, unused <code>CASE_STATUS</code> removed, and four new cases (unclosed section, pointer without <code>data-f-ref</code>, <code>data-f-successor</code> on a non-dt, attribution zero-argument default range). Working agreement: canonical gate list now names the attribution and followup-ledger gates and the fail-closed promise; the attribution range wording states <code>origin/main..HEAD</code> explicitly.</dd>
+      <dt>Verification</dt><dd>All four selftest suites pass with the new cases: 7 + 5 + 8 + 19 = 39 fixtures, statuses captured directly. <code>pnpm verify</code> dependency-free gates all PASS; lint, typecheck, unit-tests still <code>NOT-RUN</code> here under F-217, now each with a reason log. The .mjs matches the Biome diff published in the failed Quality log line for line; remaining over-80 lines are single template literals inside wrapped calls, which Biome does not break (verified against its published diff, which left identical shapes untouched). CI on the pushed head is the executable proof.</dd>
+      <dt>Assumptions</dt><dd>The bare <code>anthropic</code> and <code>claude code</code> attribution patterns stay: Rule 4 bans any mention of Claude, Anthropic, or AI assistance in commit messages, so flagging every mention is the rule working, not a false positive. CI enforcement of the attribution preflight is deferred: wiring a new required gate is a CI-configuration change that needs explicit approval (Rule 6, F-193).</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>No new F-IDs. Tips (Rule 13): no version bump, reviewed, no changes. Stamps (Rule 14): none.</dd>
+    </dl>
+  </article>
+
   <article data-slice="backlog-session-closeout-questions" data-date="2026-07-23">
     <h3>Backlog session closeout: user questions doc and the F-170 remote audit</h3>
     <dl>

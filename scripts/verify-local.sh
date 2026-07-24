@@ -19,7 +19,7 @@
 # the gate.
 set -u
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 
 RUN_BUILD=0
 for arg in "$@"; do
@@ -65,7 +65,10 @@ record() {
 # anything summarized.
 run_gate() {
   local name="$1"; shift
-  local log="$LOG_DIR/$name.log"
+  # Display names come from fixture files in selftest mode; keep the log
+  # filename to a safe character set so a hostile name cannot escape LOG_DIR.
+  local safe_name="${name//[^A-Za-z0-9._-]/_}"
+  local log="$LOG_DIR/$safe_name.log"
   "$@" >"$log" 2>&1
   local status=$?
   if [ "$status" -eq 0 ]; then
@@ -83,7 +86,12 @@ run_gate() {
 
 skip_gate() {
   local name="$1" reason="$2"
-  record "$name" notrun "$reason" ""
+  # Write the reason to a per-gate log so first-failure diagnostics stay
+  # consistent with executed gates.
+  local safe_name="${name//[^A-Za-z0-9._-]/_}"
+  local log="$LOG_DIR/$safe_name.log"
+  printf 'NOT-RUN: %s\n' "$reason" > "$log"
+  record "$name" notrun "$reason" "$log"
 }
 
 if [ -n "${VERIFY_GATES_FILE:-}" ]; then
@@ -98,12 +106,20 @@ else
   run_gate sim-purity bash scripts/check-sim-purity.sh
   if [ -f scripts/check-agents-links.sh ]; then
     run_gate agents-links bash scripts/check-agents-links.sh
+  else
+    skip_gate agents-links "scripts/check-agents-links.sh missing from this checkout"
   fi
-  if [ -f scripts/check-attribution.sh ] && git rev-parse -q --verify origin/main >/dev/null 2>&1; then
+  if [ ! -f scripts/check-attribution.sh ]; then
+    skip_gate attribution "scripts/check-attribution.sh missing from this checkout"
+  elif git rev-parse -q --verify origin/main >/dev/null 2>&1; then
     run_gate attribution bash scripts/check-attribution.sh
+  else
+    skip_gate attribution "origin/main ref unavailable; fetch origin before verifying"
   fi
   if [ -f scripts/check-followup-ledger.mjs ]; then
     run_gate followup-ledger node scripts/check-followup-ledger.mjs
+  else
+    skip_gate followup-ledger "scripts/check-followup-ledger.mjs missing from this checkout"
   fi
 
   # Gates below need installed dependencies. A missing toolchain is a failed

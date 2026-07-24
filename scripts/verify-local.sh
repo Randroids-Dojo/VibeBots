@@ -38,6 +38,7 @@ DIAG_LINES=40
 GATE_NAMES=()
 GATE_RESULTS=()   # pass | fail | notrun
 GATE_DETAILS=()   # exit code / signal / reason text
+GATE_SEQ=0        # prefix for log filenames so sanitized names cannot collide
 FIRST_FAILED_NAME=""
 FIRST_FAILED_LOG=""
 
@@ -69,9 +70,11 @@ record() {
 run_gate() {
   local name="$1"; shift
   # Display names come from fixture files in selftest mode; keep the log
-  # filename to a safe character set so a hostile name cannot escape LOG_DIR.
+  # filename to a safe character set so a hostile name cannot escape LOG_DIR,
+  # and prefix a sequence number so two sanitized names cannot collide.
+  GATE_SEQ=$((GATE_SEQ + 1))
   local safe_name="${name//[^A-Za-z0-9._-]/_}"
-  local log="$LOG_DIR/$safe_name.log"
+  local log="$LOG_DIR/$GATE_SEQ-$safe_name.log"
   "$@" >"$log" 2>&1
   local status=$?
   if [ "$status" -eq 0 ]; then
@@ -91,8 +94,9 @@ skip_gate() {
   local name="$1" reason="$2"
   # Write the reason to a per-gate log so first-failure diagnostics stay
   # consistent with executed gates.
+  GATE_SEQ=$((GATE_SEQ + 1))
   local safe_name="${name//[^A-Za-z0-9._-]/_}"
-  local log="$LOG_DIR/$safe_name.log"
+  local log="$LOG_DIR/$GATE_SEQ-$safe_name.log"
   printf 'NOT-RUN: %s\n' "$reason" > "$log"
   record "$name" notrun "$reason" "$log"
 }

@@ -102,6 +102,14 @@ function safeArchiveEntries(archive) {
       throw new Error(`Build artifact contains unsafe path ${entry}`);
     }
   }
+  const verboseListing = execFileSync("tar", ["-tvzf", archive], {
+    encoding: "utf8",
+  });
+  for (const entry of verboseListing.split("\n").filter(Boolean)) {
+    if (!entry.startsWith("-") && !entry.startsWith("d")) {
+      throw new Error("Build artifact contains a link or special entry");
+    }
+  }
 }
 
 function manifestFromArchive(archive) {

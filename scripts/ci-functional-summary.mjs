@@ -5,7 +5,6 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -24,11 +23,14 @@ function jsonFiles(root) {
     throw new Error("No functional shadow reports were downloaded");
   }
   const found = [];
-  for (const entry of readdirSync(root)) {
-    const candidate = path.join(root, entry);
-    if (statSync(candidate).isDirectory()) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const candidate = path.join(root, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error("Functional shadow results contain a symbolic link");
+    }
+    if (entry.isDirectory()) {
       found.push(...jsonFiles(candidate));
-    } else if (candidate.endsWith(".json")) {
+    } else if (entry.isFile() && candidate.endsWith(".json")) {
       found.push(candidate);
     }
   }

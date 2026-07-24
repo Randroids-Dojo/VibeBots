@@ -82,8 +82,16 @@ for (let i = 0; i < args.length; i++) {
     knownPostCutoff = new Set(args[++i].split(",").filter(Boolean));
   } else if (args[i] === "--correction") {
     const [ref, successor, ...phrase] = args[++i].split(":");
+    const pinnedPhrase = phrase.join(":");
+    // Strict validation doubles as regex safety: a valid F-id contains no
+    // metacharacters, and an empty phrase would make includes() vacuous.
+    const idOk = /^F-\d{3}$/;
+    if (!idOk.test(ref) || !idOk.test(successor) || !pinnedPhrase.trim()) {
+      console.error("--correction requires F-NNN:F-NNN:non-empty phrase");
+      process.exit(2);
+    }
     corrections = corrections.concat([
-      { ref, successor, phrase: phrase.join(":") },
+      { ref, successor, phrase: pinnedPhrase },
     ]);
   } else {
     console.error(`unknown argument: ${args[i]}`);

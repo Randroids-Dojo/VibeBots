@@ -311,6 +311,14 @@ assert correction-missing nonzero "$WORK/correction-missing.out" "missing curren
 run_check "$WORK/valid.html" "$WORK/correction-phrase.out" --grandfathered F-002,F-006 --known F-003 --correction "F-002:F-005:absent phrase"
 assert correction-phrase nonzero "$WORK/correction-phrase.out" 'lost its pinned phrase "absent phrase"'
 
+# Malformed --correction inputs are rejected outright (exit 2): an empty
+# phrase would make the pinned-phrase check vacuous, and a non-F-id would
+# reach the regex unescaped.
+run_check "$WORK/valid.html" "$WORK/correction-nophrase.out" --grandfathered F-002,F-006 --known F-003 --correction "F-002:F-005"
+assert correction-empty-phrase nonzero "$WORK/correction-nophrase.out" "non-empty phrase"
+run_check "$WORK/valid.html" "$WORK/correction-badid.out" --grandfathered F-002,F-006 --known F-003 --correction "F-0(2:F-005:phrase"
+assert correction-bad-id nonzero "$WORK/correction-badid.out" "non-empty phrase"
+
 echo
 if [ "$FAILED" -gt 0 ]; then
   echo "followup ledger selftest: $FAILED of $CASES cases FAILED"

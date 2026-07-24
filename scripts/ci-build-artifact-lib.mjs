@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
 export function sha256File(file) {
@@ -10,6 +11,29 @@ export function assertCleanCheckout(status) {
   if (status.trim()) {
     throw new Error(
       `Build artifacts require a clean checkout; dirty paths:\n${status.trim()}`,
+    );
+  }
+}
+
+export function assertSafeExtractionTarget(
+  output,
+  workspace = process.cwd(),
+  tempRoots = [os.tmpdir(), "/tmp"],
+) {
+  const resolvedOutput = path.resolve(output);
+  if (resolvedOutput === path.resolve(workspace)) return;
+  const inSafeTempDirectory = tempRoots.some((root) => {
+    const relative = path.relative(path.resolve(root), resolvedOutput);
+    return (
+      relative.length > 0 &&
+      relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative)
+    );
+  });
+  if (!inSafeTempDirectory) {
+    throw new Error(
+      "Build artifact extraction target must be the workspace or a temp directory",
     );
   }
 }

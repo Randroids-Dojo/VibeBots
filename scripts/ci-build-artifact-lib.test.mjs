@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   assertCleanCheckout,
+  assertSafeExtractionTarget,
   compareBundleOutput,
   verifyBuildManifest,
 } from "./ci-build-artifact-lib.mjs";
@@ -36,6 +37,24 @@ describe("CI build artifact contract", () => {
       "dirty paths",
     );
     expect(() => assertCleanCheckout("")).not.toThrow();
+  });
+
+  test("limits extraction to the workspace or a temp directory", () => {
+    const workspace = "/workspace/vibebots";
+    expect(() =>
+      assertSafeExtractionTarget(workspace, workspace, ["/safe-temp"]),
+    ).not.toThrow();
+    expect(() =>
+      assertSafeExtractionTarget("/safe-temp/artifact", workspace, [
+        "/safe-temp",
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assertSafeExtractionTarget("/safe-temp", workspace, ["/safe-temp"]),
+    ).toThrow("workspace or a temp directory");
+    expect(() =>
+      assertSafeExtractionTarget("/Users/example", workspace, ["/safe-temp"]),
+    ).toThrow("workspace or a temp directory");
   });
 
   test("records route additions, removals, and byte deltas", () => {

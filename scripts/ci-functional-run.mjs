@@ -2,7 +2,7 @@
 
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import path from "node:path";
+import { inventorySourcePath } from "./ci-source-location.mjs";
 
 function argument(name) {
   const index = process.argv.indexOf(name);
@@ -29,7 +29,7 @@ if (!shard || !Array.isArray(shard.cases) || shard.cases.length === 0) {
 }
 const selectors = shard.cases.map(
   (testCase) =>
-    `${path.posix.join("tests/e2e", testCase.file)}:${testCase.line}`,
+    `${inventorySourcePath(testCase.file).replaceAll("\\", "/")}:${testCase.line}`,
 );
 console.log(
   `Running functional shard ${shardIndex}/${plan.shardCount}: ` +

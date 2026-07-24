@@ -14,6 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   assertCleanCheckout,
+  assertSafeExtractionTarget,
   compareBundleOutput,
   directoryBytes,
   sha256File,
@@ -204,6 +205,7 @@ function verifyArtifact() {
   const archive = path.resolve(required("--archive"));
   const expectedSha = required("--sha");
   const output = path.resolve(required("--extract"));
+  assertSafeExtractionTarget(output);
   if (!existsSync(archive))
     throw new Error(`Build artifact ${archive} is missing`);
   safeArchiveEntries(archive);

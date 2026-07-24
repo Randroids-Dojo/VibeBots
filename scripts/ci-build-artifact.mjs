@@ -197,9 +197,16 @@ function createArtifact() {
   mkdirSync(path.dirname(output), { recursive: true });
   const staging = mkdtempSync(path.join(os.tmpdir(), "vibebots-ci-build-"));
   try {
+    const nextCache = path.resolve(".next/cache");
     cpSync(".next", path.join(staging, ".next"), {
       recursive: true,
-      filter: (source) => !source.includes(`${path.sep}.next${path.sep}cache`),
+      filter: (source) => {
+        const resolvedSource = path.resolve(source);
+        return (
+          resolvedSource !== nextCache &&
+          !resolvedSource.startsWith(`${nextCache}${path.sep}`)
+        );
+      },
     });
     cpSync("public", path.join(staging, "public"), { recursive: true });
     for (const file of ["package.json", "pnpm-lock.yaml"]) {

@@ -62,12 +62,30 @@ export function verifyBuildManifest(
 }
 
 export function compareBundleOutput(routeStats, baseline) {
-  if (baseline.schemaVersion !== 1 || !baseline.routes) {
+  if (
+    baseline?.schemaVersion !== 1 ||
+    typeof baseline.routes !== "object" ||
+    baseline.routes === null ||
+    Array.isArray(baseline.routes) ||
+    !Number.isInteger(baseline.totalFirstLoadUncompressedJsBytes) ||
+    baseline.totalFirstLoadUncompressedJsBytes < 0
+  ) {
     throw new Error("Bundle baseline must use schema version 1");
+  }
+  const baselineEntries = Object.entries(baseline.routes);
+  if (
+    baselineEntries.some(
+      ([route, bytes]) => !route || !Number.isInteger(bytes) || bytes < 0,
+    ) ||
+    baselineEntries.reduce((sum, [, bytes]) => sum + bytes, 0) !==
+      baseline.totalFirstLoadUncompressedJsBytes
+  ) {
+    throw new Error("Bundle baseline contains invalid route byte totals");
   }
   if (!Array.isArray(routeStats)) {
     throw new Error("Bundle diagnostics must be an array");
   }
+  const seenRoutes = new Set();
   for (const [index, entry] of routeStats.entries()) {
     if (
       typeof entry?.route !== "string" ||
@@ -77,6 +95,10 @@ export function compareBundleOutput(routeStats, baseline) {
     ) {
       throw new Error(`Bundle diagnostics entry ${index} is invalid`);
     }
+    if (seenRoutes.has(entry.route)) {
+      throw new Error(`Bundle diagnostics repeat route ${entry.route}`);
+    }
+    seenRoutes.add(entry.route);
   }
   const currentRoutes = Object.fromEntries(
     routeStats

@@ -105,5 +105,38 @@ describe("CI build artifact contract", () => {
         baseline,
       ),
     ).toThrow("entry 0 is invalid");
+    expect(() =>
+      compareBundleOutput(
+        [
+          { route: "/", firstLoadUncompressedJsBytes: 100 },
+          { route: "/", firstLoadUncompressedJsBytes: 100 },
+        ],
+        baseline,
+      ),
+    ).toThrow("repeat route /");
+  });
+
+  test("rejects malformed bundle baselines", () => {
+    const routeStats = [{ route: "/", firstLoadUncompressedJsBytes: 100 }];
+    expect(() =>
+      compareBundleOutput(routeStats, {
+        schemaVersion: 1,
+        routes: { "/": "oops" },
+        totalFirstLoadUncompressedJsBytes: 100,
+      }),
+    ).toThrow("invalid route byte totals");
+    expect(() =>
+      compareBundleOutput(routeStats, {
+        schemaVersion: 1,
+        routes: { "/": 100 },
+        totalFirstLoadUncompressedJsBytes: 101,
+      }),
+    ).toThrow("invalid route byte totals");
+    expect(() =>
+      compareBundleOutput(routeStats, {
+        schemaVersion: 1,
+        routes: { "/": 100 },
+      }),
+    ).toThrow("schema version 1");
   });
 });

@@ -33,6 +33,11 @@ export function buildFunctionalShardPlan(
   if (inventory.schemaVersion !== 1 || !Array.isArray(inventory.cases)) {
     throw new Error("Inventory must use schema version 1 and contain cases");
   }
+  if (typeof commitSha !== "string" || !commitSha) {
+    throw new Error(
+      "Functional shard plan commit SHA must be a nonempty string",
+    );
+  }
   if (
     baseline.schemaVersion !== 1 ||
     typeof baseline.durationsMs !== "object" ||

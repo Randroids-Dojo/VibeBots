@@ -71,6 +71,13 @@ describe("functional shard planning", () => {
     expect(() => buildFunctionalShardPlan(inventory, baseline, 0)).toThrow(
       "positive integer",
     );
+    expect(() =>
+      buildFunctionalShardPlan(
+        { ...inventory, commitSha: undefined },
+        baseline,
+        2,
+      ),
+    ).toThrow("commit SHA must be a nonempty string");
     expect(() => buildFunctionalShardPlan(inventory, baseline, 4)).toThrow(
       "exceeds 3 functional cases",
     );

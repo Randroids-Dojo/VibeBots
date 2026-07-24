@@ -40,17 +40,27 @@ for (const testCase of shard.cases) {
     `${testCase.caseId} ${testCase.file}:${testCase.line} ${testCase.estimatedDurationMs}ms`,
   );
 }
-const result = spawnSync(
-  "pnpm",
-  [
-    "exec",
-    "playwright",
-    "test",
-    ...selectors,
-    "--project=chromium",
-    "--fully-parallel",
-    "--workers=1",
-  ],
-  { stdio: "inherit", env: process.env },
-);
-process.exit(result.status ?? 1);
+const command = "pnpm";
+const args = [
+  "exec",
+  "playwright",
+  "test",
+  ...selectors,
+  "--project=chromium",
+  "--fully-parallel",
+  "--workers=1",
+];
+const result = spawnSync(command, args, {
+  stdio: "inherit",
+  env: process.env,
+});
+if (result.error) {
+  throw new Error(
+    `Failed to start ${[command, ...args].join(" ")}: ${result.error.message}`,
+    { cause: result.error },
+  );
+}
+if (result.status === null) {
+  throw new Error(`${[command, ...args].join(" ")} returned no exit status`);
+}
+process.exit(result.status);

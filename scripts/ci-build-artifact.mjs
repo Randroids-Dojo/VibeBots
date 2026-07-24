@@ -40,9 +40,15 @@ function json(file) {
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, { stdio: "inherit", ...options });
+  const invocation = [command, ...args].join(" ");
+  if (result.error) {
+    throw new Error(`Failed to start ${invocation}: ${result.error.message}`, {
+      cause: result.error,
+    });
+  }
   if (result.status !== 0) {
     throw new Error(
-      `${command} exited with status ${result.status ?? "unknown"}`,
+      `${invocation} exited with status ${result.status ?? "unknown"}`,
     );
   }
 }

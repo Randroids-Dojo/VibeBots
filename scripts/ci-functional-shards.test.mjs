@@ -84,6 +84,18 @@ describe("functional shard planning", () => {
     expect(() =>
       buildFunctionalShardPlan(inventory, { ...baseline, durationsMs: [] }, 2),
     ).toThrow("Duration baseline");
+    for (const durationMs of ["oops", 0, -1]) {
+      expect(() =>
+        buildFunctionalShardPlan(
+          inventory,
+          {
+            ...baseline,
+            durationsMs: { ...baseline.durationsMs, "E2E-C-0001": durationMs },
+          },
+          2,
+        ),
+      ).toThrow("invalid duration for E2E-C-0001");
+    }
   });
 
   test("proves complete discovery and computes observed p95", () => {
@@ -143,6 +155,52 @@ describe("functional shard planning", () => {
         { commitSha: plan.commitSha, records: [] },
       ]),
     ).toThrow("discovery is incomplete");
+  });
+
+  test("rejects malformed report and record metadata", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    expect(() => summarizeFunctionalResults(plan, null)).toThrow(
+      "reports must be an array",
+    );
+    expect(() => summarizeFunctionalResults(plan, [null])).toThrow(
+      "report must be an object",
+    );
+    for (const patch of [{ caseId: null }, { outcome: "" }]) {
+      expect(() =>
+        summarizeFunctionalResults(plan, [
+          {
+            schemaVersion: 1,
+            commitSha: plan.commitSha,
+            records: [
+              {
+                caseId: "E2E-A-0001",
+                attempt: 1,
+                outcome: "passed",
+                durationMs: 1,
+                ...patch,
+              },
+            ],
+          },
+        ]),
+      ).toThrow("invalid record metadata");
+    }
+  });
+
+  test("aggregates special outcome names without prototype mutation", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    const reports = plan.shards.map((shard) => ({
+      schemaVersion: 1,
+      commitSha: plan.commitSha,
+      records: shard.cases.map((item) => ({
+        caseId: item.caseId,
+        attempt: 1,
+        outcome: "__proto__",
+        durationMs: item.estimatedDurationMs,
+      })),
+    }));
+    const summary = summarizeFunctionalResults(plan, reports);
+    expect(Object.getPrototypeOf(summary.outcomes)).toBeNull();
+    expect(summary.outcomes.__proto__).toBe(3);
   });
 
   test("rejects missing, non-finite, or negative attempt durations", () => {

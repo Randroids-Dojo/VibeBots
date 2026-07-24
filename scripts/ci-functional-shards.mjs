@@ -43,6 +43,16 @@ export function buildFunctionalShardPlan(
   ) {
     throw new Error("Duration baseline must use schema version 1");
   }
+  for (const [caseId, durationMs] of Object.entries(baseline.durationsMs)) {
+    if (
+      durationMs !== null &&
+      (!Number.isInteger(durationMs) || durationMs < 1)
+    ) {
+      throw new Error(
+        `Duration baseline contains an invalid duration for ${caseId}`,
+      );
+    }
+  }
   const validatedShardCount = positiveInteger(shardCount, "shard count");
   const functional = inventory.cases.filter(
     (testCase) => testCase.capability === "@functional",
@@ -138,6 +148,9 @@ export function summarizeFunctionalResults(plan, reports) {
   if (plan.schemaVersion !== 1 || !Array.isArray(plan.shards)) {
     throw new Error("Functional shard plan must use schema version 1");
   }
+  if (!Array.isArray(reports)) {
+    throw new Error("Functional reports must be an array");
+  }
   const expected = new Map();
   for (const shard of plan.shards) {
     for (const testCase of shard.cases ?? []) {
@@ -149,9 +162,16 @@ export function summarizeFunctionalResults(plan, reports) {
   }
   const seenAttempts = new Set();
   const observed = new Set();
-  const outcomes = {};
+  const outcomes = Object.create(null);
   const shardDurations = new Map(plan.shards.map((shard) => [shard.index, 0]));
   for (const report of reports) {
+    if (
+      typeof report !== "object" ||
+      report === null ||
+      Array.isArray(report)
+    ) {
+      throw new Error("Functional report must be an object");
+    }
     if (report.schemaVersion !== undefined && report.schemaVersion !== 1) {
       throw new Error(
         `Functional report uses unsupported schema version ${report.schemaVersion}`,
@@ -166,6 +186,17 @@ export function summarizeFunctionalResults(plan, reports) {
       throw new Error("Functional report must contain records");
     }
     for (const record of report.records) {
+      if (
+        typeof record !== "object" ||
+        record === null ||
+        Array.isArray(record) ||
+        typeof record.caseId !== "string" ||
+        !record.caseId ||
+        typeof record.outcome !== "string" ||
+        !record.outcome
+      ) {
+        throw new Error("Functional report contains invalid record metadata");
+      }
       const shardIndex = expected.get(record.caseId);
       if (!shardIndex) {
         throw new Error(

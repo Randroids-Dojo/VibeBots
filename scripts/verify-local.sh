@@ -29,7 +29,10 @@ for arg in "$@"; do
   esac
 done
 
-LOG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/verify-local.XXXXXX")
+LOG_DIR=$(mktemp -d "${TMPDIR:-/tmp}/verify-local.XXXXXX") || {
+  echo "cannot create the log directory" >&2
+  exit 2
+}
 DIAG_LINES=40
 
 GATE_NAMES=()

@@ -55,7 +55,10 @@ scan_text() {
   return 0
 }
 
-TMP=$(mktemp "${TMPDIR:-/tmp}/attribution.XXXXXX")
+TMP=$(mktemp "${TMPDIR:-/tmp}/attribution.XXXXXX") || {
+  echo "cannot create a temp file" >&2
+  exit 2
+}
 trap 'rm -f "$TMP"' EXIT
 FAIL=0
 

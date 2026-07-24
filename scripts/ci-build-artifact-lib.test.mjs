@@ -63,4 +63,28 @@ describe("CI build artifact contract", () => {
       },
     });
   });
+
+  test("rejects malformed route bundle diagnostics", () => {
+    const baseline = {
+      schemaVersion: 1,
+      sourceCommit: "base",
+      routes: { "/": 100 },
+      totalFirstLoadUncompressedJsBytes: 100,
+    };
+    expect(() => compareBundleOutput(null, baseline)).toThrow(
+      "must be an array",
+    );
+    expect(() =>
+      compareBundleOutput(
+        [{ route: "/", firstLoadUncompressedJsBytes: Number.NaN }],
+        baseline,
+      ),
+    ).toThrow("entry 0 is invalid");
+    expect(() =>
+      compareBundleOutput(
+        [{ route: null, firstLoadUncompressedJsBytes: 100 }],
+        baseline,
+      ),
+    ).toThrow("entry 0 is invalid");
+  });
 });

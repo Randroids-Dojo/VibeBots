@@ -20,6 +20,9 @@ if (plan.commitSha !== expectedSha) {
   );
 }
 const shardIndex = Number(argument("--index"));
+if (!Number.isInteger(shardIndex) || shardIndex < 1) {
+  throw new Error("--index must be a positive integer");
+}
 const shard = plan.shards?.find((candidate) => candidate.index === shardIndex);
 if (!shard || !Array.isArray(shard.cases) || shard.cases.length === 0) {
   throw new Error(`Functional shard ${shardIndex} is missing or empty`);

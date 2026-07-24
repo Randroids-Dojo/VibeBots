@@ -41,6 +41,19 @@ export function compareBundleOutput(routeStats, baseline) {
   if (baseline.schemaVersion !== 1 || !baseline.routes) {
     throw new Error("Bundle baseline must use schema version 1");
   }
+  if (!Array.isArray(routeStats)) {
+    throw new Error("Bundle diagnostics must be an array");
+  }
+  for (const [index, entry] of routeStats.entries()) {
+    if (
+      typeof entry?.route !== "string" ||
+      entry.route.length === 0 ||
+      !Number.isInteger(entry.firstLoadUncompressedJsBytes) ||
+      entry.firstLoadUncompressedJsBytes < 0
+    ) {
+      throw new Error(`Bundle diagnostics entry ${index} is invalid`);
+    }
+  }
   const currentRoutes = Object.fromEntries(
     routeStats
       .map((entry) => [entry.route, entry.firstLoadUncompressedJsBytes])

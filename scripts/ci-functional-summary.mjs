@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import {
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -19,6 +20,9 @@ function argument(name) {
 }
 
 function jsonFiles(root) {
+  if (!existsSync(root)) {
+    throw new Error("No functional shadow reports were downloaded");
+  }
   const found = [];
   for (const entry of readdirSync(root)) {
     const candidate = path.join(root, entry);

@@ -213,13 +213,39 @@ function verifyArtifact() {
     lockfileHash: sha256File("pnpm-lock.yaml"),
     imageDigest: runtime.imageDigest,
   });
-  if (output === process.cwd()) {
-    rmSync(path.join(output, ".next"), { recursive: true, force: true });
-  } else {
-    rmSync(output, { recursive: true, force: true });
-    mkdirSync(output, { recursive: true });
+  const staging = mkdtempSync(
+    path.join(os.tmpdir(), "vibebots-ci-build-verify-"),
+  );
+  try {
+    run("tar", ["-xzf", archive, "-C", staging]);
+    if (output !== process.cwd()) {
+      rmSync(output, { recursive: true, force: true });
+      mkdirSync(output, { recursive: true });
+    }
+    const entries =
+      output === process.cwd()
+        ? [
+            ".next",
+            "case-inventory.json",
+            "functional-shards.json",
+            "ci-build-manifest.json",
+          ]
+        : [
+            ".next",
+            "public",
+            "case-inventory.json",
+            "functional-shards.json",
+            "ci-build-manifest.json",
+          ];
+    for (const entry of entries) {
+      const source = path.join(staging, entry);
+      const destination = path.join(output, entry);
+      rmSync(destination, { recursive: true, force: true });
+      cpSync(source, destination, { recursive: true });
+    }
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
   }
-  run("tar", ["-xzf", archive, "-C", output]);
   console.log(
     `Verified and extracted build artifact ${manifest.commitSha} to ${output}`,
   );

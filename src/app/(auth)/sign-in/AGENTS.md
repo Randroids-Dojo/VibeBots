@@ -1,1 +1,1 @@
-../../../.claude/rules/slice-discipline.md
+../../../../.claude/rules/slice-discipline.md

@@ -15,6 +15,9 @@
 <section id="description">
 Keep data-priority authoritative and every historical primary followup byte-for-byte. Add non-primary priority pointers or a current index using data-role=priority-pointer and data-f-ref, never duplicate data-f or id, validate pointer targets and priority agreement, grandfather the 69 historical container mismatches, and enforce correct physical placement only for entries after a documented cutoff.
 </section>
+<section id="progress-2026-07-23">
+2026-07-23 (backlog-work session): pointer layer and validator delivered. Per-bucket priority-pointers navs in docs/FOLLOWUPS.html expose all 78 audited container mismatches; scripts/check-followup-ledger.mjs (pnpm check:followups, followup-ledger gate of pnpm verify) validates uniqueness, targets, bucket agreement, the F-033 exception, data-f-successor discipline, and grandfathering (70 at cutoff plus 8 recorded post-cutoff, Q-031). Thirteen fixtures pass. Closable with the PR number once the branch merges.
+</section>
 </article>
 </body>
 </html>

@@ -23,6 +23,9 @@ PR #246 recurrence on exact head 3fa545e2: a zero-action autoplay run with autop
 PR #246 remote head 10a00471 fixes those two paths but still loses the first failure phase. An exact-head isolated mine emitted PLAY_PHASE_ERROR on its sole policy action. The driver exited 1 and retained the console error, but both summary and JSON said teardown instead of play. The session's forced-failure shell proof also piped through tail, printed an empty exit field, and then claimed a proven nonzero exit. Keep the canonical verifier, first-failure phase, signal handling, and direct unambiguous gate evidence open.
 PR #246 remote head 18bf5663 fixes that specific first-failure phase path: an injected play console error now exits failed with phase play. The same exact-head report has failureShot null because a nonthrowing failure closes the browser without attempting the required screenshot. Keep F-189 open for the canonical direct-status verifier, multiple failures, signals, and bounded diagnostics; F-130 owns the autoplay screenshot and recovery evidence paths.
 </section>
+<section id="progress-2026-07-23">
+2026-07-23 (backlog-work session): canonical verifier delivered as scripts/verify-local.sh (pnpm verify) with dependency-free fixtures in scripts/verify-local.selftest.sh (pnpm verify:selftest), all seven passing in the dependency-blocked remote session; the real run there fails closed with lint, typecheck, and unit-tests NOT-RUN under F-217. Canonical command documented in docs/WORKING_AGREEMENT.html. Remaining before close: one full green pnpm verify --build in a dependency-capable environment.
+</section>
 </article>
 </body>
 </html>

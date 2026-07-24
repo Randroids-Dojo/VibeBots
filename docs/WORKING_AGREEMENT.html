@@ -39,6 +39,13 @@
     <li>GDD, coverage, followup, or open-question updates.</li>
     <li>Any known limitations or blocked checks.</li>
   </ul>
+  <p>Attribution preflight (F-211, Rule 4):</p>
+  <ul>
+    <li>Before merge, run <code>pnpm check:attribution</code> (scans the <code>origin/main..HEAD</code> range, i.e. every commit between the merge base and the head; also the <code>attribution</code> gate of <code>pnpm verify</code>).</li>
+    <li>Supply the squash subject and body explicitly, never from defaults, and validate the prepared text with <code>bash scripts/check-attribution.sh --message-file &lt;path&gt;</code>. PR titles and bodies can be validated the same way.</li>
+    <li>After the squash lands, verify the published commit with <code>bash scripts/check-attribution.sh --commit &lt;main-sha&gt;</code>.</li>
+    <li>The scan covers metadata only. Author and committer identity are out of scope unless the user separately expands the policy.</li>
+  </ul>
   <p>After opening a PR:</p>
   <ul>
     <li>Read flat comments, reviews, and threaded inline comments.</li>
@@ -54,6 +61,13 @@
 
 <section id="verification">
   <h2>Verification</h2>
+  <p>Canonical local verifier (F-189):</p>
+  <ul>
+    <li>The canonical command is <code>pnpm verify</code> (equivalently <code>bash scripts/verify-local.sh</code>; add <code>--build</code> for runtime-affecting slices). It runs the dash check, <code>git diff --check</code> (worktree and index), sim purity, the AGENTS link audit, the attribution scan, the followup-ledger validator, full lint, typecheck, and the unit suite as direct subprocesses, recording each gate's own exit status before any output is summarized. A promised gate whose script or prerequisite is missing is reported <code>NOT-RUN</code>, never silently omitted.</li>
+    <li>Never run a verification gate through a terminal pipeline whose final formatter can mask the gate's status (<code>tsc | tail</code>, <code>biome check | tail -1</code>, <code>vitest | head</code>). If concise output is needed, redirect to a file, save the exit status, then read the file. The verifier does this for every gate.</li>
+    <li>A gate whose tooling is unavailable is reported <code>NOT-RUN</code> and the verifier exits nonzero. Missing tooling and skipped gates are never green evidence.</li>
+    <li>The verifier's own regression fixtures run with <code>pnpm verify:selftest</code>; they cover masked-failure, in-gate pipeline, multiple-failure, signal, missing-tool, empty-output, and all-green cases and need no installed dependencies.</li>
+  </ul>
   <p>Minimum for docs-only changes:</p>
   <ul>
     <li>Dash check (U+2014 em-dash and U+2013 en-dash): <code>grep -rnP '[\x{2014}\x{2013}]' . --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.next</code> (must return nothing).</li>

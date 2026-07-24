@@ -15,6 +15,9 @@
 <section id="description">
 Add a future-facing preflight that rejects AI attribution in commit subjects, bodies, trailers, pull request titles, pull request bodies, and the final explicit squash message. Cover pushed commit ranges and squash-merge inputs without rewriting published history, and keep ordinary human metadata green. Author and committer identity are outside the current literal policy unless the user separately expands it.
 </section>
+<section id="progress-2026-07-23">
+2026-07-23 (backlog-work session): preflight delivered as scripts/check-attribution.sh (pnpm check:attribution; attribution gate of pnpm verify; --message-file for squash and PR text; --commit for the published main sha). Seven fixtures pass in scripts/check-attribution.selftest.sh; operator procedure documented in docs/WORKING_AGREEMENT.html. Closable with the PR number once this branch merges.
+</section>
 </article>
 </body>
 </html>

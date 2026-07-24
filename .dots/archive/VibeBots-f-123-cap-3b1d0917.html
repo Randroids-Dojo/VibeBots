@@ -17,6 +17,9 @@
 <section id="description">
 Make a surface Down or lateral elevator entry complete exactly one directional mine turn, including live-charge rail re-entry, pending dynamite, and intentional hazard or pickup semantics, without double-running ride settlement.
 </section>
+<section id="close-reason-correction-2026-07-23">
+Append-only correction (2026-07-23, F-180/F-149): the dot-close-reason above misstates the shipped order. Current behavior visibly calls the car first; the accepted entry move and its full-turn finalization run after the car arrives; boarding or selected travel begins only afterward. F-123 remains resolved by PR #189. The original close metadata is preserved unchanged because the Dots CLI has no history-preserving reopen path (recorded in FOLLOWUPS F-149); the current-truth sequence is validated by scripts/check-followup-ledger.mjs against the F-123 correction pointer in docs/FOLLOWUPS.html.
+</section>
 </article>
 </body>
 </html>

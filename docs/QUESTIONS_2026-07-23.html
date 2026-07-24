@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Questions for Randy: 2026-07-23 backlog session</title>
+</head>
+<body>
+
+<header>
+  <h1>Questions from the 2026-07-23 backlog session</h1>
+  <p>Written by the remote backlog-work session on branch <code>claude/feature-backlog-work-uciupe</code>. The session worked the backlog autonomously within what the remote environment can honestly verify; everything below needs a decision or an action only you can take. Answers can be dropped as replies, ledger edits, or new Dots; each item names its blocked work.</p>
+  <p>Update at rebase time (later 2026-07-23): main has since landed the Next.js 16.2.11 security bump from a capable local environment (the deferral mentioned in question 1 is satisfied; the access question itself still stands) and CI rewrite stages 1 through 3 (golden gates, pinned browser runtime, build-once functional CI), which may change the shape of the question 2 decision. Questions 1 through 6 otherwise remain open.</p>
+</header>
+
+<main>
+
+<section id="q1-vibekit-access">
+  <h2>1. VibeKit access for remote sessions (F-217, blocks most of the backlog)</h2>
+  <p><code>pnpm install --frozen-lockfile</code> still fails here: the session's GitHub credentials cover only this repository, so the tag-pinned <code>github:Randroids-Dojo/VibeKit#v0.3.0</code> tarball fetch returns 403. Without <code>node_modules</code> there is no typecheck, lint, unit, build, or Playwright capability in remote sessions, which blocks every code slice (F-133, F-218, F-176, F-177, F-181, F-184, F-201, F-204, F-213, F-216 and more) and the deferred Next.js 16.2.11 bump.</p>
+  <p>During this session a request to add the VibeKit repository to the session scope was declined in the tool permission dialog. If that was deliberate, the remaining options from F-217 are: publish VibeKit to a registry the egress policy allows (npm or JSR), or vendor the pinned tarball into this repository. If it was an accidental dismissal, granting the Claude GitHub app read access to <code>Randroids-Dojo/VibeKit</code> (or approving <code>add_repo</code> next time) is the smallest fix.</p>
+  <p><strong>Question:</strong> which path do you want for F-217? Until one lands, remote sessions can only do docs, ledgers, and dependency-free tooling.</p>
+</section>
+
+<section id="q2-full-e2e-decision">
+  <h2>2. The Full E2E software-render wall needs a cost/ownership decision (F-132)</h2>
+  <p>The 2026-07-22 infra-tuning conclusion on <code>main</code> stands: the scheduled Full E2E matrix now completes cleanly, and the residual is ~29 CONSISTENT failures on the CI runner's SwiftShader software rendering (heavily the 3D-scene specs). They pass locally, including under the CI-sim mode. The newest scheduled run (29910598254, 2026-07-22, head <code>ab1dd082</code>) is red with 9 of 16 shards failing, matching that diagnosis; this session triaged it as the known wall, no new regression.</p>
+  <p><strong>Question:</strong> pick one: (a) GPU-enabled runners (real fix, paid or self-hosted infra), (b) per-test rendering/assertion hardening for the software fallback (large, ~30-minute iteration loop per attempt), or (c) a documented non-blocking flaky-graphics tier (fast, trades coverage). The scheduled run stays red every day until one is chosen.</p>
+</section>
+
+<section id="q3-recorded-violations">
+  <h2>3. Confirm the recorded-violation semantics for the followup placement gate (Q-031)</h2>
+  <p>This session shipped the F-157/F-178 priority-pointer layer and validator (<code>pnpm check:followups</code>). Eight post-cutoff container misplacements are already committed history (F-161 plus seven found by the audit: F-163, F-197, F-209, F-212, F-214, F-215, F-216). The validator names them on every run and requires pointer coverage, but hard-fails only on NEW misplacements, because a permanently red gate stops gating. That interpretation is logged as <code>Q-031</code> with recommended default A.</p>
+  <p><strong>Question:</strong> confirm default A, or pick B (fail forever on all eight) or C (silently grandfather them).</p>
+</section>
+
+<section id="q4-local-machine-items">
+  <h2>4. Items that can only run on your machine or with repo admin</h2>
+  <ul>
+    <li><strong>F-170 (P0, memory audit):</strong> the unsafe project memory (review-agent-gate.md, f121-reload-durable-shipped.md, followup-picking-crowded-fleet.md, the MEMORY.md registry) lives on the machine that hosts the Claude project memory, not in this repository or container. This session verified the repo and container are clean (audit note on the F-170 Dot) but cannot touch your local memory or run the fresh-session and compaction proofs. This is the only P0 in the backlog and it needs a session on that machine.</li>
+    <li><strong>Branch protection and review gates (F-148, F-152, F-179, F-183):</strong> require GitHub ruleset/CodeQL administration this session does not have. F-152/F-183 specifically need the main ruleset to pass without administrator bypass.</li>
+    <li><strong>Operator preflights (F-151, F-154, F-155, F-156, F-182, F-185, F-186, F-187, F-193, F-194):</strong> these govern the local gh-based merge workflow and destructive-action approvals on your operator machine. Executable pieces could be authored remotely, but F-193 also requires your explicit approval before anything touches CI configuration, and the enforcement points (gh, GraphQL, squash-merge inputs) exist only in the local workflow. Say the word if you want any of them drafted as scripts in the meantime; the F-211 attribution preflight landed this session is the pattern.</li>
+    <li><strong>F-172 (deploy monitoring), F-131 (Full E2E deadlines):</strong> need CI workflow changes (your approval per Rule 6/F-193) and the gh-based monitoring environment.</li>
+  </ul>
+  <p><strong>Question:</strong> none of these are actionable remotely as specified; do you want any of them re-scoped so a remote session can carry part of the load?</p>
+</section>
+
+<section id="q5-pr">
+  <h2>5. Open a PR for this branch?</h2>
+  <p>Five slices are pushed on <code>claude/feature-backlog-work-uciupe</code> (canonical verifier F-189, AGENTS symlink repair and audit F-188, attribution preflight F-211, priority pointers and ledger validator F-178/F-157, elevator closeout pin F-180/F-149). This session was instructed to develop and push on the designated branch and does not open PRs without your say-so.</p>
+  <p><strong>Question:</strong> open one PR for the branch as-is? Also note: F-188, F-189, F-211, F-157, F-178, F-149, and F-180 become closable with that PR number, and the lint/typecheck/test gates for the branch will run in CI even though they could not run here (F-217).</p>
+</section>
+
+<section id="q6-followup-priority-drift">
+  <h2>6. Two data-priority values look stale against their Dots</h2>
+  <p>Noticed while building the pointer layer, recorded here rather than changed: <code>F-216</code> (overflow loot into the trip bag) carries <code>data-priority="polish"</code> in FOLLOWUPS while its Dot is priority 2, and sits physically under Blocks Release; <code>F-212</code>, <code>F-214</code>, <code>F-215</code> are similar recent cases. The pointer layer exposes them under their <code>data-priority</code> as authority says. If any of these priorities are wrong, the fix is append-only: a dated correction dt on the primary plus a Dot priority update, since rewriting <code>data-priority</code> on a committed entry is not allowed.</p>
+  <p><strong>Question:</strong> should any of F-212, F-214, F-215, F-216 actually be blocks-release or nice-to-have? If yes, say which and a correction slice will follow.</p>
+</section>
+
+</main>
+
+</body>
+</html>

@@ -224,21 +224,13 @@ function verifyArtifact() {
       rmSync(output, { recursive: true, force: true });
       mkdirSync(output, { recursive: true });
     }
-    const entries =
-      output === process.cwd()
-        ? [
-            ".next",
-            "case-inventory.json",
-            "functional-shards.json",
-            "ci-build-manifest.json",
-          ]
-        : [
-            ".next",
-            "public",
-            "case-inventory.json",
-            "functional-shards.json",
-            "ci-build-manifest.json",
-          ];
+    const entries = [
+      ".next",
+      ...(output === process.cwd() ? [] : ["public"]),
+      "case-inventory.json",
+      "functional-shards.json",
+      "ci-build-manifest.json",
+    ];
     for (const entry of entries) {
       const source = path.join(staging, entry);
       const destination = path.join(output, entry);

@@ -90,7 +90,7 @@ describe("functional shard planning", () => {
       observedCaseCount: 3,
       attemptCount: 3,
       outcomes: { passed: 3 },
-      p95TestDurationMs: 110_000,
+      p95ShardDurationMs: 110_000,
     });
   });
 

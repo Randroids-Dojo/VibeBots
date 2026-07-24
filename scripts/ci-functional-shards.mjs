@@ -196,7 +196,7 @@ export function summarizeFunctionalResults(plan, reports) {
     attemptCount: seenAttempts.size,
     outcomes,
     shardDurations: observedDurations,
-    p95TestDurationMs: percentile(
+    p95ShardDurationMs: percentile(
       observedDurations.map((shard) => shard.durationMs),
       0.95,
     ),

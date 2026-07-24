@@ -49,6 +49,7 @@ mkdirSync(path.dirname(output), { recursive: true });
 writeFileSync(output, `${JSON.stringify(summary, null, 2)}\n`);
 console.log(
   `Observed all ${summary.observedCaseCount} functional cases across ` +
-    `${plan.shardCount} shards; test-time p95 ${summary.p95TestDurationMs}ms`,
+    `${plan.shardCount} shards; aggregate shard-time p95 ` +
+    `${summary.p95ShardDurationMs}ms`,
 );
 console.table(summary.shardDurations);

@@ -214,6 +214,7 @@ jobs:
         env:
           CI_CASE_COMMIT_SHA: ${{ github.sha }}
           CI_CASE_RESULTS_PATH: playwright-report/functional-shadow-${{ matrix.shard }}.json
+          E2E_GLOBAL_TIMEOUT_MS: 720000
           SHARD_INDEX: ${{ matrix.shard }}
         run: |
           pnpm ci:functional-run -- \

@@ -259,9 +259,7 @@ function verifyArtifact() {
   );
 }
 
-const command = process.argv.find(
-  (value) => value === "create" || value === "verify",
-);
+const command = process.argv[2];
 if (command === "create") createArtifact();
 else if (command === "verify") verifyArtifact();
 else throw new Error("Usage: ci-build-artifact.mjs <create|verify> [options]");

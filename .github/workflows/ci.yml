@@ -150,7 +150,7 @@ jobs:
           pnpm ci:functional-plan -- \
             --inventory playwright-report/ci-build/case-inventory.json \
             --baseline ci/functional-duration-baseline.json \
-            --count 8 \
+            --count 10 \
             --output playwright-report/ci-build/functional-shards.json
 
       - name: Build exact-SHA runtime artifact
@@ -171,7 +171,7 @@ jobs:
           if-no-files-found: error
 
   functional-shadow:
-    name: Functional Shadow (${{ matrix.shard }}-of-8)
+    name: Functional Shadow (${{ matrix.shard }}-of-10)
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -182,7 +182,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:

@@ -168,7 +168,6 @@ function createArtifact() {
       "public",
       "package.json",
       "pnpm-lock.yaml",
-      "next.config.ts",
       "case-inventory.json",
       "functional-shards.json",
       "ci-build-manifest.json",
@@ -182,7 +181,7 @@ function createArtifact() {
       filter: (source) => !source.includes(`${path.sep}.next${path.sep}cache`),
     });
     cpSync("public", path.join(staging, "public"), { recursive: true });
-    for (const file of ["package.json", "pnpm-lock.yaml", "next.config.ts"]) {
+    for (const file of ["package.json", "pnpm-lock.yaml"]) {
       cpSync(file, path.join(staging, file));
     }
     cpSync(inventoryPath, path.join(staging, "case-inventory.json"));

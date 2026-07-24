@@ -99,6 +99,7 @@ function safeArchiveEntries(archive) {
   const listing = execFileSync("tar", ["-tzf", archive], {
     encoding: "utf8",
   });
+  const archivePaths = new Set();
   for (const entry of listing.split("\n").filter(Boolean)) {
     const normalized = entry.replace(/^\.\//, "");
     if (
@@ -107,6 +108,11 @@ function safeArchiveEntries(archive) {
     ) {
       throw new Error(`Build artifact contains unsafe path ${entry}`);
     }
+    const canonical = path.posix.normalize(normalized).replace(/\/+$/, "");
+    if (archivePaths.has(canonical)) {
+      throw new Error(`Build artifact repeats path ${entry}`);
+    }
+    archivePaths.add(canonical);
   }
   const verboseListing = execFileSync("tar", ["-tvzf", archive], {
     encoding: "utf8",

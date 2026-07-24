@@ -106,6 +106,27 @@ describe("functional shard planning", () => {
         2,
       ),
     ).not.toThrow();
+    expect(
+      buildFunctionalShardPlan(
+        {
+          schemaVersion: 1,
+          commitSha: "abc123",
+          cases: [
+            {
+              caseId: "toString",
+              capability: "@functional",
+              file: "prototype.spec.ts",
+              line: 1,
+            },
+          ],
+        },
+        { ...baseline, durationsMs: {} },
+        1,
+      ).shards[0].cases[0],
+    ).toMatchObject({
+      estimatedDurationMs: baseline.fallbackDurationMs,
+      timingSource: "fallback",
+    });
   });
 
   test("proves complete discovery and computes observed p95", () => {

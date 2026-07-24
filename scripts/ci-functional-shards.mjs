@@ -50,8 +50,12 @@ export function buildFunctionalShardPlan(
   if (functional.length === 0) {
     throw new Error("Inventory contains no functional cases");
   }
+  const baselineDuration = (caseId) =>
+    Object.hasOwn(baseline.durationsMs, caseId)
+      ? baseline.durationsMs[caseId]
+      : undefined;
   for (const testCase of functional) {
-    const durationMs = baseline.durationsMs[testCase.caseId];
+    const durationMs = baselineDuration(testCase.caseId);
     if (
       durationMs !== undefined &&
       durationMs !== null &&
@@ -83,7 +87,7 @@ export function buildFunctionalShardPlan(
       throw new Error(`Duplicate functional case ID ${testCase.caseId}`);
     }
     ids.add(testCase.caseId);
-    const measured = baseline.durationsMs[testCase.caseId];
+    const measured = baselineDuration(testCase.caseId);
     const estimatedDurationMs =
       Number.isInteger(measured) && measured > 0
         ? measured

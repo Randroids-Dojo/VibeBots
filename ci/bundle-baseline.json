@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "42f6dfda00c106d84c712d5023886ee224b5ec17",
+  "routes": {
+    "/": 520274,
+    "/_not-found": 520274,
+    "/arena": 541827,
+    "/holodeck": 905082,
+    "/mine": 2035920,
+    "/sign-in/[[...sign-in]]": 700057,
+    "/sign-up/[[...sign-up]]": 700057,
+    "/workshop": 911721
+  },
+  "totalFirstLoadUncompressedJsBytes": 6835212
+}

@@ -1,0 +1,264 @@
+import { describe, expect, test } from "vitest";
+import {
+  buildFunctionalShardPlan,
+  summarizeFunctionalResults,
+} from "./ci-functional-shards.mjs";
+
+const inventory = {
+  schemaVersion: 1,
+  commitSha: "abc123",
+  cases: [
+    {
+      caseId: "E2E-A-0001",
+      capability: "@functional",
+      file: "a.spec.ts",
+      line: 10,
+    },
+    {
+      caseId: "E2E-B-0001",
+      capability: "@functional",
+      file: "b.spec.ts",
+      line: 20,
+    },
+    {
+      caseId: "E2E-C-0001",
+      capability: "@functional",
+      file: "c.spec.ts",
+      line: 30,
+    },
+    {
+      caseId: "E2E-R-0001",
+      capability: "@render",
+      file: "render.spec.ts",
+      line: 40,
+    },
+  ],
+};
+const baseline = {
+  schemaVersion: 1,
+  fallbackDurationMs: 60_000,
+  source: { runId: 1 },
+  durationsMs: {
+    "E2E-A-0001": 90_000,
+    "E2E-B-0001": 50_000,
+  },
+};
+
+describe("functional shard planning", () => {
+  test("balances every functional case once using measured durations", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    expect(plan.functionalCaseCount).toBe(3);
+    expect(plan.fallbackCaseCount).toBe(1);
+    expect(plan.shards.map((shard) => shard.estimatedDurationMs)).toEqual([
+      90_000, 110_000,
+    ]);
+    expect(
+      plan.shards.flatMap((shard) => shard.cases.map((item) => item.caseId)),
+    ).toEqual(["E2E-A-0001", "E2E-B-0001", "E2E-C-0001"]);
+  });
+
+  test("rejects duplicate or invalid functional metadata", () => {
+    expect(() =>
+      buildFunctionalShardPlan(
+        {
+          ...inventory,
+          cases: [...inventory.cases, inventory.cases[0]],
+        },
+        baseline,
+        2,
+      ),
+    ).toThrow("Duplicate functional case ID");
+    expect(() => buildFunctionalShardPlan(inventory, baseline, 0)).toThrow(
+      "positive integer",
+    );
+    expect(() =>
+      buildFunctionalShardPlan(
+        { ...inventory, commitSha: undefined },
+        baseline,
+        2,
+      ),
+    ).toThrow("commit SHA must be a nonempty string");
+    expect(() => buildFunctionalShardPlan(inventory, baseline, 4)).toThrow(
+      "exceeds 3 functional cases",
+    );
+    expect(() =>
+      buildFunctionalShardPlan(
+        inventory,
+        { ...baseline, fallbackDurationMs: 0 },
+        2,
+      ),
+    ).toThrow("Duration baseline");
+    expect(() =>
+      buildFunctionalShardPlan(inventory, { ...baseline, durationsMs: [] }, 2),
+    ).toThrow("Duration baseline");
+    for (const durationMs of ["oops", 0, -1]) {
+      expect(() =>
+        buildFunctionalShardPlan(
+          inventory,
+          {
+            ...baseline,
+            durationsMs: { ...baseline.durationsMs, "E2E-C-0001": durationMs },
+          },
+          2,
+        ),
+      ).toThrow("invalid duration for E2E-C-0001");
+    }
+    expect(() =>
+      buildFunctionalShardPlan(
+        inventory,
+        {
+          ...baseline,
+          durationsMs: { ...baseline.durationsMs, "E2E-REMOVED-0001": "oops" },
+        },
+        2,
+      ),
+    ).not.toThrow();
+    expect(
+      buildFunctionalShardPlan(
+        {
+          schemaVersion: 1,
+          commitSha: "abc123",
+          cases: [
+            {
+              caseId: "toString",
+              capability: "@functional",
+              file: "prototype.spec.ts",
+              line: 1,
+            },
+          ],
+        },
+        { ...baseline, durationsMs: {} },
+        1,
+      ).shards[0].cases[0],
+    ).toMatchObject({
+      estimatedDurationMs: baseline.fallbackDurationMs,
+      timingSource: "fallback",
+    });
+  });
+
+  test("proves complete discovery and computes observed p95", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    const records = plan.shards.map((shard) => ({
+      schemaVersion: 1,
+      commitSha: plan.commitSha,
+      records: shard.cases.map((item) => ({
+        caseId: item.caseId,
+        attempt: 1,
+        outcome: "passed",
+        durationMs: item.estimatedDurationMs,
+      })),
+    }));
+    expect(summarizeFunctionalResults(plan, records)).toMatchObject({
+      functionalCaseCount: 3,
+      observedCaseCount: 3,
+      attemptCount: 3,
+      outcomes: { passed: 3 },
+      p95ShardDurationMs: 110_000,
+    });
+  });
+
+  test("rejects wrong commits, duplicates, and incomplete discovery", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    expect(() =>
+      summarizeFunctionalResults(plan, [
+        { schemaVersion: 1, commitSha: "wrong", records: [] },
+      ]),
+    ).toThrow("does not match plan");
+    expect(() =>
+      summarizeFunctionalResults(plan, [
+        {
+          commitSha: plan.commitSha,
+          records: [
+            {
+              caseId: "E2E-A-0001",
+              attempt: 1,
+              outcome: "passed",
+              durationMs: 1,
+            },
+          ],
+        },
+      ]),
+    ).toThrow("discovery is incomplete");
+  });
+
+  test("rejects unsupported report schemas while accepting legacy reports", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    expect(() =>
+      summarizeFunctionalResults(plan, [
+        { schemaVersion: 2, commitSha: plan.commitSha, records: [] },
+      ]),
+    ).toThrow("unsupported schema version 2");
+    expect(() =>
+      summarizeFunctionalResults(plan, [
+        { commitSha: plan.commitSha, records: [] },
+      ]),
+    ).toThrow("discovery is incomplete");
+  });
+
+  test("rejects malformed report and record metadata", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    expect(() => summarizeFunctionalResults(plan, null)).toThrow(
+      "reports must be an array",
+    );
+    expect(() => summarizeFunctionalResults(plan, [null])).toThrow(
+      "report must be an object",
+    );
+    for (const patch of [{ caseId: null }, { outcome: "" }]) {
+      expect(() =>
+        summarizeFunctionalResults(plan, [
+          {
+            schemaVersion: 1,
+            commitSha: plan.commitSha,
+            records: [
+              {
+                caseId: "E2E-A-0001",
+                attempt: 1,
+                outcome: "passed",
+                durationMs: 1,
+                ...patch,
+              },
+            ],
+          },
+        ]),
+      ).toThrow("invalid record metadata");
+    }
+  });
+
+  test("aggregates special outcome names without prototype mutation", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    const reports = plan.shards.map((shard) => ({
+      schemaVersion: 1,
+      commitSha: plan.commitSha,
+      records: shard.cases.map((item) => ({
+        caseId: item.caseId,
+        attempt: 1,
+        outcome: "__proto__",
+        durationMs: item.estimatedDurationMs,
+      })),
+    }));
+    const summary = summarizeFunctionalResults(plan, reports);
+    expect(Object.getPrototypeOf(summary.outcomes)).toBeNull();
+    expect(summary.outcomes.__proto__).toBe(3);
+  });
+
+  test("rejects missing, non-finite, or negative attempt durations", () => {
+    const plan = buildFunctionalShardPlan(inventory, baseline, 2);
+    const reports = plan.shards.map((shard) => ({
+      schemaVersion: 1,
+      commitSha: plan.commitSha,
+      records: shard.cases.map((item) => ({
+        caseId: item.caseId,
+        attempt: 1,
+        outcome: "passed",
+        durationMs: item.estimatedDurationMs,
+      })),
+    }));
+    for (const durationMs of [undefined, Number.NaN, -1]) {
+      const invalid = structuredClone(reports);
+      invalid[0].records[0].durationMs = durationMs;
+      expect(() => summarizeFunctionalResults(plan, invalid)).toThrow(
+        "invalid duration",
+      );
+    }
+  });
+});

@@ -44,7 +44,17 @@ while IFS= read -r -d '' entry; do
   found="$found$path"$'\n'
   expected="$ROOT/.claude/rules/$(expected_rule "$path")"
   literal=$(readlink "$path")
-  resolved=$(realpath -e "$path" 2>/dev/null)
+  # Resolve portably: BSD realpath has no -e and macOS readlink -f is
+  # recent, so resolve the single-level link by hand and canonicalize the
+  # directory with pwd -P. The rule targets are regular files by contract.
+  case "$literal" in
+    /*) candidate="$literal" ;;
+    *)  candidate="$(dirname "$path")/$literal" ;;
+  esac
+  resolved=""
+  if [ -f "$candidate" ]; then
+    resolved="$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P)/$(basename "$candidate")"
+  fi
   if [ -z "$resolved" ]; then
     echo "BROKEN: $path -> $literal (missing target or wrong ../ depth)"
     fail=1

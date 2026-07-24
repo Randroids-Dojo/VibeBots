@@ -18,7 +18,11 @@ export default class CiCaseReporter implements Reporter {
 
   constructor(options: ReporterOptions = {}) {
     this.outputFile =
-      options.outputFile ?? "playwright-report/ci-case-results.json";
+      options.outputFile ??
+      path.join(
+        process.env.CI_REPRO_REPORT_DIR ?? "playwright-report",
+        "ci-case-results.json",
+      );
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
@@ -50,7 +54,8 @@ export default class CiCaseReporter implements Reporter {
       `${JSON.stringify(
         {
           schemaVersion: 1,
-          commitSha: process.env.GITHUB_SHA ?? null,
+          commitSha:
+            process.env.CI_CASE_COMMIT_SHA ?? process.env.GITHUB_SHA ?? null,
           status: result.status,
           records: this.records,
         },

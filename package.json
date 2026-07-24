@@ -19,6 +19,7 @@
     "test:e2e": "playwright test",
     "test:e2e:critical": "playwright test --grep \"(?=.*@critical)(?=.*@functional)\"",
     "ci:inventory": "node scripts/ci-inventory.mjs",
+    "ci:repro": "node scripts/ci-repro.mjs",
     "check:dashes": "bash scripts/check-dashes.sh",
     "check:purity": "bash scripts/check-sim-purity.sh",
     "ops:check-account-env": "node scripts/check-account-env.mjs",

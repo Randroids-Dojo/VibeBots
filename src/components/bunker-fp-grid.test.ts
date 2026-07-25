@@ -9,12 +9,21 @@ import {
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
 import {
+  buildFpFaceGrids,
   buildFpSolidGrid,
+  createFpFaceGrid,
   createFpSolidGrid,
   FP_CELL_COUNT,
   FP_COLS,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FACE_FLOOR,
+  FP_FACE_MOUNT,
+  FP_FACE_ROOF,
+  FP_FACE_WALL_NX,
+  FP_FACE_WALL_NZ,
+  FP_FACE_WALL_PX,
+  FP_FACE_WALL_PZ,
   FP_FLOOR_SLAB,
   FP_OPEN,
   FP_ROCK_UNDUG,
@@ -31,6 +40,8 @@ import {
   fpCellIsStair,
   fpGridCellFromLocal,
   fpLocalFromGrid,
+  fpSlotOccupied,
+  fpSlotPlaceable,
   fpSlotRenderTransform,
   fpSpawnCell,
   fpStairValue,
@@ -240,6 +251,36 @@ describe("fp solidity", () => {
     expect(grid[fpCellIndex(4, 0, 0)]).toBe(FP_SOLID_PART);
   });
 
+  it("does not stamp destroyed parts into the solid grid", () => {
+    const base = corridorBunker();
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...base,
+      parts: [
+        {
+          partId: "floor-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 0,
+          durability: 0,
+          slot: "floor",
+        },
+        {
+          partId: "stair-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 1,
+          durability: 0,
+          slot: "mount",
+        },
+      ],
+    };
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(bunker, grid);
+    expect(grid[fpCellIndex(3, 0, 0)]).toBe(FP_OPEN);
+    expect(grid[fpCellIndex(3, 0, 1)]).toBe(FP_OPEN);
+  });
+
   it("stamps a staircase as a walkable ramp keyed to its orientation", () => {
     // The four stair values map 1:1 to BunkerOrientation.
     expect(fpStairValue(0)).toBe(FP_STAIR_PX);
@@ -346,6 +387,112 @@ describe("fp solidity", () => {
     expect(grid[fpCellIndex(5, 0, 3)]).toBe(FP_ROCK_UNDUG);
     // The former core cell (F-118) is ordinary open pocket floor now.
     expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_OPEN);
+  });
+
+  it("keeps a floor and four walls as independent faces in one cell", () => {
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...corridorBunker(),
+      parts: [
+        {
+          partId: "floor-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 0,
+          durability: 110,
+          slot: "floor",
+        },
+        ...(["wall-px", "wall-nx", "wall-pz", "wall-nz"] as const).map(
+          (slot) => ({
+            partId: "wall-panel" as const,
+            col: footprint.col + 3,
+            row: bottomRow,
+            depth: 0,
+            durability: 90,
+            slot,
+          }),
+        ),
+      ],
+    };
+    const solid = createFpSolidGrid();
+    const faces = createFpFaceGrid();
+    const walls = createFpFaceGrid();
+    buildFpSolidGrid(bunker, solid);
+    buildFpFaceGrids(bunker, faces, walls);
+    const index = fpCellIndex(3, 0, 0);
+    expect(solid[index]).toBe(FP_FLOOR_SLAB);
+    expect(faces[index]).toBe(
+      FP_FACE_FLOOR |
+        FP_FACE_WALL_PX |
+        FP_FACE_WALL_NX |
+        FP_FACE_WALL_PZ |
+        FP_FACE_WALL_NZ,
+    );
+    expect(walls[index]).toBe(
+      FP_FACE_WALL_PX | FP_FACE_WALL_NX | FP_FACE_WALL_PZ | FP_FACE_WALL_NZ,
+    );
+    for (const slot of [
+      "floor",
+      "wall-px",
+      "wall-nx",
+      "wall-pz",
+      "wall-nz",
+    ] as const) {
+      expect(fpSlotOccupied(faces, 3, 0, 0, slot)).toBe(true);
+    }
+  });
+
+  it("adds an intact roof to the movement barrier grid", () => {
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...corridorBunker(),
+      parts: [
+        {
+          partId: "roof-panel",
+          col: footprint.col + 3,
+          row: bottomRow - 1,
+          depth: 0,
+          durability: 70,
+          slot: "roof",
+        },
+        {
+          partId: "stair-panel",
+          col: footprint.col + 4,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+          slot: "mount",
+        },
+      ],
+    };
+    const faces = createFpFaceGrid();
+    const barriers = createFpFaceGrid();
+    buildFpFaceGrids(bunker, faces, barriers);
+    const index = fpCellIndex(3, 1, 0);
+    expect(faces[index] & FP_FACE_ROOF).toBe(FP_FACE_ROOF);
+    expect(barriers[index] & FP_FACE_ROOF).toBe(FP_FACE_ROOF);
+    expect(faces[fpCellIndex(4, 0, 0)] & FP_FACE_MOUNT).toBe(FP_FACE_MOUNT);
+    expect(barriers[fpCellIndex(4, 0, 0)] & FP_FACE_MOUNT).toBe(0);
+  });
+
+  it("places mounts and thin faces into their independent slots", () => {
+    const solid = createFpSolidGrid();
+    const faces = createFpFaceGrid();
+    const index = fpCellIndex(3, 0, 0);
+    solid[index] = FP_FLOOR_SLAB;
+    faces[index] =
+      FP_FACE_FLOOR |
+      FP_FACE_WALL_PX |
+      FP_FACE_WALL_NX |
+      FP_FACE_WALL_PZ |
+      FP_FACE_WALL_NZ;
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, undefined)).toBe(true);
+
+    faces[index] |= FP_FACE_MOUNT;
+    solid[index] = FP_SOLID_PART;
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, undefined)).toBe(false);
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, "roof")).toBe(true);
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, "floor")).toBe(false);
   });
 
   it("normalizes legacy wire shapes (parts without depth, no dug list)", () => {

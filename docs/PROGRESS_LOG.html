@@ -30,6 +30,110 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-legacy-depth-review" data-date="2026-07-25">
+    <h3>PR #297 normalizes legacy front-layer part depth</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found several exact-slot, occupancy, support, placement, and removal comparisons that read optional stored part depth literally. Those paths now follow the rest of the bunker model and normalize an omitted legacy depth to layer 0.</dd>
+      <dt>Verification</dt><dd>A simulation regression proves a slotted legacy wire shape with no stored depth resolves at front layer 0. Focused bunker suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover the normalization. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>Missing persisted depth is legacy front-layer data and always normalizes to 0.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is defensive compatibility within the completed REQ-046 slot contract.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The final Copilot legacy-depth thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-rubble-review" data-date="2026-07-25">
+    <h3>PR #297 keeps rubble rebuilds authoritative</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that zero-durability rubble disappeared from first-person occupancy while the authoritative slot check still rejected a rebuild. Slot occupancy now counts only intact parts, and placing into a rubble slot replaces that destroyed record instead of creating a duplicate. First-person mounts now submit the explicit <code>mount</code> slot, so their independent placement preview and authoritative request use the same contract.</dd>
+      <dt>Verification</dt><dd>A simulation regression rebuilds an exact zero-durability wall slot and requires one full-durability replacement. The existing first-person staircase browser test now requires the persisted explicit <code>mount</code> slot. Focused bunker, raid-wear, grid, movement, and raycast suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover this review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>Zero durability remains repairable rubble until the player rebuilds that exact slot. Rebuilding consumes stock and replaces the rubble record; it never creates two parts in one slot.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This keeps rebuild affordances consistent with its authoritative slot and durability rules.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The late Copilot rubble-occupancy thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-mount-placement-review" data-date="2026-07-25">
+    <h3>PR #297 lets mounts share cells with thin bunker faces</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that first-person mount placement still treated every thin face as whole-cell occupancy. Face occupancy now records the independent mount slot, and the shared placement helper distinguishes current mounts from legacy whole-cell parts. A mount can therefore enter a cell with a floor, roof, or walls, and a thin face can enter a cell with a mount, while duplicate slots and legacy whole-cell overlap remain rejected.</dd>
+      <dt>Verification</dt><dd>Focused grid coverage proves a mount is recorded without entering the movement barrier grid, accepts a floor plus four occupied wall slots, rejects a duplicate mount, and still permits an unoccupied roof face beside the mount. Focused bunker, grid, movement, and raycast suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover this review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>An undefined first-person placement slot means the selected part uses the authoritative <code>mount</code> slot. A truly legacy no-slot part remains a full-cell blocker.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This completes first-person parity with its existing independent floor, roof, wall, and mount slot contract.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The Copilot mount-placement thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-roof-review" data-date="2026-07-25">
+    <h3>PR #297 restores thin-roof collision and preserves coverage history</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>CodeRabbit correctly found that moving roofs out of the full-cell solid grid also removed their vertical collision. Intact roofs now enter the movement barrier grid, where a thin Y-plane resolver stops upward head crossings at the underside and catches downward feet crossings on top. The edited REQ-046 coverage note was restored byte-for-byte to preserve its historical row; this correction remains recorded through the new append-only base-building GDD build-log and progress entries. A browser assertion already guaranteed by <code>holdFpDigUntil</code> was removed.</dd>
+      <dt>Verification</dt><dd>New unit coverage proves an intact roof enters the barrier grid, blocks a jump at its underside, and catches a fall on top. Focused grid, movement, raycast, and bunker suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover this review round. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>A roof is a two-sided horizontal barrier: its underside blocks a rising capsule and its top supports a falling capsule. Floor slabs retain their existing one-way walkable behavior.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done and unchanged. Its new behavior is append-only history in <code>docs/gdd/08-base-building.html</code> and this progress entry.</dd>
+      <dt>Followups</dt><dd>No deferred followup. All three CodeRabbit review threads are addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-destroyed-part-review" data-date="2026-07-25">
+    <h3>PR #297 keeps destroyed bunker parts out of both occupancy grids</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that the new face grid ignored zero-durability parts while the older solid grid could still stamp their floor, stair, spike, door, or whole-cell shape. The solid grid now skips destroyed parts before applying any cell value, keeping movement, placement, and open-cell counts aligned with the face grid after raid wear.</dd>
+      <dt>Verification</dt><dd>A focused grid regression proves destroyed floor and mount parts leave their dug cells open. Focused bunker, grid, movement, and raycast suites pass 138 tests, with typecheck, Biome, dash validation, and <code>git diff --check</code> also clean. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>Durability at or below zero means a bunker part is destroyed rubble and cannot occupy either a cell body or a thin face.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This aligns first-person occupancy with the existing zero-durability support and raid rules.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The final Copilot occupancy thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-placement-mount-review" data-date="2026-07-25">
+    <h3>PR #297 keeps explicitly slotted mounts pryable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that a whole-cell ray hit carries no face slot, while a staircase or other mount may be stored with the explicit <code>mount</code> slot by a non-first-person path. A shared <code>bunkerPartAtWholeCell</code> lookup now recognizes both legacy no-slot parts and current mounts. The canvas remembers the matched mount slot for the pry intent, and the panel removes that exact part.</dd>
+      <dt>Verification</dt><dd>Focused bunker and first-person raycast tests, typecheck, Biome, dash validation, and <code>git diff --check</code> cover the review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>A whole-cell hit may resolve to a no-slot legacy part or a <code>mount</code>, but never to a thin floor, roof, or wall face.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This preserves the shipped whole-cell mount exception while correcting exact pry identity.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Both Copilot mount threads are addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-placement-review" data-date="2026-07-25">
+    <h3>PR #297 removes redundant raycast slot initializers</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>GitHub code quality correctly found that the thin-face raycast initialized <code>fromSlot</code> and <code>nextSlot</code> with placeholder values even though every exhaustive face branch assigned both before use. The declarations are now typed without redundant initial values.</dd>
+      <dt>Verification</dt><dd>Focused raycast Vitest, typecheck, Biome, dash validation, and <code>git diff --check</code> cover the review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>The six-way face branch remains exhaustive and assigns both slot variables before either is read.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is a static cleanup over the REQ-046 correction.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Both GitHub code-quality threads are addressed on PR #297.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="bunker-multi-slot-placement" data-date="2026-07-25">
+    <h3>Bunker floors and walls now share the same space</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>The authoritative bunker model already allowed independent sub-cell slots, but first-person solidity, movement, raycast, placement, and pry still collapsed every thin wall into a full occupied cube. New face grids keep floors, roofs, and all four wall faces distinct. Movement and aiming use their thin planes, placement rejects only an occupied requested slot, and pry removes the exact aimed panel. Package 0.1.287 adds player-facing release copy.</dd>
+      <dt>Verification</dt><dd>Focused Vitest passed 194 tests across grid, movement, raycast, bunker placement, live raid, and wear suites. Focused Playwright passed both the pending-claim first-person building loop and the latest-release dialog in Chromium. The building loop places and persists a floor in the exact cell of an existing wall, then pries only that wall while the floor remains. Final <code>pnpm verify --build</code> passed all 10 gates: dashes, diff, purity, AGENTS links, attribution, followup ledger, Biome, typecheck, 149 test files with 1,865 unit tests, and the Next.js 16.2.11 production build. Dependency Upgrade Gate passed at slice start and again before PR: VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.11</code>, three <code>0.185.1</code>, and fiber <code>9.6.1</code>. Scheduled Full E2E run <code>30153583660</code> on main was red across broad software-rendered timing and presentation cases already owned by F-132; required push CI must be green before this correction merges.</dd>
+      <dt>Assumptions</dt><dd>No <code>MINE_VERSION</code> or <code>SIM_VERSION</code> bump is needed because this corrects client collision and targeting to match the existing persisted and authoritative slot contract without changing replay, payout, balance, or stored layout semantics.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. Its coverage note and the base-building GDD build log now record the correction. Mine tips were reviewed with no copy change because the existing thin-panel tip already describes face placement. Stamp review found no new milestone because this restores the promised construction rule.</dd>
+      <dt>Followups</dt><dd>No new deferred followup. F-117 and Dot <code>VibeBots-f-117-rework-8a28b100</code> remain active through PR and production closeout.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hardware-store-wallet-sync-review" data-date="2026-07-25">
     <h3>PR #295 review names the archived raid note accurately</h3>
     <dl>

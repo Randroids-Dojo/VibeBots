@@ -40,6 +40,9 @@ import {
   type BunkerOrientation,
   type BunkerSkinId,
   type BunkerState,
+  bunkerPartAtSlot,
+  bunkerPartAtWholeCell,
+  canonicalWallSlot,
   DEFAULT_BUNKER_SKIN,
   isRotatableBasePart,
 } from "@/sim/bunker";
@@ -57,7 +60,9 @@ import type { MineGear } from "@/sim/mine/gear";
 import type { OreId } from "@/sim/mine/ores";
 import { FpClankerLayer } from "./bunker-fp-clankers";
 import {
+  buildFpFaceGrids,
   buildFpSolidGrid,
+  createFpFaceGrid,
   createFpSolidGrid,
   FP_CELL_COUNT,
   FP_COLS,
@@ -66,11 +71,13 @@ import {
   FP_ROCK_UNDUG,
   FP_ROWS,
   type FpEditIntent,
+  type FpFaceGrid,
   type FpSolidGrid,
   fpCellBoxedIn,
   fpCellIndex,
   fpCellInGrid,
   fpGridCellFromLocal,
+  fpSlotPlaceable,
   fpSlotRenderTransform,
   fpSpawnCell,
 } from "./bunker-fp-grid";
@@ -80,7 +87,7 @@ import {
   FP_EYE_HEIGHT,
   type FpMoveInput,
   type FpMoveState,
-  fpCellIntersectsCapsule,
+  fpSlotIntersectsCapsule,
   stepFpMovement,
 } from "./bunker-fp-movement";
 import { bunkerPartFpGeometry } from "./bunker-fp-part-geometry";
@@ -882,6 +889,25 @@ function fpKindCode(kind: FpRayHit["kind"]): number {
   }
 }
 
+function fpSlotCode(slot: FpRayHit["slot"]): number {
+  switch (slot) {
+    case "wall-px":
+      return 1;
+    case "wall-nx":
+      return 2;
+    case "wall-pz":
+      return 3;
+    case "wall-nz":
+      return 4;
+    case "floor":
+      return 5;
+    case "roof":
+      return 6;
+    default:
+      return 0;
+  }
+}
+
 function countFpOpenCells(solid: FpSolidGrid): number {
   let open = 0;
   for (let i = 0; i < FP_CELL_COUNT; i++) {
@@ -952,6 +978,8 @@ function BunkerFpRig({
   // rock-to-open transition a dig makes and aim the crumble burst.
   const solidRef = useRef<FpSolidGrid | null>(null);
   const prevSolidRef = useRef<FpSolidGrid | null>(null);
+  const faceRef = useRef<FpFaceGrid | null>(null);
+  const wallRef = useRef<FpFaceGrid | null>(null);
   const builtForRef = useRef<BunkerState | null>(null);
   const gridRevisionRef = useRef(0);
   const openCellsRef = useRef(0);
@@ -961,18 +989,27 @@ function BunkerFpRig({
   // grid rebuilds and occupied-cell changes only, four grid reads each
   // time, never every frame.
   const occupiedCellRef = useRef(-1);
-  if (!solidRef.current || !prevSolidRef.current) {
+  if (
+    !solidRef.current ||
+    !prevSolidRef.current ||
+    !faceRef.current ||
+    !wallRef.current
+  ) {
     solidRef.current = createFpSolidGrid();
     prevSolidRef.current = createFpSolidGrid();
+    faceRef.current = createFpFaceGrid();
+    wallRef.current = createFpFaceGrid();
     builtForRef.current = bunker;
     buildFpSolidGrid(bunker, solidRef.current);
+    buildFpFaceGrids(bunker, faceRef.current, wallRef.current);
     prevSolidRef.current.set(solidRef.current);
     openCellsRef.current = countFpOpenCells(solidRef.current);
   }
   const refreshBoxedIn = useCallback(() => {
     const solid = solidRef.current;
+    const walls = wallRef.current;
     const cellIndex = occupiedCellRef.current;
-    if (!solid || cellIndex < 0) {
+    if (!solid || !walls || cellIndex < 0) {
       setFpBoxedIn(false);
       return;
     }
@@ -982,16 +1019,22 @@ function BunkerFpRig({
         cellIndex % FP_COLS,
         Math.floor(cellIndex / FP_COLS) % FP_ROWS,
         Math.floor(cellIndex / (FP_COLS * FP_ROWS)),
+        walls,
       ),
     );
   }, []);
   useLayoutEffect(() => {
     const solid = solidRef.current;
     const prev = prevSolidRef.current;
-    if (builtForRef.current === bunker || !solid || !prev) return;
+    const faces = faceRef.current;
+    const walls = wallRef.current;
+    if (builtForRef.current === bunker || !solid || !prev || !faces || !walls) {
+      return;
+    }
     builtForRef.current = bunker;
     prev.set(solid);
     buildFpSolidGrid(bunker, solid);
+    buildFpFaceGrids(bunker, faces, walls);
     gridRevisionRef.current += 1;
     openCellsRef.current = countFpOpenCells(solid);
     refreshBoxedIn();
@@ -1172,6 +1215,8 @@ function BunkerFpRig({
   const rayHitRef = useRef<FpRayHit | null>(null);
   if (!rayHitRef.current) rayHitRef.current = createFpRayHit();
   const targetSigRef = useRef(Number.NaN);
+  const targetPrySlotRef =
+    useRef<BunkerState["parts"][number]["slot"]>(undefined);
   const placeSigRef = useRef(Number.NaN);
   const outlineKindRef = useRef(-1);
   // Thin-slot placement (F-117): recomputed only when the aimed face or the
@@ -1254,9 +1299,11 @@ function BunkerFpRig({
   useFrame((state, delta) => {
     const move = moveRef.current;
     const solid = solidRef.current;
+    const faces = faceRef.current;
+    const walls = wallRef.current;
     const rayHit = rayHitRef.current;
     const swing = swingRef.current;
-    if (!move || !solid || !rayHit || !swing) return;
+    if (!move || !solid || !faces || !walls || !rayHit || !swing) return;
     const isDig = tool === "dig";
 
     // Test-only one-shot camera aim (no-op in normal play).
@@ -1286,7 +1333,7 @@ function BunkerFpRig({
     input.jump = fpInput.jump;
     fpInput.jump = false;
     input.yaw = yawRef.current;
-    stepFpMovement(move, input, solid, Math.min(delta, FP_DT_CLAMP));
+    stepFpMovement(move, input, solid, Math.min(delta, FP_DT_CLAMP), walls);
 
     // Occupied-cell tracking for the boxed-in hint: scalar compare per
     // frame, the four-neighbor check only when the cell changes.
@@ -1386,6 +1433,7 @@ function BunkerFpRig({
       Math.sin(pitchRef.current),
       -Math.cos(yawRef.current) * cosPitch,
       solid,
+      faces,
       FP_MAX_REACH,
       rayHit,
     );
@@ -1428,9 +1476,16 @@ function BunkerFpRig({
       rayHit.hit &&
       rayHit.placeX >= 0 &&
       placement.valid &&
-      solid[fpCellIndex(rayHit.placeX, rayHit.placeY, rayHit.placeZ)] ===
-        FP_OPEN &&
-      !fpCellIntersectsCapsule(
+      fpSlotPlaceable(
+        solid,
+        faces,
+        rayHit.placeX,
+        rayHit.placeY,
+        rayHit.placeZ,
+        placement.slot,
+      ) &&
+      !fpSlotIntersectsCapsule(
+        placement.slot,
         rayHit.placeX,
         rayHit.placeY,
         rayHit.placeZ,
@@ -1500,13 +1555,15 @@ function BunkerFpRig({
     // Target and place probes plus the DOM label, gated by change
     // signatures so strings only build when the target moved.
     const targetSig = rayHit.hit
-      ? gridRevisionRef.current * 100_000 +
-        ((rayHit.z + 1) * 100 + (rayHit.y + 1) * 10 + (rayHit.x + 1)) * 10 +
-        fpKindCode(rayHit.kind)
-      : gridRevisionRef.current * 100_000 - 1;
+      ? gridRevisionRef.current * 1_000_000 +
+        ((rayHit.z + 1) * 100 + (rayHit.y + 1) * 10 + (rayHit.x + 1)) * 100 +
+        fpKindCode(rayHit.kind) * 10 +
+        fpSlotCode(rayHit.slot)
+      : gridRevisionRef.current * 1_000_000 - 1;
     if (targetSigRef.current !== targetSig) {
       targetSigRef.current = targetSig;
       if (!rayHit.hit) {
+        targetPrySlotRef.current = undefined;
         setDatasetText(cache, dataset, "fpTarget", "none");
         setFpTarget("none", null, 0);
       } else {
@@ -1519,24 +1576,31 @@ function BunkerFpRig({
         if (targetPryable) {
           const footprint = bunker.footprint;
           const bottomRow = footprint.row + footprint.height - 1;
+          const targetCol = footprint.col + rayHit.x;
+          const targetRow = bottomRow - rayHit.y;
           let targetPart: BunkerState["parts"][number] | null = null;
-          for (let i = 0; i < bunker.parts.length; i++) {
-            const part = bunker.parts[i];
-            if (
-              part.col - footprint.col === rayHit.x &&
-              bottomRow - part.row === rayHit.y &&
-              (part.depth ?? 0) === rayHit.z
-            ) {
-              targetPart = part;
-              break;
-            }
+          if (rayHit.slot !== undefined) {
+            const ref = canonicalWallSlot(
+              footprint,
+              targetCol,
+              targetRow,
+              rayHit.z,
+              rayHit.slot,
+            );
+            targetPart = bunkerPartAtSlot(bunker, ref) ?? null;
+          } else {
+            targetPart =
+              bunkerPartAtWholeCell(bunker, targetCol, targetRow, rayHit.z) ??
+              null;
           }
+          targetPrySlotRef.current = targetPart?.slot;
           setFpTarget(
             rayHit.kind,
             targetPart?.partId ?? null,
             targetPart?.durability ?? 0,
           );
         } else {
+          targetPrySlotRef.current = undefined;
           setFpTarget(rayHit.kind, null, 0);
         }
       }
@@ -1587,7 +1651,7 @@ function BunkerFpRig({
             rayHit.placeY,
             rayHit.placeZ,
           ),
-          slot: placement.slot,
+          slot: placement.slot ?? "mount",
           // A rotatable part (the staircase) carries the chosen facing; a
           // fixed part omits it. This runs only on an accepted place.
           ...(isRotatableBasePart(selectedPartId)
@@ -1605,6 +1669,9 @@ function BunkerFpRig({
           rayHit.y,
           rayHit.z,
         ),
+        ...(targetPrySlotRef.current !== undefined
+          ? { slot: targetPrySlotRef.current }
+          : {}),
       });
     }
 

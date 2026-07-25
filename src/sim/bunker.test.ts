@@ -20,6 +20,8 @@ import {
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
+  bunkerPartAtSlot,
+  bunkerPartAtWholeCell,
   bunkerRepairPlan,
   CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
@@ -1023,6 +1025,90 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ).toEqual({ ok: false, reason: "occupied" });
   });
 
+  it("replaces zero-durability rubble in an exact slot", () => {
+    const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
+    const placed = placeBasePart(
+      oneCellBunker(c.col, c.row, c.depth),
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      c.depth,
+      "wall-px",
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const worn: BunkerState = {
+      ...placed.bunker,
+      parts: placed.bunker.parts.map((part) => ({
+        ...part,
+        durability: 0,
+      })),
+    };
+    const rebuilt = placeBasePart(
+      worn,
+      placed.inventory,
+      "wall-panel",
+      c.col,
+      c.row,
+      c.depth,
+      "wall-px",
+    );
+    expect(rebuilt.ok).toBe(true);
+    if (!rebuilt.ok) return;
+    expect(rebuilt.bunker.parts).toEqual([
+      expect.objectContaining({
+        partId: "wall-panel",
+        slot: "wall-px",
+        durability: BASE_PART_CATALOG["wall-panel"].durability,
+      }),
+    ]);
+  });
+
+  it("finds an explicit mount as the whole-cell part", () => {
+    const fp = proposedBunkerFootprint(4, 5);
+    const mounted: BunkerState = {
+      ...createBunker(fp, 0),
+      parts: [
+        {
+          partId: "stair-panel",
+          col: fp.col + 3,
+          row: fp.row + fp.height - 1,
+          depth: 2,
+          durability: 70,
+          slot: "mount",
+          orientation: 1,
+        },
+      ],
+    };
+    expect(
+      bunkerPartAtWholeCell(mounted, fp.col + 3, fp.row + fp.height - 1, 2),
+    ).toMatchObject({ partId: "stair-panel", slot: "mount" });
+  });
+
+  it("normalizes omitted stored depth to the front layer in slot lookups", () => {
+    const fp = proposedBunkerFootprint(4, 5);
+    const wall = {
+      partId: "wall-panel",
+      col: fp.col + 3,
+      row: fp.row + fp.height - 1,
+      durability: 90,
+      slot: "wall-px",
+    } as unknown as BunkerState["parts"][number];
+    const bunker: BunkerState = {
+      ...createBunker(fp, 0),
+      parts: [wall],
+    };
+    expect(
+      bunkerPartAtSlot(bunker, {
+        col: wall.col,
+        row: wall.row,
+        depth: 0,
+        slot: "wall-px",
+      }),
+    ).toBe(wall);
+  });
+
   it("rejects the same divider built from the neighboring cell", () => {
     const bunker = allDugBunker(4, 5);
     const c = centerCell(bunker);
@@ -1133,9 +1219,9 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ).toEqual({ ok: false, reason: "slot" });
   });
 
-  it("records a staircase facing on a whole-cell placement (F-117)", () => {
-    // First person places a mount whole-cell (no slot), yet the stair still
-    // records its facing so the ramp and the render match.
+  it("records a staircase facing on a legacy whole-cell placement (F-117)", () => {
+    // A legacy slotless placement still records the stair facing so old
+    // callers preserve the ramp and render orientation.
     const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
     const placed = placeBasePart(
       oneCellBunker(c.col, c.row, c.depth),

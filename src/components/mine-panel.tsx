@@ -31,6 +31,9 @@ import {
   type BasePartId,
   type BunkerOrientation,
   bunkerCells,
+  bunkerPartAtSlot,
+  bunkerPartAtWholeCell,
+  canonicalWallSlot,
   containsBunkerCell,
   isBasePartDamaged,
   isBunkerLayoutIncompatible,
@@ -2932,12 +2935,19 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       }
 
       if (intent.kind === "pry") {
-        const part = activeBunker.parts.find(
-          (candidate) =>
-            candidate.col === col &&
-            candidate.row === row &&
-            (candidate.depth ?? 0) === depth,
-        );
+        const part =
+          intent.slot === undefined
+            ? bunkerPartAtWholeCell(activeBunker, col, row, depth)
+            : bunkerPartAtSlot(
+                activeBunker,
+                canonicalWallSlot(
+                  activeBunker.footprint,
+                  col,
+                  row,
+                  depth,
+                  intent.slot,
+                ),
+              );
         if (!part) {
           feedback(false, "clang");
           return;
@@ -2968,9 +2978,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         feedback(false, "plank");
         return;
       }
-      // The slot the canvas aimed at (F-117); absent for a mount or a legacy
-      // whole-cell placement. Orientation rides along for a rotatable part
-      // (the staircase) and is absent otherwise.
+      // The slot the canvas aimed at (F-117), including the explicit mount
+      // slot for current whole-cell parts. Orientation rides along for a
+      // rotatable part (the staircase) and is absent otherwise.
       commit(
         () =>
           placePendingBunkerPart(

@@ -1,12 +1,19 @@
+import type { BunkerSlot } from "@/sim/bunker";
 import {
   FP_COLS,
   FP_DEPTH,
+  FP_FACE_ROOF,
+  FP_FACE_WALL_NX,
+  FP_FACE_WALL_NZ,
+  FP_FACE_WALL_PX,
+  FP_FACE_WALL_PZ,
   FP_FLOOR_SLAB,
   FP_ROWS,
   FP_SLAB_HEIGHT,
   FP_STAIR_NX,
   FP_STAIR_PX,
   FP_STAIR_PZ,
+  type FpFaceGrid,
   type FpSolidGrid,
   fpCellBlocks,
   fpCellIndex,
@@ -102,6 +109,47 @@ export function fpCellIntersectsCapsule(
   );
 }
 
+/**
+ * True when a thin slot would overlap the player's current capsule. Floors
+ * are allowed under the player because the next movement step lifts the feet
+ * onto the walkable slab. Other faces use their rendered 0.08 thickness.
+ */
+export function fpSlotIntersectsCapsule(
+  slot: BunkerSlot | undefined,
+  cellX: number,
+  cellY: number,
+  cellZ: number,
+  px: number,
+  py: number,
+  pz: number,
+): boolean {
+  if (slot === undefined || slot === "mount") {
+    return fpCellIntersectsCapsule(cellX, cellY, cellZ, px, py, pz);
+  }
+  if (slot === "floor") return false;
+
+  let minX = cellX - 0.5;
+  let maxX = cellX + 0.5;
+  let minY = cellY - 0.5;
+  const maxY = cellY + 0.5;
+  let minZ = -cellZ - 0.5;
+  let maxZ = -cellZ + 0.5;
+  if (slot === "wall-px") minX = cellX + 0.42;
+  else if (slot === "wall-nx") maxX = cellX - 0.42;
+  else if (slot === "wall-pz") maxZ = -cellZ - 0.42;
+  else if (slot === "wall-nz") minZ = -cellZ + 0.42;
+  else if (slot === "roof") minY = cellY + 0.42;
+
+  return (
+    px + FP_CAPSULE_RADIUS > minX &&
+    px - FP_CAPSULE_RADIUS < maxX &&
+    py < maxY &&
+    py + FP_CAPSULE_HEIGHT > minY &&
+    pz + FP_CAPSULE_RADIUS > minZ &&
+    pz - FP_CAPSULE_RADIUS < maxZ
+  );
+}
+
 enum Axis {
   X = 0,
   Z = 1,
@@ -115,6 +163,116 @@ enum Axis {
 let axisBlockerX = 0;
 let axisBlockerY = 0;
 let axisBlockerZ = 0;
+
+function fpWallCellOverlapsCapsuleY(state: FpMoveState, y: number): boolean {
+  return state.py < y + 0.5 && state.py + FP_CAPSULE_HEIGHT > y - 0.5;
+}
+
+function resolveWallFacesX(
+  state: FpMoveState,
+  walls: FpFaceGrid,
+  beforeX: number,
+): void {
+  if (state.vx === 0) return;
+  const positive = state.vx > 0;
+  const beforeEdge =
+    beforeX + (positive ? FP_CAPSULE_RADIUS : -FP_CAPSULE_RADIUS);
+  const afterEdge =
+    state.px + (positive ? FP_CAPSULE_RADIUS : -FP_CAPSULE_RADIUS);
+  for (let z = 0; z < FP_DEPTH; z++) {
+    const cellMinZ = -z - 0.5;
+    const cellMaxZ = -z + 0.5;
+    if (
+      state.pz + FP_CAPSULE_RADIUS <= cellMinZ ||
+      state.pz - FP_CAPSULE_RADIUS >= cellMaxZ
+    ) {
+      continue;
+    }
+    for (let y = 0; y < FP_ROWS; y++) {
+      if (!fpWallCellOverlapsCapsuleY(state, y)) continue;
+      for (let x = 0; x < FP_COLS; x++) {
+        const bit = positive ? FP_FACE_WALL_PX : FP_FACE_WALL_NX;
+        if ((walls[fpCellIndex(x, y, z)] & bit) === 0) continue;
+        const plane = x + (positive ? 0.5 : -0.5);
+        const crossed = positive
+          ? beforeEdge <= plane && afterEdge > plane
+          : beforeEdge >= plane && afterEdge < plane;
+        if (!crossed) continue;
+        state.px = plane + (positive ? -FP_CAPSULE_RADIUS : FP_CAPSULE_RADIUS);
+        state.vx = 0;
+        return;
+      }
+    }
+  }
+}
+
+function resolveWallFacesZ(
+  state: FpMoveState,
+  walls: FpFaceGrid,
+  beforeZ: number,
+): void {
+  if (state.vz === 0) return;
+  const positive = state.vz > 0;
+  const beforeEdge =
+    beforeZ + (positive ? FP_CAPSULE_RADIUS : -FP_CAPSULE_RADIUS);
+  const afterEdge =
+    state.pz + (positive ? FP_CAPSULE_RADIUS : -FP_CAPSULE_RADIUS);
+  for (let z = 0; z < FP_DEPTH; z++) {
+    const bit = positive ? FP_FACE_WALL_NZ : FP_FACE_WALL_PZ;
+    const plane = -z + (positive ? 0.5 : -0.5);
+    const crossed = positive
+      ? beforeEdge <= plane && afterEdge > plane
+      : beforeEdge >= plane && afterEdge < plane;
+    if (!crossed) continue;
+    for (let y = 0; y < FP_ROWS; y++) {
+      if (!fpWallCellOverlapsCapsuleY(state, y)) continue;
+      for (let x = 0; x < FP_COLS; x++) {
+        if (
+          state.px + FP_CAPSULE_RADIUS <= x - 0.5 ||
+          state.px - FP_CAPSULE_RADIUS >= x + 0.5
+        ) {
+          continue;
+        }
+        if ((walls[fpCellIndex(x, y, z)] & bit) === 0) continue;
+        state.pz = plane + (positive ? -FP_CAPSULE_RADIUS : FP_CAPSULE_RADIUS);
+        state.vz = 0;
+        return;
+      }
+    }
+  }
+}
+
+function resolveRoofFacesY(
+  state: FpMoveState,
+  barriers: FpFaceGrid,
+  beforeY: number,
+): boolean {
+  if (state.vy === 0) return false;
+  const rising = state.vy > 0;
+  const beforeEdge = rising ? beforeY + FP_CAPSULE_HEIGHT : beforeY;
+  const afterEdge = rising ? state.py + FP_CAPSULE_HEIGHT : state.py;
+  const r = FP_CAPSULE_RADIUS;
+  const x0 = Math.max(0, Math.ceil(state.px - r - 0.5 + 1e-6));
+  const x1 = Math.min(FP_COLS - 1, Math.floor(state.px + r + 0.5 - 1e-6));
+  const z0 = Math.max(0, Math.ceil(-(state.pz + r) - 0.5 + 1e-6));
+  const z1 = Math.min(FP_DEPTH - 1, Math.floor(-(state.pz - r) + 0.5 - 1e-6));
+  for (let y = 0; y < FP_ROWS; y++) {
+    const plane = rising ? y + 0.5 - FP_SLAB_HEIGHT : y + 0.5;
+    const crossed = rising
+      ? beforeEdge <= plane && afterEdge > plane
+      : beforeEdge >= plane && afterEdge < plane;
+    if (!crossed) continue;
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        if ((barriers[fpCellIndex(x, y, z)] & FP_FACE_ROOF) === 0) continue;
+        state.py = rising ? plane - FP_CAPSULE_HEIGHT : plane;
+        state.vy = 0;
+        return !rising;
+      }
+    }
+  }
+  return false;
+}
 
 /**
  * Push the capsule box out of every blocking cell it overlaps, along
@@ -360,11 +518,40 @@ function stairCeilingCap(
   return py;
 }
 
+function thinRoofCeilingCap(
+  barriers: FpFaceGrid | undefined,
+  px: number,
+  py: number,
+  pz: number,
+): number {
+  if (!barriers) return py;
+  const r = FP_CAPSULE_RADIUS;
+  const x0 = Math.max(0, Math.ceil(px - r - 0.5 + 1e-6));
+  const x1 = Math.min(FP_COLS - 1, Math.floor(px + r + 0.5 - 1e-6));
+  const z0 = Math.max(0, Math.ceil(-(pz + r) - 0.5 + 1e-6));
+  const z1 = Math.min(FP_DEPTH - 1, Math.floor(-(pz - r) + 0.5 - 1e-6));
+  let capped = py;
+  for (let y = 0; y < FP_ROWS; y++) {
+    const underside = y + 0.5 - FP_SLAB_HEIGHT;
+    if (capped >= underside || capped + FP_CAPSULE_HEIGHT <= underside) {
+      continue;
+    }
+    for (let z = z0; z <= z1; z++) {
+      for (let x = x0; x <= x1; x++) {
+        if ((barriers[fpCellIndex(x, y, z)] & FP_FACE_ROOF) === 0) continue;
+        capped = Math.min(capped, underside - FP_CAPSULE_HEIGHT);
+      }
+    }
+  }
+  return capped;
+}
+
 export function stepFpMovement(
   state: FpMoveState,
   input: FpMoveInput,
   solid: FpSolidGrid,
   dt: number,
+  walls?: FpFaceGrid,
 ): void {
   const clamped = Math.min(dt, FP_DT_CLAMP);
   if (clamped <= 0) return;
@@ -389,6 +576,7 @@ export function stepFpMovement(
 
   // Integrate and resolve one axis at a time (X, then Z, then Y) so a
   // wall slide never wedges into a corner.
+  const beforeX = state.px;
   state.px += state.vx * clamped;
   if (state.px < MIN_X) {
     state.px = MIN_X;
@@ -400,7 +588,9 @@ export function stepFpMovement(
   if (resolveAxis(state, solid, Axis.X) && input.autoJump && state.grounded) {
     maybeAutoJump(state, solid);
   }
+  if (walls) resolveWallFacesX(state, walls, beforeX);
 
+  const beforeZ = state.pz;
   state.pz += state.vz * clamped;
   if (state.pz < MIN_WORLD_Z) {
     state.pz = MIN_WORLD_Z;
@@ -412,6 +602,7 @@ export function stepFpMovement(
   if (resolveAxis(state, solid, Axis.Z) && input.autoJump && state.grounded) {
     maybeAutoJump(state, solid);
   }
+  if (walls) resolveWallFacesZ(state, walls, beforeZ);
 
   state.grounded = false;
   // Feet height before the vertical move: the slab ride below needs it to
@@ -429,6 +620,9 @@ export function stepFpMovement(
     state.vy = Math.min(0, state.vy);
   }
   if (resolveAxis(state, solid, Axis.Y)) state.grounded = true;
+  if (walls && resolveRoofFacesY(state, walls, feetBefore)) {
+    state.grounded = true;
+  }
 
   // Ride a staircase ramp: within a stair cell the sloped surface is the
   // floor, so clamp the feet onto it (up while climbing, down while
@@ -437,7 +631,12 @@ export function stepFpMovement(
   // ceiling cap keeps the head from riding into a solid cell above.
   const rampFloor = stairRampFloor(solid, state.px, state.py, state.pz);
   if (rampFloor !== null && (state.py <= rampFloor || state.vy <= 0)) {
-    state.py = stairCeilingCap(solid, state.px, rampFloor, state.pz);
+    state.py = thinRoofCeilingCap(
+      walls,
+      state.px,
+      stairCeilingCap(solid, state.px, rampFloor, state.pz),
+      state.pz,
+    );
     if (state.vy < 0) state.vy = 0;
     state.grounded = true;
   }
@@ -456,7 +655,12 @@ export function stepFpMovement(
       state.pz,
     );
     if (slabTop !== null) {
-      state.py = stairCeilingCap(solid, state.px, slabTop, state.pz);
+      state.py = thinRoofCeilingCap(
+        walls,
+        state.px,
+        stairCeilingCap(solid, state.px, slabTop, state.pz),
+        state.pz,
+      );
       state.vy = 0;
       state.grounded = true;
     }

@@ -669,8 +669,8 @@ test(
     const beforePlace = await canvas.screenshot();
     await canvas.click();
 
-    // The wall lands on its slot: count drops, the grid closes the (cell-
-    // granular) place cell, and the crosshair now sees the part it placed.
+    // The wall lands on its slot without filling the cell. The crosshair
+    // sees the thin boundary plane while the room keeps all 27 open cells.
     await expect(wallSlot).toHaveAttribute(
       "aria-label",
       `Wall x${wallCount - 1}`,
@@ -681,7 +681,7 @@ test(
         timeout: 10_000,
       })
       .toBe("3:0:2:part");
-    await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "27");
     await expect(page.locator(".bunker-fp-target-label")).toHaveText(
       "Wall 90/90",
     );
@@ -698,6 +698,57 @@ test(
       partId: "wall-panel",
       slot: "wall-pz",
     });
+
+    // Add a floor to the exact same cell. Slot-aware targeting keeps the
+    // wall independently addressable while the floor becomes a walkable
+    // slab instead of rejecting the whole cell as occupied.
+    const floorSlot = page.getByTestId("bunker-fp-slot-floor-panel");
+    const floorCountBefore = await floorSlot.getAttribute("aria-label");
+    const floorCount = Number((floorCountBefore ?? "").replace("Floor x", ""));
+    await floorSlot.click();
+    await expect(floorSlot).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-place"), {
+        timeout: 10_000,
+      })
+      .toBe("3:0:2");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-slot"), {
+        timeout: 10_000,
+      })
+      .toBe("floor");
+    await canvas.click();
+    await expect(floorSlot).toHaveAttribute(
+      "aria-label",
+      `Floor x${floorCount - 1}`,
+      { timeout: 10_000 },
+    );
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
+    const stackedParts = await page.evaluate(
+      () =>
+        JSON.parse(localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}")
+          .pendingBunker?.bunker.parts,
+    );
+    expect(stackedParts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          partId: "wall-panel",
+          col: START_COL,
+          row: 5,
+          depth: 2,
+          slot: "wall-pz",
+        }),
+        expect.objectContaining({
+          partId: "floor-panel",
+          col: START_COL,
+          row: 5,
+          depth: 2,
+          slot: "floor",
+        }),
+      ]),
+    );
+    await wallSlot.click();
+    await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
 
     // Auto-stow prying (F-099) has no carry state: the chip's selector
     // matches nothing at any point in this loop.
@@ -723,7 +774,7 @@ test(
       `Wall x${wallCount - 2}`,
       { timeout: 10_000 },
     );
-    await expect(canvas).toHaveAttribute("data-fp-open-cells", "25");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
 
     // Right-click pry refunds the wall straight to the pack: the count
     // rises, the mesh disappears, and no carried chip ever shows.
@@ -760,7 +811,7 @@ test(
       timeout: 10_000,
     });
     await expect(carried).toHaveCount(0);
-    await expect(canvas).toHaveAttribute("data-fp-open-cells", "27");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
     const afterPries = await page.evaluate(() => {
       const trip = JSON.parse(
         localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",
@@ -770,7 +821,15 @@ test(
         wallStock: trip.pendingBunker?.inventory?.["wall-panel"],
       };
     });
-    expect(afterPries.parts).toEqual([]);
+    expect(afterPries.parts).toEqual([
+      expect.objectContaining({
+        partId: "floor-panel",
+        col: START_COL,
+        row: 5,
+        depth: 2,
+        slot: "floor",
+      }),
+    ]);
     expect(afterPries.wallStock).toBe(wallCount);
 
     // The pick digs the rock straight ahead; the room gains a cell.
@@ -799,15 +858,10 @@ test(
     expect(
       Number(await canvas.getAttribute("data-fp-dig-required")),
     ).toBeGreaterThan(1);
-    await expect(canvas).toHaveAttribute("data-fp-open-cells", "27");
+    await expect(canvas).toHaveAttribute("data-fp-open-cells", "26");
     // Holding the press swings until the block's hit requirement is met
     // and the room gains the cell.
-    await holdFpDigUntil(page, 28);
-    await expect
-      .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
-        timeout: 10_000,
-      })
-      .toBe("28");
+    await holdFpDigUntil(page, 27);
     const afterDig = await canvas.screenshot();
     expect(
       await imagePixelDifferenceRatio(page, beforeDig, afterDig),
@@ -1099,7 +1153,8 @@ test(
     await canvas.click();
 
     // The stair lands as a walkable ramp cell the crosshair now targets, and
-    // the persisted part carries the rotated facing with no thin slot.
+    // the persisted part carries the rotated facing in the independent mount
+    // slot.
     await expect
       .poll(async () => canvas.getAttribute("data-fp-target"), {
         timeout: 10_000,
@@ -1113,8 +1168,8 @@ test(
     expect(placedPart).toMatchObject({
       partId: "stair-panel",
       orientation: 1,
+      slot: "mount",
     });
-    expect(placedPart.slot).toBeUndefined();
     const afterPlace = await canvas.screenshot();
     expect(
       await imagePixelDifferenceRatio(page, beforePlace, afterPlace),

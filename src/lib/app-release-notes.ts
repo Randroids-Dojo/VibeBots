@@ -1,10 +1,22 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID =
-  "2026-07-25-0.1.286-hardware-store-wallet-sync";
+export const RELEASE_NOTICE_ID = "2026-07-25-0.1.287-bunker-parts-share-cells";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.287",
+      date: "2026-07-25",
+      title: "Build floors and walls in the same bunker space",
+      intro:
+        "Each bunker space can now hold a floor and all four surrounding walls instead of the first piece claiming the whole cube.",
+      changes: [
+        {
+          build,
+          text: "Thin walls now block only their own face, floors stay walkable beneath you, and the pry tool removes the exact panel you aim at without taking another piece in that space.",
+        },
+      ],
+    },
     {
       version: "0.1.286",
       date: "2026-07-25",

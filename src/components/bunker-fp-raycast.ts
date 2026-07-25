@@ -287,8 +287,8 @@ export function raycastFpGrid(
       const fromFaces = faces[fpCellIndex(fromX, fromY, fromZ)];
       let fromBit = 0;
       let nextBit = 0;
-      let fromSlot: BunkerSlot = "wall-px";
-      let nextSlot: BunkerSlot = "wall-nx";
+      let fromSlot: BunkerSlot;
+      let nextSlot: BunkerSlot;
       if (face === FP_FACE_NEG_X) {
         fromBit = FP_FACE_WALL_PX;
         nextBit = FP_FACE_WALL_NX;

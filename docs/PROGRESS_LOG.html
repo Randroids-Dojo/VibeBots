@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-placement-review" data-date="2026-07-25">
+    <h3>PR #297 removes redundant raycast slot initializers</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>GitHub code quality correctly found that the thin-face raycast initialized <code>fromSlot</code> and <code>nextSlot</code> with placeholder values even though every exhaustive face branch assigned both before use. The declarations are now typed without redundant initial values.</dd>
+      <dt>Verification</dt><dd>Focused raycast Vitest, typecheck, Biome, dash validation, and <code>git diff --check</code> cover the review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>The six-way face branch remains exhaustive and assigns both slot variables before either is read.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is a static cleanup over the REQ-046 correction.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Both GitHub code-quality threads are addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-placement" data-date="2026-07-25">
     <h3>Bunker floors and walls now share the same space</h3>
     <dl>

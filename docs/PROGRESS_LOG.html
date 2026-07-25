@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="hardware-store-wallet-sync-review" data-date="2026-07-25">
+    <h3>PR #295 review names the archived raid note accurately</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/hardware-store-vibe-balance</code>.</dd>
+      <dt>PR</dt><dd>#295.</dd>
+      <dt>Changed</dt><dd>Copilot correctly noted that the 0.1.285 staged-invasion test still called that note the latest after 0.1.286 became current. The test and local variable now describe the archived invasion note without implying it is first in the release list.</dd>
+      <dt>Verification</dt><dd>Focused app-release Vitest and the canonical verifier cover the review correction.</dd>
+      <dt>Assumptions</dt><dd>Historical release tests retain their exact copy pins, but only the first release entry is called latest.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is a test-name correction.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Active Dot <code>VibeBots-fix-hardware-store-9b13a173</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hardware-store-wallet-sync-ci-correction" data-date="2026-07-25">
     <h3>PR #295 critical smoke follows the 0.1.286 release note</h3>
     <dl>

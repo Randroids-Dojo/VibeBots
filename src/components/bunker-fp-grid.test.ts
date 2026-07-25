@@ -18,6 +18,7 @@ import {
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_FACE_FLOOR,
+  FP_FACE_MOUNT,
   FP_FACE_ROOF,
   FP_FACE_WALL_NX,
   FP_FACE_WALL_NZ,
@@ -40,6 +41,7 @@ import {
   fpGridCellFromLocal,
   fpLocalFromGrid,
   fpSlotOccupied,
+  fpSlotPlaceable,
   fpSlotRenderTransform,
   fpSpawnCell,
   fpStairValue,
@@ -453,6 +455,14 @@ describe("fp solidity", () => {
           durability: 70,
           slot: "roof",
         },
+        {
+          partId: "stair-panel",
+          col: footprint.col + 4,
+          row: bottomRow,
+          depth: 0,
+          durability: 70,
+          slot: "mount",
+        },
       ],
     };
     const faces = createFpFaceGrid();
@@ -461,6 +471,28 @@ describe("fp solidity", () => {
     const index = fpCellIndex(3, 1, 0);
     expect(faces[index] & FP_FACE_ROOF).toBe(FP_FACE_ROOF);
     expect(barriers[index] & FP_FACE_ROOF).toBe(FP_FACE_ROOF);
+    expect(faces[fpCellIndex(4, 0, 0)] & FP_FACE_MOUNT).toBe(FP_FACE_MOUNT);
+    expect(barriers[fpCellIndex(4, 0, 0)] & FP_FACE_MOUNT).toBe(0);
+  });
+
+  it("places mounts and thin faces into their independent slots", () => {
+    const solid = createFpSolidGrid();
+    const faces = createFpFaceGrid();
+    const index = fpCellIndex(3, 0, 0);
+    solid[index] = FP_FLOOR_SLAB;
+    faces[index] =
+      FP_FACE_FLOOR |
+      FP_FACE_WALL_PX |
+      FP_FACE_WALL_NX |
+      FP_FACE_WALL_PZ |
+      FP_FACE_WALL_NZ;
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, undefined)).toBe(true);
+
+    faces[index] |= FP_FACE_MOUNT;
+    solid[index] = FP_SOLID_PART;
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, undefined)).toBe(false);
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, "roof")).toBe(true);
+    expect(fpSlotPlaceable(solid, faces, 3, 0, 0, "floor")).toBe(false);
   });
 
   it("normalizes legacy wire shapes (parts without depth, no dug list)", () => {

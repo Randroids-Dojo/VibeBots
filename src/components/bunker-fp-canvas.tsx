@@ -67,7 +67,6 @@ import {
   FP_CELL_COUNT,
   FP_COLS,
   FP_DEPTH,
-  FP_FLOOR_SLAB,
   FP_OPEN,
   FP_ROCK_UNDUG,
   FP_ROWS,
@@ -78,7 +77,7 @@ import {
   fpCellIndex,
   fpCellInGrid,
   fpGridCellFromLocal,
-  fpSlotOccupied,
+  fpSlotPlaceable,
   fpSlotRenderTransform,
   fpSpawnCell,
 } from "./bunker-fp-grid";
@@ -1472,19 +1471,13 @@ function BunkerFpRig({
     // instead of dropping in a whole-cell block. A mount (turret, spikes,
     // staircase) is always valid whole-cell, so `placement.valid` stays
     // true for it.
-    const placeValue =
-      rayHit.placeX >= 0
-        ? solid[fpCellIndex(rayHit.placeX, rayHit.placeY, rayHit.placeZ)]
-        : FP_ROCK_UNDUG;
     const placeOk =
       tool === "build" &&
       rayHit.hit &&
       rayHit.placeX >= 0 &&
       placement.valid &&
-      (placement.slot === undefined
-        ? placeValue === FP_OPEN
-        : placeValue === FP_OPEN || placeValue === FP_FLOOR_SLAB) &&
-      !fpSlotOccupied(
+      fpSlotPlaceable(
+        solid,
         faces,
         rayHit.placeX,
         rayHit.placeY,

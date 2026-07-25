@@ -64,6 +64,7 @@ export const FP_FACE_WALL_PZ = 1 << 2;
 export const FP_FACE_WALL_NZ = 1 << 3;
 export const FP_FACE_FLOOR = 1 << 4;
 export const FP_FACE_ROOF = 1 << 5;
+export const FP_FACE_MOUNT = 1 << 6;
 
 /** World height of a slab's walkable top above its cell's bottom plane,
  * matching the rendered 0.08-thick panel at the FP_SLAB_OFFSET transform
@@ -369,6 +370,8 @@ export function fpFaceBit(slot: BunkerSlot): number {
       return FP_FACE_FLOOR;
     case "roof":
       return FP_FACE_ROOF;
+    case "mount":
+      return FP_FACE_MOUNT;
     default:
       return 0;
   }
@@ -388,9 +391,33 @@ export function fpSlotOccupied(
     : (occupied & fpFaceBit(slot)) !== 0;
 }
 
+export function fpSlotPlaceable(
+  solid: FpSolidGrid,
+  faces: FpFaceGrid,
+  x: number,
+  y: number,
+  z: number,
+  slot: BunkerSlot | undefined,
+): boolean {
+  if (!fpCellInGrid(x, y, z)) return false;
+  const index = fpCellIndex(x, y, z);
+  const occupied = faces[index];
+  const effectiveSlot = slot ?? "mount";
+  if ((occupied & fpFaceBit(effectiveSlot)) !== 0) return false;
+  const value = solid[index];
+  if (slot === undefined) {
+    return value === FP_OPEN || value === FP_FLOOR_SLAB;
+  }
+  return (
+    value === FP_OPEN ||
+    value === FP_FLOOR_SLAB ||
+    (occupied & FP_FACE_MOUNT) !== 0
+  );
+}
+
 /**
  * Builds thin-face occupancy and movement barriers from placed parts.
- * `faces` contains every intact slotted wall, door, floor, and roof.
+ * `faces` contains every intact current slot, including the interior mount.
  * `walls` contains solid wall panels and roof faces for movement collision;
  * the owner's door remains passable. Wall dividers are mirrored onto their
  * neighboring cell.
@@ -405,11 +432,7 @@ export function buildFpFaceGrids(
   const footprint = bunker.footprint;
   const bottomRow = footprint.row + footprint.height - 1;
   for (const part of bunker.parts) {
-    if (
-      part.slot === undefined ||
-      part.slot === "mount" ||
-      part.durability <= 0
-    ) {
+    if (part.slot === undefined || part.durability <= 0) {
       continue;
     }
     const x = part.col - footprint.col;

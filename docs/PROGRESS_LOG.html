@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-mount-placement-review" data-date="2026-07-25">
+    <h3>PR #297 lets mounts share cells with thin bunker faces</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that first-person mount placement still treated every thin face as whole-cell occupancy. Face occupancy now records the independent mount slot, and the shared placement helper distinguishes current mounts from legacy whole-cell parts. A mount can therefore enter a cell with a floor, roof, or walls, and a thin face can enter a cell with a mount, while duplicate slots and legacy whole-cell overlap remain rejected.</dd>
+      <dt>Verification</dt><dd>Focused grid coverage proves a mount is recorded without entering the movement barrier grid, accepts a floor plus four occupied wall slots, rejects a duplicate mount, and still permits an unoccupied roof face beside the mount. Focused bunker, grid, movement, and raycast suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover this review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>An undefined first-person placement slot means the selected part uses the authoritative <code>mount</code> slot. A truly legacy no-slot part remains a full-cell blocker.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This completes first-person parity with its existing independent floor, roof, wall, and mount slot contract.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The Copilot mount-placement thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-roof-review" data-date="2026-07-25">
     <h3>PR #297 restores thin-roof collision and preserves coverage history</h3>
     <dl>

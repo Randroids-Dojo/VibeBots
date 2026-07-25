@@ -248,6 +248,36 @@ describe("fp solidity", () => {
     expect(grid[fpCellIndex(4, 0, 0)]).toBe(FP_SOLID_PART);
   });
 
+  it("does not stamp destroyed parts into the solid grid", () => {
+    const base = corridorBunker();
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...base,
+      parts: [
+        {
+          partId: "floor-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 0,
+          durability: 0,
+          slot: "floor",
+        },
+        {
+          partId: "stair-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 1,
+          durability: 0,
+          slot: "mount",
+        },
+      ],
+    };
+    const grid = createFpSolidGrid();
+    buildFpSolidGrid(bunker, grid);
+    expect(grid[fpCellIndex(3, 0, 0)]).toBe(FP_OPEN);
+    expect(grid[fpCellIndex(3, 0, 1)]).toBe(FP_OPEN);
+  });
+
   it("stamps a staircase as a walkable ramp keyed to its orientation", () => {
     // The four stair values map 1:1 to BunkerOrientation.
     expect(fpStairValue(0)).toBe(FP_STAIR_PX);

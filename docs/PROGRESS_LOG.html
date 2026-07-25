@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-destroyed-part-review" data-date="2026-07-25">
+    <h3>PR #297 keeps destroyed bunker parts out of both occupancy grids</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that the new face grid ignored zero-durability parts while the older solid grid could still stamp their floor, stair, spike, door, or whole-cell shape. The solid grid now skips destroyed parts before applying any cell value, keeping movement, placement, and open-cell counts aligned with the face grid after raid wear.</dd>
+      <dt>Verification</dt><dd>A focused grid regression proves destroyed floor and mount parts leave their dug cells open. Focused bunker, grid, movement, and raycast suites pass 138 tests, with typecheck, Biome, dash validation, and <code>git diff --check</code> also clean. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>Durability at or below zero means a bunker part is destroyed rubble and cannot occupy either a cell body or a thin face.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This aligns first-person occupancy with the existing zero-durability support and raid rules.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The final Copilot occupancy thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-placement-mount-review" data-date="2026-07-25">
     <h3>PR #297 keeps explicitly slotted mounts pryable</h3>
     <dl>

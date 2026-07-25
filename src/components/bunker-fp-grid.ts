@@ -328,6 +328,7 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
     out[fpCellIndex(x, y, z)] = FP_OPEN;
   }
   for (const part of bunker.parts) {
+    if (part.durability <= 0) continue;
     const x = part.col - footprint.col;
     const y = bottomRow - part.row;
     const z = part.depth ?? 0;

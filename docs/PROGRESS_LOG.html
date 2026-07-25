@@ -43,6 +43,19 @@
     </dl>
   </article>
 
+  <article data-slice="bunker-multi-slot-production-closeout" data-date="2026-07-25">
+    <h3>Bunker multi-slot placement is live and F-117 is closed</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/close-bunker-multi-slot</code>.</dd>
+      <dt>PR</dt><dd>#297 shipped the fix. #298 records production closeout.</dd>
+      <dt>Changed</dt><dd>Archived Dot <code>VibeBots-f-117-rework-8a28b100</code> after the merged code, exact-main CI, canonical production deployment, and live release notice all passed. The production confirmation is appended to <code>docs/FUN_FACTOR_AUDIT.html</code>.</dd>
+      <dt>Verification</dt><dd>PR #297 merged as <code>409c3361</code>. Main CI run <code>30171412847</code> passed quality, typecheck, 1,865 unit tests, build, both critical browser shards, both runtime shadows, all ten functional shadows, comparison, and summary. GitHub production deployment <code>5604083663</code> succeeded. Vercel deployment <code>dpl_dmzENzqBJxTyMEGNegspbaLx7Njp</code> is READY with <code>vibebots.randroid.dev</code> among its production aliases. An authenticated browser loaded the canonical production mine and displayed runtime release <code>v0.1.287.296360</code> with the floor plus four-wall and exact-panel-pry correction.</dd>
+      <dt>Assumptions</dt><dd>The production release dialog and deployment metadata prove the canonical site serves the merged package. The exact placement and pry behavior remains pinned by the exact-head browser test and the identical merged SHA's green main pipeline, without mutating a live player's bunker during closeout.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. No coverage row changed in this delivery-only closeout.</dd>
+      <dt>Followups</dt><dd>F-117 is complete. Dot <code>VibeBots-f-117-rework-8a28b100</code> is archived with PR, CI, deployment, and production-browser evidence. No new followup was created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-legacy-depth-review" data-date="2026-07-25">
     <h3>PR #297 normalizes legacy front-layer part depth</h3>
     <dl>

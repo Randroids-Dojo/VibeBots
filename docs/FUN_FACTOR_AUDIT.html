@@ -86,6 +86,18 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-07-25" data-audit-state="bunker-multi-slot-production-confirmation">
+    <h3>Confirmation 2026-07-25 (floor plus four-wall bunker spaces live: PR #297, version 0.1.287)</h3>
+    <p>Source: authenticated browser confirmation against <code>https://vibebots.randroid.dev/mine</code>, GitHub production deployment <code>5604083663</code>, Vercel deployment <code>dpl_dmzENzqBJxTyMEGNegspbaLx7Njp</code>, and exact-main CI run <code>30171412847</code>.</p>
+    <ul>
+      <li><strong>Confirmed live:</strong> the canonical production mine loaded runtime release <code>v0.1.287.296360</code>. Its release dialog states that one bunker space can hold a floor and all four surrounding walls, thin walls block only their own face, floors remain walkable, and the pry tool removes the aimed panel.</li>
+      <li><strong>Behavioral proof:</strong> the exact-head browser regression placed and persisted a floor in the same cell as an existing wall, then pried the wall while the floor remained. The merged SHA passed the complete main pipeline, including both critical browser shards and all ten functional shadows.</li>
+      <li><strong>Interaction result:</strong> floor and wall construction no longer compete for one cube-wide occupancy flag. A builder can form a real room in one layer, with a walkable floor and four independently targeted sides.</li>
+      <li><strong>Evidence boundary:</strong> closeout did not alter a live player's bunker. Production identity came from the authenticated live release dialog and SHA-linked deployment metadata; exact construction and pry mutation came from the browser regression on the merged code.</li>
+      <li><strong>Verdict:</strong> the crucial F-117 construction blocker is resolved and the intended bunker-room grammar is restored. No new fun-factor gap was found in this correction.</li>
+    </ul>
+  </article>
+
   <article data-audit-date="2026-07-13" data-audit-state="bunker-arc-closeout">
     <h3>Confirmation 2026-07-13 (bunker arc complete: tiers, specialists, stacked rooms, repairs, skins; versions 0.1.228 to 0.1.231)</h3>
     <p>Source: a scripted Playwright capture run at Android portrait (390x760) against a local 0.1.231 production build, driven by <code>tests/e2e/bunker-arc-capture.spec.ts</code> (screenshots in <code>docs/reviews/20260713-bunker-arc/captures/</code>). Server responses simulated at the API boundary; client, canvas, and sheet are the real build.</p>

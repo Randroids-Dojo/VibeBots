@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-legacy-depth-review" data-date="2026-07-25">
+    <h3>PR #297 normalizes legacy front-layer part depth</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found several exact-slot, occupancy, support, placement, and removal comparisons that read optional stored part depth literally. Those paths now follow the rest of the bunker model and normalize an omitted legacy depth to layer 0.</dd>
+      <dt>Verification</dt><dd>A simulation regression proves a slotted legacy wire shape with no stored depth resolves at front layer 0. Focused bunker suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover the normalization. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>Missing persisted depth is legacy front-layer data and always normalizes to 0.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is defensive compatibility within the completed REQ-046 slot contract.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The final Copilot legacy-depth thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-rubble-review" data-date="2026-07-25">
     <h3>PR #297 keeps rubble rebuilds authoritative</h3>
     <dl>

@@ -750,7 +750,7 @@ export function bunkerPartAtSlot(
     (part) =>
       part.col === ref.col &&
       part.row === ref.row &&
-      part.depth === ref.depth &&
+      (part.depth ?? 0) === ref.depth &&
       part.slot === ref.slot,
   );
 }
@@ -788,7 +788,7 @@ function bunkerPartConflictsWithSlot(
   if (
     part.col === ref.col &&
     part.row === ref.row &&
-    part.depth === ref.depth &&
+    (part.depth ?? 0) === ref.depth &&
     (part.slot === undefined || part.slot === ref.slot)
   ) {
     return true;
@@ -800,7 +800,7 @@ function bunkerPartConflictsWithSlot(
     part.slot === undefined &&
     part.col === farCol &&
     part.row === ref.row &&
-    part.depth === farDepth
+    (part.depth ?? 0) === farDepth
   );
 }
 
@@ -854,7 +854,7 @@ function bunkerCellOffersSupport(
     (part) =>
       part.col === col &&
       part.row === row &&
-      part.depth === depth &&
+      (part.depth ?? 0) === depth &&
       part.partId !== "floor-spikes" &&
       part.durability > 0,
   );
@@ -1264,7 +1264,7 @@ export function placeBasePart(
           part.durability > 0 &&
           part.col === col &&
           part.row === row &&
-          part.depth === depth,
+          (part.depth ?? 0) === depth,
       )
     ) {
       return { ok: false, reason: "occupied" };
@@ -1390,7 +1390,7 @@ export function removeBasePart(
       return (
         candidate.col === ref.col &&
         candidate.row === ref.row &&
-        candidate.depth === ref.depth &&
+        (candidate.depth ?? 0) === ref.depth &&
         candidate.slot === ref.slot
       );
     }
@@ -1400,7 +1400,7 @@ export function removeBasePart(
       candidate.slot === undefined &&
       candidate.col === col &&
       candidate.row === row &&
-      candidate.depth === depth
+      (candidate.depth ?? 0) === depth
     );
   });
   if (!part) return { ok: false, reason: "missing" };

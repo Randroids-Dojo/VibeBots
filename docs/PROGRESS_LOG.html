@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-rubble-review" data-date="2026-07-25">
+    <h3>PR #297 keeps rubble rebuilds authoritative</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that zero-durability rubble disappeared from first-person occupancy while the authoritative slot check still rejected a rebuild. Slot occupancy now counts only intact parts, and placing into a rubble slot replaces that destroyed record instead of creating a duplicate. First-person mounts now submit the explicit <code>mount</code> slot, so their independent placement preview and authoritative request use the same contract.</dd>
+      <dt>Verification</dt><dd>A simulation regression rebuilds an exact zero-durability wall slot and requires one full-durability replacement. The existing first-person staircase browser test now requires the persisted explicit <code>mount</code> slot. Focused bunker, raid-wear, grid, movement, and raycast suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover this review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>Zero durability remains repairable rubble until the player rebuilds that exact slot. Rebuilding consumes stock and replaces the rubble record; it never creates two parts in one slot.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This keeps rebuild affordances consistent with its authoritative slot and durability rules.</dd>
+      <dt>Followups</dt><dd>No deferred followup. The late Copilot rubble-occupancy thread is addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-mount-placement-review" data-date="2026-07-25">
     <h3>PR #297 lets mounts share cells with thin bunker faces</h3>
     <dl>

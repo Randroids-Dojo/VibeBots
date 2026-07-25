@@ -781,27 +781,32 @@ export function bunkerPartAtWholeCell(
  * bunker (Q-022 hard-resets an old layout before the thin model loads), so
  * the cross-cell legacy case only matters defensively until that boundary
  * lands. */
-function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
-  const here = bunker.parts.some((part) => {
-    if (
-      part.col !== ref.col ||
-      part.row !== ref.row ||
-      part.depth !== ref.depth
-    ) {
-      return false;
-    }
-    return part.slot === undefined || part.slot === ref.slot;
-  });
-  if (here) return true;
+function bunkerPartConflictsWithSlot(
+  part: PlacedBasePart,
+  ref: BunkerSlotRef,
+): boolean {
+  if (
+    part.col === ref.col &&
+    part.row === ref.row &&
+    part.depth === ref.depth &&
+    (part.slot === undefined || part.slot === ref.slot)
+  ) {
+    return true;
+  }
   if (!isBunkerWallSlot(ref.slot)) return false;
   const farCol = ref.slot === "wall-px" ? ref.col + 1 : ref.col;
   const farDepth = ref.slot === "wall-pz" ? ref.depth + 1 : ref.depth;
+  return (
+    part.slot === undefined &&
+    part.col === farCol &&
+    part.row === ref.row &&
+    part.depth === farDepth
+  );
+}
+
+function bunkerSlotOccupied(bunker: BunkerState, ref: BunkerSlotRef): boolean {
   return bunker.parts.some(
-    (part) =>
-      part.slot === undefined &&
-      part.col === farCol &&
-      part.row === ref.row &&
-      part.depth === farDepth,
+    (part) => part.durability > 0 && bunkerPartConflictsWithSlot(part, ref),
   );
 }
 
@@ -820,7 +825,8 @@ function bunkerCellBlockedByWall(
 ): boolean {
   for (const face of WALL_SLOTS) {
     const ref = canonicalWallSlot(bunker.footprint, col, row, depth, face);
-    if (bunkerPartAtSlot(bunker, ref)) return true;
+    const wall = bunkerPartAtSlot(bunker, ref);
+    if (wall && wall.durability > 0) return true;
   }
   return false;
 }
@@ -914,7 +920,8 @@ function isBunkerMountSupported(
 ): boolean {
   if (bunkerCellOffersSupport(bunker, col, row + 1, depth)) return true;
   return (
-    bunkerPartAtSlot(bunker, { col, row, depth, slot: "floor" }) !== undefined
+    (bunkerPartAtSlot(bunker, { col, row, depth, slot: "floor" })?.durability ??
+      0) > 0
   );
 }
 
@@ -1253,7 +1260,11 @@ export function placeBasePart(
   if (slot === undefined) {
     if (
       bunker.parts.some(
-        (part) => part.col === col && part.row === row && part.depth === depth,
+        (part) =>
+          part.durability > 0 &&
+          part.col === col &&
+          part.row === row &&
+          part.depth === depth,
       )
     ) {
       return { ok: false, reason: "occupied" };
@@ -1314,12 +1325,15 @@ export function placeBasePart(
     return { ok: false, reason: "unsupported" };
   }
   if (inventory[partId] <= 0) return { ok: false, reason: "stock" };
+  const survivingParts = bunker.parts.filter(
+    (part) => part.durability > 0 || !bunkerPartConflictsWithSlot(part, ref),
+  );
   return {
     ok: true,
     bunker: {
       ...bunker,
       parts: [
-        ...bunker.parts,
+        ...survivingParts,
         {
           partId,
           col: ref.col,

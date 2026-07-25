@@ -2978,9 +2978,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
         feedback(false, "plank");
         return;
       }
-      // The slot the canvas aimed at (F-117); absent for a mount or a legacy
-      // whole-cell placement. Orientation rides along for a rotatable part
-      // (the staircase) and is absent otherwise.
+      // The slot the canvas aimed at (F-117), including the explicit mount
+      // slot for current whole-cell parts. Orientation rides along for a
+      // rotatable part (the staircase) and is absent otherwise.
       commit(
         () =>
           placePendingBunkerPart(

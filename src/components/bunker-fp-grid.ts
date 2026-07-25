@@ -107,9 +107,10 @@ export interface FpEditCell {
 export interface FpEditIntent {
   kind: "place" | "pry" | "dig" | "collect" | "chip";
   cell: FpEditCell;
-  /** Thin sub-cell slot the action targets (F-117). Absent for a legacy
-   * whole-cell part, a dig, or a collect. On place or pry it is the exact
-   * aimed face; the sim canonicalizes a wall to one boundary. */
+  /** Sub-cell slot the action targets (F-117), including the explicit mount
+   * slot for current whole-cell parts. Absent for a legacy whole-cell part,
+   * a dig, or a collect. On place or pry it is the exact aimed slot; the sim
+   * canonicalizes a wall to one boundary. */
   slot?: BunkerSlot;
   /** Facing for a rotatable part (F-117 stair) on a place intent; absent for
    * every fixed-orientation part and non-place intent. */

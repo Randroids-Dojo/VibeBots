@@ -1651,7 +1651,7 @@ function BunkerFpRig({
             rayHit.placeY,
             rayHit.placeZ,
           ),
-          slot: placement.slot,
+          slot: placement.slot ?? "mount",
           // A rotatable part (the staircase) carries the chosen facing; a
           // fixed part omits it. This runs only on an accepted place.
           ...(isRotatableBasePart(selectedPartId)

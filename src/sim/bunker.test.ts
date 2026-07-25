@@ -1024,6 +1024,46 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ).toEqual({ ok: false, reason: "occupied" });
   });
 
+  it("replaces zero-durability rubble in an exact slot", () => {
+    const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
+    const placed = placeBasePart(
+      oneCellBunker(c.col, c.row, c.depth),
+      inventory(),
+      "wall-panel",
+      c.col,
+      c.row,
+      c.depth,
+      "wall-px",
+    );
+    expect(placed.ok).toBe(true);
+    if (!placed.ok) return;
+    const worn: BunkerState = {
+      ...placed.bunker,
+      parts: placed.bunker.parts.map((part) => ({
+        ...part,
+        durability: 0,
+      })),
+    };
+    const rebuilt = placeBasePart(
+      worn,
+      placed.inventory,
+      "wall-panel",
+      c.col,
+      c.row,
+      c.depth,
+      "wall-px",
+    );
+    expect(rebuilt.ok).toBe(true);
+    if (!rebuilt.ok) return;
+    expect(rebuilt.bunker.parts).toEqual([
+      expect.objectContaining({
+        partId: "wall-panel",
+        slot: "wall-px",
+        durability: BASE_PART_CATALOG["wall-panel"].durability,
+      }),
+    ]);
+  });
+
   it("finds an explicit mount as the whole-cell part", () => {
     const fp = proposedBunkerFootprint(4, 5);
     const mounted: BunkerState = {
@@ -1155,9 +1195,9 @@ describe("bunker thin sub-cell slots (F-117)", () => {
     ).toEqual({ ok: false, reason: "slot" });
   });
 
-  it("records a staircase facing on a whole-cell placement (F-117)", () => {
-    // First person places a mount whole-cell (no slot), yet the stair still
-    // records its facing so the ramp and the render match.
+  it("records a staircase facing on a legacy whole-cell placement (F-117)", () => {
+    // A legacy slotless placement still records the stair facing so old
+    // callers preserve the ramp and render orientation.
     const c = { col: 4, row: proposedBunkerFootprint(4, 5).row, depth: 0 };
     const placed = placeBasePart(
       oneCellBunker(c.col, c.row, c.depth),

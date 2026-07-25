@@ -1153,7 +1153,8 @@ test(
     await canvas.click();
 
     // The stair lands as a walkable ramp cell the crosshair now targets, and
-    // the persisted part carries the rotated facing with no thin slot.
+    // the persisted part carries the rotated facing in the independent mount
+    // slot.
     await expect
       .poll(async () => canvas.getAttribute("data-fp-target"), {
         timeout: 10_000,
@@ -1167,8 +1168,8 @@ test(
     expect(placedPart).toMatchObject({
       partId: "stair-panel",
       orientation: 1,
+      slot: "mount",
     });
-    expect(placedPart.slot).toBeUndefined();
     const afterPlace = await canvas.screenshot();
     expect(
       await imagePixelDifferenceRatio(page, beforePlace, afterPlace),

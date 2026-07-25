@@ -32,6 +32,7 @@ import {
   type BunkerOrientation,
   bunkerCells,
   bunkerPartAtSlot,
+  bunkerPartAtWholeCell,
   canonicalWallSlot,
   containsBunkerCell,
   isBasePartDamaged,
@@ -2936,13 +2937,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       if (intent.kind === "pry") {
         const part =
           intent.slot === undefined
-            ? activeBunker.parts.find(
-                (candidate) =>
-                  candidate.col === col &&
-                  candidate.row === row &&
-                  (candidate.depth ?? 0) === depth &&
-                  candidate.slot === undefined,
-              )
+            ? bunkerPartAtWholeCell(activeBunker, col, row, depth)
             : bunkerPartAtSlot(
                 activeBunker,
                 canonicalWallSlot(

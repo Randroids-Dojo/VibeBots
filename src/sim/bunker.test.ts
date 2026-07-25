@@ -20,6 +20,7 @@ import {
   type BunkerState,
   basePartOwnedLimit,
   bunkerCells,
+  bunkerPartAtWholeCell,
   bunkerRepairPlan,
   CLANKER_BREACHER_XP,
   CLANKER_SELF_DESTRUCT_XP,
@@ -1021,6 +1022,27 @@ describe("bunker thin sub-cell slots (F-117)", () => {
         "wall-px",
       ),
     ).toEqual({ ok: false, reason: "occupied" });
+  });
+
+  it("finds an explicit mount as the whole-cell part", () => {
+    const fp = proposedBunkerFootprint(4, 5);
+    const mounted: BunkerState = {
+      ...createBunker(fp, 0),
+      parts: [
+        {
+          partId: "stair-panel",
+          col: fp.col + 3,
+          row: fp.row + fp.height - 1,
+          depth: 2,
+          durability: 70,
+          slot: "mount",
+          orientation: 1,
+        },
+      ],
+    };
+    expect(
+      bunkerPartAtWholeCell(mounted, fp.col + 3, fp.row + fp.height - 1, 2),
+    ).toMatchObject({ partId: "stair-panel", slot: "mount" });
   });
 
   it("rejects the same divider built from the neighboring cell", () => {

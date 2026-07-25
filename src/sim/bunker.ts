@@ -755,6 +755,23 @@ export function bunkerPartAtSlot(
   );
 }
 
+/** The whole-cell part at coordinates, whether it is a legacy no-slot part
+ * or a current mount. Thin face parts never match this lookup. */
+export function bunkerPartAtWholeCell(
+  bunker: BunkerState,
+  col: number,
+  row: number,
+  depth: number,
+): PlacedBasePart | undefined {
+  return bunker.parts.find(
+    (part) =>
+      part.col === col &&
+      part.row === row &&
+      (part.depth ?? 0) === depth &&
+      (part.slot === undefined || part.slot === "mount"),
+  );
+}
+
 /** True when a part already occupies `ref`'s slot (F-117). A legacy
  * full-cell part (no slot) fills its whole cell, so it conflicts with any
  * slot in that cell; a slotted part conflicts only on the same canonical

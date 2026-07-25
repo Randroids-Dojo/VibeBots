@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-placement-mount-review" data-date="2026-07-25">
+    <h3>PR #297 keeps explicitly slotted mounts pryable</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that a whole-cell ray hit carries no face slot, while a staircase or other mount may be stored with the explicit <code>mount</code> slot by a non-first-person path. A shared <code>bunkerPartAtWholeCell</code> lookup now recognizes both legacy no-slot parts and current mounts. The canvas remembers the matched mount slot for the pry intent, and the panel removes that exact part.</dd>
+      <dt>Verification</dt><dd>Focused bunker and first-person raycast tests, typecheck, Biome, dash validation, and <code>git diff --check</code> cover the review correction. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>A whole-cell hit may resolve to a no-slot legacy part or a <code>mount</code>, but never to a thin floor, roof, or wall face.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. This preserves the shipped whole-cell mount exception while correcting exact pry identity.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Both Copilot mount threads are addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-placement-review" data-date="2026-07-25">
     <h3>PR #297 removes redundant raycast slot initializers</h3>
     <dl>

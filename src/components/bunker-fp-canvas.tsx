@@ -41,6 +41,7 @@ import {
   type BunkerSkinId,
   type BunkerState,
   bunkerPartAtSlot,
+  bunkerPartAtWholeCell,
   canonicalWallSlot,
   DEFAULT_BUNKER_SKIN,
   isRotatableBasePart,
@@ -1215,6 +1216,8 @@ function BunkerFpRig({
   const rayHitRef = useRef<FpRayHit | null>(null);
   if (!rayHitRef.current) rayHitRef.current = createFpRayHit();
   const targetSigRef = useRef(Number.NaN);
+  const targetPrySlotRef =
+    useRef<BunkerState["parts"][number]["slot"]>(undefined);
   const placeSigRef = useRef(Number.NaN);
   const outlineKindRef = useRef(-1);
   // Thin-slot placement (F-117): recomputed only when the aimed face or the
@@ -1567,6 +1570,7 @@ function BunkerFpRig({
     if (targetSigRef.current !== targetSig) {
       targetSigRef.current = targetSig;
       if (!rayHit.hit) {
+        targetPrySlotRef.current = undefined;
         setDatasetText(cache, dataset, "fpTarget", "none");
         setFpTarget("none", null, 0);
       } else {
@@ -1593,20 +1597,17 @@ function BunkerFpRig({
             targetPart = bunkerPartAtSlot(bunker, ref) ?? null;
           } else {
             targetPart =
-              bunker.parts.find(
-                (part) =>
-                  part.col === targetCol &&
-                  part.row === targetRow &&
-                  (part.depth ?? 0) === rayHit.z &&
-                  part.slot === undefined,
-              ) ?? null;
+              bunkerPartAtWholeCell(bunker, targetCol, targetRow, rayHit.z) ??
+              null;
           }
+          targetPrySlotRef.current = targetPart?.slot;
           setFpTarget(
             rayHit.kind,
             targetPart?.partId ?? null,
             targetPart?.durability ?? 0,
           );
         } else {
+          targetPrySlotRef.current = undefined;
           setFpTarget(rayHit.kind, null, 0);
         }
       }
@@ -1675,7 +1676,9 @@ function BunkerFpRig({
           rayHit.y,
           rayHit.z,
         ),
-        ...(rayHit.slot !== undefined ? { slot: rayHit.slot } : {}),
+        ...(targetPrySlotRef.current !== undefined
+          ? { slot: targetPrySlotRef.current }
+          : {}),
       });
     }
 

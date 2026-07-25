@@ -160,7 +160,7 @@ test(
 
 test(
   "surface base return visibly glides the miner to center",
-  ciCase("E2E-MINE-NAVIGATION-0009", "@render"),
+  ciCase("E2E-MINE-NAVIGATION-0010", "@render"),
   async ({ page }) => {
     test.setTimeout(120_000);
     await routeStarterMineWorld(page, 2026072501);

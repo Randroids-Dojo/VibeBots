@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="hardware-store-wallet-sync-ci-correction" data-date="2026-07-25">
+    <h3>PR #295 critical smoke follows the 0.1.286 release note</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/hardware-store-vibe-balance</code>.</dd>
+      <dt>PR</dt><dd>#295.</dd>
+      <dt>Changed</dt><dd>The first exact-head Critical E2E run reached the new 0.1.286 release dialog but still expected the previous 0.1.285 raid copy and three change bullets. The release-notification smoke now requires the Hardware Store wallet intro, its single change bullet, and 0.1.286 at the head of the complete release history.</dd>
+      <dt>Verification</dt><dd>Focused Playwright release-notification smoke passed in Chromium after the correction.</dd>
+      <dt>Assumptions</dt><dd>The latest-release smoke must move with every package release note while continuing to pin the full visible history.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is regression coverage for the 0.1.286 release record already logged in the mining GDD.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Active Dot <code>VibeBots-fix-hardware-store-9b13a173</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hardware-store-wallet-sync" data-date="2026-07-25">
     <h3>Hardware Store purchases now update the visible vibe balance</h3>
     <dl>

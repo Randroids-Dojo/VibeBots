@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ciCase } from "./support/ci-case";
 import {
+  bypassMineRenderer,
   digTo,
   dismissReleaseNotes,
   openSettings,
@@ -277,6 +278,7 @@ test(
   "the carved world survives a reload (REQ-026)",
   ciCase("E2E-MINE-SAVE-SLOTS-0004", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");

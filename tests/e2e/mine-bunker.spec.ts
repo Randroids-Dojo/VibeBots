@@ -384,9 +384,8 @@ test(
 
 test(
   "bunker claims can be edited before banking",
-  ciCase("E2E-MINE-BUNKER-0004", "@functional"),
+  ciCase("E2E-MINE-BUNKER-0004", "@render"),
   async ({ page }) => {
-    // Software-GL runners compile the fp scene slowly.
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 390, height: 760 });
     const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);

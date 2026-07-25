@@ -4,6 +4,7 @@ import { imagePixelDifferenceRatio } from "./support/image-pixels";
 import {
   applyAction,
   awaitMineSceneReady,
+  bypassMineRenderer,
   countRedPixels,
   createMine,
   DEFAULT_GEAR,
@@ -453,9 +454,7 @@ test(
   "stratum entry banners fade after continued descent",
   ciCase("E2E-MINE-CORE-0006", "@functional"),
   async ({ page }) => {
-    // Deep digs cost ~0.62s per swing at sim cadence; slow runners also pay
-    // a first-frame shader-compile stall, so the default 60s budget is tight.
-    test.setTimeout(120_000);
+    await bypassMineRenderer(page);
     const seed = 2026062801;
     // High-gear trip fixture: pickaxe 9 cuts dirt in one swing, so the
     // 13-row descent fits slow-runner budgets even when timer cadence

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ciCase } from "./support/ci-case";
 import {
+  bypassMineRenderer,
   createMine,
   DEFAULT_GEAR,
   dismissReleaseNotes,
@@ -19,6 +20,7 @@ test(
   "village buildings enter the workshop and arena (REQ-021)",
   ciCase("E2E-MINE-NAVIGATION-0001", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
@@ -46,6 +48,7 @@ test(
   "surface base indicator offers a paid return",
   ciCase("E2E-MINE-NAVIGATION-0002", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     let chargedCost = 0;
     await routeStarterMineWorld(page, 2026062701);
     await page.route("**/api/gear", async (route) => {
@@ -66,7 +69,6 @@ test(
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
-    const canvas = page.locator("canvas");
     await expect(status).toHaveAttribute("data-depth", "0");
     await expect(status).toHaveAttribute("data-wallet", "6");
 
@@ -86,20 +88,11 @@ test(
     await teleport.click();
 
     await expect(page.locator(".mine-base-teleport-burst")).toBeVisible();
-    // Authoritative: the base return puts the miner's store column back at the
-    // surface base (data-horizontal-distance 0), then the rendered position
-    // glides to center. Generous budgets survive the throttled round-trip
-    // latency instead of racing the animated position on a default deadline
-    // (F-196, the same round-trip hazard F-127 fixed).
+    // The authoritative functional contract is the store position. The
+    // hardware render tier separately owns the visible glide to center.
     await expect(status).toHaveAttribute("data-horizontal-distance", "0", {
       timeout: 15_000,
     });
-    await expect
-      .poll(
-        async () => Math.abs(Number(await canvas.getAttribute("data-miner-x"))),
-        { timeout: 15_000 },
-      )
-      .toBeLessThan(0.6);
     await expect(indicator).not.toBeVisible();
     expect(chargedCost).toBeGreaterThanOrEqual(1);
     await expect(status).toHaveAttribute(
@@ -113,6 +106,7 @@ test(
   "surface base return skips checkpoint for a touched surface mine",
   ciCase("E2E-MINE-NAVIGATION-0003", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     let bankRequests = 0;
     let chargedCost = 0;
     await routeStarterMineWorld(page, 2026062702);
@@ -138,7 +132,6 @@ test(
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
-    const canvas = page.locator("canvas");
     await expect(status).toHaveAttribute("data-depth", "0");
 
     await pressMineKey(page, "ArrowDown");
@@ -153,11 +146,56 @@ test(
     await expect(teleport).toContainText("Confirm for");
     await teleport.click();
 
-    // Authoritative: the base return puts the miner's store column back at the
-    // surface base (data-horizontal-distance 0), then the rendered position
-    // glides to center. Generous budgets survive the throttled round-trip
-    // latency instead of racing the animated position on a default deadline
-    // (F-196, the same round-trip hazard F-127 fixed).
+    await expect(status).toHaveAttribute("data-horizontal-distance", "0", {
+      timeout: 15_000,
+    });
+    expect(bankRequests).toBe(0);
+    expect(chargedCost).toBeGreaterThanOrEqual(1);
+    await expect(status).toHaveAttribute(
+      "data-wallet",
+      String(6 - chargedCost),
+    );
+  },
+);
+
+test(
+  "surface base return visibly glides the miner to center",
+  ciCase("E2E-MINE-NAVIGATION-0009", "@render"),
+  async ({ page }) => {
+    test.setTimeout(120_000);
+    await routeStarterMineWorld(page, 2026072501);
+    await page.route("**/api/gear", async (route) => {
+      await route.fulfill({
+        json: {
+          gear: DEFAULT_GEAR,
+          consumables: STARTING_CONSUMABLES,
+          balance: 6,
+        },
+      });
+    });
+    await page.route("**/api/mine/base-teleport", async (route) => {
+      const body = route.request().postDataJSON() as { cost: number };
+      await route.fulfill({ json: { balance: 6 - body.cost } });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const status = page.getByLabel("Mine status");
+    const canvas = page.locator("canvas");
+    await expect(status).toHaveAttribute("data-scene-painted", "true", {
+      timeout: 30_000,
+    });
+
+    const indicator = await walkUntilBaseIndicator(page);
+    await indicator.click();
+    const teleport = page
+      .getByRole("region", { name: "Base return" })
+      .getByRole("button");
+    await teleport.click();
+    await expect(teleport).toContainText("Confirm for");
+    await teleport.click();
+
+    await expect(page.locator(".mine-base-teleport-burst")).toBeVisible();
     await expect(status).toHaveAttribute("data-horizontal-distance", "0", {
       timeout: 15_000,
     });
@@ -167,12 +205,6 @@ test(
         { timeout: 15_000 },
       )
       .toBeLessThan(0.6);
-    expect(bankRequests).toBe(0);
-    expect(chargedCost).toBeGreaterThanOrEqual(1);
-    await expect(status).toHaveAttribute(
-      "data-wallet",
-      String(6 - chargedCost),
-    );
   },
 );
 

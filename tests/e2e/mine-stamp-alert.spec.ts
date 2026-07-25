@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { ciCase } from "./support/ci-case";
 import {
+  bypassMineRenderer,
   DEFAULT_GEAR,
   dismissReleaseNotes,
   openStall,
@@ -14,6 +15,7 @@ import {
 // the Supply Depot and open it. Tests click Buy themselves (the first
 // one arms an observer before the click).
 async function openStubbedDepot(page: Page, seed: number): Promise<Locator> {
+  await bypassMineRenderer(page);
   await routeStarterMineWorld(page, seed);
   await page.route("**/api/gear", async (route) => {
     await route.fulfill({
@@ -114,13 +116,15 @@ test(
     const alert = page.locator('[data-stamp-alert="tool-depot-regular"]');
     await expect(alert).toBeVisible();
 
-    // Position: the card's top lands about 25% down the viewport.
+    // Position: inspect the fixed anchor, not the transformed box while the
+    // card's pop animation is changing its scale and rotation.
     const viewport = page.viewportSize();
-    const box = await alert.boundingBox();
-    expect(box).not.toBeNull();
-    expect(
-      Math.abs((box?.y ?? 0) - (viewport?.height ?? 0) * 0.25),
-    ).toBeLessThan((viewport?.height ?? 0) * 0.05);
+    const anchoredTop = await alert.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).top),
+    );
+    expect(Math.abs(anchoredTop - (viewport?.height ?? 0) * 0.25)).toBeLessThan(
+      (viewport?.height ?? 0) * 0.05,
+    );
 
     await alert
       .getByRole("button", { name: "Open Depot Regular in the Stamp Book" })

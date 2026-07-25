@@ -24,6 +24,7 @@
     "ci:functional-run": "node scripts/ci-functional-run.mjs",
     "ci:functional-summary": "node scripts/ci-functional-summary.mjs",
     "ci:build-artifact": "node scripts/ci-build-artifact.mjs",
+    "ci:render": "node scripts/ci-render.mjs",
     "verify": "bash scripts/verify-local.sh",
     "verify:selftest": "bash scripts/verify-local.selftest.sh",
     "check:dashes": "bash scripts/check-dashes.sh",

@@ -8,6 +8,7 @@ import {
   aimFp,
   armFpPointer,
   awaitMineSceneReady,
+  bypassMineRenderer,
   createMine,
   DEFAULT_GEAR,
   digTo,
@@ -1833,7 +1834,7 @@ test.describe("phone viewport", () => {
     "the phone hotbar keeps every slot and the pry toggle inside the viewport",
     ciCase("E2E-MINE-BUNKER-FP-0023", "@functional"),
     async ({ page }) => {
-      test.setTimeout(240_000);
+      await bypassMineRenderer(page);
       await page.route("**/api/bunker", async (route) => {
         await route.fulfill({
           status: 200,

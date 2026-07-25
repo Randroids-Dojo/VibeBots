@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { ciCase } from "./support/ci-case";
 import {
   awaitMineSceneReady,
+  bypassMineRenderer,
   descendLadderShaft,
   dismissReleaseNotes,
   pressMineKey,
@@ -157,6 +158,7 @@ test(
   "holding up keeps mining but never plants a ladder",
   ciCase("E2E-MINE-KEYBOARD-CONTROLS-0005", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     // A shaft below the spawn and a side pocket with a dirt ceiling: the
     // miner drops in, steps into the pocket, and holds "up" at the ceiling.
     await routeStarterMineWorld(page, 5353, (mine) => {

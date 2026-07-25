@@ -3,6 +3,7 @@ import { ciCase } from "./support/ci-case";
 import { imageRegionPixelDifferenceRatio } from "./support/image-pixels";
 import {
   awaitMineSceneReady,
+  bypassMineRenderer,
   createMine,
   DEFAULT_GEAR,
   digLateral,
@@ -445,7 +446,7 @@ test(
 
 test(
   "the elevator places a chosen shaft and sells one premium rail row",
-  ciCase("E2E-MINE-WARP-ELEVATOR-0004", "@functional"),
+  ciCase("E2E-MINE-WARP-ELEVATOR-0004", "@render"),
   async ({ page }) => {
     await routeStarterMineWorld(page, 9291, (mine) => {
       for (let col = START_COL - 1; col >= -5; col -= 1) {
@@ -1234,6 +1235,7 @@ test(
   "recall cancels an active elevator ride and its local timer",
   ciCase("E2E-MINE-WARP-ELEVATOR-0010", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     const railDepth = 120;
     const gear = {
       ...DEFAULT_GEAR,

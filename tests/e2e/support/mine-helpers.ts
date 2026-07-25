@@ -27,6 +27,15 @@ export const APP_VERSION_PATTERN = new RegExp(
 );
 export const CURRENT_RELEASE_NOTICE_ID = getAppRelease().noticeId;
 
+/** Opt one functional case into the server-side renderer bypass. The product
+ * behavior, DOM, store, and timers remain live, while the accelerated render
+ * contract stays owned by @render cases on capable hardware. */
+export async function bypassMineRenderer(page: Page): Promise<void> {
+  await page.setExtraHTTPHeaders({
+    "x-vibebots-e2e-capability": "functional",
+  });
+}
+
 export async function pressMineKey(
   page: Page,
   key: "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight",

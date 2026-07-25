@@ -1919,9 +1919,10 @@ button.bunker-fp-tutorial strong {
  * Sized to fit 390px portrait (9 cells across with 2px gaps). */
 .bunker-fp-hotbar {
   position: absolute;
+  box-sizing: border-box;
   z-index: 12;
   bottom: calc(8px + env(safe-area-inset-bottom));
-  left: 50%;
+  left: calc(50% - 1px);
   transform: translateX(-50%);
   display: flex;
   align-items: stretch;
@@ -1936,6 +1937,7 @@ button.bunker-fp-tutorial strong {
 
 .bunker-fp-slot {
   position: relative;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;

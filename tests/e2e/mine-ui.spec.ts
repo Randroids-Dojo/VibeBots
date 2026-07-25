@@ -4,6 +4,7 @@ import { imageRegionRgbStats } from "./support/image-pixels";
 import {
   applyAction,
   awaitMineSceneReady,
+  bypassMineRenderer,
   createMine,
   DEFAULT_GEAR,
   dismissReleaseNotes,
@@ -178,6 +179,7 @@ test(
   "mine feedback form submits from settings and closes with gamepad back",
   ciCase("E2E-MINE-UI-0003", "@functional"),
   async ({ page }) => {
+    await bypassMineRenderer(page);
     await installGamepadBackControl(page);
     let feedbackBody: unknown = null;
     await page.route("**/api/mine/world", async (route) => {

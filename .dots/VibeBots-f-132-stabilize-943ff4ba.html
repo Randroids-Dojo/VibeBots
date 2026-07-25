@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>F-132 Stabilize recurring mine and bunker E2E state under software rendering</title>
 <meta name="dot-title" content="F-132 Stabilize recurring mine and bunker E2E state under software rendering">
-<meta name="dot-status" content="open">
+<meta name="dot-status" content="active">
 <meta name="dot-priority" content="1">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-14T08:28:25.376259-05:00">
@@ -27,6 +27,12 @@ Scheduled run 29489140260 repeated the mine and bunker state cluster outside the
 </section>
 <section id="scheduled-classification-29682444566">
 Run 29682444566 retains unresolved F-100 telemetry, first-person grounding and movement, damaged-pry feedback expiry, overflow-loot movement, village navigation budget exhaustion, stamp-alert expiry, late Clerk retry, and held-Up initial-flake families. Keep them together until exact serial-order reproduction supports narrower ownership. F-207 separately owns the deterministic boxed-in legal-face defect. Commit 0e00cb8f fixed only the confirmed pre-armed-pick regression and pointer-lock setup, while its required CI skipped Full E2E.
+</section>
+<section id="real-render-progress-2026-07-25">
+The staged rewrite now separates 128 functional cases from 64 physical-render cases. An exact-SHA Mac runner owns renderer evidence with one worker, an isolated port, blank secrets, fail-on-retry semantics, environment fingerprinting, and retained render, visual, and soak results. The complete render tier, visual tier, soak tier, ten-run Holodeck stress, and post-rebase focused renderer group are green. Keep this task active because the original acceptance still requires ten consecutive passes for every affected group and three consecutive complete full matrices.
+</section>
+<section id="real-render-environment-review-2026-07-25">
+PR #299 review found that the renderer build inherited unrelated host variables. The runner now builds a fresh environment from an operational allowlist, blanks supported application configuration, clears E2E mode until Playwright deliberately enables it, and has focused coverage proving public and unrelated host toggles are removed.
 </section>
 </article>
 </body>

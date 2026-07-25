@@ -30,6 +30,32 @@
 </section>
 
 <main id="entries">
+  <article data-slice="real-render-environment-review" data-date="2026-07-25">
+    <h3>PR #299 keeps Mac renderer evidence independent of host config</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/scheduled-e2e-capability-gates</code>.</dd>
+      <dt>PR</dt><dd>#299.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that spreading the host environment into the exact-SHA build could leak an unrelated <code>NEXT_PUBLIC_*</code> value into the client bundle. The renderer lane now constructs a fresh environment from an explicit operational allowlist, blanks every supported application credential and public key, and clears the E2E mode until Playwright deliberately enables it for its own server.</dd>
+      <dt>Verification</dt><dd>Focused runner coverage now passes eight cases, including rejection of inherited public and unrelated host toggles. A production build completed successfully using only the sanitized renderer environment. Dash and whitespace checks pass.</dd>
+      <dt>Assumptions</dt><dd>The runner needs operating-system paths, temporary directories, locale, certificate, proxy, and user-home variables. Application configuration is never inherited.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is a CI evidence-isolation correction.</dd>
+      <dt>Followups</dt><dd>F-132 remains active under its existing acceptance. No new followup was created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="real-render-e2e-stabilization" data-date="2026-07-25">
+    <h3>Physical renderer E2E gets an exact-SHA Mac lane</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/scheduled-e2e-capability-gates</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>The E2E inventory now routes GPU-independent functional mine contracts around renderer startup under a test-only server guard while leaving the real store, routes, effects, and DOM active. Renderer-owned motion and pixel cases stay physical. A new <code>pnpm ci:render</code> runner checks an exact clean SHA on the local Mac with one worker, an isolated port, blank secrets, a dedicated checkout, tiered render, visual, and soak commands, fail-on-retry semantics, missed-window reporting, and a retained environment fingerprint. The slice also repairs a legal bunker wall fixture, headless pointer-lock expectations, accent-light readiness, durable raid settlement, Holodeck pause sampling, stamp-alert position sampling, and a one-pixel narrow hotbar overflow. Reviewed Mac gallery baselines are committed.</dd>
+      <dt>Verification</dt><dd>Inventory discovers 202 unique cases: 128 functional, 64 render, 3 visual, and 7 soak. The physical render tier passed 63 executed cases with one authored skip and no recovered retry in 17.9 minutes on macOS 26.6, Apple M4 Max, Chrome 148, 1280x720, DPR 1, and ANGLE Metal. The visual tier passed all three baselines, and the soak tier passed six cases with one optional capture skip. The repaired Holodeck pause case passed ten consecutive focused runs. After rebasing onto the latest bunker slot model, the five affected physical cases passed together in 2.6 minutes: Holodeck pause, accent lights, the first-person tutorial, live raid settlement, and pending-claim edit. Focused functional coverage passed after the renderer bypass, and script unit tests, typecheck, production build, dash checks, and whitespace checks passed during implementation. The canonical verification suite runs again on the final documented head.</dd>
+      <dt>Assumptions</dt><dd>The local Mac is the authority for physical renderer behavior; hosted SwiftShader remains useful for the functional overlap but is not a reliable oracle for elapsed-frame or pixel contracts. A retry recovery is a failure in the real-render lane. The daily runner starts at 5:30 AM America/Chicago and reports missed windows rather than silently catching up.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is test infrastructure and correction work around already-covered mine, bunker, elevator, Holodeck, raid, and gallery contracts. Mine tips were reviewed with no change because no player rule changed. Stamp review found no appropriate new stamp because this slice adds no player milestone.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> remains active. This slice establishes the real-render lane and resolves several focused defects, but does not claim the three complete green matrices required to close the broader stabilization followup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-production-closeout" data-date="2026-07-25">
     <h3>Bunker multi-slot placement is live and F-117 is closed</h3>
     <dl>

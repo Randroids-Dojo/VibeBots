@@ -18,9 +18,8 @@ import {
   setCell,
 } from "./support/mine-helpers";
 
-/** Places one wall from the fp hotbar into local cell (2,0,0) (mine
- * cell START_COL - 1 on the claim's bottom row): the shared fp editing
- * step for the pending-claim tests below. */
+/** Places one wall on the forward rock face: the shared fp editing step for
+ * the pending-claim tests below. */
 async function placeWallInFp(page: Page): Promise<void> {
   await page.getByTestId("bunker-fp-enter").click();
   await expect(page.getByLabel("Mine status")).toHaveAttribute(
@@ -36,15 +35,14 @@ async function placeWallInFp(page: Page): Promise<void> {
   const wallSlot = page.getByTestId("bunker-fp-slot-wall-panel");
   await wallSlot.click();
   await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
-  // Aim down-left from the spawn: the ray crosses open cell (2,0,0)
-  // and lands on the floor boundary, making the crossed cell the
-  // place cell (the mine-bunker-fp.spec.ts geometry).
-  await aimFp(page, 1.57, -0.62);
+  // Thin walls require a vertical face. Looking forward crosses the open
+  // pocket and lands on the rock behind it.
+  await aimFp(page, 0, 0);
   await expect
     .poll(async () => canvas.getAttribute("data-fp-place"), {
       timeout: 10_000,
     })
-    .toBe("2:0:0");
+    .toBe("3:0:2");
   await armFpPointer(page);
   await canvas.click();
   await expect
@@ -384,9 +382,8 @@ test(
 
 test(
   "bunker claims can be edited before banking",
-  ciCase("E2E-MINE-BUNKER-0004", "@functional"),
+  ciCase("E2E-MINE-BUNKER-0004", "@render"),
   async ({ page }) => {
-    // Software-GL runners compile the fp scene slowly.
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 390, height: 760 });
     const mine = createMine(6061, DEFAULT_GEAR, STARTING_CONSUMABLES);
@@ -513,9 +510,10 @@ test(
     );
     expect(placedPart).toMatchObject({
       partId: "wall-panel",
-      col: START_COL - 1,
+      col: START_COL,
       row: 5,
-      depth: 0,
+      depth: 2,
+      slot: "wall-pz",
     });
     await page.getByRole("button", { name: "Exit bunker" }).click();
     await expect(page.getByLabel("Mine status")).toHaveAttribute(
@@ -559,9 +557,10 @@ test(
     );
     expect(reloadedPart).toMatchObject({
       partId: "wall-panel",
-      col: START_COL - 1,
+      col: START_COL,
       row: 5,
-      depth: 0,
+      depth: 2,
+      slot: "wall-pz",
     });
     await expect(
       page.getByRole("button", { name: "Open bunker upkeep" }),

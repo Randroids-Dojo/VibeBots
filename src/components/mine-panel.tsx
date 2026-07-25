@@ -1120,7 +1120,13 @@ function JuiceOverlays() {
   );
 }
 
-export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
+export function MinePanel({
+  appRelease,
+  functionalRendererBypass = false,
+}: {
+  appRelease: AppRelease;
+  functionalRendererBypass?: boolean;
+}) {
   const tick = useMineStore((s) => s.tick);
   const mine = useMineStore((s) => s.mine);
   const miner = mine.miner;
@@ -1299,13 +1305,17 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       setMineCanvasPainted(false);
       return;
     }
+    if (functionalRendererBypass) {
+      setMineCanvasPainted(true);
+      return;
+    }
     if (mineCanvasPainted) return;
     const fallback = window.setTimeout(
       () => setMineCanvasPainted(true),
       COMPILE_GATE_DEADLINE_MS * 2,
     );
     return () => window.clearTimeout(fallback);
-  }, [mineSceneStatus, mineCanvasPainted]);
+  }, [functionalRendererBypass, mineSceneStatus, mineCanvasPainted]);
   const [cashNoteVisible, setCashNoteVisible] = useState(false);
   const [pickaxeGateHint, setPickaxeGateHint] = useState<{
     key: number;
@@ -3712,7 +3722,9 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       data-visual-viewport-width={mineViewportValue(mineViewportFrame?.width)}
       style={measuredMineShellStyle}
     >
-      {mineSceneReady ? (
+      {mineSceneReady && functionalRendererBypass ? (
+        <MineSceneBackdrop />
+      ) : mineSceneReady ? (
         <MineSceneErrorBoundary
           key={mineCanvasKey}
           onError={reportMineSceneError}

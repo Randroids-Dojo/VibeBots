@@ -117,6 +117,7 @@ export default defineConfig({
           WEB_PUSH_CONTACT_EMAIL: "",
           CLERK_SECRET_KEY: "",
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
+          VIBEBOTS_E2E_MODE: "1",
         },
       },
   projects: [

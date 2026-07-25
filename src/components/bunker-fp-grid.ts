@@ -55,6 +55,16 @@ export const FP_STAIR_NZ = 9;
  */
 export const FP_FLOOR_SLAB = 10;
 
+/** One bit per thin face slot in a room cell. Wall bits are mirrored onto
+ * both cells sharing the divider so movement and targeting can query the
+ * face from either side without allocating or canonicalizing per frame. */
+export const FP_FACE_WALL_PX = 1 << 0;
+export const FP_FACE_WALL_NX = 1 << 1;
+export const FP_FACE_WALL_PZ = 1 << 2;
+export const FP_FACE_WALL_NZ = 1 << 3;
+export const FP_FACE_FLOOR = 1 << 4;
+export const FP_FACE_ROOF = 1 << 5;
+
 /** World height of a slab's walkable top above its cell's bottom plane,
  * matching the rendered 0.08-thick panel at the FP_SLAB_OFFSET transform
  * (slab spans [bottom, bottom + 0.08]). */
@@ -71,6 +81,7 @@ export function fpCellIsStair(value: number): boolean {
 }
 
 export type FpSolidGrid = Uint8Array;
+export type FpFaceGrid = Uint8Array;
 
 export interface FpLocalCell {
   x: number;
@@ -96,8 +107,8 @@ export interface FpEditIntent {
   kind: "place" | "pry" | "dig" | "collect" | "chip";
   cell: FpEditCell;
   /** Thin sub-cell slot the action targets (F-117). Absent for a legacy
-   * whole-cell part, a dig, or a collect. On a place it is the face the
-   * player aimed at; the sim canonicalizes a wall to one boundary. */
+   * whole-cell part, a dig, or a collect. On place or pry it is the exact
+   * aimed face; the sim canonicalizes a wall to one boundary. */
   slot?: BunkerSlot;
   /** Facing for a rotatable part (F-117 stair) on a place intent; absent for
    * every fixed-orientation part and non-place intent. */
@@ -167,6 +178,10 @@ export function createFpSolidGrid(): FpSolidGrid {
   return new Uint8Array(FP_CELL_COUNT);
 }
 
+export function createFpFaceGrid(): FpFaceGrid {
+  return new Uint8Array(FP_CELL_COUNT);
+}
+
 export function fpCellIndex(x: number, y: number, z: number): number {
   return x + y * FP_COLS + z * FP_COLS * FP_ROWS;
 }
@@ -195,11 +210,21 @@ export function fpCellBoxedIn(
   x: number,
   y: number,
   z: number,
+  walls?: FpFaceGrid,
 ): boolean {
   for (let side = 0; side < 4; side++) {
     const nx = side === 0 ? x + 1 : side === 1 ? x - 1 : x;
     const nz = side === 2 ? z + 1 : side === 3 ? z - 1 : z;
     if (!fpCellInGrid(nx, y, nz)) continue;
+    const wallBit =
+      side === 0
+        ? FP_FACE_WALL_PX
+        : side === 1
+          ? FP_FACE_WALL_NX
+          : side === 2
+            ? FP_FACE_WALL_PZ
+            : FP_FACE_WALL_NZ;
+    if (walls && (walls[fpCellIndex(x, y, z)] & wallBit) !== 0) continue;
     if (!fpCellBlocks(solid[fpCellIndex(nx, y, nz)])) return false;
   }
   return true;
@@ -307,6 +332,15 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
     const y = bottomRow - part.row;
     const z = part.depth ?? 0;
     if (!fpCellInGrid(x, y, z)) continue;
+    if (
+      part.slot === "wall-px" ||
+      part.slot === "wall-nx" ||
+      part.slot === "wall-pz" ||
+      part.slot === "wall-nz" ||
+      part.slot === "roof"
+    ) {
+      continue;
+    }
     out[fpCellIndex(x, y, z)] =
       part.partId === "door-panel"
         ? FP_DOOR_OWNED
@@ -317,5 +351,94 @@ export function buildFpSolidGrid(bunker: BunkerState, out: FpSolidGrid): void {
             : part.slot === "floor"
               ? FP_FLOOR_SLAB
               : FP_SOLID_PART;
+  }
+}
+
+export function fpFaceBit(slot: BunkerSlot): number {
+  switch (slot) {
+    case "wall-px":
+      return FP_FACE_WALL_PX;
+    case "wall-nx":
+      return FP_FACE_WALL_NX;
+    case "wall-pz":
+      return FP_FACE_WALL_PZ;
+    case "wall-nz":
+      return FP_FACE_WALL_NZ;
+    case "floor":
+      return FP_FACE_FLOOR;
+    case "roof":
+      return FP_FACE_ROOF;
+    default:
+      return 0;
+  }
+}
+
+export function fpSlotOccupied(
+  faces: FpFaceGrid,
+  x: number,
+  y: number,
+  z: number,
+  slot: BunkerSlot | undefined,
+): boolean {
+  if (!fpCellInGrid(x, y, z)) return true;
+  const occupied = faces[fpCellIndex(x, y, z)];
+  return slot === undefined
+    ? occupied !== 0
+    : (occupied & fpFaceBit(slot)) !== 0;
+}
+
+/**
+ * Builds thin-face occupancy and movement barriers from placed parts.
+ * `faces` contains every intact slotted wall, door, floor, and roof.
+ * `walls` contains only solid wall panels, since the owner's door remains
+ * passable. Wall dividers are mirrored onto their neighboring cell.
+ */
+export function buildFpFaceGrids(
+  bunker: BunkerState,
+  faces: FpFaceGrid,
+  walls: FpFaceGrid,
+): void {
+  faces.fill(0);
+  walls.fill(0);
+  const footprint = bunker.footprint;
+  const bottomRow = footprint.row + footprint.height - 1;
+  for (const part of bunker.parts) {
+    if (
+      part.slot === undefined ||
+      part.slot === "mount" ||
+      part.durability <= 0
+    ) {
+      continue;
+    }
+    const x = part.col - footprint.col;
+    const y = bottomRow - part.row;
+    const z = part.depth ?? 0;
+    if (!fpCellInGrid(x, y, z)) continue;
+    const bit = fpFaceBit(part.slot);
+    const index = fpCellIndex(x, y, z);
+    faces[index] |= bit;
+    if (part.partId === "wall-panel") walls[index] |= bit;
+
+    let nx = x;
+    let nz = z;
+    let opposite = 0;
+    if (part.slot === "wall-px") {
+      nx += 1;
+      opposite = FP_FACE_WALL_NX;
+    } else if (part.slot === "wall-nx") {
+      nx -= 1;
+      opposite = FP_FACE_WALL_PX;
+    } else if (part.slot === "wall-pz") {
+      nz += 1;
+      opposite = FP_FACE_WALL_NZ;
+    } else if (part.slot === "wall-nz") {
+      nz -= 1;
+      opposite = FP_FACE_WALL_PZ;
+    }
+    if (opposite !== 0 && fpCellInGrid(nx, y, nz)) {
+      const neighbor = fpCellIndex(nx, y, nz);
+      faces[neighbor] |= opposite;
+      if (part.partId === "wall-panel") walls[neighbor] |= opposite;
+    }
   }
 }

@@ -742,7 +742,7 @@ export function canonicalWallSlot(
 
 /** The slotted part occupying an exact canonical slot, or undefined. A
  * legacy whole-cell part (no slot) never matches a defined slot ref. */
-function bunkerPartAtSlot(
+export function bunkerPartAtSlot(
   bunker: BunkerState,
   ref: BunkerSlotRef,
 ): PlacedBasePart | undefined {

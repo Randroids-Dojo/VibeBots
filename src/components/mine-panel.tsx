@@ -31,6 +31,8 @@ import {
   type BasePartId,
   type BunkerOrientation,
   bunkerCells,
+  bunkerPartAtSlot,
+  canonicalWallSlot,
   containsBunkerCell,
   isBasePartDamaged,
   isBunkerLayoutIncompatible,
@@ -2932,12 +2934,25 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
       }
 
       if (intent.kind === "pry") {
-        const part = activeBunker.parts.find(
-          (candidate) =>
-            candidate.col === col &&
-            candidate.row === row &&
-            (candidate.depth ?? 0) === depth,
-        );
+        const part =
+          intent.slot === undefined
+            ? activeBunker.parts.find(
+                (candidate) =>
+                  candidate.col === col &&
+                  candidate.row === row &&
+                  (candidate.depth ?? 0) === depth &&
+                  candidate.slot === undefined,
+              )
+            : bunkerPartAtSlot(
+                activeBunker,
+                canonicalWallSlot(
+                  activeBunker.footprint,
+                  col,
+                  row,
+                  depth,
+                  intent.slot,
+                ),
+              );
         if (!part) {
           feedback(false, "clang");
           return;

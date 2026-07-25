@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  createFpFaceGrid,
   createFpSolidGrid,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FACE_WALL_PX,
   FP_FLOOR_SLAB,
   FP_ROCK_UNDUG,
   FP_SLAB_HEIGHT,
@@ -20,6 +22,7 @@ import {
   FP_CAPSULE_RADIUS,
   type FpMoveInput,
   type FpMoveState,
+  fpSlotIntersectsCapsule,
   stepFpMovement,
 } from "./bunker-fp-movement";
 
@@ -114,6 +117,37 @@ describe("fp movement", () => {
       expect(s.px).toBeLessThanOrEqual(limit + 1e-6);
     }
     expect(s.px).toBeCloseTo(limit, 3);
+  });
+
+  it("a thin wall face blocks crossing without filling either cell", () => {
+    const grid = corridorGrid();
+    const walls = createFpFaceGrid();
+    walls[fpCellIndex(3, 0, 0)] = FP_FACE_WALL_PX;
+    const s = state();
+    const walk = input({ forward: 1, yaw: -Math.PI / 2 });
+    const limit = 3.5 - FP_CAPSULE_RADIUS;
+    for (let n = 0; n < 80; n++) {
+      stepFpMovement(s, walk, grid, 0.05, walls);
+      expect(s.px).toBeLessThanOrEqual(limit + 1e-6);
+    }
+    expect(s.px).toBeCloseTo(limit, 3);
+    expect(grid[fpCellIndex(3, 0, 0)]).toBe(0);
+    expect(grid[fpCellIndex(4, 0, 0)]).toBe(0);
+  });
+
+  it("lets a centered player add faces around their cell", () => {
+    const s = state();
+    expect(fpSlotIntersectsCapsule("floor", 3, 0, 0, s.px, s.py, s.pz)).toBe(
+      false,
+    );
+    for (const slot of ["wall-px", "wall-nx", "wall-pz", "wall-nz"] as const) {
+      expect(fpSlotIntersectsCapsule(slot, 3, 0, 0, s.px, s.py, s.pz)).toBe(
+        false,
+      );
+    }
+    expect(fpSlotIntersectsCapsule("wall-px", 3, 0, 0, 3.25, s.py, s.pz)).toBe(
+      true,
+    );
   });
 
   it("undug rock blocks like a wall", () => {

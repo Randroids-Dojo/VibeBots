@@ -24,20 +24,35 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest Hardware Store wallet note complete", () => {
+  it("keeps the latest shared-cell bunker note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
     expect(release.noticeId).toBe(
-      "2026-07-25-0.1.286-hardware-store-wallet-sync",
+      "2026-07-25-0.1.287-bunker-parts-share-cells",
     );
     expect(latestNote).toMatchObject({
+      version: "0.1.287",
+      title: "Build floors and walls in the same bunker space",
+      intro:
+        "Each bunker space can now hold a floor and all four surrounding walls instead of the first piece claiming the whole cube.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Thin walls now block only their own face, floors stay walkable beneath you, and the pry tool removes the exact panel you aim at without taking another piece in that space.",
+    ]);
+  });
+
+  it("keeps the archived Hardware Store wallet note complete", () => {
+    const release = getAppRelease();
+    const walletNote = release.notes.find((note) => note.version === "0.1.286");
+
+    expect(walletNote).toMatchObject({
       version: "0.1.286",
       title: "Hardware Store purchases update your wallet",
       intro:
         "Buying bunker parts now updates the vibes total in the Hardware Store and mine HUD as soon as the purchase succeeds.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(walletNote?.changes.map((change) => change.text)).toEqual([
       "The server was charging the right price and adding the part, but the shop kept showing the old wallet total. The purchase response now updates the wallet everywhere before you buy again.",
     ]);
   });

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-placement" data-date="2026-07-25">
+    <h3>Bunker floors and walls now share the same space</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>The authoritative bunker model already allowed independent sub-cell slots, but first-person solidity, movement, raycast, placement, and pry still collapsed every thin wall into a full occupied cube. New face grids keep floors, roofs, and all four wall faces distinct. Movement and aiming use their thin planes, placement rejects only an occupied requested slot, and pry removes the exact aimed panel. Package 0.1.287 adds player-facing release copy.</dd>
+      <dt>Verification</dt><dd>Focused Vitest passed 194 tests across grid, movement, raycast, bunker placement, live raid, and wear suites. Focused Playwright passed both the pending-claim first-person building loop and the latest-release dialog in Chromium. The building loop places and persists a floor in the exact cell of an existing wall, then pries only that wall while the floor remains. Final <code>pnpm verify --build</code> passed all 10 gates: dashes, diff, purity, AGENTS links, attribution, followup ledger, Biome, typecheck, 149 test files with 1,865 unit tests, and the Next.js 16.2.11 production build. Dependency Upgrade Gate passed at slice start and again before PR: VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.11</code>, three <code>0.185.1</code>, and fiber <code>9.6.1</code>. Scheduled Full E2E run <code>30153583660</code> on main was red across broad software-rendered timing and presentation cases already owned by F-132; required push CI must be green before this correction merges.</dd>
+      <dt>Assumptions</dt><dd>No <code>MINE_VERSION</code> or <code>SIM_VERSION</code> bump is needed because this corrects client collision and targeting to match the existing persisted and authoritative slot contract without changing replay, payout, balance, or stored layout semantics.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done. Its coverage note and the base-building GDD build log now record the correction. Mine tips were reviewed with no copy change because the existing thin-panel tip already describes face placement. Stamp review found no new milestone because this restores the promised construction rule.</dd>
+      <dt>Followups</dt><dd>No new deferred followup. F-117 and Dot <code>VibeBots-f-117-rework-8a28b100</code> remain active through PR and production closeout.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hardware-store-wallet-sync-review" data-date="2026-07-25">
     <h3>PR #295 review names the archived raid note accurately</h3>
     <dl>

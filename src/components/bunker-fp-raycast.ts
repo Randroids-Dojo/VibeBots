@@ -5,9 +5,17 @@ import {
 } from "@/sim/bunker";
 import {
   FP_DOOR_OWNED,
+  FP_FACE_FLOOR,
+  FP_FACE_ROOF,
+  FP_FACE_WALL_NX,
+  FP_FACE_WALL_NZ,
+  FP_FACE_WALL_PX,
+  FP_FACE_WALL_PZ,
+  FP_FLOOR_SLAB,
   FP_OPEN,
   FP_ROCK_UNDUG,
   FP_SPIKES,
+  type FpFaceGrid,
   type FpSolidGrid,
   fpCellIndex,
   fpCellInGrid,
@@ -138,6 +146,10 @@ export interface FpRayHit {
   placeX: number;
   placeY: number;
   placeZ: number;
+  /** Exact thin slot hit at a boundary plane. Absent for whole-cell parts
+   * and rock. The cell coordinates name the side the ray approached from;
+   * the sim canonicalizes shared wall identity. */
+  slot?: BunkerSlot;
 }
 
 export function createFpRayHit(): FpRayHit {
@@ -152,6 +164,7 @@ export function createFpRayHit(): FpRayHit {
     placeX: -1,
     placeY: -1,
     placeZ: -1,
+    slot: undefined,
   };
 }
 
@@ -181,6 +194,11 @@ function missFpRay(out: FpRayHit, maxDist: number): void {
   out.placeX = -1;
   out.placeY = -1;
   out.placeZ = -1;
+  out.slot = undefined;
+}
+
+function fpRayPassable(value: number): boolean {
+  return value === FP_OPEN || value === FP_FLOOR_SLAB;
 }
 
 /**
@@ -198,6 +216,7 @@ export function raycastFpGrid(
   dy: number,
   dz: number,
   solid: FpSolidGrid,
+  faces: FpFaceGrid,
   maxDist: number,
   out: FpRayHit,
 ): void {
@@ -224,7 +243,10 @@ export function raycastFpGrid(
   let placeX = -1;
   let placeY = -1;
   let placeZ = -1;
-  if (fpCellInGrid(cx, cy, cz) && solid[fpCellIndex(cx, cy, cz)] === FP_OPEN) {
+  if (
+    fpCellInGrid(cx, cy, cz) &&
+    fpRayPassable(solid[fpCellIndex(cx, cy, cz)])
+  ) {
     placeX = cx;
     placeY = cy;
     placeZ = cz;
@@ -232,6 +254,9 @@ export function raycastFpGrid(
 
   // The volume is 7x5x5; 32 steps outlasts any reach the UI allows.
   for (let step = 0; step < 32; step++) {
+    const fromX = cx;
+    const fromY = cy;
+    const fromZ = cz;
     let t: number;
     let face: number;
     if (tMaxX <= tMaxY && tMaxX <= tMaxZ) {
@@ -254,6 +279,73 @@ export function raycastFpGrid(
       missFpRay(out, maxDist);
       return;
     }
+    let slot: BunkerSlot | undefined;
+    let slotX = fromX;
+    let slotY = fromY;
+    let slotZ = fromZ;
+    if (fpCellInGrid(fromX, fromY, fromZ)) {
+      const fromFaces = faces[fpCellIndex(fromX, fromY, fromZ)];
+      let fromBit = 0;
+      let nextBit = 0;
+      let fromSlot: BunkerSlot = "wall-px";
+      let nextSlot: BunkerSlot = "wall-nx";
+      if (face === FP_FACE_NEG_X) {
+        fromBit = FP_FACE_WALL_PX;
+        nextBit = FP_FACE_WALL_NX;
+        fromSlot = "wall-px";
+        nextSlot = "wall-nx";
+      } else if (face === FP_FACE_POS_X) {
+        fromBit = FP_FACE_WALL_NX;
+        nextBit = FP_FACE_WALL_PX;
+        fromSlot = "wall-nx";
+        nextSlot = "wall-px";
+      } else if (face === FP_FACE_NEG_Y) {
+        fromBit = FP_FACE_ROOF;
+        nextBit = FP_FACE_FLOOR;
+        fromSlot = "roof";
+        nextSlot = "floor";
+      } else if (face === FP_FACE_POS_Y) {
+        fromBit = FP_FACE_FLOOR;
+        nextBit = FP_FACE_ROOF;
+        fromSlot = "floor";
+        nextSlot = "roof";
+      } else if (face === FP_FACE_NEG_Z) {
+        fromBit = FP_FACE_WALL_PZ;
+        nextBit = FP_FACE_WALL_NZ;
+        fromSlot = "wall-pz";
+        nextSlot = "wall-nz";
+      } else {
+        fromBit = FP_FACE_WALL_NZ;
+        nextBit = FP_FACE_WALL_PZ;
+        fromSlot = "wall-nz";
+        nextSlot = "wall-pz";
+      }
+      if ((fromFaces & fromBit) !== 0) {
+        slot = fromSlot;
+      } else if (
+        fpCellInGrid(cx, cy, cz) &&
+        (faces[fpCellIndex(cx, cy, cz)] & nextBit) !== 0
+      ) {
+        slot = nextSlot;
+        slotX = cx;
+        slotY = cy;
+        slotZ = cz;
+      }
+    }
+    if (slot !== undefined) {
+      out.hit = true;
+      out.x = slotX;
+      out.y = slotY;
+      out.z = slotZ;
+      out.face = face;
+      out.kind = "part";
+      out.distance = t;
+      out.placeX = placeX;
+      out.placeY = placeY;
+      out.placeZ = placeZ;
+      out.slot = slot;
+      return;
+    }
     if (!fpCellInGrid(cx, cy, cz)) {
       // Boundary rock shell: a placement surface, never removable.
       out.hit = true;
@@ -266,10 +358,11 @@ export function raycastFpGrid(
       out.placeX = placeX;
       out.placeY = placeY;
       out.placeZ = placeZ;
+      out.slot = undefined;
       return;
     }
     const value = solid[fpCellIndex(cx, cy, cz)];
-    if (value === FP_OPEN) {
+    if (fpRayPassable(value)) {
       placeX = cx;
       placeY = cy;
       placeZ = cz;
@@ -285,6 +378,7 @@ export function raycastFpGrid(
     out.placeX = placeX;
     out.placeY = placeY;
     out.placeZ = placeZ;
+    out.slot = undefined;
     return;
   }
   missFpRay(out, maxDist);

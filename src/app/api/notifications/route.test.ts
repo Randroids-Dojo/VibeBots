@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-25-0.1.286-hardware-store-wallet-sync",
+      releaseNoticeId: "2026-07-25-0.1.287-bunker-parts-share-cells",
       releaseSummary:
-        "Hardware Store purchases update your wallet: Buying bunker parts now updates the vibes total in the Hardware Store and mine HUD as soon as the purchase succeeds.",
+        "Build floors and walls in the same bunker space: Each bunker space can now hold a floor and all four surrounding walls instead of the first piece claiming the whole cube.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-25-0.1.286-hardware-store-wallet-sync",
+      releaseNoticeId: "2026-07-25-0.1.287-bunker-parts-share-cells",
       attempted: 2,
       sent: 1,
       expired: 1,

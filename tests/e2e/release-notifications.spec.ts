@@ -23,11 +23,11 @@ test(
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
     await expect(dialog).toContainText(
-      "Buying bunker parts now updates the vibes total",
+      "Each bunker space can now hold a floor and all four surrounding walls",
     );
     await expect(dialog.locator("li")).toHaveCount(1);
     await expect(dialog.locator("li").first()).toContainText(
-      "The purchase response now updates the wallet everywhere",
+      "the pry tool removes the exact panel you aim at",
     );
 
     await page.mouse.click(8, 8);
@@ -47,6 +47,7 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.287", "Build floors and walls in the same bunker space"],
       ["0.1.286", "Hardware Store purchases update your wallet"],
       ["0.1.285", "Clanker invasions come in waves you can fight"],
       ["0.1.284", "Raids say how they ended and when the next one starts"],

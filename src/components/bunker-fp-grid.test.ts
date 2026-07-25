@@ -9,12 +9,19 @@ import {
   STARTER_BASE_PART_INVENTORY,
 } from "@/sim/bunker";
 import {
+  buildFpFaceGrids,
   buildFpSolidGrid,
+  createFpFaceGrid,
   createFpSolidGrid,
   FP_CELL_COUNT,
   FP_COLS,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FACE_FLOOR,
+  FP_FACE_WALL_NX,
+  FP_FACE_WALL_NZ,
+  FP_FACE_WALL_PX,
+  FP_FACE_WALL_PZ,
   FP_FLOOR_SLAB,
   FP_OPEN,
   FP_ROCK_UNDUG,
@@ -31,6 +38,7 @@ import {
   fpCellIsStair,
   fpGridCellFromLocal,
   fpLocalFromGrid,
+  fpSlotOccupied,
   fpSlotRenderTransform,
   fpSpawnCell,
   fpStairValue,
@@ -346,6 +354,59 @@ describe("fp solidity", () => {
     expect(grid[fpCellIndex(5, 0, 3)]).toBe(FP_ROCK_UNDUG);
     // The former core cell (F-118) is ordinary open pocket floor now.
     expect(grid[fpCellIndex(3, 2, 0)]).toBe(FP_OPEN);
+  });
+
+  it("keeps a floor and four walls as independent faces in one cell", () => {
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...corridorBunker(),
+      parts: [
+        {
+          partId: "floor-panel",
+          col: footprint.col + 3,
+          row: bottomRow,
+          depth: 0,
+          durability: 110,
+          slot: "floor",
+        },
+        ...(["wall-px", "wall-nx", "wall-pz", "wall-nz"] as const).map(
+          (slot) => ({
+            partId: "wall-panel" as const,
+            col: footprint.col + 3,
+            row: bottomRow,
+            depth: 0,
+            durability: 90,
+            slot,
+          }),
+        ),
+      ],
+    };
+    const solid = createFpSolidGrid();
+    const faces = createFpFaceGrid();
+    const walls = createFpFaceGrid();
+    buildFpSolidGrid(bunker, solid);
+    buildFpFaceGrids(bunker, faces, walls);
+    const index = fpCellIndex(3, 0, 0);
+    expect(solid[index]).toBe(FP_FLOOR_SLAB);
+    expect(faces[index]).toBe(
+      FP_FACE_FLOOR |
+        FP_FACE_WALL_PX |
+        FP_FACE_WALL_NX |
+        FP_FACE_WALL_PZ |
+        FP_FACE_WALL_NZ,
+    );
+    expect(walls[index]).toBe(
+      FP_FACE_WALL_PX | FP_FACE_WALL_NX | FP_FACE_WALL_PZ | FP_FACE_WALL_NZ,
+    );
+    for (const slot of [
+      "floor",
+      "wall-px",
+      "wall-nx",
+      "wall-pz",
+      "wall-nz",
+    ] as const) {
+      expect(fpSlotOccupied(faces, 3, 0, 0, slot)).toBe(true);
+    }
   });
 
   it("normalizes legacy wire shapes (parts without depth, no dug list)", () => {

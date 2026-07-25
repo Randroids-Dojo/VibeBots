@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  createFpFaceGrid,
   createFpSolidGrid,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FACE_FLOOR,
+  FP_FACE_WALL_PX,
   FP_FLOOR_SLAB,
   FP_ROCK_UNDUG,
   FP_SOLID_PART,
   FP_SPIKES,
+  type FpFaceGrid,
   type FpSolidGrid,
   fpCellIndex,
 } from "./bunker-fp-grid";
@@ -42,6 +46,7 @@ function cast(
   origin: readonly [number, number, number],
   dir: readonly [number, number, number],
   maxDist = 3.5,
+  faces: FpFaceGrid = createFpFaceGrid(),
 ): FpRayHit {
   const out = createFpRayHit();
   const len = Math.hypot(dir[0], dir[1], dir[2]);
@@ -53,6 +58,7 @@ function cast(
     dir[1] / len,
     dir[2] / len,
     grid,
+    faces,
     maxDist,
     out,
   );
@@ -93,15 +99,27 @@ describe("fp crosshair raycast", () => {
     expect(cast(grid, [2, 0.22, 0], [1, 0, 0]).kind).toBe("spikes");
   });
 
-  it("stops on a floor-slab cell as a targetable part", () => {
-    // A thin deck is passable to the mover, but the crosshair still stops
-    // on it so it can be pried and built against.
+  it("passes horizontally through a floor slab and targets its plane", () => {
     const grid = corridorGrid();
     grid[fpCellIndex(4, 0, 0)] = FP_FLOOR_SLAB;
-    const hit = cast(grid, [2, 0.22, 0], [1, 0, 0]);
+    const faces = createFpFaceGrid();
+    faces[fpCellIndex(4, 0, 0)] = FP_FACE_FLOOR;
+    expect(cast(grid, [2, 0.22, 0], [1, 0, 0], 3.5, faces).hit).toBe(false);
+    const hit = cast(grid, [4, 0.22, 0], [0, -1, 0], 3.5, faces);
     expect([hit.x, hit.y, hit.z]).toEqual([4, 0, 0]);
     expect(hit.kind).toBe("part");
-    expect([hit.placeX, hit.placeY, hit.placeZ]).toEqual([3, 0, 0]);
+    expect(hit.slot).toBe("floor");
+    expect([hit.placeX, hit.placeY, hit.placeZ]).toEqual([4, 0, 0]);
+  });
+
+  it("targets an occupied wall face without closing the cell behind it", () => {
+    const grid = corridorGrid();
+    const faces = createFpFaceGrid();
+    faces[fpCellIndex(4, 0, 0)] = FP_FACE_WALL_PX;
+    const hit = cast(grid, [4, 0.22, 0], [1, 0, 0], 3.5, faces);
+    expect([hit.x, hit.y, hit.z]).toEqual([4, 0, 0]);
+    expect(hit.slot).toBe("wall-px");
+    expect([hit.placeX, hit.placeY, hit.placeZ]).toEqual([4, 0, 0]);
   });
 
   it("misses beyond the reach cutoff", () => {

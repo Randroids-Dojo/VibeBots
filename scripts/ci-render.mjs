@@ -23,7 +23,8 @@ const TIME_ZONE = "America/Chicago";
 const options = parseRenderArgs(process.argv.slice(2));
 const sourceRoot = process.cwd();
 const renderRoot =
-  options.root ?? path.join(os.homedir(), ".codex", "ci-render", "vibebots");
+  options.root ??
+  path.join(os.homedir(), ".codex", "ci-render", "vibebots-real-render");
 const checkout = path.join(renderRoot, "checkout");
 const resultsRoot = path.join(renderRoot, "results");
 const heartbeatPath = path.join(renderRoot, "heartbeat.json");
@@ -111,11 +112,14 @@ async function environmentFingerprint() {
 
 function prepareCheckout(fullSha) {
   mkdirSync(renderRoot, { recursive: true });
-  if (!existsSync(path.join(checkout, ".git"))) {
+  const created = !existsSync(path.join(checkout, ".git"));
+  if (created) {
     const remote = output("git", ["config", "--get", "remote.origin.url"]);
     run("git", ["clone", "--no-checkout", remote, checkout]);
   }
-  assertClean(checkout, "Dedicated render checkout");
+  if (!created) {
+    assertClean(checkout, "Dedicated render checkout");
+  }
   run("git", ["fetch", "--prune", "origin", "main"], { cwd: checkout });
   run("git", ["fetch", sourceRoot, fullSha], { cwd: checkout });
   run("git", ["switch", "--detach", fullSha], { cwd: checkout });

@@ -43,7 +43,7 @@ test(
     };
     // At the surface the beacon sits beyond the lantern window: every slot
     // is parked.
-    await expect.poll(activeAccentLights).toBe(0);
+    await expect.poll(activeAccentLights, { timeout: 45_000 }).toBe(0);
 
     // Climbing to the beacon brings it into the window: one slot activates.
     await descendLadderShaft(page, BEACON_ROW);

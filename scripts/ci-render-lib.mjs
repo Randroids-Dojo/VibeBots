@@ -59,3 +59,17 @@ export function summarizeTierResults(tiers) {
   if (tiers.every((tier) => tier.status === "skipped")) return "skipped";
   return "success";
 }
+
+export function renderTierStatus(exitCode, outcomes) {
+  if (
+    exitCode !== 0 ||
+    outcomes.some((outcome) =>
+      ["failed", "timedOut", "interrupted"].includes(outcome),
+    )
+  ) {
+    return "failed";
+  }
+  return outcomes.every((outcome) => outcome === "skipped")
+    ? "skipped"
+    : "passed";
+}

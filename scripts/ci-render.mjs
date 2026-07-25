@@ -15,6 +15,7 @@ import {
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
+  renderTierStatus,
   selectedRenderTiers,
   summarizeTierResults,
 } from "./ci-render-lib.mjs";
@@ -177,13 +178,10 @@ function runTier(tier, fullSha, resultDirectory, baseEnv) {
   const records =
     jsonFile(path.join(reportDirectory, "ci-case-results.json"), {}).records ??
     [];
-  const nonSkipped = records.filter((record) => record.outcome !== "skipped");
-  const status =
-    testResult.status === 0
-      ? nonSkipped.length === 0
-        ? "skipped"
-        : "passed"
-      : "failed";
+  const status = renderTierStatus(
+    testResult.status,
+    records.map((record) => record.outcome),
+  );
   return {
     tier,
     status,

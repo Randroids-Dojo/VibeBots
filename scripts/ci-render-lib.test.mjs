@@ -3,6 +3,7 @@ import {
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
+  renderTierStatus,
   selectedRenderTiers,
   summarizeTierResults,
 } from "./ci-render-lib.mjs";
@@ -66,5 +67,11 @@ describe("ci render heartbeat", () => {
         { status: "failed" },
       ]),
     ).toBe("failure");
+  });
+
+  it("fails a tier when an earlier attempt was flaky", () => {
+    expect(renderTierStatus(0, ["failed", "passed"])).toBe("failed");
+    expect(renderTierStatus(0, ["passed", "skipped"])).toBe("passed");
+    expect(renderTierStatus(0, ["skipped"])).toBe("skipped");
   });
 });

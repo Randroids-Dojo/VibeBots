@@ -140,11 +140,12 @@ test(
 
     // Play: motion resumes.
     await page.getByRole("button", { name: "Play" }).click();
-    await expect
-      .poll(async () => canvas.getAttribute("data-holodeck-arm"), {
-        timeout: 15_000,
-      })
-      .not.toBe(armPaused);
+    const resumedArms = await sampleCanvasAttrOverFrames(
+      page,
+      "data-holodeck-arm",
+      3_000,
+    );
+    expect(resumedArms.some((arm) => arm !== Number(armPaused))).toBe(true);
   },
 );
 

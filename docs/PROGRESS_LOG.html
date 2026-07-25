@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="hardware-store-wallet-sync" data-date="2026-07-25">
+    <h3>Hardware Store purchases now update the visible vibe balance</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/hardware-store-vibe-balance</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Successful Hardware Store purchases already charged the server wallet and returned the updated bunker view, but the shop header and mine HUD read the separate mine wallet store. The Hardware Store handler now adopts <code>result.player.balance</code> after an accepted purchase, so wallet and base-part inventory update together. Package <code>0.1.286</code> adds player-facing release copy. The browser regression begins at 50 vibes, buys a 6-vibe wall, and requires the HUD wallet, shop total, and owned count to become 44, 44, and 1.</dd>
+      <dt>Verification</dt><dd><code>pnpm install --frozen-lockfile</code>; focused Vitest for app release and notification routes (173 tests); focused Playwright Hardware Store purchase smoke (1 test, passed twice after each implementation shape); final <code>pnpm verify --build</code> with all 10 gates passed, including dashes, diff, purity, AGENTS links, attribution, followup ledger, Biome, typecheck, 1,860 unit tests, and the Next.js 16.2.11 production build. The first canonical run correctly failed on two stale release-notification expectations, which were updated, and on stale local <code>.next/dev</code> route types from paths removed on current main; an isolated Next.js 16.2.11 dev start regenerated those derived types before the final clean run. Dependency Upgrade Gate passed at slice start: VibeKit <code>v0.3.0</code>, Rapier <code>0.19.3</code>, Next <code>16.2.11</code>, three <code>0.185.1</code>, and fiber <code>9.6.1</code>. Scheduled Full E2E run <code>30153583660</code> on current main was red across broad software-rendered timing and presentation cases already owned by F-132; required Critical E2E, unit, typecheck, build, and both runtime-shadow jobs were green, so that separate stabilization was not mixed into this wallet fix.</dd>
+      <dt>Assumptions</dt><dd>The server response is authoritative for a successful purchase. A failed purchase returns no view and leaves the visible balance unchanged.</dd>
+      <dt>GDD coverage</dt><dd>REQ-021 remains done. Its existing <code>src/components/mine-panel.tsx</code> and <code>tests/e2e/mine-navigation.spec.ts</code> references now cover wallet synchronization. The mining GDD build log records package 0.1.286. Mine tips reviewed with no copy change because this restores the existing purchase rule. Stamp review completed with none added because a wallet display fix is not a player milestone.</dd>
+      <dt>Followups</dt><dd>No deferred followup. Active Dot <code>VibeBots-fix-hardware-store-9b13a173</code>.</dd>
+    </dl>
+  </article>
+
   <article data-slice="pr-289-review-round-2" data-date="2026-07-24">
     <h3>PR #289 review round 2: portable word boundaries, pinned baselines, cycle rejection</h3>
     <dl>

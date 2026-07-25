@@ -271,6 +271,79 @@ test(
 );
 
 test(
+  "Hardware Store purchases update the visible vibe balance",
+  ciCase("E2E-MINE-NAVIGATION-0009", "@functional"),
+  async ({ page }) => {
+    const inventory = {
+      "wall-panel": 0,
+      "floor-panel": 0,
+      "roof-panel": 0,
+      "door-panel": 0,
+      "basic-turret": 0,
+      "floor-spikes": 0,
+      "stair-panel": 0,
+    };
+    const player = {
+      balance: 50,
+      trackXp: 0,
+      defenseXp: 0,
+      overallLevel: 1,
+      levelCap: 100,
+      progressXp: 0,
+      neededXp: 100,
+      nextLevelXp: 100,
+      beaconLimit: 2,
+    };
+    await routeStarterMineWorld(page, 2026072501);
+    await page.route("**/api/gear", async (route) => {
+      await route.fulfill({
+        json: {
+          gear: DEFAULT_GEAR,
+          consumables: STARTING_CONSUMABLES,
+          balance: 50,
+          playerLevel: 1,
+          deepestDepth: 0,
+        },
+      });
+    });
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({
+        json: {
+          bunker: null,
+          inventory,
+          player,
+          revision: 0,
+        },
+      });
+    });
+    await page.route("**/api/bunker/parts/buy", async (route) => {
+      await route.fulfill({
+        json: {
+          bunker: null,
+          inventory: { ...inventory, "wall-panel": 1 },
+          player: { ...player, balance: 44 },
+          revision: 0,
+        },
+      });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-wallet", "50");
+    await walkToStallPrompt(page, "ArrowLeft", "Hardware Store");
+    const hardware = await openStall(page, "Hardware Store");
+    await expect(hardware).toContainText("50 vibes");
+
+    await hardware.getByRole("button", { name: "Buy 1 for 6 vibes" }).click();
+
+    await expect(status).toHaveAttribute("data-wallet", "44");
+    await expect(hardware).toContainText("44 vibes");
+    await expect(hardware).toContainText("have 1");
+  },
+);
+
+test(
   "upgrade buys require a completed hold",
   ciCase("E2E-MINE-NAVIGATION-0006", "@functional"),
   async ({ page }) => {

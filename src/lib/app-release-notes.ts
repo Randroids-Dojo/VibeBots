@@ -1,9 +1,23 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-22-0.1.285-staged-clanker-invasion";
+export const RELEASE_NOTICE_ID =
+  "2026-07-25-0.1.286-hardware-store-wallet-sync";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.286",
+      date: "2026-07-25",
+      title: "Hardware Store purchases update your wallet",
+      intro:
+        "Buying bunker parts now updates the vibes total in the Hardware Store and mine HUD as soon as the purchase succeeds.",
+      changes: [
+        {
+          build,
+          text: "The server was charging the right price and adding the part, but the shop kept showing the old wallet total. The purchase response now updates the wallet everywhere before you buy again.",
+        },
+      ],
+    },
     {
       version: "0.1.285",
       date: "2026-07-22",

@@ -2274,6 +2274,16 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
     }
   }, [buyElevator, elevatorPurchasePending]);
 
+  const purchaseHardwarePart = useCallback(
+    async (partId: BasePartId, quantity: number) => {
+      const result = await buyBasePart(partId, quantity);
+      if (result) {
+        useMineStore.setState({ balance: result.player.balance });
+      }
+    },
+    [buyBasePart],
+  );
+
   // Recover from a rail resync that failed offline mid-conflict. The buy and
   // retry controls never show at once (the buy is blocked while the recovery
   // box is up), so a dedicated pending flag keeps each label honest.
@@ -4509,7 +4519,7 @@ export function MinePanel({ appRelease }: { appRelease: AppRelease }) {
             void buyConsumable(item, quantity)
           }
           onBuyBasePart={(partId, quantity) =>
-            void buyBasePart(partId, quantity)
+            void purchaseHardwarePart(partId, quantity)
           }
           onBuyGear={(track) => void buyGearUpgrade(track)}
           onBuyElevator={() => void purchaseNextElevatorRail()}

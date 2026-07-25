@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-22-0.1.285-staged-clanker-invasion",
+      releaseNoticeId: "2026-07-25-0.1.286-hardware-store-wallet-sync",
       releaseSummary:
-        "Clanker invasions come in waves you can fight: A raid now opens with a few quiet seconds, then the Clankers burrow in one at a time, and one surfacing under your feet can be dodged instead of ending the raid on the spot.",
+        "Hardware Store purchases update your wallet: Buying bunker parts now updates the vibes total in the Hardware Store and mine HUD as soon as the purchase succeeds.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-22-0.1.285-staged-clanker-invasion",
+      releaseNoticeId: "2026-07-25-0.1.286-hardware-store-wallet-sync",
       attempted: 2,
       sent: 1,
       expired: 1,

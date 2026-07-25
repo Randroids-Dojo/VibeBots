@@ -24,11 +24,28 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest staged-clanker-invasion note complete", () => {
+  it("keeps the latest Hardware Store wallet note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-22-0.1.285-staged-clanker-invasion");
+    expect(release.noticeId).toBe(
+      "2026-07-25-0.1.286-hardware-store-wallet-sync",
+    );
+    expect(latestNote).toMatchObject({
+      version: "0.1.286",
+      title: "Hardware Store purchases update your wallet",
+      intro:
+        "Buying bunker parts now updates the vibes total in the Hardware Store and mine HUD as soon as the purchase succeeds.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The server was charging the right price and adding the part, but the shop kept showing the old wallet total. The purchase response now updates the wallet everywhere before you buy again.",
+    ]);
+  });
+
+  it("keeps the latest staged-clanker-invasion note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.285");
+
     expect(latestNote).toMatchObject({
       version: "0.1.285",
       title: "Clanker invasions come in waves you can fight",

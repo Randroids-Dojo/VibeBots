@@ -391,8 +391,9 @@ export function fpSlotOccupied(
 /**
  * Builds thin-face occupancy and movement barriers from placed parts.
  * `faces` contains every intact slotted wall, door, floor, and roof.
- * `walls` contains only solid wall panels, since the owner's door remains
- * passable. Wall dividers are mirrored onto their neighboring cell.
+ * `walls` contains solid wall panels and roof faces for movement collision;
+ * the owner's door remains passable. Wall dividers are mirrored onto their
+ * neighboring cell.
  */
 export function buildFpFaceGrids(
   bunker: BunkerState,
@@ -418,7 +419,9 @@ export function buildFpFaceGrids(
     const bit = fpFaceBit(part.slot);
     const index = fpCellIndex(x, y, z);
     faces[index] |= bit;
-    if (part.partId === "wall-panel") walls[index] |= bit;
+    if (part.partId === "wall-panel" || part.slot === "roof") {
+      walls[index] |= bit;
+    }
 
     let nx = x;
     let nz = z;

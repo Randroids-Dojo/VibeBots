@@ -862,11 +862,6 @@ test(
     // Holding the press swings until the block's hit requirement is met
     // and the room gains the cell.
     await holdFpDigUntil(page, 27);
-    await expect
-      .poll(async () => canvas.getAttribute("data-fp-open-cells"), {
-        timeout: 10_000,
-      })
-      .toBe("27");
     const afterDig = await canvas.screenshot();
     expect(
       await imagePixelDifferenceRatio(page, beforeDig, afterDig),

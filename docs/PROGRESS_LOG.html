@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bunker-multi-slot-roof-review" data-date="2026-07-25">
+    <h3>PR #297 restores thin-roof collision and preserves coverage history</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/bunker-multi-slot-placement</code>.</dd>
+      <dt>PR</dt><dd>#297.</dd>
+      <dt>Changed</dt><dd>CodeRabbit correctly found that moving roofs out of the full-cell solid grid also removed their vertical collision. Intact roofs now enter the movement barrier grid, where a thin Y-plane resolver stops upward head crossings at the underside and catches downward feet crossings on top. The edited REQ-046 coverage note was restored byte-for-byte to preserve its historical row; this correction remains recorded through the new append-only base-building GDD build-log and progress entries. A browser assertion already guaranteed by <code>holdFpDigUntil</code> was removed.</dd>
+      <dt>Verification</dt><dd>New unit coverage proves an intact roof enters the barrier grid, blocks a jump at its underside, and catches a fall on top. Focused grid, movement, raycast, and bunker suites, typecheck, Biome, dash validation, and <code>git diff --check</code> cover this review round. PR CI reruns on the updated head.</dd>
+      <dt>Assumptions</dt><dd>A roof is a two-sided horizontal barrier: its underside blocks a rising capsule and its top supports a falling capsule. Floor slabs retain their existing one-way walkable behavior.</dd>
+      <dt>GDD coverage</dt><dd>REQ-046 remains done and unchanged. Its new behavior is append-only history in <code>docs/gdd/08-base-building.html</code> and this progress entry.</dd>
+      <dt>Followups</dt><dd>No deferred followup. All three CodeRabbit review threads are addressed on PR #297.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-multi-slot-destroyed-part-review" data-date="2026-07-25">
     <h3>PR #297 keeps destroyed bunker parts out of both occupancy grids</h3>
     <dl>

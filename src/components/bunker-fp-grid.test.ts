@@ -18,6 +18,7 @@ import {
   FP_DEPTH,
   FP_DOOR_OWNED,
   FP_FACE_FLOOR,
+  FP_FACE_ROOF,
   FP_FACE_WALL_NX,
   FP_FACE_WALL_NZ,
   FP_FACE_WALL_PX,
@@ -437,6 +438,29 @@ describe("fp solidity", () => {
     ] as const) {
       expect(fpSlotOccupied(faces, 3, 0, 0, slot)).toBe(true);
     }
+  });
+
+  it("adds an intact roof to the movement barrier grid", () => {
+    const bottomRow = footprint.row + footprint.height - 1;
+    const bunker: BunkerState = {
+      ...corridorBunker(),
+      parts: [
+        {
+          partId: "roof-panel",
+          col: footprint.col + 3,
+          row: bottomRow - 1,
+          depth: 0,
+          durability: 70,
+          slot: "roof",
+        },
+      ],
+    };
+    const faces = createFpFaceGrid();
+    const barriers = createFpFaceGrid();
+    buildFpFaceGrids(bunker, faces, barriers);
+    const index = fpCellIndex(3, 1, 0);
+    expect(faces[index] & FP_FACE_ROOF).toBe(FP_FACE_ROOF);
+    expect(barriers[index] & FP_FACE_ROOF).toBe(FP_FACE_ROOF);
   });
 
   it("normalizes legacy wire shapes (parts without depth, no dug list)", () => {

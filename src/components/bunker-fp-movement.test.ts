@@ -4,6 +4,7 @@ import {
   createFpSolidGrid,
   FP_DEPTH,
   FP_DOOR_OWNED,
+  FP_FACE_ROOF,
   FP_FACE_WALL_PX,
   FP_FLOOR_SLAB,
   FP_ROCK_UNDUG,
@@ -133,6 +134,29 @@ describe("fp movement", () => {
     expect(s.px).toBeCloseTo(limit, 3);
     expect(grid[fpCellIndex(3, 0, 0)]).toBe(0);
     expect(grid[fpCellIndex(4, 0, 0)]).toBe(0);
+  });
+
+  it("a thin roof face blocks jumps and catches falls", () => {
+    const grid = corridorGrid();
+    const barriers = createFpFaceGrid();
+    barriers[fpCellIndex(3, 1, 0)] = FP_FACE_ROOF;
+    const underside = 1.5 - FP_SLAB_HEIGHT;
+    const jumper = state();
+    for (let n = 0; n < 120; n++) {
+      stepFpMovement(jumper, input({ jump: n === 0 }), grid, 1 / 60, barriers);
+      expect(jumper.py + FP_CAPSULE_HEIGHT).toBeLessThanOrEqual(
+        underside + 1e-6,
+      );
+    }
+
+    const faller = state({ py: 2.5, grounded: false });
+    for (let n = 0; n < 240; n++) {
+      stepFpMovement(faller, input(), grid, 1 / 60, barriers);
+      if (faller.grounded) break;
+    }
+    expect(faller.py).toBeCloseTo(1.5, 5);
+    expect(faller.vy).toBe(0);
+    expect(faller.grounded).toBe(true);
   });
 
   it("lets a centered player add faces around their cell", () => {
@@ -357,6 +381,20 @@ describe("fp movement", () => {
         expect(s.py + FP_CAPSULE_HEIGHT).toBeLessThanOrEqual(0.5 + 1e-6);
       }
       expect(s.py).toBeLessThan(0); // capped well short of a full-layer climb
+    });
+
+    it("blocks the climb under a thin roof without clipping through", () => {
+      const grid = corridorGrid();
+      const barriers = createFpFaceGrid();
+      grid[fpCellIndex(4, 0, 0)] = FP_STAIR_PX;
+      barriers[fpCellIndex(4, 1, 0)] = FP_FACE_ROOF;
+      const underside = 1.5 - FP_SLAB_HEIGHT;
+      const s = state({ px: 3.2 });
+      for (let n = 0; n < 240; n++) {
+        stepFpMovement(s, walkPX(), grid, 1 / 60, barriers);
+        expect(s.py + FP_CAPSULE_HEIGHT).toBeLessThanOrEqual(underside + 1e-6);
+      }
+      expect(s.py).toBeLessThan(0.5);
     });
 
     it("reverses the slope when the orientation flips", () => {

@@ -171,6 +171,7 @@ function runTier(tier, fullSha, resultDirectory, baseEnv) {
           "ci-case-results.json",
         ),
         CI_REPRO_REPORT_DIR: reportDirectory,
+        PLAYWRIGHT_PORT: String(32_000 + (process.pid % 20_000)),
       },
       allowFailure: true,
     },

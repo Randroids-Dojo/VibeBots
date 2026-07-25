@@ -2,6 +2,28 @@ import path from "node:path";
 
 export const RENDER_TIERS = ["render", "visual", "soak"];
 
+const HOST_ENV_ALLOWLIST = [
+  "ALL_PROXY",
+  "HOME",
+  "HTTPS_PROXY",
+  "HTTP_PROXY",
+  "LANG",
+  "LC_ALL",
+  "LOGNAME",
+  "NO_PROXY",
+  "PATH",
+  "PNPM_HOME",
+  "SHELL",
+  "SSH_AUTH_SOCK",
+  "SSL_CERT_DIR",
+  "SSL_CERT_FILE",
+  "TEMP",
+  "TERM",
+  "TMP",
+  "TMPDIR",
+  "USER",
+];
+
 function argumentValue(args, name) {
   const index = args.indexOf(name);
   if (index === -1 || !args[index + 1]) {
@@ -28,6 +50,26 @@ export function parseRenderArgs(args) {
 
 export function selectedRenderTiers(tier) {
   return tier === "all" ? [...RENDER_TIERS] : [tier];
+}
+
+export function renderEnvironment(hostEnvironment) {
+  const environment = {};
+  for (const name of HOST_ENV_ALLOWLIST) {
+    const value = hostEnvironment[name];
+    if (value !== undefined) environment[name] = value;
+  }
+  return {
+    ...environment,
+    NEXT_TELEMETRY_DISABLED: "1",
+    DATABASE_URL: "",
+    AUTH_SECRET: "",
+    VAPID_PUBLIC_KEY: "",
+    VAPID_PRIVATE_KEY: "",
+    WEB_PUSH_CONTACT_EMAIL: "",
+    CLERK_SECRET_KEY: "",
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
+    VIBEBOTS_E2E_MODE: "",
+  };
 }
 
 export function localDateKey(date, timeZone = "America/Chicago") {

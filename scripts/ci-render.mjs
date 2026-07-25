@@ -15,6 +15,7 @@ import {
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
+  renderEnvironment,
   renderTierStatus,
   selectedRenderTiers,
   summarizeTierResults,
@@ -231,17 +232,7 @@ let result;
 try {
   prepareCheckout(fullSha);
   run("pnpm", ["install", "--frozen-lockfile"], { cwd: checkout });
-  const baseEnv = {
-    ...process.env,
-    NEXT_TELEMETRY_DISABLED: "1",
-    DATABASE_URL: "",
-    AUTH_SECRET: "",
-    VAPID_PUBLIC_KEY: "",
-    VAPID_PRIVATE_KEY: "",
-    WEB_PUSH_CONTACT_EMAIL: "",
-    CLERK_SECRET_KEY: "",
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
-  };
+  const baseEnv = renderEnvironment(process.env);
   run("pnpm", ["build"], { cwd: checkout, env: baseEnv });
   run("pnpm", ["exec", "playwright", "install", "chromium"], {
     cwd: checkout,

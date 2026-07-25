@@ -3,6 +3,7 @@ import {
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
+  renderEnvironment,
   renderTierStatus,
   selectedRenderTiers,
   summarizeTierResults,
@@ -41,6 +42,34 @@ describe("ci render arguments", () => {
     expect(() =>
       parseRenderArgs(["--sha", "abc123", "--tier", "pixels"]),
     ).toThrow("--tier must be all, render, visual, or soak");
+  });
+
+  it("keeps only operational host variables and blanks app configuration", () => {
+    expect(
+      renderEnvironment({
+        PATH: "/usr/bin",
+        HOME: "/tmp/home",
+        NEXT_PUBLIC_ANALYTICS_ID: "host-value",
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "host-key",
+        DATABASE_URL: "postgres://host",
+        VIBEBOTS_E2E_MODE: "1",
+        UNRELATED_HOST_TOGGLE: "enabled",
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        PATH: "/usr/bin",
+        HOME: "/tmp/home",
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "",
+        DATABASE_URL: "",
+        VIBEBOTS_E2E_MODE: "",
+      }),
+    );
+    const result = renderEnvironment({
+      NEXT_PUBLIC_ANALYTICS_ID: "host-value",
+      UNRELATED_HOST_TOGGLE: "enabled",
+    });
+    expect(result).not.toHaveProperty("NEXT_PUBLIC_ANALYTICS_ID");
+    expect(result).not.toHaveProperty("UNRELATED_HOST_TOGGLE");
   });
 });
 

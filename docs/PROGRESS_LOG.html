@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="real-render-environment-review" data-date="2026-07-25">
+    <h3>PR #299 keeps Mac renderer evidence independent of host config</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/scheduled-e2e-capability-gates</code>.</dd>
+      <dt>PR</dt><dd>#299.</dd>
+      <dt>Changed</dt><dd>Copilot correctly found that spreading the host environment into the exact-SHA build could leak an unrelated <code>NEXT_PUBLIC_*</code> value into the client bundle. The renderer lane now constructs a fresh environment from an explicit operational allowlist, blanks every supported application credential and public key, and clears the E2E mode until Playwright deliberately enables it for its own server.</dd>
+      <dt>Verification</dt><dd>Focused runner coverage now passes eight cases, including rejection of inherited public and unrelated host toggles. A production build completed successfully using only the sanitized renderer environment. Dash and whitespace checks pass.</dd>
+      <dt>Assumptions</dt><dd>The runner needs operating-system paths, temporary directories, locale, certificate, proxy, and user-home variables. Application configuration is never inherited.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is a CI evidence-isolation correction.</dd>
+      <dt>Followups</dt><dd>F-132 remains active under its existing acceptance. No new followup was created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="real-render-e2e-stabilization" data-date="2026-07-25">
     <h3>Physical renderer E2E gets an exact-SHA Mac lane</h3>
     <dl>

@@ -1,3 +1,10 @@
+import {
+  closeSync,
+  openSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 
 export const RENDER_TIERS = ["render", "visual", "soak"];
@@ -33,7 +40,9 @@ function argumentValue(args, name) {
 }
 
 export function parseRenderArgs(args) {
-  const tier = args.includes("--tier") ? argumentValue(args, "--tier") : "all";
+  const tier = args.includes("--tier")
+    ? argumentValue(args, "--tier")
+    : "render";
   if (tier !== "all" && !RENDER_TIERS.includes(tier)) {
     throw new Error("--tier must be all, render, visual, or soak");
   }
@@ -46,6 +55,80 @@ export function parseRenderArgs(args) {
     root,
     scheduled: args.includes("--scheduled"),
   };
+}
+
+function processIsActive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error?.code === "EPERM") return true;
+    if (error?.code === "ESRCH") return false;
+    throw error;
+  }
+}
+
+function readLockOwner(lockPath) {
+  const owner = JSON.parse(readFileSync(lockPath, "utf8"));
+  if (
+    !Number.isSafeInteger(owner.pid) ||
+    owner.pid <= 0 ||
+    typeof owner.startedAt !== "string"
+  ) {
+    throw new Error(`Real-render lock has an invalid owner: ${lockPath}`);
+  }
+  return owner;
+}
+
+export function acquireRenderLock(lockPath) {
+  const owner = {
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+  };
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let descriptor;
+    try {
+      descriptor = openSync(lockPath, "wx");
+      writeFileSync(descriptor, `${JSON.stringify(owner, null, 2)}\n`);
+      closeSync(descriptor);
+      descriptor = undefined;
+    } catch (error) {
+      if (descriptor !== undefined) {
+        closeSync(descriptor);
+        unlinkSync(lockPath);
+      }
+      if (error?.code !== "EEXIST") throw error;
+
+      const currentOwner = readLockOwner(lockPath);
+      if (!processIsActive(currentOwner.pid)) {
+        unlinkSync(lockPath);
+        continue;
+      }
+      throw new Error(
+        `Real-render run already active under process ${currentOwner.pid}`,
+      );
+    }
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      try {
+        const currentOwner = readLockOwner(lockPath);
+        if (
+          currentOwner.pid === owner.pid &&
+          currentOwner.startedAt === owner.startedAt
+        ) {
+          unlinkSync(lockPath);
+        }
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+    };
+  }
+
+  throw new Error(`Could not acquire real-render lock: ${lockPath}`);
 }
 
 export function selectedRenderTiers(tier) {
@@ -94,6 +177,13 @@ export function missedDateKeys(previousKey, currentKey) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return missed;
+}
+
+export function scheduledHeartbeatDateKey(heartbeat) {
+  return heartbeat?.source === "scheduled" &&
+    typeof heartbeat.dateKey === "string"
+    ? heartbeat.dateKey
+    : null;
 }
 
 export function summarizeTierResults(tiers) {

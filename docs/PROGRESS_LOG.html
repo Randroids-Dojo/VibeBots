@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-4-scheduled-renderer-triage" data-date="2026-07-26">
+    <h3>Stage 4 triages the newest scheduled renderer-only red run</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>No runtime, test, or workflow change. This entry records the required pre-merge triage of the newest completed scheduled Full E2E run before Stage 4 can close.</dd>
+      <dt>Verification</dt><dd>Scheduled run <code>30197389102</code> on exact current main <code>b1a34e0322fbc4b929a7c5531611193d743e4fe5</code> completed red with ten failed Full E2E shards. Its logs identify 24 unique first-attempt failures, and every affected case is tagged <code>@render</code>. No <code>@functional</code> case failed. The failure families are the elapsed-motion, pixel, scene-readiness, and software-renderer cases already owned by <a href="FOLLOWUPS.html#F-132">F-132</a>. PR #299 independently passed the physical-render set on the exact-SHA Mac lane. The Stage 4 changes affect only protected deployment smoke, and PR #301 passed all seven exact-head preview cases. The old scheduled matrix remains red known evidence until a coverage-equivalent Full E2E run supersedes it or Stage 7 retires that matrix.</dd>
+      <dt>Assumptions</dt><dd>This renderer-only recurrence is not classified as a Stage 4 product regression because the changed surface does not alter gameplay or renderer behavior, no functional case failed, and the physical-render authority passed. It remains actionable evidence under F-132 rather than being dismissed.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is CI triage evidence.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> remains active under its existing acceptance. No duplicate followup was created.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ci-stage-4-preview-live-proof" data-date="2026-07-26">
     <h3>PR #301 proves the protected preview lane on its exact first head</h3>
     <dl>

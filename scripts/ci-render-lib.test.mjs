@@ -7,6 +7,7 @@ import {
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
+  removeStaleRenderLock,
   renderEnvironment,
   renderTierStatus,
   scheduledHeartbeatDateKey,
@@ -157,6 +158,16 @@ describe("ci render lock", () => {
         `${JSON.stringify({ pid: 2_147_483_647, startedAt: "stale" })}\n`,
       );
       expect(() => acquireRenderLock(lockPath)()).not.toThrow();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("tolerates another contender removing a stale lock first", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "ci-render-lock-"));
+    const lockPath = path.join(directory, "runner.lock");
+    try {
+      expect(() => removeStaleRenderLock(lockPath)).not.toThrow();
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

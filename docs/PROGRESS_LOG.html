@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-4-preview-live-proof" data-date="2026-07-26">
+    <h3>PR #301 proves the protected preview lane on its exact first head</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>No runtime or workflow change. This entry preserves the first live proof for the advisory Stage 4 lane added below.</dd>
+      <dt>Verification</dt><dd>GitHub Actions run <code>30223748667</code> found successful Preview deployment <code>5614786522</code> for exact pull-request head <code>dade20bcaa1a57c018227bcd27fa6cfa64b56406</code>, then passed all seven protected preview cases in 7.9 seconds. The complete advisory job passed in 45 seconds, including dependency and browser setup, with no failure artifact. Vercel reported the matching preview Ready.</dd>
+      <dt>Assumptions</dt><dd>This is the first advisory sample, not enough history to promote the lane into a required gate.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is deployment verification evidence.</dd>
+      <dt>Followups</dt><dd>The Stage 4 Dot remains active for review, final-head CI, merge, exact-main verification, and additional timing observations.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ci-stage-4-preview-smoke" data-date="2026-07-26">
     <h3>Stage 4 adds an exact-head protected-preview smoke lane</h3>
     <dl>

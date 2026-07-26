@@ -12,11 +12,13 @@ import os from "node:os";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import {
+  acquireRenderLock,
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
   renderEnvironment,
   renderTierStatus,
+  scheduledHeartbeatDateKey,
   selectedRenderTiers,
   summarizeTierResults,
 } from "./ci-render-lib.mjs";
@@ -198,93 +200,103 @@ function runTier(tier, fullSha, resultDirectory, baseEnv) {
   };
 }
 
-if (process.platform !== "darwin") {
-  throw new Error("ci:render requires the development Mac");
-}
-assertClean(sourceRoot, "Source checkout");
-run("git", ["fetch", "--prune", "origin", "main"]);
-const fullSha = output("git", ["rev-parse", `${options.sha}^{commit}`]);
-if (options.scheduled) {
-  const ancestry = run(
-    "git",
-    ["merge-base", "--is-ancestor", fullSha, "origin/main"],
-    { allowFailure: true, capture: true },
-  );
-  if (ancestry.status !== 0) {
-    throw new Error("Scheduled render SHA must be contained in origin/main");
+async function main() {
+  if (process.platform !== "darwin") {
+    throw new Error("ci:render requires the development Mac");
+  }
+
+  mkdirSync(renderRoot, { recursive: true });
+  const releaseLock = acquireRenderLock(path.join(renderRoot, "runner.lock"));
+  try {
+    assertClean(sourceRoot, "Source checkout");
+    run("git", ["fetch", "--prune", "origin", "main"]);
+    const fullSha = output("git", ["rev-parse", `${options.sha}^{commit}`]);
+    if (options.scheduled) {
+      const ancestry = run(
+        "git",
+        ["merge-base", "--is-ancestor", fullSha, "origin/main"],
+        { allowFailure: true, capture: true },
+      );
+      if (ancestry.status !== 0) {
+        throw new Error(
+          "Scheduled render SHA must be contained in origin/main",
+        );
+      }
+    }
+
+    const startedAt = new Date();
+    const dateKey = localDateKey(startedAt, TIME_ZONE);
+    const priorHeartbeat = jsonFile(heartbeatPath, {});
+    const previousScheduledDate = scheduledHeartbeatDateKey(priorHeartbeat);
+    const missedWindows = options.scheduled
+      ? missedDateKeys(previousScheduledDate, dateKey)
+      : [];
+    const resultDirectory = path.join(
+      resultsRoot,
+      fullSha,
+      startedAt.toISOString().replaceAll(":", "-"),
+    );
+    mkdirSync(resultDirectory, { recursive: true });
+
+    let result;
+    try {
+      prepareCheckout(fullSha);
+      run("pnpm", ["install", "--frozen-lockfile"], { cwd: checkout });
+      const baseEnv = renderEnvironment(process.env);
+      run("pnpm", ["build"], { cwd: checkout, env: baseEnv });
+      run("pnpm", ["exec", "playwright", "install", "chromium"], {
+        cwd: checkout,
+        env: baseEnv,
+      });
+      const fingerprint = await environmentFingerprint();
+      const tiers = selectedRenderTiers(options.tier).map((tier) =>
+        runTier(tier, fullSha, resultDirectory, baseEnv),
+      );
+      result = {
+        schemaVersion: 1,
+        commitSha: fullSha,
+        source: options.scheduled ? "scheduled" : "manual",
+        status: summarizeTierResults(tiers),
+        startedAt: startedAt.toISOString(),
+        completedAt: new Date().toISOString(),
+        timeZone: TIME_ZONE,
+        dateKey,
+        missedWindows,
+        caughtUp: options.scheduled && missedWindows.length > 0,
+        fingerprint,
+        tiers,
+      };
+    } catch (error) {
+      result = {
+        schemaVersion: 1,
+        commitSha: fullSha,
+        source: options.scheduled ? "scheduled" : "manual",
+        status: "failure",
+        startedAt: startedAt.toISOString(),
+        completedAt: new Date().toISOString(),
+        timeZone: TIME_ZONE,
+        dateKey,
+        missedWindows,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+
+    const resultPath = path.join(resultDirectory, "result.json");
+    writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
+    if (options.scheduled) {
+      writeFileSync(heartbeatPath, `${JSON.stringify(result, null, 2)}\n`);
+    }
+    cpSync(resultPath, path.join(renderRoot, "latest.json"));
+    console.log(`Real-render result: ${resultPath}`);
+    console.log(`Commit: ${fullSha}`);
+    console.log(`Status: ${result.status}`);
+    if (result.missedWindows?.length) {
+      console.log(`Missed windows: ${result.missedWindows.join(", ")}`);
+    }
+    if (result.status === "failure") process.exitCode = 1;
+  } finally {
+    releaseLock();
   }
 }
 
-const startedAt = new Date();
-const dateKey = localDateKey(startedAt, TIME_ZONE);
-const priorHeartbeat = jsonFile(heartbeatPath, {});
-const missedWindows = options.scheduled
-  ? missedDateKeys(priorHeartbeat.dateKey, dateKey)
-  : [];
-const resultDirectory = path.join(
-  resultsRoot,
-  fullSha,
-  startedAt.toISOString().replaceAll(":", "-"),
-);
-mkdirSync(resultDirectory, { recursive: true });
-
-let result;
-try {
-  prepareCheckout(fullSha);
-  run("pnpm", ["install", "--frozen-lockfile"], { cwd: checkout });
-  const baseEnv = renderEnvironment(process.env);
-  run("pnpm", ["build"], { cwd: checkout, env: baseEnv });
-  run("pnpm", ["exec", "playwright", "install", "chromium"], {
-    cwd: checkout,
-    env: baseEnv,
-  });
-  const fingerprint = await environmentFingerprint();
-  const tiers = selectedRenderTiers(options.tier).map((tier) =>
-    runTier(tier, fullSha, resultDirectory, baseEnv),
-  );
-  result = {
-    schemaVersion: 1,
-    commitSha: fullSha,
-    source: options.scheduled ? "scheduled" : "manual",
-    status: summarizeTierResults(tiers),
-    startedAt: startedAt.toISOString(),
-    completedAt: new Date().toISOString(),
-    timeZone: TIME_ZONE,
-    dateKey,
-    missedWindows,
-    caughtUp: options.scheduled && missedWindows.length > 0,
-    fingerprint,
-    tiers,
-  };
-} catch (error) {
-  result = {
-    schemaVersion: 1,
-    commitSha: fullSha,
-    source: options.scheduled ? "scheduled" : "manual",
-    status: "failure",
-    startedAt: startedAt.toISOString(),
-    completedAt: new Date().toISOString(),
-    timeZone: TIME_ZONE,
-    dateKey,
-    missedWindows,
-    error: error instanceof Error ? error.message : String(error),
-  };
-}
-
-writeFileSync(
-  path.join(resultDirectory, "result.json"),
-  `${JSON.stringify(result, null, 2)}\n`,
-);
-mkdirSync(renderRoot, { recursive: true });
-writeFileSync(heartbeatPath, `${JSON.stringify(result, null, 2)}\n`);
-cpSync(
-  path.join(resultDirectory, "result.json"),
-  path.join(renderRoot, "latest.json"),
-);
-console.log(`Real-render result: ${path.join(resultDirectory, "result.json")}`);
-console.log(`Commit: ${fullSha}`);
-console.log(`Status: ${result.status}`);
-if (result.missedWindows?.length) {
-  console.log(`Missed windows: ${result.missedWindows.join(", ")}`);
-}
-if (result.status === "failure") process.exitCode = 1;
+await main();

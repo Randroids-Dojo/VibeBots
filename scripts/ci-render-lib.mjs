@@ -90,6 +90,14 @@ function readLockOwner(lockPath) {
   return owner;
 }
 
+export function removeStaleRenderLock(lockPath) {
+  try {
+    unlinkSync(lockPath);
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+
 export function acquireRenderLock(lockPath) {
   const owner = {
     pid: process.pid,
@@ -118,7 +126,7 @@ export function acquireRenderLock(lockPath) {
         throw readError;
       }
       if (!processIsActive(currentOwner.pid)) {
-        unlinkSync(lockPath);
+        removeStaleRenderLock(lockPath);
         continue;
       }
       throw new Error(

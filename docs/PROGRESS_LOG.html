@@ -30,6 +30,71 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-4-preview-readiness-review" data-date="2026-07-26">
+    <h3>Stage 4 gives preview shell readiness a cold-start budget</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>A final-head Copilot review correctly noted that both mine-shell readiness checks still inherited Playwright's 5-second assertion default. Both checks now share an explicit 30-second readiness budget, bounded inside the existing 60-second per-test timeout.</dd>
+      <dt>Verification</dt><dd>The seven preview cases pass against the local production build. Focused Biome, dash, and whitespace checks pass. Exact-head CI and preview proof run again on this replacement head.</dd>
+      <dt>Assumptions</dt><dd>Thirty seconds leaves room for a cold preview start while preserving the existing per-test and job deadlines.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is smoke-test readiness hardening.</dd>
+      <dt>Followups</dt><dd>No new followup. The review thread is resolved only after the replacement passes locally.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="ci-stage-4-review-hardening" data-date="2026-07-26">
+    <h3>Stage 4 review hardens exact-preview selection and startup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>Nine unique review findings were accepted. Preview selection now shares one exact-SHA Preview predicate, limits each poll to the ten newest matching deployments, rejects the bare <code>vercel.app</code> root, sorts status history by creation time, and accepts only the latest status when it is successful. The command requires an explicit SHA instead of falling back to a pull-request merge commit. Preview Playwright configuration requires an explicit base URL before it can attach bypass headers. The job documents its narrow permissions, caches Chromium, has a 15-minute outer budget around the 9-minute deployment wait, and waits for the mine shell before its positional interaction.</dd>
+      <dt>Verification</dt><dd>The focused policy suite passes six cases, including rejection of a newer failed status after an older success and rejection of the bare Vercel root. The missing-SHA command and missing-preview-base configuration both fail fast with their intended errors. Typecheck, 1,887 unit tests, the production build, focused Biome, workflow YAML parsing, dash, and whitespace checks pass. The local production server passes all seven preview cases in 1.6 seconds.</dd>
+      <dt>Assumptions</dt><dd>Ten recent exact-SHA Preview deployments and the first 100 statuses per deployment are a bounded polling window for one pull request. A status without a parseable creation time sorts behind a timestamped status and cannot displace newer evidence.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This hardens deployment verification and changes no player behavior.</dd>
+      <dt>Followups</dt><dd>No new followup. Final exact-head CI, bot review, merge, and production closeout remain required.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="ci-stage-4-scheduled-renderer-triage" data-date="2026-07-26">
+    <h3>Stage 4 triages the newest scheduled renderer-only red run</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>No runtime, test, or workflow change. This entry records the required pre-merge triage of the newest completed scheduled Full E2E run before Stage 4 can close.</dd>
+      <dt>Verification</dt><dd>Scheduled run <code>30197389102</code> on exact current main <code>b1a34e0322fbc4b929a7c5531611193d743e4fe5</code> completed red with ten failed Full E2E shards. Its logs identify 24 unique first-attempt failures, and every affected case is tagged <code>@render</code>. No <code>@functional</code> case failed. The failure families are the elapsed-motion, pixel, scene-readiness, and software-renderer cases already owned by <a href="FOLLOWUPS.html#F-132">F-132</a>. PR #299 independently passed the physical-render set on the exact-SHA Mac lane. The Stage 4 changes affect only protected deployment smoke, and PR #301 passed all seven exact-head preview cases. The old scheduled matrix remains red known evidence until a coverage-equivalent Full E2E run supersedes it or Stage 7 retires that matrix.</dd>
+      <dt>Assumptions</dt><dd>This renderer-only recurrence is not classified as a Stage 4 product regression because the changed surface does not alter gameplay or renderer behavior, no functional case failed, and the physical-render authority passed. It remains actionable evidence under F-132 rather than being dismissed.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is CI triage evidence.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> remains active under its existing acceptance. No duplicate followup was created.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="ci-stage-4-preview-live-proof" data-date="2026-07-26">
+    <h3>PR #301 proves the protected preview lane on its exact first head</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>No runtime or workflow change. This entry preserves the first live proof for the advisory Stage 4 lane added below.</dd>
+      <dt>Verification</dt><dd>GitHub Actions run <code>30223748667</code> found successful Preview deployment <code>5614786522</code> for exact pull-request head <code>dade20bcaa1a57c018227bcd27fa6cfa64b56406</code>, then passed all seven protected preview cases in 7.9 seconds. The complete advisory job passed in 45 seconds, including dependency and browser setup, with no failure artifact. Vercel reported the matching preview Ready.</dd>
+      <dt>Assumptions</dt><dd>This is the first advisory sample, not enough history to promote the lane into a required gate.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is deployment verification evidence.</dd>
+      <dt>Followups</dt><dd>The Stage 4 Dot remains active for review, final-head CI, merge, exact-main verification, and additional timing observations.</dd>
+    </dl>
+  </article>
+
+  <article data-slice="ci-stage-4-preview-smoke" data-date="2026-07-26">
+    <h3>Stage 4 adds an exact-head protected-preview smoke lane</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Stage 4 of <code>docs/ci-rewrite-prompt.md</code> adds one advisory <code>Preview Smoke</code> job for same-repository pull requests. It checks out the exact pull-request head, asks GitHub only for deployments with that complete SHA, independently rejects every mismatched SHA, accepts only a successful Preview status with an HTTPS <code>vercel.app</code> URL, and runs seven GPU-independent <code>@preview @functional</code> cases for the app shell, latest release note, guest mine boot, deterministic simulation probe, version API, static asset, and protected notification route. The Vercel bypass is mapped only into the smoke step. Forks skip the job, policy validation independently rejects a fork event, retries and traces are disabled, and retained failure evidence is limited to screenshots so request headers cannot enter an artifact.</dd>
+      <dt>Verification</dt><dd>The focused policy suite passes four cases, including wrong-SHA refusal and fork isolation. Inventory discovers 209 unique cases with all seven preview cases carrying exactly one capability and both required tags. Typecheck and the production build pass. The local production server passes all seven preview cases in 1.5 seconds. Pointing the asset case at a deliberately missing path fails immediately as required. Vercel reports the separately named <code>GitHub Actions trusted preview smoke</code> bypass, and GitHub reports the repository Actions secret with its update time; neither verification reads the value. Focused Biome, dash, and whitespace checks pass. Repository-wide Biome remains red only on pre-existing mainline findings outside this slice.</dd>
+      <dt>Assumptions</dt><dd>Same-repository branches are trusted under the owner's explicit credential boundary. The GitHub deployment environment begins with <code>Preview</code>, and Vercel preview origins end in <code>vercel.app</code>. Stage 4 remains advisory until enough exact-head observations prove its completion budget and reliability.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is deployment verification infrastructure and changes no player rule, tip, stamp, version, or release note.</dd>
+      <dt>Followups</dt><dd>No new gameplay followup. The Stage 3 Dot remains active because all six available mainline summaries stayed under ten minutes but included advisory first-attempt failures; Stage 3 cannot become required until clean overlap evidence exists. The Stage 4 Dot remains active through credential configuration, pull-request review, exact-head live preview proof, merge, and production closeout.</dd>
+    </dl>
+  </article>
+
   <article data-slice="real-render-environment-review" data-date="2026-07-25">
     <h3>PR #299 keeps Mac renderer evidence independent of host config</h3>
     <dl>

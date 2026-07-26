@@ -9,6 +9,9 @@ const configuredPort = process.env.PLAYWRIGHT_PORT ?? process.env.PORT;
 const configuredWorkers = process.env.PLAYWRIGHT_WORKERS;
 const ciCaseResultsPath = process.env.CI_CASE_RESULTS_PATH;
 const reproReportDirectory = process.env.CI_REPRO_REPORT_DIR;
+const previewSmoke = process.env.CI_PREVIEW_SMOKE === "1";
+const previewBypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+let previewExtraHTTPHeaders: Record<string, string> | undefined;
 const defaultPort =
   3100 +
   (Number.parseInt(
@@ -59,6 +62,21 @@ if (!Number.isInteger(workerCount) || workerCount < 1) {
   );
 }
 
+if (previewSmoke && !previewBypassSecret) {
+  throw new Error(
+    "VERCEL_AUTOMATION_BYPASS_SECRET is required for preview smoke",
+  );
+}
+if (previewSmoke && !configuredBaseUrl) {
+  throw new Error("PLAYWRIGHT_BASE_URL is required for preview smoke");
+}
+if (previewSmoke && previewBypassSecret) {
+  previewExtraHTTPHeaders = {
+    "x-vercel-protection-bypass": previewBypassSecret,
+    "x-vercel-set-bypass-cookie": "true",
+  };
+}
+
 export default defineConfig({
   testDir: "tests/e2e",
   // The per-test cap stays at 60s. Raising it to 120s on CI was measured to
@@ -76,7 +94,7 @@ export default defineConfig({
   globalTimeout: parseE2EGlobalTimeout(process.env.E2E_GLOBAL_TIMEOUT_MS),
   fullyParallel: process.env.CI === "true",
   workers: workerCount,
-  retries: process.env.CI ? 1 : 0,
+  retries: previewSmoke ? 0 : process.env.CI ? 1 : 0,
   // The JSON reporter gives a bounded machine-readable partial result for a
   // timed-out shard; the HTML report and traces carry the full evidence (F-131).
   reporter: process.env.CI ? ciReporters : "list",
@@ -92,8 +110,11 @@ export default defineConfig({
     // mid-run when the global deadline interrupts it may have neither, which is
     // an inherent limit of a hard whole-suite stop, not something a trace mode
     // can guarantee.
-    trace: "on-first-retry",
+    trace: previewSmoke ? "off" : "on-first-retry",
     screenshot: "only-on-failure",
+    ...(previewExtraHTTPHeaders
+      ? { extraHTTPHeaders: previewExtraHTTPHeaders }
+      : {}),
   },
   webServer: configuredBaseUrl
     ? undefined

@@ -295,6 +295,68 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
+  preview-smoke:
+    name: Preview Smoke (advisory)
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Checkout reads the exact PR head. Deployment read access finds the
+    # Vercel-created Preview status for that same commit.
+    permissions:
+      contents: read
+      deployments: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Wait for exact-head Vercel preview
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PREVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          pnpm ci:preview-deployment -- \
+            --repository "$GITHUB_REPOSITORY" \
+            --sha "$PREVIEW_HEAD_SHA" \
+            --timeout-ms 540000
+
+      - name: Run protected preview smoke
+        env:
+          CI_PREVIEW_SMOKE: "1"
+          PLAYWRIGHT_BASE_URL: ${{ steps.preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: pnpm test:e2e:preview
+
+      - name: Upload preview smoke failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: preview-smoke-screenshots-${{ github.event.pull_request.head.sha }}
+          path: test-results/**/*.png
+          retention-days: 7
+          if-no-files-found: warn
+
   e2e-critical:
     name: Critical E2E (${{ matrix.shard_name }})
     runs-on: ubuntu-latest

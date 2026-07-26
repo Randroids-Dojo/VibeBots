@@ -1,13 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { ciCase } from "./support/ci-case";
 
+const PREVIEW_READY_TIMEOUT_MS = 30_000;
+
 test(
   "preview app shell redirects into the mine",
   ciCase("E2E-PREVIEW-0001", "@functional", ["@preview"]),
   async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/mine$/);
-    await expect(page.locator("[data-mine-shell]")).toBeVisible();
+    await expect(page.locator("[data-mine-shell]")).toBeVisible({
+      timeout: PREVIEW_READY_TIMEOUT_MS,
+    });
   },
 );
 
@@ -29,7 +33,9 @@ test(
   ciCase("E2E-PREVIEW-0003", "@functional", ["@preview"]),
   async ({ page }) => {
     await page.goto("/mine");
-    await expect(page.locator("[data-mine-shell]")).toBeVisible();
+    await expect(page.locator("[data-mine-shell]")).toBeVisible({
+      timeout: PREVIEW_READY_TIMEOUT_MS,
+    });
     await page.mouse.click(8, 8);
     const status = page.getByLabel("Mine status");
     await expect(status).toBeVisible();

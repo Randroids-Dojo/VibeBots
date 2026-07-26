@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-4-preview-readiness-review" data-date="2026-07-26">
+    <h3>Stage 4 gives preview shell readiness a cold-start budget</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>A final-head Copilot review correctly noted that both mine-shell readiness checks still inherited Playwright's 5-second assertion default. Both checks now share an explicit 30-second readiness budget, bounded inside the existing 60-second per-test timeout.</dd>
+      <dt>Verification</dt><dd>The seven preview cases pass against the local production build. Focused Biome, dash, and whitespace checks pass. Exact-head CI and preview proof run again on this replacement head.</dd>
+      <dt>Assumptions</dt><dd>Thirty seconds leaves room for a cold preview start while preserving the existing per-test and job deadlines.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is smoke-test readiness hardening.</dd>
+      <dt>Followups</dt><dd>No new followup. The review thread is resolved only after the replacement passes locally.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ci-stage-4-review-hardening" data-date="2026-07-26">
     <h3>Stage 4 review hardens exact-preview selection and startup</h3>
     <dl>

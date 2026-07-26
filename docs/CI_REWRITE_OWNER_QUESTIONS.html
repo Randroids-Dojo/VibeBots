@@ -11,6 +11,14 @@
 </header>
 
 <main id="questions">
+  <section data-date="2026-07-26" data-status="resolved">
+    <h2>Stage 4 protected-preview automation credential</h2>
+    <dl>
+      <dt>Decision</dt><dd>The owner selected option 1 and authorized creating one narrowly scoped Vercel Protection Bypass for Automation secret for the <code>vibe-bots</code> project, then storing the same value as the repository Actions secret <code>VERCEL_AUTOMATION_BYPASS_SECRET</code>.</dd>
+      <dt>Boundary</dt><dd>The credential may be used only by trusted same-repository pull requests and <code>main</code> automation. Fork pull requests must not receive it. The value must not appear in source, logs, traces, reports, or retained artifacts.</dd>
+      <dt>Status</dt><dd>Resolved. Stage 4 may configure and verify the credential under this boundary without another owner interruption.</dd>
+    </dl>
+  </section>
   <section data-date="2026-07-23" data-status="resolved">
     <h2>Planned Stage 1 through Stage 7 merge authority</h2>
     <dl>

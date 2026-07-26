@@ -1,5 +1,5 @@
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
-const VERCEL_HOST_PATTERN = /(^|\.)vercel\.app$/;
+const VERCEL_HOST_PATTERN = /.+\.vercel\.app$/;
 
 export function isTrustedPreviewPullRequest(event, repository, expectedSha) {
   return (
@@ -31,24 +31,34 @@ export function previewDeploymentUrl(value) {
   return url.origin;
 }
 
+export function isExactPreviewDeployment(deployment, sha) {
+  return (
+    deployment?.sha === sha &&
+    /^preview(?:\b|$)/i.test(deployment?.environment ?? "")
+  );
+}
+
+function statusTimestamp(status) {
+  const timestamp = Date.parse(status?.created_at ?? "");
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
 export function successfulExactPreview({ deployments, statuses, sha }) {
   const exact = deployments
-    .filter(
-      (deployment) =>
-        deployment?.sha === sha &&
-        /^preview(?:\b|$)/i.test(deployment?.environment ?? ""),
-    )
+    .filter((deployment) => isExactPreviewDeployment(deployment, sha))
     .sort((left, right) => Number(right.id) - Number(left.id));
 
   for (const deployment of exact) {
-    const deploymentStatuses = statuses.get(deployment.id) ?? [];
-    for (const status of deploymentStatuses) {
-      if (status?.state !== "success") continue;
-      const url = previewDeploymentUrl(
-        status.environment_url ?? status.target_url,
-      );
-      if (url) return { deploymentId: deployment.id, sha, url };
-    }
+    const [latestStatus] = [...(statuses.get(deployment.id) ?? [])].sort(
+      (left, right) =>
+        statusTimestamp(right) - statusTimestamp(left) ||
+        Number(right?.id ?? 0) - Number(left?.id ?? 0),
+    );
+    if (latestStatus?.state !== "success") continue;
+    const url = previewDeploymentUrl(
+      latestStatus.environment_url ?? latestStatus.target_url,
+    );
+    if (url) return { deploymentId: deployment.id, sha, url };
   }
   return null;
 }

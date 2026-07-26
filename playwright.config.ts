@@ -67,6 +67,9 @@ if (previewSmoke && !previewBypassSecret) {
     "VERCEL_AUTOMATION_BYPASS_SECRET is required for preview smoke",
   );
 }
+if (previewSmoke && !configuredBaseUrl) {
+  throw new Error("PLAYWRIGHT_BASE_URL is required for preview smoke");
+}
 if (previewSmoke && previewBypassSecret) {
   previewExtraHTTPHeaders = {
     "x-vercel-protection-bypass": previewBypassSecret,

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  isExactPreviewDeployment,
   isTrustedPreviewPullRequest,
   previewDeploymentUrl,
   successfulExactPreview,
@@ -61,6 +62,27 @@ describe("preview deployment policy", () => {
     ).toBe(null);
   });
 
+  test("recognizes only exact-SHA Preview deployments", () => {
+    expect(
+      isExactPreviewDeployment(
+        { id: 10, sha: exactSha, environment: "Preview - vibe-bots" },
+        exactSha,
+      ),
+    ).toBe(true);
+    expect(
+      isExactPreviewDeployment(
+        { id: 10, sha: wrongSha, environment: "Preview" },
+        exactSha,
+      ),
+    ).toBe(false);
+    expect(
+      isExactPreviewDeployment(
+        { id: 10, sha: exactSha, environment: "Production" },
+        exactSha,
+      ),
+    ).toBe(false);
+  });
+
   test("accepts only a successful exact-SHA Vercel preview URL", () => {
     const deployments = [
       { id: 10, sha: exactSha, environment: "Preview" },
@@ -85,7 +107,48 @@ describe("preview deployment policy", () => {
       url: "https://exact-sha.vercel.app",
     });
     expect(previewDeploymentUrl("https://example.com")).toBe(null);
+    expect(previewDeploymentUrl("https://vercel.app")).toBe(null);
     expect(previewDeploymentUrl("http://exact-sha.vercel.app")).toBe(null);
+  });
+
+  test("accepts only the newest status for an exact deployment", () => {
+    const deployments = [{ id: 10, sha: exactSha, environment: "Preview" }];
+    const statuses = new Map([
+      [
+        10,
+        [
+          {
+            state: "failure",
+            environment_url: "https://exact-sha.vercel.app",
+            created_at: "2026-07-26T22:00:00Z",
+          },
+          {
+            state: "success",
+            environment_url: "https://exact-sha.vercel.app",
+            created_at: "2026-07-26T21:00:00Z",
+          },
+        ],
+      ],
+    ]);
+    expect(
+      successfulExactPreview({ deployments, statuses, sha: exactSha }),
+    ).toBe(null);
+
+    statuses.set(10, [
+      {
+        state: "success",
+        environment_url: "https://exact-sha.vercel.app",
+        created_at: "2026-07-26T23:00:00Z",
+      },
+      ...statuses.get(10),
+    ]);
+    expect(
+      successfulExactPreview({ deployments, statuses, sha: exactSha }),
+    ).toEqual({
+      deploymentId: 10,
+      sha: exactSha,
+      url: "https://exact-sha.vercel.app",
+    });
   });
 
   test("validates repository and complete commit SHA inputs", () => {

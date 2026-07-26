@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-4-review-hardening" data-date="2026-07-26">
+    <h3>Stage 4 review hardens exact-preview selection and startup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-4-preview-smoke</code>.</dd>
+      <dt>PR</dt><dd>#301.</dd>
+      <dt>Changed</dt><dd>Nine unique review findings were accepted. Preview selection now shares one exact-SHA Preview predicate, limits each poll to the ten newest matching deployments, rejects the bare <code>vercel.app</code> root, sorts status history by creation time, and accepts only the latest status when it is successful. The command requires an explicit SHA instead of falling back to a pull-request merge commit. Preview Playwright configuration requires an explicit base URL before it can attach bypass headers. The job documents its narrow permissions, caches Chromium, has a 15-minute outer budget around the 9-minute deployment wait, and waits for the mine shell before its positional interaction.</dd>
+      <dt>Verification</dt><dd>The focused policy suite passes six cases, including rejection of a newer failed status after an older success and rejection of the bare Vercel root. The missing-SHA command and missing-preview-base configuration both fail fast with their intended errors. Typecheck, 1,887 unit tests, the production build, focused Biome, workflow YAML parsing, dash, and whitespace checks pass. The local production server passes all seven preview cases in 1.6 seconds.</dd>
+      <dt>Assumptions</dt><dd>Ten recent exact-SHA Preview deployments and the first 100 statuses per deployment are a bounded polling window for one pull request. A status without a parseable creation time sorts behind a timestamped status and cannot displace newer evidence.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This hardens deployment verification and changes no player behavior.</dd>
+      <dt>Followups</dt><dd>No new followup. Final exact-head CI, bot review, merge, and production closeout remain required.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ci-stage-4-scheduled-renderer-triage" data-date="2026-07-26">
     <h3>Stage 4 triages the newest scheduled renderer-only red run</h3>
     <dl>

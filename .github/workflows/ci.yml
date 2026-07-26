@@ -299,7 +299,9 @@ jobs:
     name: Preview Smoke (advisory)
     if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 15
+    # Checkout reads the exact PR head. Deployment read access finds the
+    # Vercel-created Preview status for that same commit.
     permissions:
       contents: read
       deployments: read
@@ -318,6 +320,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright browser
         run: pnpm exec playwright install chromium --with-deps

@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { appendFile, readFile } from "node:fs/promises";
 import {
+  isExactPreviewDeployment,
   isTrustedPreviewPullRequest,
   successfulExactPreview,
   validatePreviewInputs,
 } from "./ci-preview-deployment-lib.mjs";
+
+const MAX_PREVIEW_DEPLOYMENTS = 10;
 
 function argument(name, fallback) {
   const index = process.argv.indexOf(name);
@@ -12,7 +15,7 @@ function argument(name, fallback) {
 }
 
 const repository = argument("--repository", process.env.GITHUB_REPOSITORY);
-const sha = argument("--sha", process.env.GITHUB_SHA);
+const sha = argument("--sha");
 const timeoutMs = Number(argument("--timeout-ms", "540000"));
 const intervalMs = Number(argument("--interval-ms", "10000"));
 const token = process.env.GITHUB_TOKEN;
@@ -55,11 +58,10 @@ while (Date.now() < deadline) {
   const deployments = await github(
     `/repos/${repository}/deployments?sha=${sha}&per_page=100`,
   );
-  const exact = deployments.filter(
-    (deployment) =>
-      deployment?.sha === sha &&
-      /^preview(?:\b|$)/i.test(deployment?.environment ?? ""),
-  );
+  const exact = deployments
+    .filter((deployment) => isExactPreviewDeployment(deployment, sha))
+    .sort((left, right) => Number(right.id) - Number(left.id))
+    .slice(0, MAX_PREVIEW_DEPLOYMENTS);
   const statuses = new Map();
   for (const deployment of exact) {
     statuses.set(
@@ -69,7 +71,7 @@ while (Date.now() < deadline) {
       ),
     );
   }
-  const found = successfulExactPreview({ deployments, statuses, sha });
+  const found = successfulExactPreview({ deployments: exact, statuses, sha });
   if (found) {
     console.log(
       `Found successful preview deployment ${found.deploymentId} for exact SHA ${sha}`,

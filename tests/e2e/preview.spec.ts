@@ -29,6 +29,7 @@ test(
   ciCase("E2E-PREVIEW-0003", "@functional", ["@preview"]),
   async ({ page }) => {
     await page.goto("/mine");
+    await expect(page.locator("[data-mine-shell]")).toBeVisible();
     await page.mouse.click(8, 8);
     const status = page.getByLabel("Mine status");
     await expect(status).toBeVisible();

@@ -69,8 +69,18 @@ function processIsActive(pid) {
 }
 
 function readLockOwner(lockPath) {
-  const owner = JSON.parse(readFileSync(lockPath, "utf8"));
+  let owner;
+  try {
+    owner = JSON.parse(readFileSync(lockPath, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") throw error;
+    throw new Error(`Real-render lock owner is unreadable: ${lockPath}`, {
+      cause: error,
+    });
+  }
   if (
+    owner === null ||
+    typeof owner !== "object" ||
     !Number.isSafeInteger(owner.pid) ||
     owner.pid <= 0 ||
     typeof owner.startedAt !== "string"
@@ -100,7 +110,13 @@ export function acquireRenderLock(lockPath) {
       }
       if (error?.code !== "EEXIST") throw error;
 
-      const currentOwner = readLockOwner(lockPath);
+      let currentOwner;
+      try {
+        currentOwner = readLockOwner(lockPath);
+      } catch (readError) {
+        if (readError?.code === "ENOENT") continue;
+        throw readError;
+      }
       if (!processIsActive(currentOwner.pid)) {
         unlinkSync(lockPath);
         continue;

@@ -161,4 +161,30 @@ describe("ci render lock", () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it("fails closed with a descriptive invalid-owner error", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "ci-render-lock-"));
+    const lockPath = path.join(directory, "runner.lock");
+    try {
+      writeFileSync(lockPath, `${JSON.stringify({ pid: "unknown" })}\n`);
+      expect(() => acquireRenderLock(lockPath)).toThrow(
+        `Real-render lock has an invalid owner: ${lockPath}`,
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("reports an unreadable owner record with its lock path", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "ci-render-lock-"));
+    const lockPath = path.join(directory, "runner.lock");
+    try {
+      writeFileSync(lockPath, "{truncated");
+      expect(() => acquireRenderLock(lockPath)).toThrow(
+        `Real-render lock owner is unreadable: ${lockPath}`,
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });

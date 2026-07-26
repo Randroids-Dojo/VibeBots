@@ -1,22 +1,34 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  acquireRenderLock,
   localDateKey,
   missedDateKeys,
   parseRenderArgs,
   renderEnvironment,
   renderTierStatus,
+  scheduledHeartbeatDateKey,
   selectedRenderTiers,
   summarizeTierResults,
 } from "./ci-render-lib.mjs";
 
 describe("ci render arguments", () => {
-  it("selects all capability tiers by default", () => {
+  it("selects the physical render tier by default", () => {
     expect(parseRenderArgs(["--sha", "abc123"])).toEqual({
       sha: "abc123",
-      tier: "all",
+      tier: "render",
       root: null,
       scheduled: false,
     });
+    expect(selectedRenderTiers("render")).toEqual(["render"]);
+  });
+
+  it("accepts an explicit all-tier run", () => {
+    expect(parseRenderArgs(["--sha", "abc123", "--tier", "all"]).tier).toBe(
+      "all",
+    );
     expect(selectedRenderTiers("all")).toEqual(["render", "visual", "soak"]);
   });
 
@@ -88,6 +100,21 @@ describe("ci render heartbeat", () => {
     ]);
   });
 
+  it("uses only scheduled runs for schedule continuity", () => {
+    expect(
+      scheduledHeartbeatDateKey({
+        source: "scheduled",
+        dateKey: "2026-07-25",
+      }),
+    ).toBe("2026-07-25");
+    expect(
+      scheduledHeartbeatDateKey({
+        source: "manual",
+        dateKey: "2026-07-26",
+      }),
+    ).toBeNull();
+  });
+
   it("summarizes failure without hiding skipped tiers", () => {
     expect(
       summarizeTierResults([
@@ -102,5 +129,36 @@ describe("ci render heartbeat", () => {
     expect(renderTierStatus(0, ["failed", "passed"])).toBe("failed");
     expect(renderTierStatus(0, ["passed", "skipped"])).toBe("passed");
     expect(renderTierStatus(0, ["skipped"])).toBe("skipped");
+  });
+});
+
+describe("ci render lock", () => {
+  it("rejects overlap and releases its owner lock", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "ci-render-lock-"));
+    const lockPath = path.join(directory, "runner.lock");
+    try {
+      const release = acquireRenderLock(lockPath);
+      expect(() => acquireRenderLock(lockPath)).toThrow(
+        `Real-render run already active under process ${process.pid}`,
+      );
+      release();
+      expect(() => acquireRenderLock(lockPath)()).not.toThrow();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers a lock left by a dead process", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "ci-render-lock-"));
+    const lockPath = path.join(directory, "runner.lock");
+    try {
+      writeFileSync(
+        lockPath,
+        `${JSON.stringify({ pid: 2_147_483_647, startedAt: "stale" })}\n`,
+      );
+      expect(() => acquireRenderLock(lockPath)()).not.toThrow();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-3-handoff-observation-budget" data-date="2026-07-26">
+    <h3>Stage 3 gives late account handoff retries their production budget</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/stage-3-handoff-stabilization</code>.</dd>
+      <dt>PR</dt><dd>#303.</dd>
+      <dt>Changed</dt><dd>The late Clerk-session handoff case keeps the product's bounded 750ms retry unchanged and widens only its browser observation window from 5 to 15 seconds. The prior assertion expired before the production path issued its second request, so every recent functional summary recorded one recovered first-attempt failure even though the retry completed correctly.</dd>
+      <dt>Verification</dt><dd>Mainline summaries for runs <code>30172929231</code> and <code>30226288187</code> each recorded one first-attempt failure in <code>E2E-MINE-ACCOUNT-SYNC-0006</code>. The original 5-second assertion failed 10 of 10 local first attempts with retries disabled. A temporary 20-second observation proved the unchanged product path completes on its first test attempt. With the 15-second bound, the production build passed 10 of 10 first attempts with retries disabled in 8.8 to 8.9 seconds each.</dd>
+      <dt>Assumptions</dt><dd>The second handoff request is the behavior contract. A 15-second test observation ceiling remains bounded well inside the existing 60-second per-test timeout and does not slow successful runs.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is test observation stabilization for the existing account handoff contract.</dd>
+      <dt>Followups</dt><dd>Child Dot <code>VibeBots-stabilize-late-clerk-105cd521</code> remains active through merge and exact-main proof. Stage 3 still requires five clean mainline functional summaries after this blocker is removed before promotion.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ci-stage-4-production-closeout" data-date="2026-07-26">
     <h3>Exact-head protected preview smoke is live</h3>
     <dl>

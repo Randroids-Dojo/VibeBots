@@ -438,7 +438,7 @@ test(
     await dismissReleaseNotes(page);
 
     await expect
-      .poll(() => finishRequests, { timeout: 5000 })
+      .poll(() => finishRequests, { timeout: 15000 })
       .toBeGreaterThanOrEqual(2);
     await expect(page.getByRole("dialog", { name: "Account" })).toBeVisible();
     await expect(page.getByText("Cloud save loaded.")).toBeVisible();

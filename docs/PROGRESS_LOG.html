@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ci-stage-4-production-closeout" data-date="2026-07-26">
+    <h3>Exact-head protected preview smoke is live</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/close-ci-stage-4</code>.</dd>
+      <dt>PR</dt><dd>#301 shipped the implementation. This closeout entry records production proof.</dd>
+      <dt>Changed</dt><dd>Archived Dot <code>VibeBots-stage-4-exact-d593ffa4</code> after the exact-head preview lane, merged code, exact-main CI, and canonical production deployment all passed. The advisory lane remains limited to trusted same-repository pull requests, and the Vercel automation bypass remains scoped to its smoke step.</dd>
+      <dt>Verification</dt><dd>PR #301 merged as <code>318fb139a447e762f85653dccdb992d552d64f1f</code>. Main CI run <code>30226288187</code> passed quality, typecheck, 1,887 unit tests, build, both critical browser shards, both runtime shadows, all ten functional shadows, comparison, and summary. The main-only run correctly skipped the pull-request preview job. GitHub production deployment <code>5615245533</code> succeeded for the exact merge SHA. Vercel deployment <code>dpl_DhBfqYQXLfs73jThBffpbETmwLoY</code> is Ready with <code>vibe-bots.vercel.app</code> and <code>vibebots.randroid.dev</code> among its production aliases. The canonical site returns HTTP 200 and redirects into the live mine.</dd>
+      <dt>Assumptions</dt><dd>Stage 4 remains advisory while timing history accumulates. A successful exact-SHA GitHub production deployment plus Ready Vercel metadata and live canonical HTTP response is sufficient production authority for this infrastructure-only slice.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This is deployment verification infrastructure and changes no player behavior.</dd>
+      <dt>Followups</dt><dd>The Stage 3 and parent CI rewrite Dots remain active. Stage 3 still lacks the required clean overlap history for promotion, and <a href="FOLLOWUPS.html#F-132">F-132</a> remains active for physical renderer stabilization. The separate Next.js 16.2.12 upgrade Dot remains open and is not bundled into this closeout.</dd>
+    </dl>
+  </article>
+
   <article data-slice="ci-stage-4-preview-readiness-review" data-date="2026-07-26">
     <h3>Stage 4 gives preview shell readiness a cold-start budget</h3>
     <dl>

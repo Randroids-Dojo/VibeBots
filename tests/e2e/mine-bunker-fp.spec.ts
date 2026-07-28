@@ -2955,7 +2955,13 @@ test(
       let maxVisible = 0;
       let minHealth = 100;
       let lastRaidBanner = "";
-      const deadline = Date.now() + 240_000;
+      // Margin matters more than tightness here. The raid opens with a
+      // deliberate 6-second onset plus staggered activation, and the sim
+      // advances at renderer speed, so the wait is long by construction:
+      // the first green CI run used almost all of a 240s budget. Sized
+      // against the 420s test timeout with setup, so a slightly slower
+      // runner reports a real result rather than a flake.
+      const deadline = Date.now() + 330_000;
       for (let i = 0; !(sawDamage && sawStrike) && Date.now() < deadline; i++) {
         await page.evaluate(
           (yaw) => {

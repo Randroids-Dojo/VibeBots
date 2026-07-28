@@ -596,25 +596,32 @@ export function BunkerFpHud({
         <div
           className="bunker-fp-raid-panel"
           data-testid="bunker-fp-raid-panel"
-          role="status"
         >
           {raid.outcome === "active" ? (
             <>
-              <strong className="bunker-fp-raid-banner">
+              {/* The live region sits on the banner, not the whole panel:
+                  the panel also holds a one-second countdown and a health
+                  bar that changes on every bite, and wrapping those in a
+                  status region makes it announce continuously (F-119:
+                  announce meaningful phase changes, not live counters).
+                  The banner's Clanker count is the phase worth hearing. */}
+              <strong className="bunker-fp-raid-banner" role="status">
                 {`Raid: ${raid.clankersAlive}/${raid.clankersTotal} Clankers left`}
               </strong>
               <span className="bunker-fp-raid-timer">{`${raid.secondsLeft}s`}</span>
               {/* Health is the raid's most urgent readout now that contact
-                  is a fight, but it changes on every bite, so it stays out
-                  of the announcing status region (F-119: announce phase
-                  changes, not a live counter). */}
+                  is a fight. Assistive tech can read it on demand (the bar
+                  is decorative, the value carries the text); it is just not
+                  announced on every bite. */}
               <span
                 className="bunker-fp-raid-health"
                 data-testid="bunker-fp-raid-health"
                 data-health={raid.health}
-                aria-hidden="true"
               >
-                <span className="bunker-fp-raid-health-track">
+                <span
+                  className="bunker-fp-raid-health-track"
+                  aria-hidden="true"
+                >
                   <span
                     className="bunker-fp-raid-health-fill"
                     style={{
@@ -632,6 +639,7 @@ export function BunkerFpHud({
                 <span className="bunker-fp-raid-health-value">
                   {`${raid.health} HP`}
                 </span>
+                <span className="bunker-fp-visually-hidden">health</span>
               </span>
               {raid.breached && (
                 <span className="bunker-fp-raid-breach">

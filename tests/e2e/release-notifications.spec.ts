@@ -25,9 +25,18 @@ test(
     await expect(dialog).toContainText(
       "Clankers now chase you through the bunker and attack you where you stand",
     );
+    // Every bullet is checked, not just the count and the first line: a
+    // count-only assertion passes even when the remaining bullets are
+    // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
-    await expect(dialog.locator("li").first()).toContainText(
+    await expect(dialog.locator("li").nth(0)).toContainText(
       "Attackers hunt your actual position instead of hopping between spaces",
+    );
+    await expect(dialog.locator("li").nth(1)).toContainText(
+      "Contact costs health instead of ending the raid outright",
+    );
+    await expect(dialog.locator("li").nth(2)).toContainText(
+      "Your pickaxe is a weapon during a raid",
     );
 
     await page.mouse.click(8, 8);

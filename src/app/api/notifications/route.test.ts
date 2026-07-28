@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-25-0.1.287-bunker-parts-share-cells",
+      releaseNoticeId: "2026-07-27-0.1.288-raid-melee-combat",
       releaseSummary:
-        "Build floors and walls in the same bunker space: Each bunker space can now hold a floor and all four surrounding walls instead of the first piece claiming the whole cube.",
+        "Fight the Clankers off with your pickaxe: Clankers now chase you through the bunker and attack you where you stand, and you can swing back instead of losing the raid the moment one touches you.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-25-0.1.287-bunker-parts-share-cells",
+      releaseNoticeId: "2026-07-27-0.1.288-raid-melee-combat",
       attempted: 2,
       sent: 1,
       expired: 1,

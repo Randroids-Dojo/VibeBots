@@ -15,6 +15,11 @@ export interface FpRaidHudState {
   clankersTotal: number;
   breached: boolean;
   outcome: LiveRaidOutcome;
+  /** The miner's remaining health, and the bar it is measured against.
+   * Contact is a fight now, so how much of the bar is left is the raid's
+   * most urgent readout. */
+  health: number;
+  maxHealth: number;
 }
 
 const IDLE: FpRaidHudState = {
@@ -24,6 +29,8 @@ const IDLE: FpRaidHudState = {
   clankersTotal: 0,
   breached: false,
   outcome: "active",
+  health: 0,
+  maxHealth: 0,
 };
 
 let snapshot: FpRaidHudState = IDLE;
@@ -36,6 +43,8 @@ export function setFpRaidHud(
   clankersTotal: number,
   breached: boolean,
   outcome: LiveRaidOutcome,
+  health: number,
+  maxHealth: number,
 ): void {
   if (
     snapshot.active === active &&
@@ -43,7 +52,9 @@ export function setFpRaidHud(
     snapshot.clankersAlive === clankersAlive &&
     snapshot.clankersTotal === clankersTotal &&
     snapshot.breached === breached &&
-    snapshot.outcome === outcome
+    snapshot.outcome === outcome &&
+    snapshot.health === health &&
+    snapshot.maxHealth === maxHealth
   ) {
     return;
   }
@@ -54,6 +65,8 @@ export function setFpRaidHud(
     clankersTotal,
     breached,
     outcome,
+    health,
+    maxHealth,
   };
   for (const listener of listeners) listener();
 }

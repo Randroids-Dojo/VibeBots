@@ -5,25 +5,28 @@ import {
   LIVE_CLANKER_MOVE_PERIOD_TICKS,
   LIVE_RAID_TICKS_PER_SECOND,
   type LiveRaidCell,
+  type LiveRaidClanker,
   type LiveRaidOutcomeReport,
   type LiveRaidState,
   liveRaidOutcomeReport,
+  pickaxeStrikeDamage,
   stepLiveRaid,
+  strikeLiveRaid,
 } from "@/sim/bunker-raid-live";
 
 /**
  * Client driver for a live first-person raid (Q-024 option D). The pure
  * sim (`bunker-raid-live`) owns all raid logic; this wraps it with the
  * real-time bookkeeping the first-person canvas needs: it steps the sim
- * at a fixed 6 Hz against the player's live cell, and exposes each
- * Clanker's move as a from/to pair plus a shared interpolation factor so
- * the render layer can tween the discrete sim hops into smooth motion.
- * No react/three imports, so it is unit-tested in node.
+ * at a fixed 6 Hz against the player's live position, and exposes each
+ * Clanker body's previous and current sim position plus a shared
+ * interpolation factor, so the render layer can tween the 6 Hz motion up
+ * to frame rate. No react/three imports, so it is unit-tested in node.
  */
 
 export const FP_RAID_TICK_SECONDS = 1 / LIVE_RAID_TICKS_PER_SECOND;
-/** Clankers only relocate on action ticks; a hop is tweened across this
- * longer window so movement reads smoothly instead of snapping. */
+/** The window Clanker route decisions land on. Bodies now move every
+ * tick, so this only paces waypoint refreshes and wall chewing. */
 export const FP_RAID_ACTION_SECONDS =
   FP_RAID_TICK_SECONDS * LIVE_CLANKER_MOVE_PERIOD_TICKS;
 
@@ -33,11 +36,14 @@ export const FP_RAID_ACTION_SECONDS =
  * in wall clock, never changes the bounded outcome. */
 const MAX_CATCHUP_TICKS = 8;
 
-/** One Clanker's render state: the sim cell it is leaving (`from`) and
- * the sim cell it is moving to (`to`), in mine-grid coordinates. Between
- * action ticks the render layer lerps from -> to by the shared factor.
- * `justDied` is true only on the advance where the Clanker was killed,
- * so the layer can fire the self-destruct burst exactly once. */
+/** One Clanker's render state: where its body stood at the previous sim
+ * tick (`from`) and where it stands now (`to`), in continuous mine-grid
+ * coordinates. The render layer lerps from -> to by the shared factor to
+ * carry 6 Hz sim motion up to frame rate. `justDied` is true only on the
+ * advance where the Clanker was killed, so the layer can fire the
+ * self-destruct burst exactly once; `biteTick` and `hurtTick` mirror the
+ * sim so it can fire a lunge on each bite and a flinch on each pickaxe
+ * hit the same way. */
 export interface FpRaidClankerView {
   id: string;
   kind: ClankerKind;
@@ -50,6 +56,10 @@ export interface FpRaidClankerView {
   toDepth: number;
   deathTick: number;
   justDied: boolean;
+  /** Sim tick this Clanker last bit the miner, or -1. */
+  biteTick: number;
+  /** Sim tick a pickaxe strike last landed on it, or -1. */
+  hurtTick: number;
 }
 
 export interface FpRaidRuntime {
@@ -62,24 +72,22 @@ export interface FpRaidRuntime {
   views: FpRaidClankerView[];
 }
 
-function syncFrom(
-  view: FpRaidClankerView,
-  state: LiveRaidState,
-  index: number,
-) {
-  const clanker = state.clankers[index];
-  view.fromCol = clanker.col;
-  view.fromRow = clanker.row;
-  view.fromDepth = clanker.depth;
+/** Carry the current sim position into `from` before a tick, so the tick
+ * that follows leaves a one-tick segment for the render layer to lerp. */
+function syncFrom(view: FpRaidClankerView) {
+  view.fromCol = view.toCol;
+  view.fromRow = view.toRow;
+  view.fromDepth = view.toDepth;
 }
 
-function syncTo(view: FpRaidClankerView, state: LiveRaidState, index: number) {
-  const clanker = state.clankers[index];
-  view.toCol = clanker.col;
-  view.toRow = clanker.row;
-  view.toDepth = clanker.depth;
+function syncTo(view: FpRaidClankerView, clanker: LiveRaidClanker) {
+  view.toCol = clanker.x;
+  view.toRow = clanker.y;
+  view.toDepth = clanker.z;
   view.alive = clanker.alive;
   view.deathTick = clanker.deathTick;
+  view.biteTick = clanker.biteTick;
+  view.hurtTick = clanker.hurtTick;
 }
 
 export function createFpRaidRuntime(
@@ -92,14 +100,16 @@ export function createFpRaidRuntime(
     id: clanker.id,
     kind: clanker.kind,
     alive: clanker.alive,
-    fromCol: clanker.col,
-    fromRow: clanker.row,
-    fromDepth: clanker.depth,
-    toCol: clanker.col,
-    toRow: clanker.row,
-    toDepth: clanker.depth,
+    fromCol: clanker.x,
+    fromRow: clanker.y,
+    fromDepth: clanker.z,
+    toCol: clanker.x,
+    toRow: clanker.y,
+    toDepth: clanker.z,
     deathTick: clanker.deathTick,
     justDied: false,
+    biteTick: clanker.biteTick,
+    hurtTick: clanker.hurtTick,
   }));
   return { state, tickAccum: 0, views };
 }
@@ -107,10 +117,10 @@ export function createFpRaidRuntime(
 /**
  * Advance the raid by real time. Runs whole 6 Hz ticks out of the
  * accumulator (bounded by {@link MAX_CATCHUP_TICKS}), stepping the sim
- * against the player's current cell. On each action tick it snapshots
- * every Clanker's leaving cell into `from` before the hop and its new
- * cell into `to` after, so the render layer can tween between them.
- * Returns how many sim ticks ran (0 on a between-tick frame).
+ * against the player's live position. Each tick carries the last
+ * position into `from` and the freshly stepped one into `to`, so the
+ * render layer always has a one-tick segment to tween. Returns how many
+ * sim ticks ran (0 on a between-tick frame).
  */
 export function advanceFpRaid(
   runtime: FpRaidRuntime,
@@ -129,21 +139,15 @@ export function advanceFpRaid(
     ticks < MAX_CATCHUP_TICKS
   ) {
     runtime.tickAccum -= FP_RAID_TICK_SECONDS;
-    const willAct =
-      (runtime.state.tick + 1) % LIVE_CLANKER_MOVE_PERIOD_TICKS === 0;
-    if (willAct) {
-      for (let index = 0; index < runtime.views.length; index += 1) {
-        syncFrom(runtime.views[index], runtime.state, index);
-      }
+    for (let index = 0; index < runtime.views.length; index += 1) {
+      syncFrom(runtime.views[index]);
     }
     stepLiveRaid(runtime.state, player);
-    if (willAct) {
-      for (let index = 0; index < runtime.views.length; index += 1) {
-        const view = runtime.views[index];
-        const wasAlive = view.alive;
-        syncTo(view, runtime.state, index);
-        if (wasAlive && !view.alive) view.justDied = true;
-      }
+    for (let index = 0; index < runtime.views.length; index += 1) {
+      const view = runtime.views[index];
+      const wasAlive = view.alive;
+      syncTo(view, runtime.state.clankers[index]);
+      if (wasAlive && !view.alive) view.justDied = true;
     }
     ticks += 1;
   }
@@ -154,15 +158,34 @@ export function advanceFpRaid(
 }
 
 /**
- * The shared [0, 1] tween factor for the current action window, derived
- * purely from the sim tick phase plus the sub-tick accumulator, so a
- * Clanker sits on `from` right after it hops and reaches `to` just as the
- * next hop fires. Dead Clankers ignore this (they hold their death cell).
+ * Land one pickaxe swing against the wave, scaled by the miner's mine
+ * gear pickaxe level. `from` is the miner's live position and `dir` its
+ * aim direction, both in mine-grid coordinates. Returns the Clanker hit,
+ * or null when the swing was on cooldown or connected with nothing, so
+ * the caller can spark a hit effect only on a real connection.
+ */
+export function strikeFpRaid(
+  runtime: FpRaidRuntime,
+  from: LiveRaidCell,
+  dir: LiveRaidCell,
+  pickaxeLevel: number,
+): LiveRaidClanker | null {
+  return strikeLiveRaid(
+    runtime.state,
+    from,
+    dir,
+    pickaxeStrikeDamage(pickaxeLevel),
+  );
+}
+
+/**
+ * The shared [0, 1] tween factor across the current sim tick, derived
+ * purely from the sub-tick accumulator, so a Clanker sits on `from` right
+ * after a tick and reaches `to` just as the next one fires. Dead Clankers
+ * ignore this (they hold their death position).
  */
 export function fpRaidInterpFactor(runtime: FpRaidRuntime): number {
-  const phase = runtime.state.tick % LIVE_CLANKER_MOVE_PERIOD_TICKS;
-  const elapsed = phase * FP_RAID_TICK_SECONDS + runtime.tickAccum;
-  const factor = elapsed / FP_RAID_ACTION_SECONDS;
+  const factor = runtime.tickAccum / FP_RAID_TICK_SECONDS;
   if (factor <= 0) return 0;
   if (factor >= 1) return 1;
   return factor;

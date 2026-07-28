@@ -2865,6 +2865,112 @@ test(
 );
 
 test(
+  "a live raid is a two-sided melee fight, not a fatal first touch",
+  ciCase("E2E-MINE-BUNKER-FP-0025", "@functional"),
+  async ({ page }) => {
+    // The raid sim advances from real frame deltas, capped per frame, so
+    // its wall-clock pace tracks the renderer's frame rate. On a fast host
+    // this test finishes in seconds; the generous ceilings only come into
+    // play on a slow software renderer, where the 6-second staged onset
+    // alone can take the better part of a minute of wall clock.
+    test.setTimeout(420_000);
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({ json: FP_BUNKER_VIEW });
+    });
+    await page.route("**/api/bunker/raid/start", async (route) => {
+      await route.fulfill({ json: LIVE_RAID_START });
+    });
+    await page.route("**/api/bunker/raid/resolve", async (route) => {
+      await route.fulfill({ json: LIVE_RAID_RESOLVED });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+    await aimFp(page, 0, 0);
+
+    // Start before arming the pointer: a locked pointer routes every click
+    // to the canvas, so the HUD control would never receive one.
+    await page.getByTestId("bunker-fp-raid-start-button").click();
+    await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+      timeout: 15_000,
+    });
+    await armFpPointer(page);
+
+    // The miner starts the raid on a full health bar, so contact can no
+    // longer be an instant loss.
+    const health = page.getByTestId("bunker-fp-raid-health");
+    await expect(health).toBeVisible({ timeout: 15_000 });
+    await expect(health).toHaveAttribute("data-health", "100");
+    await expect
+      .poll(async () =>
+        Number(await canvas.getAttribute("data-fp-raid-health")),
+      )
+      .toBe(100);
+
+    // Hold the primary input from the moment the wave is drawable: the
+    // pick stays in hand for the whole raid (whatever tool is selected),
+    // and swings connect with whatever closes on the miner.
+    await expect
+      .poll(
+        async () =>
+          Number(await canvas.getAttribute("data-fp-clankers-visible")),
+        { timeout: 150_000 },
+      )
+      .toBeGreaterThan(0);
+
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("no canvas bounding box");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await aimFp(page, 0, 0);
+    await page.mouse.down();
+    try {
+      // The pick swings during a raid (it is the miner's only weapon).
+      await expect
+        .poll(async () => canvas.getAttribute("data-fp-swinging"), {
+          timeout: 20_000,
+        })
+        .toBe("1");
+
+      // Both halves of the fight land: bites take health off the bar
+      // without ending the raid on first contact, and swings connect with
+      // the Clankers doing the biting. The miner turns in place so a
+      // converging wave walks into the swing arc rather than the test
+      // having to chase it. The swing half asserts on strikes landed, not
+      // kills, because a kill is only a strike plus enough cooldowns and
+      // those are counted in sim ticks, which a slow software renderer
+      // stretches out arbitrarily. Kill-at-zero-energy is pinned in the
+      // sim suite instead.
+      let sawDamage = false;
+      let sawStrike = false;
+      for (let i = 0; i < 600 && !(sawDamage && sawStrike); i++) {
+        await aimFp(page, (i % 8) * (Math.PI / 4), 0);
+        await page.waitForTimeout(300);
+        const hp = Number(await canvas.getAttribute("data-fp-raid-health"));
+        const strikes = Number(
+          await canvas.getAttribute("data-fp-raid-strikes"),
+        );
+        if (hp >= 0 && hp < 100) sawDamage = true;
+        if (strikes > 0) sawStrike = true;
+        // The raid clearing out from under the poll is a legitimate end.
+        if (hp < 0) break;
+      }
+      expect(sawDamage).toBe(true);
+      expect(sawStrike).toBe(true);
+    } finally {
+      await page.mouse.up();
+    }
+  },
+);
+
+test(
   "leaving a live raid mid-fight forfeits it instead of re-rolling on re-entry",
   ciCase("E2E-MINE-BUNKER-FP-0020", "@functional"),
   async ({ page }) => {

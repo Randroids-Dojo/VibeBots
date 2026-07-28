@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BunkerFootprint, BunkerState, DugBunkerCell } from "@/sim/bunker";
-import type { LiveRaidCell } from "@/sim/bunker-raid-live";
+import { type LiveRaidCell, pickaxeStrikeDamage } from "@/sim/bunker-raid-live";
 import {
   advanceFpRaid,
   collectFpRaidPickup,
@@ -13,6 +13,7 @@ import {
   fpRaidInterpFactor,
   fpRaidReport,
   raidCooldownMsLeft,
+  strikeFpRaid,
 } from "./bunker-fp-raid";
 
 const FOOTPRINT: BunkerFootprint = { col: 5, row: 5, width: 7, height: 5 };
@@ -67,17 +68,20 @@ describe("createFpRaidRuntime", () => {
       expect(view.kind).toBe(clanker.kind);
       expect(view.alive).toBe(true);
       expect(view.justDied).toBe(false);
-      // from and to both start on the spawn cell (no motion yet).
+      // from and to both start on the spawn body position (no motion
+      // yet), which is the spawn cell centre.
       expect([view.fromCol, view.fromRow, view.fromDepth]).toEqual([
-        clanker.col,
-        clanker.row,
-        clanker.depth,
+        clanker.x,
+        clanker.y,
+        clanker.z,
       ]);
       expect([view.toCol, view.toRow, view.toDepth]).toEqual([
         clanker.col,
         clanker.row,
         clanker.depth,
       ]);
+      expect(view.biteTick).toBe(-1);
+      expect(view.hurtTick).toBe(-1);
     });
   });
 
@@ -148,9 +152,9 @@ describe("advanceFpRaid", () => {
     expect(runtime.views.every((view) => !view.alive)).toBe(true);
   });
 
-  it("tracks Clanker motion through the from/to cells", () => {
+  it("tracks Clanker motion through the from/to positions", () => {
     // The open corridor lets Clankers walk toward the player, so their
-    // view cells must leave the spawn ring as the sim advances.
+    // view positions must leave the spawn ring as the sim advances.
     const runtime = openRuntime();
     const spawns = runtime.views.map((view) => ({
       col: view.toCol,
@@ -174,30 +178,90 @@ describe("advanceFpRaid", () => {
     }
     expect(sawMotion).toBe(true);
   });
+
+  it("hands the render layer a one-tick segment of continuous travel", () => {
+    // The layer lerps from -> to across a single tick, so a moving body's
+    // segment must be a real sub-cell step, not a whole-cell snap.
+    const runtime = openRuntime();
+    let segment = 0;
+    let frames = 0;
+    while (!fpRaidEnded(runtime) && frames < 6000 && segment === 0) {
+      advanceFpRaid(runtime, OPEN_PLAYER, FP_RAID_TICK_SECONDS);
+      for (const view of runtime.views) {
+        if (!view.alive) continue;
+        const dx = view.toCol - view.fromCol;
+        const dy = view.toRow - view.fromRow;
+        const dz = view.toDepth - view.fromDepth;
+        const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (length > 0) segment = length;
+      }
+      frames += 1;
+    }
+    expect(segment).toBeGreaterThan(0);
+    expect(segment).toBeLessThan(1);
+  });
+});
+
+describe("strikeFpRaid", () => {
+  it("lands a pickaxe hit scaled by gear level on the aimed Clanker", () => {
+    const runtime = openRuntime();
+    const target = runtime.state.clankers[0];
+    for (let i = 1; i < runtime.state.clankers.length; i += 1) {
+      runtime.state.clankers[i].alive = false;
+    }
+    // Park the target one cell ahead of the miner along +col.
+    target.x = OPEN_PLAYER.col + 1;
+    target.y = OPEN_PLAYER.row;
+    target.z = OPEN_PLAYER.depth;
+    target.col = target.x;
+    target.row = target.y;
+    const before = target.energy;
+
+    const hit = strikeFpRaid(
+      runtime,
+      OPEN_PLAYER,
+      { col: 1, row: 0, depth: 0 },
+      2,
+    );
+    expect(hit).toBe(target);
+    expect(before - target.energy).toBe(pickaxeStrikeDamage(2));
+    // A level-1 pick hits for less than a level-2 one.
+    expect(pickaxeStrikeDamage(1)).toBeLessThan(pickaxeStrikeDamage(2));
+  });
+
+  it("returns null when the swing connects with nothing", () => {
+    const runtime = openRuntime();
+    // Every Clanker is still out on the spawn ring, far from the miner.
+    expect(
+      strikeFpRaid(runtime, OPEN_PLAYER, { col: 0, row: 0, depth: -1 }, 2),
+    ).toBeNull();
+  });
 });
 
 describe("fpRaidInterpFactor", () => {
-  it("sweeps 0 to 1 across an action window", () => {
+  it("sweeps 0 to 1 across one sim tick", () => {
     const runtime = sealedRuntime();
-    // Fresh: tick 0, phase 0, no sub-tick accumulation.
+    // Fresh: tick 0, no sub-tick accumulation.
     expect(fpRaidInterpFactor(runtime)).toBe(0);
 
-    // Land exactly on the action tick (period is 2 ticks): phase resets.
+    // Landing exactly on a tick boundary leaves nothing to tween.
     advanceFpRaid(runtime, SEALED_PLAYER, FP_RAID_TICK_SECONDS * 2);
     expect(runtime.state.tick).toBe(2);
-    expect(fpRaidInterpFactor(runtime)).toBe(0);
+    expect(fpRaidInterpFactor(runtime)).toBeCloseTo(0, 5);
 
-    // One tick into the next window is halfway (period = 2 ticks).
-    advanceFpRaid(runtime, SEALED_PLAYER, FP_RAID_TICK_SECONDS);
-    expect(fpRaidInterpFactor(runtime)).toBeCloseTo(0.5, 5);
+    // Bodies move every tick now, so the tween window is one tick: a
+    // frame landing 40% into it reads 0.4.
+    advanceFpRaid(runtime, SEALED_PLAYER, FP_RAID_TICK_SECONDS * 0.4);
+    expect(runtime.state.tick).toBe(2);
+    expect(fpRaidInterpFactor(runtime)).toBeCloseTo(0.4, 5);
 
-    // A between-tick fraction never exceeds 1.
-    advanceFpRaid(runtime, SEALED_PLAYER, FP_RAID_TICK_SECONDS * 5);
+    // A between-tick fraction never leaves [0, 1].
+    advanceFpRaid(runtime, SEALED_PLAYER, FP_RAID_TICK_SECONDS * 5.3);
     expect(fpRaidInterpFactor(runtime)).toBeGreaterThanOrEqual(0);
     expect(fpRaidInterpFactor(runtime)).toBeLessThanOrEqual(1);
   });
 
-  it("keeps the action window a whole number of ticks", () => {
+  it("keeps the route-decision window a whole number of ticks", () => {
     expect(FP_RAID_ACTION_SECONDS).toBeCloseTo(FP_RAID_TICK_SECONDS * 2, 6);
   });
 });

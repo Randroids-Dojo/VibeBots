@@ -1526,6 +1526,72 @@ button[data-bag-full-flash="true"] {
   color: #ff5a3c;
 }
 
+/* Miner health: contact is a fight, so the bar reads at a glance while
+   swinging. Sits inline in the raid panel next to the timer. */
+.bunker-fp-raid-health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bunker-fp-raid-health-track {
+  display: block;
+  overflow: hidden;
+  width: 84px;
+  height: 8px;
+  border: 1px solid rgba(255, 214, 204, 0.5);
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.bunker-fp-raid-health-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ff5a3c, #ffd76a);
+  transition: width 140ms linear;
+}
+
+.bunker-fp-raid-health-value {
+  min-width: 52px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* One red pulse per bite that lands, keyed so back-to-back bites each
+   restart the animation. Purely decorative and never interactive. */
+.bunker-fp-hurt-flash {
+  position: absolute;
+  z-index: 13;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(255, 40, 20, 0) 42%,
+    rgba(255, 40, 20, 0.55) 100%
+  );
+  pointer-events: none;
+  animation: bunker-fp-hurt 380ms ease-out forwards;
+}
+
+@keyframes bunker-fp-hurt {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bunker-fp-hurt-flash {
+    animation-duration: 120ms;
+  }
+
+  .bunker-fp-raid-health-fill {
+    transition: none;
+  }
+}
+
 .bunker-fp-raid-result {
   font-size: 1.1rem;
 }

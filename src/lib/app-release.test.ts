@@ -24,20 +24,37 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest shared-cell bunker note complete", () => {
+  it("keeps the latest raid melee-combat note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-07-25-0.1.287-bunker-parts-share-cells",
-    );
+    expect(release.noticeId).toBe("2026-07-27-0.1.288-raid-melee-combat");
     expect(latestNote).toMatchObject({
+      version: "0.1.288",
+      title: "Fight the Clankers off with your pickaxe",
+      intro:
+        "Clankers now chase you through the bunker and attack you where you stand, and you can swing back instead of losing the raid the moment one touches you.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Attackers hunt your actual position instead of hopping between spaces, so one that gets inside runs you down and keeps coming as you back away.",
+      "Contact costs health instead of ending the raid outright. You have a health bar for the fight, and every bite takes a piece of it.",
+      "Your pickaxe is a weapon during a raid, whatever tool you had selected. Swings land on the nearest Clanker in front of you, and a better pickaxe puts them down faster. One attacker is a fight you can win; two at once is trouble.",
+    ]);
+  });
+
+  it("keeps the archived shared-cell bunker note complete", () => {
+    const release = getAppRelease();
+    const sharedCellNote = release.notes.find(
+      (note) => note.version === "0.1.287",
+    );
+
+    expect(sharedCellNote).toMatchObject({
       version: "0.1.287",
       title: "Build floors and walls in the same bunker space",
       intro:
         "Each bunker space can now hold a floor and all four surrounding walls instead of the first piece claiming the whole cube.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(sharedCellNote?.changes.map((change) => change.text)).toEqual([
       "Thin walls now block only their own face, floors stay walkable beneath you, and the pry tool removes the exact panel you aim at without taking another piece in that space.",
     ]);
   });

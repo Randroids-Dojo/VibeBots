@@ -324,6 +324,17 @@ export function BunkerFpHud({
   useEffect(() => {
     if (!raidActive) setAbandonArmed(false);
   }, [raidActive]);
+  // Hurt flash: every bite that lands bumps a counter, and the counter is
+  // the flash element's key, so React remounts it and the CSS animation
+  // restarts even on back-to-back bites. Health only ever falls within a
+  // raid, so a rise means a new raid and resets the baseline.
+  const raidHealth = raid.health;
+  const [hurtPulse, setHurtPulse] = useState(0);
+  const lastHealthRef = useRef(raidHealth);
+  useEffect(() => {
+    if (raidHealth < lastHealthRef.current) setHurtPulse((pulse) => pulse + 1);
+    lastHealthRef.current = raidHealth;
+  }, [raidHealth]);
   // Hold the win/loss banner for a beat after the raid clears. The resolve
   // response drops `activeLiveRaid` almost immediately after the outcome
   // settles, which used to erase "Bunker held!"/"Bunker breached!" within a
@@ -573,6 +584,14 @@ export function BunkerFpHud({
         data-testid="bunker-fp-crosshair"
         aria-hidden="true"
       />
+      {raidActive && hurtPulse > 0 && (
+        <div
+          key={hurtPulse}
+          className="bunker-fp-hurt-flash"
+          data-testid="bunker-fp-hurt-flash"
+          aria-hidden="true"
+        />
+      )}
       {raidActive ? (
         <div
           className="bunker-fp-raid-panel"
@@ -585,9 +604,38 @@ export function BunkerFpHud({
                 {`Raid: ${raid.clankersAlive}/${raid.clankersTotal} Clankers left`}
               </strong>
               <span className="bunker-fp-raid-timer">{`${raid.secondsLeft}s`}</span>
+              {/* Health is the raid's most urgent readout now that contact
+                  is a fight, but it changes on every bite, so it stays out
+                  of the announcing status region (F-119: announce phase
+                  changes, not a live counter). */}
+              <span
+                className="bunker-fp-raid-health"
+                data-testid="bunker-fp-raid-health"
+                data-health={raid.health}
+                aria-hidden="true"
+              >
+                <span className="bunker-fp-raid-health-track">
+                  <span
+                    className="bunker-fp-raid-health-fill"
+                    style={{
+                      width: `${
+                        raid.maxHealth > 0
+                          ? Math.max(
+                              0,
+                              Math.round((raid.health / raid.maxHealth) * 100),
+                            )
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </span>
+                <span className="bunker-fp-raid-health-value">
+                  {`${raid.health} HP`}
+                </span>
+              </span>
               {raid.breached && (
                 <span className="bunker-fp-raid-breach">
-                  Breached! Seal your cell
+                  Breached! Swing or run
                 </span>
               )}
               {abandonArmed ? (

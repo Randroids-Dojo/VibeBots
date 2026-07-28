@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-25-0.1.287-bunker-parts-share-cells";
+export const RELEASE_NOTICE_ID = "2026-07-27-0.1.288-raid-melee-combat";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.288",
+      date: "2026-07-27",
+      title: "Fight the Clankers off with your pickaxe",
+      intro:
+        "Clankers now chase you through the bunker and attack you where you stand, and you can swing back instead of losing the raid the moment one touches you.",
+      changes: [
+        {
+          build,
+          text: "Attackers hunt your actual position instead of hopping between spaces, so one that gets inside runs you down and keeps coming as you back away.",
+        },
+        {
+          build,
+          text: "Contact costs health instead of ending the raid outright. You have a health bar for the fight, and every bite takes a piece of it.",
+        },
+        {
+          build,
+          text: "Your pickaxe is a weapon during a raid, whatever tool you had selected. Swings land on the nearest Clanker in front of you, and a better pickaxe puts them down faster. One attacker is a fight you can win; two at once is trouble.",
+        },
+      ],
+    },
     {
       version: "0.1.287",
       date: "2026-07-25",

@@ -744,11 +744,14 @@ function enterCell(
   clanker.col = col;
   clanker.row = row;
   clanker.depth = depth;
-  if (!spendEnergy(state, clanker, LIVE_MOVE_ENERGY_COST)) return;
-  // Entering the footprint counts as a breach, even if the Clanker dies to
-  // a spike on the very cell it entered: the claim was no longer sealed.
+  // Entering the footprint counts as a breach, even if the Clanker dies on
+  // the very cell it entered: the claim was no longer sealed. Recorded
+  // before the move's energy is spent, because a Clanker whose last energy
+  // goes on the entering hop still got in, and a missed flag here would
+  // wrongly hand out the sealed verdict and the Buttoned Up stamp.
   const nowInside = containsBunkerCell(state.footprint, col, row);
   if (nowInside) state.breached = true;
+  if (!spendEnergy(state, clanker, LIVE_MOVE_ENERGY_COST)) return;
 
   // Crossing a live spike drains extra energy and consumes a spike use.
   const spike = livePartAt(state, col, row, depth);
@@ -1052,6 +1055,12 @@ export function strikeLiveRaid(
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const clanker of state.clankers) {
     if (!clanker.alive) continue;
+    // Only what the room draws can be struck, mirroring the same rule on
+    // bites: a body still out in the approach is buried in the claim's
+    // shell rock and must be neither a threat nor a target.
+    if (!containsBunkerCell(state.footprint, clanker.col, clanker.row)) {
+      continue;
+    }
     const dx = clanker.x - from.col;
     const dy = clanker.y - from.row;
     const dz = clanker.z - from.depth;

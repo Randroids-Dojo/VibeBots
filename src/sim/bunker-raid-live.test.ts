@@ -22,6 +22,7 @@ import {
   LIVE_CLANKER_BITE_PERIOD_TICKS,
   LIVE_CLANKER_BREACH_HOLD_TICKS,
   LIVE_CLANKER_ENERGY_PER_TIER,
+  LIVE_MOVE_ENERGY_COST,
   LIVE_PICKAXE_BASE_DAMAGE,
   LIVE_PICKAXE_DAMAGE_PER_LEVEL,
   LIVE_PLAYER_MAX_HEALTH,
@@ -389,6 +390,38 @@ describe("melee combat (dev direction 2026-07-27)", () => {
     expect(raid.breached).toBe(true);
   });
 
+  it("records a breach even when the entering hop spends the last energy", () => {
+    // A Clanker that dies the instant it gets in still got in, so the claim
+    // was not sealed. Missing this hands out the sealed verdict and the
+    // Buttoned Up stamp on a raid that was genuinely breached.
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const raid = createLiveRaid(makeBunker(corridor), 1);
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    // Starve the whole wave so the very next cell entry is fatal, and run
+    // the lead up to the claim's edge.
+    let guard = 0;
+    while (!raid.breached && guard < 400) {
+      for (const clanker of raid.clankers) {
+        if (clanker.alive) clanker.energy = LIVE_MOVE_ENERGY_COST;
+      }
+      stepLiveRaid(raid, player);
+      guard++;
+    }
+    expect(raid.breached).toBe(true);
+    // The Clanker that got in died on the hop that did it.
+    expect(
+      raid.clankers.some(
+        (c) =>
+          !c.alive &&
+          c.death === "energy" &&
+          containsBunkerCell(FOOTPRINT, c.col, c.row),
+      ),
+    ).toBe(true);
+    expect(liveRaidSealed(raid)).toBe(false);
+  });
+
   it("keeps bodies out of rock while beelining at the player", () => {
     // A sealed pocket next to the corridor: no Clanker may ever settle in
     // an undug cell, however directly it steers at the miner.
@@ -495,14 +528,33 @@ describe("pickaxe strikes (dev direction 2026-07-27)", () => {
     near.x = 8.8;
     near.y = 5;
     near.z = 0;
+    near.col = 9;
+    near.row = 5;
     far.x = 9.4;
     far.y = 5;
     far.z = 0;
+    far.col = 9;
+    far.row = 5;
     const farEnergy = far.energy;
     expect(
       strikeLiveRaid(raid, { col: 8, row: 5, depth: 0 }, AIM_PLUS_COL, 12),
     ).toBe(near);
     expect(far.energy).toBe(farEnergy);
+  });
+
+  it("cannot reach a Clanker still out in the approach, matching the bite rule", () => {
+    // The render layer draws nothing outside the footprint, so a body out
+    // in the shell rock is neither a threat nor a target. Park the Clanker
+    // one cell in front of the miner but on an approach cell.
+    const { raid, player, target } = strikeFixture();
+    target.col = FOOTPRINT.col - 1;
+    target.row = FOOTPRINT.row;
+    target.x = player.col + 1;
+    expect(containsBunkerCell(FOOTPRINT, target.col, target.row)).toBe(false);
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBeNull();
+    expect(target.energy).toBe(
+      LIVE_CLANKER_BASE_ENERGY + LIVE_CLANKER_ENERGY_PER_TIER,
+    );
   });
 
   it("kills at zero energy, records a pickaxe death, and drops XP", () => {

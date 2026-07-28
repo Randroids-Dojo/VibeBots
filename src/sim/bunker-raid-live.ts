@@ -361,9 +361,16 @@ export function clankerPlayerBiteDamage(
   return Math.round(base * factor);
 }
 
-/** Energy a single pickaxe strike drains, by mine gear pickaxe level. */
+/** Energy a single pickaxe strike drains, by mine gear pickaxe level.
+ * Gear arrives from persisted saves, so a non-finite level is a real
+ * boundary case rather than an impossible one: Math.floor(NaN) is NaN and
+ * would poison a Clanker's energy, leaving it unkillable (NaN <= 0 is
+ * false) and the raid quietly unwinnable. Anything not finite reads as
+ * level 1. */
 export function pickaxeStrikeDamage(pickaxeLevel: number): number {
-  const level = Math.max(1, Math.floor(pickaxeLevel));
+  const level = Number.isFinite(pickaxeLevel)
+    ? Math.max(1, Math.floor(pickaxeLevel))
+    : 1;
   return LIVE_PICKAXE_BASE_DAMAGE + level * LIVE_PICKAXE_DAMAGE_PER_LEVEL;
 }
 

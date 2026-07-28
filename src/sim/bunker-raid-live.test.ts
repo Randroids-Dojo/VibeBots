@@ -482,6 +482,13 @@ describe("pickaxe strikes (dev direction 2026-07-27)", () => {
     );
     // A missing or sub-1 level still swings as level 1.
     expect(pickaxeStrikeDamage(0)).toBe(pickaxeStrikeDamage(1));
+    // Gear comes from persisted saves, so a corrupt level must not poison
+    // a Clanker's energy: NaN damage would leave it unkillable, because
+    // NaN <= 0 is false, and quietly make the raid unwinnable.
+    expect(pickaxeStrikeDamage(Number.NaN)).toBe(pickaxeStrikeDamage(1));
+    expect(pickaxeStrikeDamage(Number.POSITIVE_INFINITY)).toBe(
+      pickaxeStrikeDamage(1),
+    );
   });
 
   it("drains the aimed Clanker's energy and stamps the hit tick", () => {

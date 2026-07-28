@@ -328,13 +328,22 @@ export function BunkerFpHud({
   // the flash element's key, so React remounts it and the CSS animation
   // restarts even on back-to-back bites. Health only ever falls within a
   // raid, so a rise means a new raid and resets the baseline.
+  //
+  // The counter clears whenever no raid is running. Settling a raid drops
+  // the HUD snapshot back to zero health, which reads as one last hit, and
+  // a counter left above zero would then fire a phantom red flash at the
+  // START of the next raid, before anything had bitten.
   const raidHealth = raid.health;
   const [hurtPulse, setHurtPulse] = useState(0);
   const lastHealthRef = useRef(raidHealth);
   useEffect(() => {
-    if (raidHealth < lastHealthRef.current) setHurtPulse((pulse) => pulse + 1);
+    if (!raidActive) {
+      setHurtPulse(0);
+    } else if (raidHealth < lastHealthRef.current) {
+      setHurtPulse((pulse) => pulse + 1);
+    }
     lastHealthRef.current = raidHealth;
-  }, [raidHealth]);
+  }, [raidActive, raidHealth]);
   // Hold the win/loss banner for a beat after the raid clears. The resolve
   // response drops `activeLiveRaid` almost immediately after the outcome
   // settles, which used to erase "Bunker held!"/"Bunker breached!" within a

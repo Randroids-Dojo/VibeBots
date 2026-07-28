@@ -57,6 +57,21 @@ const FP_CLANKER_FLOOR_LIFT = 0.32;
  * out to flank). Short: it covers the crossing, not the walk. */
 const FP_EMERGE_DUST_SECONDS = 0.45;
 
+/** A bite is a visible lunge: the body snaps forward along its heading
+ * and springs back over this window, so contact damage always has a
+ * matching physical attack instead of a silent health drop. */
+const FP_BITE_LUNGE_SECONDS = 0.28;
+const FP_BITE_LUNGE_REACH = 0.34;
+
+/** A landed pickaxe strike knocks the body back along its heading and
+ * squashes it briefly, so a hit reads even when it does not kill. */
+const FP_HIT_FLINCH_SECONDS = 0.22;
+const FP_HIT_FLINCH_KNOCKBACK = 0.2;
+
+/** Below this per-tick displacement a body counts as standing still, so
+ * the walk cycle settles instead of twitching on float noise. */
+const FP_CLANKER_MOTION_EPSILON = 1e-4;
+
 // Shared burrow-dust geometries (one per shape, like the mine's block
 // geometries): the materials stay per-slot because each slot's dust
 // fades independently, but the shapes carry no per-slot state.
@@ -102,6 +117,15 @@ interface FpClankerSlot {
   deathElapsed: number;
   /** Seconds since it last burrowed through the room's rock face, or -1. */
   dustElapsed: number;
+  /** Seconds since it last bit the miner, or -1 (drives the lunge). */
+  biteElapsed: number;
+  /** Seconds since a pickaxe strike landed on it, or -1 (drives the
+   * flinch). */
+  hitElapsed: number;
+  /** Sim ticks the last lunge and flinch fired for, so a fresh bite or
+   * strike restarts its animation and a repeat frame does not. */
+  lastBiteTick: number;
+  lastHurtTick: number;
   /** Whether the body was inside the visible room last frame: 1 in, 0 out
    * in the approach (buried in shell rock), -1 not yet known. */
   inRoom: number;
@@ -113,6 +137,10 @@ interface FpClankerSlot {
 function resetSlot(slot: FpClankerSlot): void {
   slot.deathElapsed = -1;
   slot.dustElapsed = -1;
+  slot.biteElapsed = -1;
+  slot.hitElapsed = -1;
+  slot.lastBiteTick = -1;
+  slot.lastHurtTick = -1;
   slot.inRoom = -1;
   slot.yawAngle = 0;
   slot.pitchAngle = 0;
@@ -136,6 +164,10 @@ function createSlot(): FpClankerSlot {
     // Clock and pose idle values are owned by resetSlot (single source).
     deathElapsed: 0,
     dustElapsed: 0,
+    biteElapsed: 0,
+    hitElapsed: 0,
+    lastBiteTick: 0,
+    lastHurtTick: 0,
     inRoom: 0,
     yawAngle: 0,
     pitchAngle: 0,
@@ -146,18 +178,25 @@ function createSlot(): FpClankerSlot {
 
 /**
  * Renders the live raid inside the first-person bunker: a fixed pool of
- * Clanker bodies tweened between their sim cells, and an instanced layer
- * of uncollected XP pickups. Both read the shared raid runtime the rig
- * steps, so this owns no raid logic. When no raid runs the pool hides
+ * Clanker bodies tweened between their sim positions, and an instanced
+ * layer of uncollected XP pickups. Both read the shared raid runtime the
+ * rig steps, so this owns no raid logic. When no raid runs the pool hides
  * itself and costs nothing to draw.
  *
- * Travel presentation: each body yaws to face its horizontal heading and
- * pitches into vertical hops (the sim navigates all six axes), with both
- * angles damped so corners read as turns. A Clanker out in the exterior
- * approach is buried in the claim's shell rock and is NOT drawn; when its
- * center burrows through the rock face into the room it appears with a
- * rock-dust puff at the crossing point instead of ghosting through the
- * rendered wall (and it dusts again if it tunnels back out to flank).
+ * Travel presentation: the sim walks each body continuously, so a view's
+ * from/to pair is one 6 Hz segment of real motion that this lerps up to
+ * frame rate. Each body yaws to face its horizontal heading and pitches
+ * into vertical travel (the sim navigates all six axes), with both angles
+ * damped so corners read as turns. A Clanker out in the exterior approach
+ * is buried in the claim's shell rock and is NOT drawn; when its center
+ * burrows through the rock face into the room it appears with a rock-dust
+ * puff at the crossing point instead of ghosting through the rendered
+ * wall (and it dusts again if it tunnels back out to flank).
+ *
+ * Combat presentation: a bite snaps the body forward along its heading
+ * and springs it back, and a landed pickaxe strike knocks it back and
+ * squashes it, so both halves of the melee fight are visible on the body
+ * that is dealing or taking the damage.
  */
 export function FpClankerLayer({
   runtimeRef,
@@ -295,6 +334,16 @@ export function FpClankerLayer({
       }
       if (view.alive) {
         slot.deathElapsed = -1;
+        // A fresh bite or pickaxe hit (the sim stamps its tick) restarts
+        // the matching reaction clock; a repeat frame leaves it running.
+        if (view.biteTick !== slot.lastBiteTick) {
+          slot.lastBiteTick = view.biteTick;
+          if (view.biteTick >= 0) slot.biteElapsed = 0;
+        }
+        if (view.hurtTick !== slot.lastHurtTick) {
+          slot.lastHurtTick = view.hurtTick;
+          if (view.hurtTick >= 0) slot.hitElapsed = 0;
+        }
         // Interpolate in grid coordinates first: the room-visibility test
         // is a grid-space rule (face planes at half-cell bounds).
         const colF = view.fromCol + (view.toCol - view.fromCol) * factor;
@@ -302,9 +351,40 @@ export function FpClankerLayer({
         const depthF =
           view.fromDepth + (view.toDepth - view.fromDepth) * factor;
         const inRoom = fpClankerInsideRoom(footprint, colF, rowF) ? 1 : 0;
-        const x = worldX(colF);
+        // Travel heading: yaw onto the horizontal direction, pitch into
+        // vertical travel, both damped so corners read as turns. World y
+        // grows as sim rows shrink, and world z is negative depth.
+        const dxw = view.toCol - view.fromCol;
+        const dyw = view.fromRow - view.toRow;
+        const dzw = view.fromDepth - view.toDepth;
+        // Lunge on a bite and knockback on a landed hit both ride the
+        // heading, so the body drives into the miner and recoils out of
+        // them along the same axis it is facing.
+        let surge = 0;
+        if (slot.biteElapsed >= 0) {
+          slot.biteElapsed += delta;
+          const p = slot.biteElapsed / FP_BITE_LUNGE_SECONDS;
+          if (p >= 1) slot.biteElapsed = -1;
+          else surge += Math.sin(p * Math.PI) * FP_BITE_LUNGE_REACH;
+        }
+        let squash = 1;
+        if (slot.hitElapsed >= 0) {
+          slot.hitElapsed += delta;
+          const p = slot.hitElapsed / FP_HIT_FLINCH_SECONDS;
+          if (p >= 1) slot.hitElapsed = -1;
+          else {
+            surge -= Math.sin(p * Math.PI) * FP_HIT_FLINCH_KNOCKBACK;
+            squash = 1 - Math.sin(p * Math.PI) * 0.22;
+          }
+        }
+        // The surge rides the heading in world space. Yaw 0 walks +x and
+        // a three.js rotation.y of a maps forward onto (cos a, 0, -sin a),
+        // so the same basis the yaw group uses places the offset.
+        const surgeX = surge === 0 ? 0 : Math.cos(slot.yawAngle) * surge;
+        const surgeZ = surge === 0 ? 0 : -Math.sin(slot.yawAngle) * surge;
+        const x = worldX(colF) + surgeX;
         const y = worldY(rowF) + FP_CLANKER_FLOOR_LIFT;
-        const z = -depthF;
+        const z = -depthF + surgeZ;
         if (slot.inRoom >= 0 && inRoom !== slot.inRoom) {
           // Crossing the rock face: kick a dust puff at the crossing point
           // so the body reads as burrowing through, not ghosting. The dust
@@ -314,12 +394,6 @@ export function FpClankerLayer({
         }
         slot.inRoom = inRoom;
         group.visible = inRoom === 1;
-        // Travel heading: yaw onto the horizontal direction, pitch into
-        // vertical hops, both damped so corners read as turns. World y
-        // grows as sim rows shrink, and world z is negative depth.
-        const dxw = view.toCol - view.fromCol;
-        const dyw = view.fromRow - view.toRow;
-        const dzw = view.fromDepth - view.toDepth;
         slot.yawAngle = dampAngleToward(
           slot.yawAngle,
           fpClankerTravelYaw(dxw, dzw, slot.yawAngle),
@@ -336,11 +410,19 @@ export function FpClankerLayer({
         drawn += 1;
         if (slot.parts.body.current) slot.parts.body.current.visible = true;
         group.position.set(x, y, z);
+        group.scale.set(
+          FP_CLANKER_SCALE,
+          FP_CLANKER_SCALE * squash,
+          FP_CLANKER_SCALE,
+        );
         const yawGroup = slot.yaw.current;
         if (yawGroup) yawGroup.rotation.y = slot.yawAngle;
         const pitchGroup = slot.pitch.current;
         if (pitchGroup) pitchGroup.rotation.z = slot.pitchAngle;
-        const moving = dxw !== 0 || dyw !== 0 || dzw !== 0;
+        const moving =
+          Math.abs(dxw) > FP_CLANKER_MOTION_EPSILON ||
+          Math.abs(dyw) > FP_CLANKER_MOTION_EPSILON ||
+          Math.abs(dzw) > FP_CLANKER_MOTION_EPSILON;
         const wobble = slot.wobble.current;
         if (wobble) animateClankerBody(wobble, slot.parts, elapsed, moving, 0);
         if (slot.burst.current) slot.burst.current.visible = false;
@@ -358,14 +440,16 @@ export function FpClankerLayer({
           group.visible = false;
           continue;
         }
-        // Pin the burst to the terminal cell: the sim killed it ON
-        // view.to, so the death animation must not linger at whatever
-        // interpolated point the last alive frame happened to draw.
+        // Pin the burst where it died: the sim killed it ON view.to, so
+        // the death animation must not linger at whatever interpolated
+        // point the last alive frame happened to draw, nor keep the
+        // squash a final pickaxe hit left on the body.
         group.position.set(
           worldX(view.toCol),
           worldY(view.toRow) + FP_CLANKER_FLOOR_LIFT,
           -view.toDepth,
         );
+        group.scale.setScalar(FP_CLANKER_SCALE);
         slot.deathElapsed += delta;
         const burst = slot.burst.current;
         const active = burst

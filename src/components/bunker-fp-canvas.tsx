@@ -83,6 +83,7 @@ import {
 } from "./bunker-fp-grid";
 import { fpInput } from "./bunker-fp-input";
 import {
+  FP_CAPSULE_HEIGHT,
   FP_DT_CLAMP,
   FP_EYE_HEIGHT,
   type FpMoveInput,
@@ -98,6 +99,7 @@ import {
   type FpRaidRuntime,
   fpRaidEnded,
   fpRaidReport,
+  strikeFpRaid,
 } from "./bunker-fp-raid";
 import { resetFpRaidHud, setFpRaidHud } from "./bunker-fp-raid-hud";
 import {
@@ -866,8 +868,11 @@ function FpPlacedParts({
 
 // Module-scope scratch for the camera orientation (frame loop).
 const fpCameraEuler = new Euler(0, 0, 0, "YXZ");
-// Reused scratch for the player's sim cell fed to the raid each frame.
+// Reused scratch for the player's live sim position (continuous mine-grid
+// coordinates) fed to the raid each frame, and for the aim direction a
+// pickaxe strike swings along.
 const fpRaidPlayerCell = { col: 0, row: 0, depth: 0 };
+const fpRaidAimDir = { col: 0, row: 0, depth: 0 };
 
 function clampFpPitch(pitch: number): number {
   return Math.min(FP_PITCH_LIMIT, Math.max(-FP_PITCH_LIMIT, pitch));
@@ -914,6 +919,18 @@ function countFpOpenCells(solid: FpSolidGrid): number {
     if (solid[i] === FP_OPEN) open += 1;
   }
   return open;
+}
+
+/** Clankers this raid's pickaxe strikes have put down. Scalar scan over a
+ * wave of at most 14, safe per frame; the dataset write it feeds is
+ * change-gated, so no string is built while the count holds. */
+function countFpPickaxeKills(runtime: FpRaidRuntime): number {
+  const clankers = runtime.state.clankers;
+  let killed = 0;
+  for (let i = 0; i < clankers.length; i += 1) {
+    if (clankers[i].death === "pickaxe") killed += 1;
+  }
+  return killed;
 }
 
 /**
@@ -1373,18 +1390,25 @@ function BunkerFpRig({
       }
     }
 
-    // Live raid: step the sim against the player's current cell, collect
+    // Live raid: step the sim against the player's live position, collect
     // any walked-over XP, publish the HUD, and resolve once on the end.
-    // While a raid runs the player only moves (edits stay frozen), so
-    // any queued act input is dropped here before the tool block below.
+    // While a raid runs edits stay frozen and the pickaxe becomes a
+    // weapon, so act input drives the combat swing below instead of the
+    // build/pry/dig tool block.
     const raid = raidRuntimeRef.current;
     const raidActive = raid !== null;
+    const combat = raid !== null && !fpRaidEnded(raid);
     if (raid) {
-      fpRaidPlayerCell.col = bunker.footprint.col + feetX;
-      fpRaidPlayerCell.row =
-        bunker.footprint.row + bunker.footprint.height - 1 - feetY;
-      fpRaidPlayerCell.depth = feetZ;
-      if (!fpRaidEnded(raid)) {
+      // Continuous mine-grid position: the sim chases the body, not the
+      // cell, so a Clanker closes the last half-cell instead of waiting
+      // for the player's rounded cell to change. The vertical coordinate
+      // is the capsule's centre, which is what a Clanker bites at.
+      const footprint = bunker.footprint;
+      const bottomRow = footprint.row + footprint.height - 1;
+      fpRaidPlayerCell.col = footprint.col + move.px;
+      fpRaidPlayerCell.row = bottomRow - (move.py + FP_CAPSULE_HEIGHT * 0.5);
+      fpRaidPlayerCell.depth = -move.pz;
+      if (combat) {
         advanceFpRaid(raid, fpRaidPlayerCell, Math.min(delta, FP_DT_CLAMP));
         collectFpRaidPickup(raid, fpRaidPlayerCell);
       }
@@ -1407,14 +1431,21 @@ function BunkerFpRig({
         raid.state.clankers.length,
         raid.state.breached,
         raid.state.outcome,
+        raid.state.playerHealth,
+        raid.state.playerMaxHealth,
       );
       if (fpRaidEnded(raid) && !raidResolvedRef.current) {
         raidResolvedRef.current = true;
         onResolveRaid?.(fpRaidReport(raid));
       }
+      // Fighting back: any act press swings the pick, whatever tool is
+      // selected, because every edit is frozen for the raid's duration.
+      if (combat) {
+        if (fpInput.act || fpInput.actHeld) startFpSwing(swing);
+      }
       fpInput.act = false;
-      fpInput.actHeld = false;
       fpInput.pryAct = false;
+      if (!combat) fpInput.actHeld = false;
     }
 
     fpCameraEuler.set(pitchRef.current, yawRef.current, 0);
@@ -1635,7 +1666,11 @@ function BunkerFpRig({
     // so dragging the aim across cells mines each one (F-114).
     const wantPry = fpInput.pryAct || (fpInput.act && tool === "pry");
     fpInput.pryAct = false;
-    if (isDig) {
+    if (combat) {
+      // Edits are frozen for the raid; the swing started above is the
+      // only thing an act does.
+      fpInput.act = false;
+    } else if (isDig) {
       // The swing owns digging; consume the press edge so it does not
       // also fall through to a build/pry act.
       if (fpInput.act || fpInput.actHeld) startFpSwing(swing);
@@ -1660,7 +1695,7 @@ function BunkerFpRig({
         });
       }
     }
-    if (wantPry && targetPryable) {
+    if (wantPry && targetPryable && !combat) {
       onEdit({
         kind: "pry",
         cell: fpGridCellFromLocal(
@@ -1685,8 +1720,18 @@ function BunkerFpRig({
     // that swing flecked out of an ore block, so each hit is a chance at
     // visible ore exactly like surface swings. The cell/intent objects
     // are the only allocations and only on a landed strike.
-    if (advanceFpSwing(swing, delta, isDig && fpInput.actHeld)) {
-      if (isDig && targetDiggable) {
+    if (advanceFpSwing(swing, delta, (combat || isDig) && fpInput.actHeld)) {
+      if (combat && raid) {
+        // The pick is a weapon for the duration: the strike lands on the
+        // nearest Clanker inside the aim cone, damage scaled by the mine
+        // gear pickaxe level. Grid space runs +col with world +x, rows
+        // downward as world y grows, and depth into world -z, so the
+        // camera forward converts by flipping the row and depth axes.
+        fpRaidAimDir.col = -Math.sin(yawRef.current) * cosPitch;
+        fpRaidAimDir.row = -Math.sin(pitchRef.current);
+        fpRaidAimDir.depth = Math.cos(yawRef.current) * cosPitch;
+        strikeFpRaid(raid, fpRaidPlayerCell, fpRaidAimDir, gear.pickaxe);
+      } else if (isDig && targetDiggable) {
         const digCell = fpCellIndex(rayHit.x, rayHit.y, rayHit.z);
         const cell = fpGridCellFromLocal(
           bunker.footprint,
@@ -1758,10 +1803,13 @@ function BunkerFpRig({
     // rest, the swing arc overriding it mid-strike (peaks fully forward
     // exactly at FP_SWING_IMPACT, where the dig lands). The view-space
     // offset and swing rotation ride the camera basis into world space.
+    // During a raid the pick is always in hand (it is the only weapon),
+    // whatever tool the toolbelt has selected.
     const pickaxe = pickaxeRef.current;
     if (pickaxe) {
-      pickaxe.visible = isDig && !raidActive;
-      if (isDig && !raidActive) {
+      const holdingPick = combat || (isDig && !raidActive);
+      pickaxe.visible = holdingPick;
+      if (holdingPick) {
         const throwAmt = fpSwingThrow(swing);
         const bob = Math.sin(state.clock.elapsedTime * 2.1) * 0.006;
         fpPickOffset
@@ -1815,6 +1863,32 @@ function BunkerFpRig({
     setDatasetNumber(cache, dataset, "fpOpenCells", openCellsRef.current, 0);
     setDatasetText(cache, dataset, "fpGrounded", move.grounded ? "1" : "0");
     setDatasetText(cache, dataset, "fpSwinging", swing.active ? "1" : "0");
+    // Raid combat probes: the miner's remaining health, the swings that
+    // connected, and the Clankers the pick has put down, so a browser test
+    // can prove the fight is two-sided rather than a single fatal touch.
+    // Strikes landed is the swing-half assertion because a kill is only
+    // that plus enough cooldowns, which a slow renderer stretches out.
+    setDatasetNumber(
+      cache,
+      dataset,
+      "fpRaidHealth",
+      raid ? raid.state.playerHealth : -1,
+      0,
+    );
+    setDatasetNumber(
+      cache,
+      dataset,
+      "fpRaidStrikes",
+      raid ? raid.state.strikesLanded : -1,
+      0,
+    );
+    setDatasetNumber(
+      cache,
+      dataset,
+      "fpRaidPickaxeKills",
+      raid ? countFpPickaxeKills(raid) : -1,
+      0,
+    );
     setDatasetNumber(
       cache,
       dataset,

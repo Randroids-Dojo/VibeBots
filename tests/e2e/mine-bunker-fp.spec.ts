@@ -2865,6 +2865,169 @@ test(
 );
 
 test(
+  "a live raid is a two-sided melee fight, not a fatal first touch",
+  ciCase("E2E-MINE-BUNKER-FP-0025", "@functional"),
+  async ({ page }) => {
+    // The raid sim advances from real frame deltas, capped per frame, so
+    // its wall-clock pace tracks the renderer's frame rate. On a fast host
+    // this test finishes in seconds; the generous ceilings only come into
+    // play on a slow software renderer, where the 6-second staged onset
+    // alone can take the better part of a minute of wall clock.
+    test.setTimeout(420_000);
+    await page.route("**/api/bunker", async (route) => {
+      await route.fulfill({ json: FP_BUNKER_VIEW });
+    });
+    await page.route("**/api/bunker/raid/start", async (route) => {
+      await route.fulfill({ json: LIVE_RAID_START });
+    });
+    await page.route("**/api/bunker/raid/resolve", async (route) => {
+      await route.fulfill({ json: LIVE_RAID_RESOLVED });
+    });
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await digTo(page, 1);
+    await page.getByTestId("bunker-fp-enter").click();
+    const canvas = page.locator("canvas");
+    await expect
+      .poll(async () => canvas.getAttribute("data-fp-eye-x"), {
+        timeout: 45_000,
+      })
+      .not.toBeNull();
+    await aimFp(page, 0, 0);
+
+    // Start before arming the pointer: a locked pointer routes every click
+    // to the canvas, so the HUD control would never receive one.
+    await page.getByTestId("bunker-fp-raid-start-button").click();
+    await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
+      timeout: 15_000,
+    });
+    await armFpPointer(page);
+
+    // The miner starts the raid on a full health bar, so contact can no
+    // longer be an instant loss.
+    const health = page.getByTestId("bunker-fp-raid-health");
+    await expect(health).toBeVisible({ timeout: 15_000 });
+    await expect(health).toHaveAttribute("data-health", "100");
+    await expect
+      .poll(async () =>
+        Number(await canvas.getAttribute("data-fp-raid-health")),
+      )
+      .toBe(100);
+
+    // Hold the primary input for the whole fight: the pick stays in hand
+    // for the raid's duration whatever tool is selected, so swings connect
+    // with whatever closes on the miner.
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("no canvas bounding box");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await aimFp(page, 0, 0);
+    await page.mouse.down();
+    try {
+      // The pick swings during a raid (it is the miner's only weapon).
+      await expect
+        .poll(async () => canvas.getAttribute("data-fp-swinging"), {
+          timeout: 20_000,
+        })
+        .toBe("1");
+
+      // One wall-clock-bounded observation loop rather than a chain of
+      // serial waits. The raid sim advances only from clamped frame
+      // deltas, so every stage of a raid test is hostage to the renderer's
+      // throughput; splitting the budget into separate gates means a slow
+      // runner can burn one gate's whole timeout and leave nothing for the
+      // rest. Watching all three signals at once uses the budget for
+      // whichever arrives, and records the high-water marks so a failure
+      // says which signal never came instead of only naming the first gate
+      // that expired.
+      //
+      // The miner turns in place so a converging wave walks into the swing
+      // arc rather than the test chasing it, nudging the aim through the
+      // fp hook directly because aimFp's settle polls would otherwise
+      // dominate the budget. The swing half asserts on strikes landed, not
+      // kills, because a kill is only a strike plus enough cooldowns and
+      // those are counted in sim ticks. Kill-at-zero-energy is pinned in
+      // the sim suite instead.
+      let sawClanker = false;
+      let sawDamage = false;
+      let sawStrike = false;
+      let raidCleared = false;
+      let maxVisible = 0;
+      let minHealth = 100;
+      let lastRaidBanner = "";
+      // Margin matters more than tightness here. The raid opens with a
+      // deliberate 6-second onset plus staggered activation, and the sim
+      // advances at renderer speed, so the wait is long by construction:
+      // the first green CI run used almost all of a 240s budget. Sized
+      // against the 420s test timeout with setup, so a slightly slower
+      // runner reports a real result rather than a flake.
+      const deadline = Date.now() + 330_000;
+      for (let i = 0; !(sawDamage && sawStrike) && Date.now() < deadline; i++) {
+        await page.evaluate(
+          (yaw) => {
+            (
+              window as unknown as { __vibebotsFp?: { setYaw?: number } }
+            ).__vibebotsFp = { setYaw: yaw };
+          },
+          (i % 8) * (Math.PI / 4),
+        );
+        await page.waitForTimeout(300);
+        const hp = Number(await canvas.getAttribute("data-fp-raid-health"));
+        const strikes = Number(
+          await canvas.getAttribute("data-fp-raid-strikes"),
+        );
+        const visible = Number(
+          await canvas.getAttribute("data-fp-clankers-visible"),
+        );
+        if (visible > maxVisible) maxVisible = visible;
+        if (visible > 0) sawClanker = true;
+        if (hp >= 0 && hp < minHealth) minHealth = hp;
+        if (hp >= 0 && hp < 100) sawDamage = true;
+        if (strikes > 0) sawStrike = true;
+        // The raid banner carries the countdown, so it proves whether sim
+        // time advanced at all when a signal never arrives.
+        if (i % 10 === 0) {
+          lastRaidBanner =
+            (await page
+              .getByTestId("bunker-fp-raid-panel")
+              .textContent()
+              .catch(() => null)) ?? "";
+        }
+        // -1 means the runtime is gone: the raid settled and nothing more
+        // can be observed. Recorded rather than silently broken out of, so
+        // the assertion below can say which half went unproven.
+        if (hp < 0) {
+          raidCleared = true;
+          break;
+        }
+      }
+      // A raid that settles before both halves land has not demonstrated
+      // the two-sided fight. With the miner standing in the open swinging
+      // for the whole 180-second raid that should not happen, so it is a
+      // real failure rather than a skip. The extra fields are diagnostics:
+      // they distinguish "the wave never reached the room" from "it did but
+      // never bit" from "it bit but the pick never connected".
+      expect({
+        sawClanker,
+        sawDamage,
+        sawStrike,
+        raidCleared,
+        maxVisible,
+        minHealth,
+        lastRaidBanner,
+      }).toMatchObject({
+        sawClanker: true,
+        sawDamage: true,
+        sawStrike: true,
+        raidCleared: false,
+      });
+    } finally {
+      await page.mouse.up();
+    }
+  },
+);
+
+test(
   "leaving a live raid mid-fight forfeits it instead of re-rolling on re-entry",
   ciCase("E2E-MINE-BUNKER-FP-0020", "@functional"),
   async ({ page }) => {

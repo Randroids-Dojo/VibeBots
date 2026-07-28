@@ -14,12 +14,20 @@ import {
 } from "./bunker";
 import {
   BUNKER_RAID_LIVE_VERSION,
+  clankerPlayerBiteDamage,
   collectLiveRaidPickup,
   createLiveRaid,
   LIVE_CLANKER_ACTIVATION_STAGGER_TICKS,
   LIVE_CLANKER_BASE_ENERGY,
+  LIVE_CLANKER_BITE_PERIOD_TICKS,
   LIVE_CLANKER_BREACH_HOLD_TICKS,
   LIVE_CLANKER_ENERGY_PER_TIER,
+  LIVE_MOVE_ENERGY_COST,
+  LIVE_PICKAXE_BASE_DAMAGE,
+  LIVE_PICKAXE_DAMAGE_PER_LEVEL,
+  LIVE_PLAYER_MAX_HEALTH,
+  LIVE_PLAYER_STRIKE_COOLDOWN_TICKS,
+  LIVE_PLAYER_STRIKE_REACH,
   LIVE_RAID_DURATION_TICKS,
   LIVE_RAID_EXPIRY_GRACE_TICKS,
   LIVE_RAID_ONSET_TICKS,
@@ -34,8 +42,10 @@ import {
   liveRaidPartWear,
   liveRaidSealed,
   liveRaidWaveSize,
+  pickaxeStrikeDamage,
   settleLiveRaidOutcome,
   stepLiveRaid,
+  strikeLiveRaid,
   validateLiveRaidOutcome,
 } from "./bunker-raid-live";
 
@@ -180,24 +190,38 @@ describe("staged wave onset (F-218)", () => {
     expect(tail.energy).toBe(LIVE_CLANKER_BASE_ENERGY + 20);
   });
 
-  it("holds a breaching Clanker at its entry cell instead of killing on the same hop", () => {
+  it("holds a breaching Clanker at its entry cell instead of biting on the same hop", () => {
     // The player stands ON the perimeter dug cell the lead Clanker enters
     // through: the worst case that used to be an invisible same-tick kill.
     const player: LiveRaidCell = { col: 5, row: 5, depth: 0 };
     const raid = createLiveRaid(makeBunker([{ col: 5, row: 5, depth: 0 }]), 1);
-    stepTimes(raid, player, LIVE_RAID_ONSET_TICKS);
-    // The lead's first action hop burrows in (a breach), but the emergence
-    // hold means the miner is still alive with the Clanker surfacing.
+    // Run until the lead burrows in. Bodies travel continuously now, so
+    // the breach lands a couple of ticks after its activation rather than
+    // exactly on it.
+    let guard = 0;
+    while (!raid.breached && guard < LIVE_RAID_ONSET_TICKS + 30) {
+      stepLiveRaid(raid, player);
+      guard++;
+    }
+    // The emergence hold means the miner is untouched while it surfaces.
     expect(raid.breached).toBe(true);
     expect(raid.outcome).toBe("active");
+    expect(raid.playerHealth).toBe(LIVE_PLAYER_MAX_HEALTH);
     const lead = raid.clankers[0];
     expect(lead.col).toBe(5);
     expect(lead.row).toBe(5);
     expect(lead.inertUntilTick).toBe(
       raid.tick + LIVE_CLANKER_BREACH_HOLD_TICKS,
     );
-    // A player who stays put through the hold is then killed on contact.
-    stepTimes(raid, player, LIVE_CLANKER_BREACH_HOLD_TICKS + 2);
+    // Still nothing lands while the hold runs.
+    stepTimes(raid, player, LIVE_CLANKER_BREACH_HOLD_TICKS - 1);
+    expect(raid.playerHealth).toBe(LIVE_PLAYER_MAX_HEALTH);
+    // A player who stays put past the hold starts taking bites, and the
+    // fight (not first contact) is what eventually kills them.
+    stepTimes(raid, player, 4);
+    expect(raid.playerHealth).toBeLessThan(LIVE_PLAYER_MAX_HEALTH);
+    expect(raid.outcome).toBe("active");
+    runToEnd(raid, player);
     expect(raid.outcome).toBe("lost");
   });
 
@@ -226,6 +250,359 @@ describe("staged wave onset (F-218)", () => {
     expect(raid.outcome).toBe("lost");
     expect(breachedTick).toBeGreaterThan(LIVE_RAID_ONSET_TICKS);
     expect(raid.tick).toBeGreaterThan(breachedTick);
+  });
+});
+
+describe("melee combat (dev direction 2026-07-27)", () => {
+  /** A depth-0 corridor across the footprint with the player on it: the
+   * shape Clankers walk straight into, so contact is quick to reach. */
+  function corridorRaid(tier = 1): {
+    raid: LiveRaidState;
+    player: LiveRaidCell;
+  } {
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    return {
+      raid: createLiveRaid(makeBunker(corridor), tier),
+      player: { col: 8, row: 5, depth: 0 },
+    };
+  }
+
+  /** Step until the miner has taken damage, returning the tick it landed
+   * on (or -1 if the cap ran out first). */
+  function stepUntilBitten(
+    state: LiveRaidState,
+    player: LiveRaidCell,
+    cap = 600,
+  ): number {
+    let guard = 0;
+    while (state.outcome === "active" && guard < cap) {
+      stepLiveRaid(state, player);
+      guard++;
+      if (state.playerHealth < LIVE_PLAYER_MAX_HEALTH) return state.tick;
+    }
+    return -1;
+  }
+
+  it("starts the miner on a full health bar instead of dying to one touch", () => {
+    const { raid, player } = corridorRaid();
+    expect(raid.playerHealth).toBe(LIVE_PLAYER_MAX_HEALTH);
+    expect(raid.playerMaxHealth).toBe(LIVE_PLAYER_MAX_HEALTH);
+    expect(stepUntilBitten(raid, player)).toBeGreaterThan(0);
+    // Contact costs exactly one bite, and the raid keeps running.
+    expect(raid.playerHealth).toBe(
+      LIVE_PLAYER_MAX_HEALTH - clankerPlayerBiteDamage(1, "standard"),
+    );
+    expect(raid.outcome).toBe("active");
+    expect(raid.minerKilled).toBe(false);
+  });
+
+  it("paces bites by the bite cooldown rather than every tick", () => {
+    const { raid, player } = corridorRaid();
+    expect(stepUntilBitten(raid, player)).toBeGreaterThan(0);
+    const afterFirst = raid.playerHealth;
+    // Well inside the cooldown: no second bite from the same Clanker.
+    stepTimes(raid, player, LIVE_CLANKER_BITE_PERIOD_TICKS - 2);
+    expect(raid.playerHealth).toBe(afterFirst);
+    stepTimes(raid, player, 2);
+    expect(raid.playerHealth).toBeLessThan(afterFirst);
+  });
+
+  it("kills the miner only when bites empty the bar, self-destructing the Clanker that lands it", () => {
+    const { raid, player } = corridorRaid();
+    runToEnd(raid, player);
+    expect(raid.outcome).toBe("lost");
+    expect(raid.minerKilled).toBe(true);
+    expect(raid.playerHealth).toBe(0);
+    expect(raid.clankers.some((c) => c.death === "reached-player")).toBe(true);
+  });
+
+  it("chases a fleeing miner instead of trailing a cell behind", () => {
+    // A tall open room the miner can run across. The lead Clanker's body
+    // must close on the player's live position while the player retreats
+    // one cell at a time, which the old cell-hop model could not do.
+    const room: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++) {
+      for (let row = 5; row <= 9; row++) room.push({ col, row, depth: 0 });
+    }
+    const raid = createLiveRaid(makeBunker(room), 1);
+    const player: LiveRaidCell = { col: 5, row: 9, depth: 0 };
+    // Let the lead activate and burrow into the room.
+    let guard = 0;
+    while (!raid.breached && guard < 200) {
+      stepLiveRaid(raid, player);
+      guard++;
+    }
+    stepTimes(raid, player, LIVE_CLANKER_BREACH_HOLD_TICKS + 1);
+    const lead = raid.clankers[0];
+    const gap = () => {
+      const dx = player.col - lead.x;
+      const dy = player.row - lead.y;
+      const dz = player.depth - lead.z;
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    };
+    // Retreat across the room a fraction of a cell per tick, slower than
+    // the Clanker's chase speed, and watch the gap shrink.
+    const startGap = gap();
+    for (let i = 0; i < 40 && raid.outcome === "active"; i++) {
+      player.col = Math.min(11, player.col + 0.1);
+      stepLiveRaid(raid, player);
+    }
+    expect(gap()).toBeLessThan(startGap);
+    // The body is genuinely off-lattice while it hunts, not snapped to
+    // cell centres.
+    expect(
+      raid.clankers.some(
+        (c) => c.alive && (c.x !== Math.round(c.x) || c.z !== Math.round(c.z)),
+      ),
+    ).toBe(true);
+  });
+
+  it("gets bodies into the room on the open-plane claim the raid e2e uses", () => {
+    // The exact shape E2E-MINE-BUNKER-FP-0019 fights on: a 7x5 claim with
+    // its whole depth-0 plane dug, one wall on the corner cell, tier 3.
+    // The render layer only draws Clankers inside the footprint, so if
+    // none ever crosses in, the raid looks empty. A stalled body (an
+    // engaged beeline pressing into shell rock forever) used to do
+    // exactly that, which the room-shaped tests above did not catch.
+    const footprint: BunkerFootprint = { col: -3, row: 1, width: 7, height: 5 };
+    const dug: DugBunkerCell[] = [];
+    for (let row = 1; row <= 5; row++) {
+      for (let col = -3; col <= 3; col++) dug.push({ col, row, depth: 0 });
+    }
+    const bunker: BunkerState = {
+      footprint,
+      parts: [part("wall-panel", -3, 1, 0)],
+      dug,
+      blockSeed: 1,
+    };
+    const raid = createLiveRaid(bunker, 3);
+    const player: LiveRaidCell = { col: 0, row: 5, depth: 0 };
+    let sawInside = false;
+    for (let i = 0; i < 400 && raid.outcome === "active" && !sawInside; i++) {
+      stepLiveRaid(raid, player);
+      sawInside = raid.clankers.some(
+        (c) => c.alive && containsBunkerCell(footprint, c.col, c.row),
+      );
+    }
+    expect(sawInside).toBe(true);
+    expect(raid.breached).toBe(true);
+  });
+
+  it("records a breach even when the entering hop spends the last energy", () => {
+    // A Clanker that dies the instant it gets in still got in, so the claim
+    // was not sealed. Missing this hands out the sealed verdict and the
+    // Buttoned Up stamp on a raid that was genuinely breached.
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const raid = createLiveRaid(makeBunker(corridor), 1);
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    // Starve the whole wave so the very next cell entry is fatal, and run
+    // the lead up to the claim's edge.
+    let guard = 0;
+    while (!raid.breached && guard < 400) {
+      for (const clanker of raid.clankers) {
+        if (clanker.alive) clanker.energy = LIVE_MOVE_ENERGY_COST;
+      }
+      stepLiveRaid(raid, player);
+      guard++;
+    }
+    expect(raid.breached).toBe(true);
+    // The Clanker that got in died on the hop that did it.
+    expect(
+      raid.clankers.some(
+        (c) =>
+          !c.alive &&
+          c.death === "energy" &&
+          containsBunkerCell(FOOTPRINT, c.col, c.row),
+      ),
+    ).toBe(true);
+    expect(liveRaidSealed(raid)).toBe(false);
+  });
+
+  it("keeps bodies out of rock while beelining at the player", () => {
+    // A sealed pocket next to the corridor: no Clanker may ever settle in
+    // an undug cell, however directly it steers at the miner.
+    const corridor: DugBunkerCell[] = [];
+    for (let col = 5; col <= 11; col++)
+      corridor.push({ col, row: 5, depth: 0 });
+    const raid = createLiveRaid(makeBunker(corridor), 3);
+    const player: LiveRaidCell = { col: 8, row: 5, depth: 0 };
+    for (let i = 0; i < 400 && raid.outcome === "active"; i++) {
+      stepLiveRaid(raid, player);
+      for (const clanker of raid.clankers) {
+        if (!clanker.alive) continue;
+        if (!containsBunkerCell(FOOTPRINT, clanker.col, clanker.row)) continue;
+        // Inside the claim a live body may only occupy a dug cell.
+        expect(
+          corridor.some(
+            (cell) =>
+              cell.col === clanker.col &&
+              cell.row === clanker.row &&
+              cell.depth === clanker.depth,
+          ),
+        ).toBe(true);
+      }
+    }
+  });
+});
+
+describe("pickaxe strikes (dev direction 2026-07-27)", () => {
+  /** A raid with one live Clanker parked at a known body position, so a
+   * strike's reach, cone, cooldown, and damage are exactly measurable. */
+  function strikeFixture(): {
+    raid: LiveRaidState;
+    player: LiveRaidCell;
+    target: LiveRaidState["clankers"][number];
+  } {
+    const raid = createLiveRaid(makeBunker([{ col: 8, row: 5, depth: 0 }]), 1);
+    // Retire the rest of the wave so only the target can be hit.
+    for (let i = 1; i < raid.clankers.length; i++) {
+      raid.clankers[i].alive = false;
+    }
+    const target = raid.clankers[0];
+    target.x = 9;
+    target.y = 5;
+    target.z = 0;
+    target.col = 9;
+    target.row = 5;
+    return { raid, player: { col: 8, row: 5, depth: 0 }, target };
+  }
+
+  const AIM_PLUS_COL: LiveRaidCell = { col: 1, row: 0, depth: 0 };
+
+  it("scales damage by pickaxe level", () => {
+    expect(pickaxeStrikeDamage(1)).toBe(
+      LIVE_PICKAXE_BASE_DAMAGE + LIVE_PICKAXE_DAMAGE_PER_LEVEL,
+    );
+    expect(pickaxeStrikeDamage(2)).toBe(
+      LIVE_PICKAXE_BASE_DAMAGE + 2 * LIVE_PICKAXE_DAMAGE_PER_LEVEL,
+    );
+    // A missing or sub-1 level still swings as level 1.
+    expect(pickaxeStrikeDamage(0)).toBe(pickaxeStrikeDamage(1));
+    // Gear comes from persisted saves, so a corrupt level must not poison
+    // a Clanker's energy: NaN damage would leave it unkillable, because
+    // NaN <= 0 is false, and quietly make the raid unwinnable.
+    expect(pickaxeStrikeDamage(Number.NaN)).toBe(pickaxeStrikeDamage(1));
+    expect(pickaxeStrikeDamage(Number.POSITIVE_INFINITY)).toBe(
+      pickaxeStrikeDamage(1),
+    );
+  });
+
+  it("drains the aimed Clanker's energy and stamps the hit tick", () => {
+    const { raid, player, target } = strikeFixture();
+    const before = target.energy;
+    const hit = strikeLiveRaid(raid, player, AIM_PLUS_COL, 12);
+    expect(hit).toBe(target);
+    expect(target.energy).toBe(before - 12);
+    expect(target.hurtTick).toBe(raid.tick);
+  });
+
+  it("refuses a second strike inside the cooldown", () => {
+    const { raid, player, target } = strikeFixture();
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBe(target);
+    const afterFirst = target.energy;
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBeNull();
+    expect(target.energy).toBe(afterFirst);
+    // Past the cooldown it connects again.
+    raid.tick += LIVE_PLAYER_STRIKE_COOLDOWN_TICKS;
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBe(target);
+  });
+
+  it("misses what is out of reach or outside the aim cone", () => {
+    const { raid, player, target } = strikeFixture();
+    // Beyond reach along the same axis.
+    target.x = player.col + LIVE_PLAYER_STRIKE_REACH + 0.5;
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBeNull();
+    // In reach but behind the miner.
+    target.x = player.col + 1;
+    expect(
+      strikeLiveRaid(raid, player, { col: -1, row: 0, depth: 0 }, 12),
+    ).toBeNull();
+    // In reach and in front: connects.
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBe(target);
+  });
+
+  it("hits only the nearest Clanker in the cone, so one swing cannot clear a pack", () => {
+    const raid = createLiveRaid(makeBunker([{ col: 8, row: 5, depth: 0 }]), 1);
+    for (let i = 2; i < raid.clankers.length; i++) {
+      raid.clankers[i].alive = false;
+    }
+    const near = raid.clankers[0];
+    const far = raid.clankers[1];
+    near.x = 8.8;
+    near.y = 5;
+    near.z = 0;
+    near.col = 9;
+    near.row = 5;
+    far.x = 9.4;
+    far.y = 5;
+    far.z = 0;
+    far.col = 9;
+    far.row = 5;
+    const farEnergy = far.energy;
+    expect(
+      strikeLiveRaid(raid, { col: 8, row: 5, depth: 0 }, AIM_PLUS_COL, 12),
+    ).toBe(near);
+    expect(far.energy).toBe(farEnergy);
+  });
+
+  it("cannot reach a Clanker still out in the approach, matching the bite rule", () => {
+    // The render layer draws nothing outside the footprint, so a body out
+    // in the shell rock is neither a threat nor a target. Park the Clanker
+    // one cell in front of the miner but on an approach cell.
+    const { raid, player, target } = strikeFixture();
+    target.col = FOOTPRINT.col - 1;
+    target.row = FOOTPRINT.row;
+    target.x = player.col + 1;
+    expect(containsBunkerCell(FOOTPRINT, target.col, target.row)).toBe(false);
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBeNull();
+    expect(target.energy).toBe(
+      LIVE_CLANKER_BASE_ENERGY + LIVE_CLANKER_ENERGY_PER_TIER,
+    );
+  });
+
+  it("kills at zero energy, records a pickaxe death, and drops XP", () => {
+    const { raid, player, target } = strikeFixture();
+    strikeLiveRaid(raid, player, AIM_PLUS_COL, target.energy);
+    expect(target.alive).toBe(false);
+    expect(target.death).toBe("pickaxe");
+    expect(raid.xpPickups).toHaveLength(1);
+    // The last Clanker down ends the raid as a win.
+    expect(raid.outcome).toBe("won");
+  });
+
+  it("is inert once the raid has settled", () => {
+    const { raid, player, target } = strikeFixture();
+    raid.outcome = "lost";
+    expect(strikeLiveRaid(raid, player, AIM_PLUS_COL, 12)).toBeNull();
+    expect(target.alive).toBe(true);
+  });
+
+  it("balances a level-2 pickaxe to beat one Clanker but not two", () => {
+    // The authored tuning target: a level-2 pickaxe fends off a single
+    // tier-1 Clanker with health to spare, and loses to a pair. Modelled
+    // head-on with both sides at full rate, which is the worst case for
+    // the player (no kiting, no layout help).
+    const damage = pickaxeStrikeDamage(2);
+    const bite = clankerPlayerBiteDamage(1, "standard");
+    const energy = LIVE_CLANKER_BASE_ENERGY + LIVE_CLANKER_ENERGY_PER_TIER;
+    const strikesToKill = Math.ceil(energy / damage);
+    const ticksToKill = strikesToKill * LIVE_PLAYER_STRIKE_COOLDOWN_TICKS;
+    const bitesTaken = Math.floor(ticksToKill / LIVE_CLANKER_BITE_PERIOD_TICKS);
+
+    // One Clanker: survivable, and not so cheap that it is a formality.
+    const soloDamage = bitesTaken * bite;
+    expect(soloDamage).toBeLessThan(LIVE_PLAYER_MAX_HEALTH);
+    expect(soloDamage).toBeGreaterThan(LIVE_PLAYER_MAX_HEALTH * 0.2);
+
+    // Two Clankers, killed one at a time (a swing hits one target), take
+    // the miner past the bar before the second one falls.
+    expect(bitesTaken * 2 * bite + bitesTaken * bite).toBeGreaterThan(
+      LIVE_PLAYER_MAX_HEALTH,
+    );
   });
 });
 

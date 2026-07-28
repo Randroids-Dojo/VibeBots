@@ -3,18 +3,30 @@
  *
  * This is the client-run, movement-matters raid model. The player walks
  * the bunker in first person while a wave of Clankers flows toward the
- * player's live 3D cell, chewing through placed blocking parts to get in,
- * spending energy to move, chew, and cross spikes, and dying when their
- * energy runs out. If even one Clanker reaches the player's cell the miner
- * dies and the raid is lost. Survive by using the layout and dodging to
- * drain every Clanker before one touches you.
+ * player's live 3D position, chewing through placed blocking parts to get
+ * in, spending energy to move, chew, and cross spikes, and dying when
+ * their energy runs out.
  *
- * Authority: the client steps this sim in real time against the rig's cell
- * and reports a bounded outcome; the server trusts it against a frozen
- * start snapshot (no server replay, no cross-engine determinism, per
- * Q-024). This module is nonetheless deterministic given the same
- * (snapshot, tier, per-tick player-cell sequence): spawns and tie-breaks
- * are index-ordered, so no rng is needed.
+ * Melee combat (dev direction 2026-07-27). Clankers used to hop cell to
+ * cell and kill the miner outright on contact, so a raid read as bodies
+ * crawling the rock nearby and then a sudden loss. Now the fight is a
+ * physical one: a Clanker's body carries a continuous position that it
+ * walks every tick, the grid route only picks its next waypoint, and once
+ * it is a few open cells from the player it drops the route and beelines
+ * at the player's live position, so it pursues a fleeing miner instead of
+ * hopping between neighboring cells. Contact is a bite that costs player
+ * health on a cooldown, and the miner swings back: {@link strikeLiveRaid}
+ * lands a pickaxe hit on the nearest Clanker in the aim cone. Only the
+ * bite that empties the health bar kills the miner (the Clanker that lands
+ * it self-destructs, keeping the GDD's death fantasy). The tuning target
+ * is that a level-2 pickaxe fends off one Clanker but loses to two.
+ *
+ * Authority: the client steps this sim in real time against the rig's
+ * position and reports a bounded outcome; the server trusts it against a
+ * frozen start snapshot (no server replay, no cross-engine determinism,
+ * per Q-024). This module is nonetheless deterministic given the same
+ * (snapshot, tier, per-tick player-position sequence, strike sequence):
+ * spawns and tie-breaks are index-ordered, so no rng is needed.
  *
  * Connectivity (Q-020, "sealed is safe"): undug claim rock is impassable
  * and unchewable. Clankers travel the open mine approach and dug cells and
@@ -53,6 +65,10 @@ export const BUNKER_RAID_LIVE_VERSION = 1;
 
 /** Sim ticks per second. The client steps at this cadence in real time. */
 export const LIVE_RAID_TICKS_PER_SECOND = 6;
+
+/** Seconds of raid time one tick covers; the step size continuous Clanker
+ * motion integrates over. */
+export const LIVE_RAID_TICK_SECONDS = 1 / LIVE_RAID_TICKS_PER_SECOND;
 
 /** Total ticks in a raid; a timeout with the player alive is a survive. */
 export const LIVE_RAID_DURATION_TICKS =
@@ -97,6 +113,69 @@ export const LIVE_MOVE_ENERGY_COST = 1;
 export const LIVE_CHEW_ENERGY_COST = 3;
 export const LIVE_SPIKE_ENERGY_COST = 12;
 
+/**
+ * Travel speed of a Clanker body, in grid cells per second. The miner
+ * walks FP_WALK_SPEED (3.0) in the same units, so a standard Clanker is
+ * outrun in a straight line but corners you in a 7x5x5 room, a breacher
+ * matches your pace, and a tank trades speed for its turret soak. The
+ * body moves every tick; the grid route only supplies its next waypoint.
+ */
+export const LIVE_CLANKER_CHASE_SPEED = 2.6;
+export const LIVE_BREACHER_CHASE_SPEED = 3.0;
+export const LIVE_TANK_CHASE_SPEED = 2.1;
+
+/**
+ * Cost-to-player (in the same units as the pathing field, where an open
+ * cell costs 1) at or under which a Clanker abandons its grid waypoint
+ * and steers straight at the player's live position. Bounded low so a
+ * beeline only ever cuts across cells the route had already opened.
+ */
+export const LIVE_CLANKER_ENGAGE_COST = 3;
+
+/** How close a Clanker's body must get to bite, in grid cells. */
+export const LIVE_CLANKER_BITE_REACH = 0.7;
+/** A Clanker bites at most once per second. */
+export const LIVE_CLANKER_BITE_PERIOD_TICKS = LIVE_RAID_TICKS_PER_SECOND;
+
+/**
+ * Player combat budget. Health is what turns contact from an instant loss
+ * into a fight: a tier-1 standard bite is 17, so one Clanker glued to you
+ * takes about six seconds to finish the bar and two take three.
+ * Provisional, like the energy model above: the mechanics are what this
+ * slice pins, the numbers are playtest tuning.
+ */
+export const LIVE_PLAYER_MAX_HEALTH = 100;
+export const LIVE_PLAYER_BITE_BASE = 14;
+export const LIVE_PLAYER_BITE_PER_TIER = 3;
+/** Breachers bite the miner harder, tanks slightly harder than standard.
+ * Deliberately gentler than CLANKER_BREACHER_BITE_FACTOR (2), which is a
+ * wall-chewing multiplier, so a single specialist is not a near-instant
+ * loss. */
+export const LIVE_BREACHER_PLAYER_BITE_FACTOR = 1.5;
+export const LIVE_TANK_PLAYER_BITE_FACTOR = 1.25;
+
+/**
+ * Pickaxe damage by gear level: 6 + 5 per level, spent against a
+ * Clanker's remaining energy (its life force, the same pool travel and
+ * chewing drain, so a Clanker that fought its way in dies faster). At
+ * level 2 that is 16 a hit, so a tier-1 Clanker arriving with roughly 60
+ * energy falls in four strikes, about two seconds, costing the miner
+ * around a third of the health bar. Two at once outpace that.
+ */
+export const LIVE_PICKAXE_BASE_DAMAGE = 6;
+export const LIVE_PICKAXE_DAMAGE_PER_LEVEL = 5;
+/** Half a second between landed strikes, so swing spam cannot outrun the
+ * authored damage rate. */
+export const LIVE_PLAYER_STRIKE_COOLDOWN_TICKS = 3;
+/** Pickaxe reach in grid cells, measured from the miner's chest. Longer
+ * than a Clanker's bite reach, so meeting one head-on and swinging first
+ * is the skillful play. */
+export const LIVE_PLAYER_STRIKE_REACH = 1.7;
+/** Minimum dot product between the aim direction and the direction to a
+ * Clanker for the swing to connect (about a 63 degree half-angle). A
+ * cone rather than an angle because the sim contract bars acos. */
+export const LIVE_PLAYER_STRIKE_DOT = 0.45;
+
 /** Turret fire: a turret with ammo shoots the nearest Clanker within this
  * Chebyshev range along an axis-aligned clear line of sight, once per
  * period. A hit stops a standard or breacher Clanker outright; a tank soaks
@@ -116,8 +195,17 @@ const CHEW_PATH_WEIGHT = 8;
 const APPROACH_MARGIN = 4;
 
 export type LiveRaidOutcome = "active" | "won" | "lost";
-export type LiveClankerDeath = "energy" | "reached-player" | "turret";
+export type LiveClankerDeath =
+  | "energy"
+  | "reached-player"
+  | "turret"
+  | "pickaxe";
 
+/**
+ * A position in the raid's grid space. Integer values name a cell centre;
+ * the player's live position and a Clanker's body are continuous, so
+ * fractional values are the normal case for both.
+ */
 export interface LiveRaidCell {
   col: number;
   row: number;
@@ -127,17 +215,42 @@ export interface LiveRaidCell {
 export interface LiveRaidClanker {
   id: string;
   kind: ClankerKind;
+  /** The cell the body currently occupies (its position rounded). All
+   * grid logic (routing, chewing, spikes, breach, turret sight) keys on
+   * this; the body itself lives at {@link x}/{@link y}/{@link z}. */
   col: number;
   row: number;
   depth: number;
+  /** Continuous body position in grid space, walked every tick. */
+  x: number;
+  y: number;
+  z: number;
+  /** The cell centre the body is walking toward, refreshed on each action
+   * tick from the cost-to-player gradient. Ignored while engaged (the
+   * body steers at the player instead) or chewing (it holds still). */
+  waypointCol: number;
+  waypointRow: number;
+  waypointDepth: number;
+  /** Close enough to the player, over open cells, to drop the route and
+   * beeline at the live position. */
+  engaged: boolean;
+  /** Biting through a blocking part ahead this action window, so the body
+   * holds its ground instead of advancing. */
+  chewing: boolean;
   energy: number;
   alive: boolean;
   /** Turret shots absorbed so far (tanks soak more than one). */
   hits: number;
+  /** Earliest tick this Clanker may bite the miner again. */
+  biteReadyTick: number;
+  /** Tick it last bit the miner, or -1 (drives the lunge animation). */
+  biteTick: number;
+  /** Tick a pickaxe strike last landed on it, or -1 (drives the flinch). */
+  hurtTick: number;
   /** Tick the Clanker died on, or -1 while alive (for death animation). */
   deathTick: number;
   death: LiveClankerDeath | null;
-  /** The Clanker is inert (no move, no kill, no energy spend) until this
+  /** The Clanker is inert (no move, no bite, no energy spend) until this
    * tick. Seeded by the staggered wave onset (F-218) so the invasion
    * arrives one attacker at a time, and re-armed for the breach hold when
    * the Clanker burrows into the claim, so an emergence is watchable and
@@ -184,6 +297,16 @@ export interface LiveRaidState {
   durationTicks: number;
   outcome: LiveRaidOutcome;
   minerKilled: boolean;
+  /** The miner's remaining health. Bites take from it; the bite that
+   * empties it kills the miner and loses the raid. */
+  playerHealth: number;
+  playerMaxHealth: number;
+  /** Tick the miner last took a bite, or -1 (drives the hurt flash). */
+  playerHurtTick: number;
+  /** Earliest tick a pickaxe strike may land again. */
+  strikeReadyTick: number;
+  /** Pickaxe strikes that connected with a Clanker this raid. */
+  strikesLanded: number;
   /** True once any Clanker ever entered the bunker footprint (breached the
    * claim), so a survive can distinguish "nothing got in" from "held them
    * off inside". Drives the sealed verdict and the Buttoned Up stamp. */
@@ -220,6 +343,41 @@ function partKey(
 function clankerBiteDamage(tier: number, kind: ClankerKind): number {
   const base = CLANKER_BASE_BITE_DAMAGE + tier * CLANKER_BITE_DAMAGE_PER_TIER;
   return kind === "breacher" ? base * CLANKER_BREACHER_BITE_FACTOR : base;
+}
+
+/** Health a bite takes off the miner. Separate from the wall-chewing bite
+ * above so the fight tunes without changing how fast walls fall. */
+export function clankerPlayerBiteDamage(
+  tier: number,
+  kind: ClankerKind,
+): number {
+  const base = LIVE_PLAYER_BITE_BASE + tier * LIVE_PLAYER_BITE_PER_TIER;
+  const factor =
+    kind === "breacher"
+      ? LIVE_BREACHER_PLAYER_BITE_FACTOR
+      : kind === "tank"
+        ? LIVE_TANK_PLAYER_BITE_FACTOR
+        : 1;
+  return Math.round(base * factor);
+}
+
+/** Energy a single pickaxe strike drains, by mine gear pickaxe level.
+ * Gear arrives from persisted saves, so a non-finite level is a real
+ * boundary case rather than an impossible one: Math.floor(NaN) is NaN and
+ * would poison a Clanker's energy, leaving it unkillable (NaN <= 0 is
+ * false) and the raid quietly unwinnable. Anything not finite reads as
+ * level 1. */
+export function pickaxeStrikeDamage(pickaxeLevel: number): number {
+  const level = Number.isFinite(pickaxeLevel)
+    ? Math.max(1, Math.floor(pickaxeLevel))
+    : 1;
+  return LIVE_PICKAXE_BASE_DAMAGE + level * LIVE_PICKAXE_DAMAGE_PER_LEVEL;
+}
+
+function clankerChaseSpeed(kind: ClankerKind): number {
+  if (kind === "breacher") return LIVE_BREACHER_CHASE_SPEED;
+  if (kind === "tank") return LIVE_TANK_CHASE_SPEED;
+  return LIVE_CLANKER_CHASE_SPEED;
 }
 
 function clankerEnergyFor(tier: number): number {
@@ -261,9 +419,20 @@ export function createLiveRaid(
       col: spawn.col,
       row: spawn.row,
       depth: spawn.depth,
+      x: spawn.col,
+      y: spawn.row,
+      z: spawn.depth,
+      waypointCol: spawn.col,
+      waypointRow: spawn.row,
+      waypointDepth: spawn.depth,
+      engaged: false,
+      chewing: false,
       energy,
       alive: true,
       hits: 0,
+      biteReadyTick: 0,
+      biteTick: -1,
+      hurtTick: -1,
       deathTick: -1,
       death: null,
       inertUntilTick:
@@ -299,6 +468,11 @@ export function createLiveRaid(
     durationTicks: LIVE_RAID_DURATION_TICKS,
     outcome: "active",
     minerKilled: false,
+    playerHealth: LIVE_PLAYER_MAX_HEALTH,
+    playerMaxHealth: LIVE_PLAYER_MAX_HEALTH,
+    playerHurtTick: -1,
+    strikeReadyTick: 0,
+    strikesLanded: 0,
     breached: false,
     footprint: bunker.footprint,
     dug: bunker.dug.map((cell) => ({ ...cell })),
@@ -466,93 +640,241 @@ function spendEnergy(
   return true;
 }
 
-function stepOneClanker(
+/**
+ * Action-tick decision for one Clanker: engage, chew, or aim at the next
+ * hop down the cost-to-player gradient. Nothing relocates here; the body
+ * walks toward whatever this leaves in the waypoint (or straight at the
+ * player, when engaged) on every tick in {@link walkClankerBody}.
+ */
+function planOneClanker(
   state: LiveRaidState,
   clanker: LiveRaidClanker,
-  player: LiveRaidCell,
   field: Map<string, number>,
 ): void {
-  // Already touching the player: contact kills the miner.
+  // Close enough over open cells to stop following the route and hunt the
+  // player's live position directly. This is what makes a Clanker chase a
+  // fleeing miner across a room instead of trailing a cell behind. Only
+  // ever inside the claim: a body still out in the approach has to take
+  // the route in, because that is what records the breach and arms the
+  // emergence hold (F-218), and a beeline from out there would just press
+  // it into the shell rock.
+  const here = field.get(cellKey(clanker.col, clanker.row, clanker.depth));
   if (
-    clanker.col === player.col &&
-    clanker.row === player.row &&
-    clanker.depth === player.depth
+    here !== undefined &&
+    here <= LIVE_CLANKER_ENGAGE_COST &&
+    containsBunkerCell(state.footprint, clanker.col, clanker.row)
   ) {
-    state.minerKilled = true;
-    killClanker(state, clanker, "reached-player");
+    clanker.engaged = true;
+    clanker.chewing = false;
     return;
   }
+  clanker.engaged = false;
 
   // Choose the neighbor that most reduces cost-to-player.
-  let best: { col: number; row: number; depth: number; key: string } | null =
-    null;
+  let bestCol = 0;
+  let bestRow = 0;
+  let bestDepth = 0;
   let bestCost = Number.POSITIVE_INFINITY;
   for (const [dc, dr, dd] of NEIGHBOR_OFFSETS) {
     const col = clanker.col + dc;
     const row = clanker.row + dr;
     const depth = clanker.depth + dd;
     if (!Number.isFinite(enterCost(state, col, row, depth))) continue;
-    const key = cellKey(col, row, depth);
-    const cost = field.get(key);
+    const cost = field.get(cellKey(col, row, depth));
     if (cost === undefined) continue;
     if (cost < bestCost) {
       bestCost = cost;
-      best = { col, row, depth, key };
+      bestCol = col;
+      bestRow = row;
+      bestDepth = depth;
     }
   }
 
-  if (!best) {
+  if (!Number.isFinite(bestCost)) {
     // Stalled (walled in by rock, or player unreachable): idle-drain so the
     // raid still terminates and a sealed fortress resolves to a survive.
+    clanker.chewing = false;
+    clanker.waypointCol = clanker.col;
+    clanker.waypointRow = clanker.row;
+    clanker.waypointDepth = clanker.depth;
     spendEnergy(state, clanker, LIVE_MOVE_ENERGY_COST);
     return;
   }
 
-  const blocker = livePartAt(state, best.col, best.row, best.depth);
+  const blocker = livePartAt(state, bestCol, bestRow, bestDepth);
   if (blocker && BASE_PART_CATALOG[blocker.partId].blocksClankers) {
-    // Chew the wall instead of moving; break it open when durability runs
-    // out so the nav mid-raid opens up for the swarm.
+    // Chew the wall instead of advancing; break it open when durability
+    // runs out so the nav mid-raid opens up for the swarm.
+    clanker.chewing = true;
+    clanker.waypointCol = clanker.col;
+    clanker.waypointRow = clanker.row;
+    clanker.waypointDepth = clanker.depth;
     blocker.durability -= clankerBiteDamage(state.tier, clanker.kind);
     spendEnergy(state, clanker, LIVE_CHEW_ENERGY_COST);
     return;
   }
 
-  // Move into the open cell.
+  clanker.chewing = false;
+  clanker.waypointCol = bestCol;
+  clanker.waypointRow = bestRow;
+  clanker.waypointDepth = bestDepth;
+}
+
+/** A body may settle only in a genuinely open cell: enterCost returns 1
+ * there, CHEW_PATH_WEIGHT where a wall still stands, and +Infinity in
+ * rock. Keeps an engaged beeline from cutting through a corner the route
+ * would have walked around. */
+function clankerCanOccupy(
+  state: LiveRaidState,
+  col: number,
+  row: number,
+  depth: number,
+): boolean {
+  return enterCost(state, col, row, depth) === 1;
+}
+
+/** Apply everything that happens when a body's cell changes: the move's
+ * energy, the breach flag and its emergence hold, and any spike it just
+ * stepped onto. */
+function enterCell(
+  state: LiveRaidState,
+  clanker: LiveRaidClanker,
+  col: number,
+  row: number,
+  depth: number,
+): void {
   const wasInside = containsBunkerCell(
     state.footprint,
     clanker.col,
     clanker.row,
   );
-  if (!spendEnergy(state, clanker, LIVE_MOVE_ENERGY_COST)) return;
-  clanker.col = best.col;
-  clanker.row = best.row;
-  clanker.depth = best.depth;
-  // Entering the footprint counts as a breach, even if the Clanker dies to
-  // a spike on the very cell it entered: the claim was no longer sealed.
-  const nowInside = containsBunkerCell(state.footprint, best.col, best.row);
+  clanker.col = col;
+  clanker.row = row;
+  clanker.depth = depth;
+  // Entering the footprint counts as a breach, even if the Clanker dies on
+  // the very cell it entered: the claim was no longer sealed. Recorded
+  // before the move's energy is spent, because a Clanker whose last energy
+  // goes on the entering hop still got in, and a missed flag here would
+  // wrongly hand out the sealed verdict and the Buttoned Up stamp.
+  const nowInside = containsBunkerCell(state.footprint, col, row);
   if (nowInside) state.breached = true;
+  if (!spendEnergy(state, clanker, LIVE_MOVE_ENERGY_COST)) return;
 
   // Crossing a live spike drains extra energy and consumes a spike use.
-  const spike = livePartAt(state, best.col, best.row, best.depth);
+  const spike = livePartAt(state, col, row, depth);
   if (spike && spike.partId === "floor-spikes") {
     spike.durability -= 1;
     if (!spendEnergy(state, clanker, LIVE_SPIKE_ENERGY_COST)) return;
   }
 
   // The hop that burrows into the claim is the emergence: the Clanker
-  // holds there while it surfaces (F-218) and cannot kill on this hop, so
+  // holds there while it surfaces (F-218) and cannot bite on this hop, so
   // breaching through the floor under the player's feet is dodgeable
   // instead of an invisible same-tick death.
   if (nowInside && !wasInside) {
     clanker.inertUntilTick = state.tick + LIVE_CLANKER_BREACH_HOLD_TICKS;
+  }
+}
+
+/**
+ * Move the body to an exact position if the cell it lands in is open,
+ * applying the cell-entry effects when it crosses into a new one.
+ * Returns false and mutates nothing when the destination is rock or a
+ * standing wall, so the caller can try a different step.
+ */
+function tryClankerStep(
+  state: LiveRaidState,
+  clanker: LiveRaidClanker,
+  nextX: number,
+  nextY: number,
+  nextZ: number,
+): boolean {
+  const nextCol = Math.round(nextX);
+  const nextRow = Math.round(nextY);
+  const nextDepth = Math.round(nextZ);
+  const changedCell =
+    nextCol !== clanker.col ||
+    nextRow !== clanker.row ||
+    nextDepth !== clanker.depth;
+  if (changedCell && !clankerCanOccupy(state, nextCol, nextRow, nextDepth)) {
+    return false;
+  }
+  clanker.x = nextX;
+  clanker.y = nextY;
+  clanker.z = nextZ;
+  if (changedCell) enterCell(state, clanker, nextCol, nextRow, nextDepth);
+  return true;
+}
+
+/**
+ * Walk one Clanker's body toward its steering target for `seconds` of
+ * real time: the player's live position while engaged, otherwise its
+ * waypoint cell centre. A chewing Clanker holds its ground.
+ *
+ * An engaged beeline is not axis-aligned, so it can aim diagonally
+ * through a corner of rock. When the full step is refused the body slides
+ * along whichever single axis is legal instead, which keeps it moving
+ * around the obstacle rather than pressing into it forever.
+ */
+function walkClankerBody(
+  state: LiveRaidState,
+  clanker: LiveRaidClanker,
+  player: LiveRaidCell,
+  seconds: number,
+): void {
+  if (clanker.chewing) return;
+  const targetX = clanker.engaged ? player.col : clanker.waypointCol;
+  const targetY = clanker.engaged ? player.row : clanker.waypointRow;
+  const targetZ = clanker.engaged ? player.depth : clanker.waypointDepth;
+  const dx = targetX - clanker.x;
+  const dy = targetY - clanker.y;
+  const dz = targetZ - clanker.z;
+  const distanceSq = dx * dx + dy * dy + dz * dz;
+  if (distanceSq <= 0) return;
+  const distance = Math.sqrt(distanceSq);
+  const step = clankerChaseSpeed(clanker.kind) * seconds;
+  const scale = step >= distance ? 1 : step / distance;
+  const nextX = clanker.x + dx * scale;
+  const nextY = clanker.y + dy * scale;
+  const nextZ = clanker.z + dz * scale;
+
+  if (tryClankerStep(state, clanker, nextX, nextY, nextZ)) return;
+  if (tryClankerStep(state, clanker, nextX, clanker.y, clanker.z)) return;
+  if (tryClankerStep(state, clanker, clanker.x, nextY, clanker.z)) return;
+  tryClankerStep(state, clanker, clanker.x, clanker.y, nextZ);
+}
+
+/** Bite the miner if the body has closed to within reach and the bite
+ * cooldown has expired. The bite that empties the health bar kills the
+ * miner and self-destructs the Clanker that landed it (the GDD's death
+ * fantasy, now the end of a fight rather than first contact). */
+function maybeBitePlayer(
+  state: LiveRaidState,
+  clanker: LiveRaidClanker,
+  player: LiveRaidCell,
+): void {
+  // Only a Clanker that is actually in the room may bite. Bite reach is
+  // continuous, so without this a body still out in the approach could
+  // reach a miner standing against the rock face, through a wall the
+  // render layer deliberately does not draw it behind (F-218: nothing
+  // invisible may hurt you).
+  if (!containsBunkerCell(state.footprint, clanker.col, clanker.row)) return;
+  if (state.tick < clanker.biteReadyTick) return;
+  const dx = player.col - clanker.x;
+  const dy = player.row - clanker.y;
+  const dz = player.depth - clanker.z;
+  if (
+    dx * dx + dy * dy + dz * dz >
+    LIVE_CLANKER_BITE_REACH * LIVE_CLANKER_BITE_REACH
+  ) {
     return;
   }
-
-  if (
-    clanker.col === player.col &&
-    clanker.row === player.row &&
-    clanker.depth === player.depth
-  ) {
+  clanker.biteReadyTick = state.tick + LIVE_CLANKER_BITE_PERIOD_TICKS;
+  clanker.biteTick = state.tick;
+  state.playerHealth -= clankerPlayerBiteDamage(state.tier, clanker.kind);
+  state.playerHurtTick = state.tick;
+  if (state.playerHealth <= 0) {
+    state.playerHealth = 0;
     state.minerKilled = true;
     killClanker(state, clanker, "reached-player");
   }
@@ -644,14 +966,28 @@ function fireTurrets(state: LiveRaidState): void {
   }
 }
 
+/** Reused cell scratch for the player's rounded position: the cost field
+ * and pickup collection are cell-granular while the live position is
+ * continuous. Written and consumed inside one call, so the module stays
+ * free of cross-call state and the frame path allocates nothing. */
+const playerCellScratch: LiveRaidCell = { col: 0, row: 0, depth: 0 };
+
+function roundPlayerCell(player: LiveRaidCell): LiveRaidCell {
+  playerCellScratch.col = Math.round(player.col);
+  playerCellScratch.row = Math.round(player.row);
+  playerCellScratch.depth = Math.round(player.depth);
+  return playerCellScratch;
+}
+
 /**
- * Advance the raid one tick against the player's current cell. Mutates
- * `state` in place and returns it. On action ticks each alive Clanker moves
- * or chews one step down the cost-to-player gradient; between action ticks
- * only the tick counter advances (the client interpolates motion). The
- * outcome settles to "lost" the instant a Clanker reaches the player, and
- * to "won" when the last Clanker dies or the duration elapses with the
- * player alive.
+ * Advance the raid one tick against the player's live position. Mutates
+ * `state` in place and returns it. Every tick each active Clanker walks
+ * its body toward its steering target and bites if it has closed to
+ * reach; on action ticks the cost-to-player field is rebuilt and each
+ * Clanker re-decides whether to engage, chew, or aim at a new waypoint.
+ * The outcome settles to "lost" when a bite empties the miner's health,
+ * and to "won" when the last Clanker dies or the duration elapses with
+ * the miner alive.
  */
 export function stepLiveRaid(
   state: LiveRaidState,
@@ -666,17 +1002,25 @@ export function stepLiveRaid(
   }
 
   const isActionTick = state.tick % LIVE_CLANKER_MOVE_PERIOD_TICKS === 0;
-  if (isActionTick) {
-    const field = playerCostField(state, player);
-    for (const clanker of state.clankers) {
-      if (!clanker.alive) continue;
-      // Inert: still burrowing in (staged onset) or finishing its breach
-      // emergence (F-218). It holds in place, spends nothing, and cannot
-      // reach the player yet.
-      if (state.tick < clanker.inertUntilTick) continue;
-      stepOneClanker(state, clanker, player, field);
-      if (state.minerKilled) break;
-    }
+  const field = isActionTick
+    ? playerCostField(state, roundPlayerCell(player))
+    : null;
+  for (const clanker of state.clankers) {
+    if (!clanker.alive) continue;
+    // Inert: still burrowing in (staged onset) or finishing its breach
+    // emergence (F-218). It holds in place, spends nothing, and cannot
+    // bite yet.
+    if (state.tick < clanker.inertUntilTick) continue;
+    if (field) planOneClanker(state, clanker, field);
+    if (!clanker.alive) continue;
+    walkClankerBody(state, clanker, player, LIVE_RAID_TICK_SECONDS);
+    if (!clanker.alive) continue;
+    // Re-read the hold: the step just taken may have burrowed into the
+    // claim and armed the emergence window (F-218), and that arrival must
+    // not also bite on the tick it lands.
+    if (state.tick < clanker.inertUntilTick) continue;
+    maybeBitePlayer(state, clanker, player);
+    if (state.minerKilled) break;
   }
 
   if (state.minerKilled) {
@@ -690,14 +1034,83 @@ export function stepLiveRaid(
   return state;
 }
 
-/** Mark the XP pickup at a cell collected (the player walks over it in
- * first person). Returns the XP gained, or 0 if none/there already. Loss
- * grants nothing because the raid never reaches a collectible survive. */
+/**
+ * Land one pickaxe swing. Hits the single nearest live Clanker whose body
+ * sits inside the aim cone within {@link LIVE_PLAYER_STRIKE_REACH}, and
+ * only one, so wading into a pack cannot clear it with one swing. The
+ * damage comes off the target's energy (its life force, the same pool
+ * travel and chewing drain). Returns the Clanker hit, or null when the
+ * swing was on cooldown, aimed at nothing, or the raid is over.
+ *
+ * `from` is the miner's live position and `dir` its aim direction, both
+ * in grid space; `dir` need not be normalized.
+ */
+export function strikeLiveRaid(
+  state: LiveRaidState,
+  from: LiveRaidCell,
+  dir: LiveRaidCell,
+  damage: number,
+): LiveRaidClanker | null {
+  if (state.outcome !== "active") return null;
+  if (state.tick < state.strikeReadyTick) return null;
+  const dirLengthSq =
+    dir.col * dir.col + dir.row * dir.row + dir.depth * dir.depth;
+  if (dirLengthSq <= 0) return null;
+  const dirLength = Math.sqrt(dirLengthSq);
+
+  let target: LiveRaidClanker | null = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const clanker of state.clankers) {
+    if (!clanker.alive) continue;
+    // Only what the room draws can be struck, mirroring the same rule on
+    // bites: a body still out in the approach is buried in the claim's
+    // shell rock and must be neither a threat nor a target.
+    if (!containsBunkerCell(state.footprint, clanker.col, clanker.row)) {
+      continue;
+    }
+    const dx = clanker.x - from.col;
+    const dy = clanker.y - from.row;
+    const dz = clanker.z - from.depth;
+    const distanceSq = dx * dx + dy * dy + dz * dz;
+    if (distanceSq > LIVE_PLAYER_STRIKE_REACH * LIVE_PLAYER_STRIKE_REACH) {
+      continue;
+    }
+    if (distanceSq >= bestDistance) continue;
+    // Point-blank (the body overlapping the miner) always connects; the
+    // cone test would divide by zero there.
+    if (distanceSq > 0) {
+      const dot =
+        (dx * dir.col + dy * dir.row + dz * dir.depth) /
+        (Math.sqrt(distanceSq) * dirLength);
+      if (dot < LIVE_PLAYER_STRIKE_DOT) continue;
+    }
+    bestDistance = distanceSq;
+    target = clanker;
+  }
+  if (!target) return null;
+
+  state.strikeReadyTick = state.tick + LIVE_PLAYER_STRIKE_COOLDOWN_TICKS;
+  state.strikesLanded += 1;
+  target.hurtTick = state.tick;
+  target.energy -= damage;
+  if (target.energy <= 0) killClanker(state, target, "pickaxe");
+  if (!state.clankers.some((clanker) => clanker.alive)) {
+    state.outcome = "won";
+  }
+  return target;
+}
+
+/** Mark the XP pickup at a position collected (the player walks over it in
+ * first person). Pickups sit on cell centres and the live position is
+ * continuous, so the position rounds to its cell here. Returns the XP
+ * gained, or 0 if none/there already. Loss grants nothing because the raid
+ * never reaches a collectible survive. */
 export function collectLiveRaidPickup(
   state: LiveRaidState,
-  cell: LiveRaidCell,
+  position: LiveRaidCell,
 ): number {
   if (state.outcome === "lost") return 0;
+  const cell = roundPlayerCell(position);
   const pickup = state.xpPickups.find(
     (p) =>
       !p.collected &&

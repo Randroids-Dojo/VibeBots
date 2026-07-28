@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-032" data-status="open">
+    <h3>Q-032: Does miner health replace kill-on-contact in live raids for good?</h3>
+    <dl>
+      <dt>Context</dt><dd>Kill-on-contact is written into <code>docs/gdd/08-base-building.html</code> twice (<q>If a Clanker reaches the player cell, it self-destructs, kills the miner, ends the raid</q>, and the Q-024 option D paragraph) and was reaffirmed as contract by F-218. User direction on 2026-07-27 supersedes it: <q>We should see the 3d clankers physically attack the player and pursue them as they run away. The player should be able to attack them with their pickaxe, but damage shouldn't be too much. A player might be able to fend of one, but not likely 2 clankers with the level 2 pickaxe.</q> A player who can fend off one Clanker necessarily survives being touched, so contact had to become a bite against a health bar. Shipped that way in the melee-combat slice.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Health bar is the new contract: contact costs <code>clankerPlayerBiteDamage</code> on a cooldown, only the emptying bite kills, and the Clanker that lands it still self-destructs so the death fantasy is intact. Update the GDD prose to match.</li>
+          <li>Keep health for the fight but restore kill-on-contact for a specific class (say tanks, or any Clanker attacking from behind), so some contact is still instantly fatal.</li>
+          <li>Revert to kill-on-contact and give the player a different counter (a pickaxe that stuns rather than kills, or a shove).</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It is the only option that satisfies the stated balance target, and the self-destruct on the killing bite keeps the GDD's authored death moment. Shipped under A; the GDD build log records the supersession rather than silently editing the old prose. Revisit if the user wants B's asymmetry.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-031" data-status="open">
     <h3>Q-031: Should committed post-cutoff followup misplacements fail the ledger check forever?</h3>
     <dl>

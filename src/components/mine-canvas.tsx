@@ -173,7 +173,6 @@ import { playMineResultSfx, playMineSfxEvent } from "./mine-sfx";
 import {
   SelectedSupportCellOutline,
   SupportCellHitTarget,
-  SupportSelectionOutline,
 } from "./mine-support-selection";
 import { collectBunkerPartMaterials } from "./mine-surface-materials";
 import {
@@ -654,15 +653,21 @@ function buildCellEntry(
               dispose={null}
             />
           ))}
-          {ladderSelected ? (
-            <SupportSelectionOutline width={0.54} height={1.08} />
-          ) : null}
         </group>,
       );
     }
     // The warp beacon (REQ-029): a humming pylon in the dark.
     if (cell.beacon) {
       const toggleBeacon = canSalvage ? supportToggle : null;
+      if (beaconSelected) {
+        entry.support.push(
+          <SelectedSupportCellOutline
+            key={`selected-cell:beacon:${key}`}
+            col={col}
+            row={row}
+          />,
+        );
+      }
       entry.tunnel.push(
         // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
         <group
@@ -695,9 +700,6 @@ function buildCellEntry(
               flatShading
             />
           </mesh>
-          {beaconSelected ? (
-            <SupportSelectionOutline width={0.56} height={0.86} />
-          ) : null}
         </group>,
       );
     }
@@ -777,9 +779,6 @@ function buildCellEntry(
             material={PLANK_BEAM_MATERIALS[canSalvage ? 1 : 0]}
             dispose={null}
           />
-          {plankSelected ? (
-            <SupportSelectionOutline width={1.08} height={0.44} z={0.34} />
-          ) : null}
         </group>,
       );
     }

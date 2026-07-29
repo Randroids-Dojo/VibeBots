@@ -3,30 +3,7 @@ import { cellX } from "./mine-render-palette";
 
 export const SUPPORT_SELECT_RED = "#ff3b30";
 
-export function SupportSelectionOutline({
-  width,
-  height,
-  z = 0.14,
-}: {
-  width: number;
-  height: number;
-  z?: number;
-}) {
-  const bar = 0.045;
-  return (
-    <group position={[0, 0, z]}>
-      <SelectionOutlineBars
-        width={width}
-        height={height}
-        bar={bar}
-        renderOrder={0}
-        depthTest
-      />
-    </group>
-  );
-}
-
-export function SelectionOutlineBars({
+function SelectionOutlineBars({
   width,
   height,
   bar,
@@ -66,6 +43,8 @@ export function SelectionOutlineBars({
   );
 }
 
+// The one highlight a selected support gets. It draws over everything so
+// the selection reads at any depth; supports do not add a second inner box.
 export function SelectedSupportCellOutline({
   col,
   row,

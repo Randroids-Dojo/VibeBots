@@ -55,6 +55,7 @@
       <dt>Assumptions</dt><dd><code>surfaceOnlyLog</code> is the right predicate for <q>worth banking</q>: it is already the shared notion of real progress, and a trip that descended through open cells without carving banks a no-op, which is harmless and actively helps by keeping the two trip counters in step. Preserving the device's work on divergence is treated as always correct; only the offer of the cloud copy is conditional.</dd>
       <dt>GDD coverage</dt><dd>Build log entry appended to <code>docs/gdd/06-mining.html</code>; no coverage row status change (REQ-026 was already <q>done</q> and this restores the behavior it claims).</dd>
       <dt>Followups</dt><dd>New <a href="FOLLOWUPS.html">F-220</a> (a GET that advances the replay-protection counter, plus banking telemetry to confirm the fix in production).</dd>
+      <dt>Player confirmation (2026-07-29)</dt><dd>Merged as <code>c09d767c</code> with main CI green and the production deploy healthy. The reporter then confirmed the fix on the same signed-in mobile installed app that showed the loss: an ore-less digging trip now survives killing and restarting the app. Recorded on F-220 too. Worth naming what this does and does not settle: the behavior is verified by a human replaying the exact scenario, which is the evidence that was missing, but nothing the project owns would notice a silent return to zero banks. That gap is why this reached a player instead of CI, and it stays open on F-220.</dd>
     </dl>
   </article>
 

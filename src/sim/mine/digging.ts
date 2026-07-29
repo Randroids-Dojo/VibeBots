@@ -1,4 +1,5 @@
-import type { CellKind } from "./cells";
+import type { CellKind, MineCell } from "./cells";
+import { FALLING_ROCK_MIN_HITS } from "./consumables";
 import { DEFAULT_GEAR, type MineGear } from "./gear";
 import { type OreId, oreValueTier } from "./ores";
 
@@ -79,6 +80,45 @@ export function rockTierAt(row: number): number {
 
 export function canDigRock(gear: MineGear, tier: number): boolean {
   return gear.pickaxe - 1 >= tier;
+}
+
+/**
+ * Every stone body is one material to the pickaxe (user-directed
+ * 2026-07-29: no rock in the mine may be a permanent dead end). A boulder
+ * is stone the player has not undermined yet, not a wall, so it cuts at
+ * its row's tier like any rock instead of refusing every swing.
+ */
+export function isRockLike(cell: MineCell): boolean {
+  return cell.kind === "rock" || cell.kind === "boulder";
+}
+
+/** Stone mid-fall or come to rest: the hazard the two-hit floor protects. */
+export function isFallingRock(cell: MineCell): boolean {
+  return (
+    isRockLike(cell) && (cell.fallIn !== undefined || cell.fallen === true)
+  );
+}
+
+/** The material this cell digs as, which is rock for every stone body. */
+export function digKindFor(cell: MineCell): CellKind {
+  return isRockLike(cell) ? "rock" : cell.kind;
+}
+
+/** Pickaxe tier this cell demands. Stone that fell is gated by where it rests. */
+export function rockTierForDig(cell: MineCell, row: number): number {
+  return isFallingRock(cell)
+    ? rockTierAt(row)
+    : (cell.rockTier ?? rockTierAt(row));
+}
+
+/**
+ * Swings to break this cell, the count both the dig path and the crack
+ * overlay must agree on. Falling or fallen stone keeps a two-hit floor
+ * even under a maxed pickaxe, so the warning window stays playable.
+ */
+export function hitsForCell(cell: MineCell, gear: MineGear): number {
+  const base = hitsFor(digKindFor(cell), gear);
+  return isFallingRock(cell) ? Math.max(FALLING_ROCK_MIN_HITS, base) : base;
 }
 
 /**

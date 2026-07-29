@@ -40,7 +40,6 @@ import type {
   WorldDiff,
 } from "./cells";
 import {
-  FALLING_ROCK_MIN_HITS,
   GAS_VENT_DRAIN,
   LADDER_RECOVERY_FLOOR,
   MINE_BOTTOM_ROW,
@@ -54,10 +53,13 @@ import {
 } from "./consumables";
 import {
   canDigRock,
-  hitsFor,
+  digKindFor,
+  hitsForCell,
+  isRockLike,
   MOVE_COST,
   oreSwingCostFor,
   rockTierAt,
+  rockTierForDig,
   START_COL,
   swingCostFor,
 } from "./digging";
@@ -408,7 +410,7 @@ function tickFalls(
     // shaken off, while the current row defines the pickaxe gate.
     const placed: MineCell = { kind: cell.kind };
     if (cell.kind === "rock") placed.rockTier = rockTierAt(rest);
-    if (cell.kind === "rock" || cell.kind === "boulder") placed.fallen = true;
+    if (isRockLike(cell)) placed.fallen = true;
     // A fallen ore cell keeps its deposit: the reserve locks to the
     // origin row so the drop neither mints nor destroys ore.
     if (cell.kind === "ore" && cell.ore) {
@@ -510,7 +512,7 @@ function markUnstable(
     if (cellAt(state, col, row)?.kind !== "empty") continue;
     for (let blockRow = row - 1; blockRow > HAZARD_FREE_ROWS; blockRow--) {
       const above = cellAt(state, col, blockRow);
-      if (!above || (above.kind !== "rock" && above.kind !== "boulder")) break;
+      if (!above || !isRockLike(above)) break;
       if (above.fallIn === undefined) {
         cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
         warnings.push({ col, row: blockRow });
@@ -687,37 +689,6 @@ function refreshSpanInstability(
   }
   if (rescuedCells > 0) state.tripStats.roofRescues += 1;
   return warnings;
-}
-
-/**
- * Every stone body digs as rock (user-directed 2026-07-29: no rock in the
- * mine may be a permanent dead end). A boulder is stone the player has not
- * undermined yet, not a wall, so it cuts at its row's tier like any rock
- * and reports the pickaxe level it wants instead of a mute refusal.
- */
-function isRockLike(cell: MineCell): boolean {
-  return cell.kind === "rock" || cell.kind === "boulder";
-}
-
-function isFallingRock(cell: MineCell): boolean {
-  return (
-    isRockLike(cell) && (cell.fallIn !== undefined || cell.fallen === true)
-  );
-}
-
-function rockTierForDig(cell: MineCell, row: number): number {
-  return isFallingRock(cell)
-    ? rockTierAt(row)
-    : (cell.rockTier ?? rockTierAt(row));
-}
-
-function digKindFor(cell: MineCell): CellKind {
-  return isRockLike(cell) ? "rock" : cell.kind;
-}
-
-function hitsForDig(cell: MineCell, gear: MineGear): number {
-  const base = hitsFor(digKindFor(cell), gear);
-  return isFallingRock(cell) ? Math.max(FALLING_ROCK_MIN_HITS, base) : base;
 }
 
 function settleAfterEmptied(
@@ -952,7 +923,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
     clearJumpHover(state);
     const struck = cellMut(state, t.col, t.row);
     const kindForDig = digKindFor(struck);
-    const remaining = (struck.hp ?? hitsForDig(struck, state.gear)) - 1;
+    const remaining = (struck.hp ?? hitsForCell(struck, state.gear)) - 1;
     if (remaining > 0) {
       struck.hp = remaining;
       miner.energy = Math.max(

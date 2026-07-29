@@ -49,7 +49,7 @@ import {
   cellAt,
   elevatorColumn,
   findPortalBeacons,
-  hitsFor,
+  hitsForCell,
   isSupportSalvageTarget,
   lanternDistance,
   lightRadius,
@@ -263,9 +263,6 @@ interface MineCellViewInputs {
   dynamitePreview: boolean;
   damage: number | null;
   canSalvage: boolean;
-  ladderSelected: boolean;
-  beaconSelected: boolean;
-  plankSelected: boolean;
   drop: { count: number; ore: OreId | null } | null;
   supportToggle: ((target: CollectTarget) => void) | null;
   teeterMeshRef: (
@@ -538,9 +535,6 @@ function buildCellEntry(
     dynamitePreview,
     damage,
     canSalvage,
-    ladderSelected,
-    beaconSelected,
-    plankSelected,
     drop,
     supportToggle,
     teeterMeshRef,
@@ -612,15 +606,6 @@ function buildCellEntry(
           />,
         );
       }
-      if (ladderSelected) {
-        entry.support.push(
-          <SelectedSupportCellOutline
-            key={`selected-cell:ladder:${key}`}
-            col={col}
-            row={row}
-          />,
-        );
-      }
       entry.tunnel.push(
         // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
         <group
@@ -659,15 +644,6 @@ function buildCellEntry(
     // The warp beacon (REQ-029): a humming pylon in the dark.
     if (cell.beacon) {
       const toggleBeacon = canSalvage ? supportToggle : null;
-      if (beaconSelected) {
-        entry.support.push(
-          <SelectedSupportCellOutline
-            key={`selected-cell:beacon:${key}`}
-            col={col}
-            row={row}
-          />,
-        );
-      }
       entry.tunnel.push(
         // biome-ignore lint/a11y/noStaticElementInteractions: React Three Fiber scene targets are not DOM controls.
         <group
@@ -738,15 +714,6 @@ function buildCellEntry(
             key={`support-hit:plank:${key}`}
             target={{ type: "plank", col, row }}
             onToggleSupport={togglePlank}
-          />,
-        );
-      }
-      if (plankSelected) {
-        entry.support.push(
-          <SelectedSupportCellOutline
-            key={`selected-cell:plank:${key}`}
-            col={col}
-            row={row}
           />,
         );
       }
@@ -2404,22 +2371,30 @@ function MineScene({
           : null;
       let damage = oreDamage;
       if (damage === null && cell.hp !== undefined && cell.kind !== "empty") {
-        damage = 1 - cell.hp / hitsFor(cell.kind, mine.gear);
+        damage = 1 - cell.hp / hitsForCell(cell, mine.gear);
       }
       const canSalvage =
         collectMode && (cell.ladder || cell.plank || cell.beacon)
           ? isSupportSalvageTarget(mine, col, row)
           : false;
-      const ladderSelected =
+      // One red box per selected cell, whatever mix of supports stands in
+      // it. The outline places itself from (col, row) rather than nesting
+      // in a support group, so it lives outside the cell cache: toggling a
+      // selection then costs one element instead of rebuilding the cell.
+      if (
         canSalvage &&
-        cell.ladder === true &&
-        supportSelected("ladder", col, row);
-      const beaconSelected =
-        canSalvage &&
-        cell.beacon === true &&
-        supportSelected("beacon", col, row);
-      const plankSelected =
-        canSalvage && cell.plank === true && supportSelected("plank", col, row);
+        ((cell.ladder === true && supportSelected("ladder", col, row)) ||
+          (cell.beacon === true && supportSelected("beacon", col, row)) ||
+          (cell.plank === true && supportSelected("plank", col, row)))
+      ) {
+        supportSelectionMeshes.push(
+          <SelectedSupportCellOutline
+            key={`selected-cell:${key}`}
+            col={col}
+            row={row}
+          />,
+        );
+      }
       const drop = cell.kind === "empty" ? dropPileStats(cell) : null;
       // Bookkeeping the old inline build produced as a side effect, now
       // computed from the same loop-local inputs on hit and miss alike.
@@ -2434,18 +2409,13 @@ function MineScene({
         `${drop ? drop.count : 0}:${drop?.ore ?? ""}|` +
         `${dynamitePreview ? 1 : 0}|` +
         `${damage === null ? "" : Math.round(damage * 1000)}|` +
-        `${canSalvage ? 1 : 0}${ladderSelected ? 1 : 0}` +
-        `${beaconSelected ? 1 : 0}${plankSelected ? 1 : 0}${toggleBit}` +
-        `${detail ? 1 : 0}`;
+        `${canSalvage ? 1 : 0}${toggleBit}${detail ? 1 : 0}`;
       let entry = cellCache.get(key);
       if (entry === undefined || entry.sig !== sig) {
         entry = buildCellEntry(sig, cacheGen, cell, col, row, {
           dynamitePreview,
           damage,
           canSalvage,
-          ladderSelected,
-          beaconSelected,
-          plankSelected,
           drop,
           supportToggle,
           teeterMeshRef,

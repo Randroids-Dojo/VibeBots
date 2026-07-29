@@ -79,6 +79,32 @@ describe("mine diagnostics API route", () => {
     });
   });
 
+  it("accepts the unbanked-carving report with its cash-out context", async () => {
+    // The one save-loss shape the server cannot observe for itself: a
+    // bank that was refused or never sent leaves no request behind, so
+    // the client has to say so (F-220). The cash-out state and the size
+    // of the stranded log are what make the report actionable.
+    const report = {
+      code: "surfaced_carving_unbanked",
+      appVersion: "0.1.289",
+      appBuild: 1,
+      mineVersion: 58,
+      activeSlot: 1,
+      minerRow: 0,
+      cashOutState: "unavailable",
+      moveCount: 42,
+    };
+
+    const res = await submit(report);
+
+    expect(res.status).toBe(200);
+    expect(mockedLogMineClientDiagnosticEvent).toHaveBeenCalledWith({
+      severity: "warn",
+      playerId: "player-1",
+      ...report,
+    });
+  });
+
   it("rejects invalid diagnostics", async () => {
     const res = await submit(
       diagnostic({

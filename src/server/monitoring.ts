@@ -48,7 +48,17 @@ export interface MineClientDiagnosticEvent {
     | "touch_surface_not_topmost"
     | "movement_disabled_by_bunker_panel"
     | "bunker_overlay_during_terminal"
-    | "saved_trip_replay_collapsed";
+    | "saved_trip_replay_collapsed"
+    /**
+     * A trip that carved the world reached the surface and could NOT be
+     * banked, so the only copy of that work is the device's local log.
+     * This is the one shape of save loss the server cannot see for
+     * itself: a bank that is never attempted, or is rejected, leaves no
+     * request behind, and that silence is indistinguishable from nobody
+     * playing. It is how ore-less digging trips went unbanked for days
+     * before a player reported the loss (F-220).
+     */
+    | "surfaced_carving_unbanked";
   severity: MonitoringSeverity;
   playerId?: string;
   appVersion?: string;
@@ -67,6 +77,10 @@ export interface MineClientDiagnosticEvent {
   viewport?: unknown;
   target?: unknown;
   detail?: string;
+  /** Why carving could not be banked: the cash-out state that settled,
+   * and how many logged actions are stranded on the device with it. */
+  cashOutState?: string;
+  moveCount?: number;
 }
 
 export interface AppClientErrorEvent {

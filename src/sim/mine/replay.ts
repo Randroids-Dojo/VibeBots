@@ -689,10 +689,19 @@ function refreshSpanInstability(
   return warnings;
 }
 
+/**
+ * Every stone body digs as rock (user-directed 2026-07-29: no rock in the
+ * mine may be a permanent dead end). A boulder is stone the player has not
+ * undermined yet, not a wall, so it cuts at its row's tier like any rock
+ * and reports the pickaxe level it wants instead of a mute refusal.
+ */
+function isRockLike(cell: MineCell): boolean {
+  return cell.kind === "rock" || cell.kind === "boulder";
+}
+
 function isFallingRock(cell: MineCell): boolean {
   return (
-    (cell.kind === "rock" || cell.kind === "boulder") &&
-    (cell.fallIn !== undefined || cell.fallen === true)
+    isRockLike(cell) && (cell.fallIn !== undefined || cell.fallen === true)
   );
 }
 
@@ -703,7 +712,7 @@ function rockTierForDig(cell: MineCell, row: number): number {
 }
 
 function digKindFor(cell: MineCell): CellKind {
-  return isFallingRock(cell) ? "rock" : cell.kind;
+  return isRockLike(cell) ? "rock" : cell.kind;
 }
 
 function hitsForDig(cell: MineCell, gear: MineGear): number {
@@ -814,8 +823,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
     cell = cellAt(state, t.col, t.row) ?? { kind: "empty" };
     miner.energy = Math.max(0, miner.energy - GAS_WISP_DISPERSE_DRAIN);
   }
-  const isRockLike = cell.kind === "rock" || isFallingRock(cell);
-  if (isRockLike) {
+  if (isRockLike(cell)) {
     const rockTier = rockTierForDig(cell, t.row);
     if (!canDigRock(state.gear, rockTier))
       return {
@@ -824,12 +832,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
         requiredPickaxeLevel: rockTier + 1,
       };
   }
-  if (
-    cell.kind === "metal" ||
-    (cell.kind === "boulder" && !isFallingRock(cell)) ||
-    cell.kind === "gas" ||
-    cell.kind === "magma"
-  )
+  if (cell.kind === "metal" || cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
   const isOverheadDig = dir === "up" && cell.kind !== "empty";
   if (cell.kind === "ore" && cell.ore) {
@@ -1400,7 +1403,7 @@ function plankPlacementTarget(
   // Planks bridge voids AND prop roofs: solid ground below is fine, the
   // brace still splits a wide span and steadies the ceiling above it.
   if (cell.ladder || cell.plank) return { ok: false, reason: "blocked" };
-  if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
+  if (cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
   return { ok: true, col: t.col, row: t.row };
 }

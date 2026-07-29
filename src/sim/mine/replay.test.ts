@@ -1013,3 +1013,60 @@ describe("bunker digs in the trip log", () => {
     expect(runOnce()).toEqual(runOnce());
   });
 });
+
+/**
+ * A boulder on solid ground, with the cells the dig would disturb pinned
+ * so pristine rolls cannot start a fall in the middle of the swings.
+ */
+function boulderState(pickaxe: number): MineState {
+  const state = createMine(8801, { ...DEFAULT_GEAR, pickaxe });
+  state.miner.col = START_COL;
+  state.miner.row = 6;
+  setCell(state, START_COL, 5, { kind: "empty" });
+  setCell(state, START_COL, 6, { kind: "empty" });
+  setCell(state, START_COL, 7, { kind: "dirt" });
+  setCell(state, START_COL + 1, 5, { kind: "empty" });
+  setCell(state, START_COL + 1, 6, { kind: "boulder" });
+  setCell(state, START_COL + 1, 7, { kind: "dirt" });
+  setCell(state, START_COL + 2, 6, { kind: "dirt" });
+  return state;
+}
+
+describe("boulders dig like rock", () => {
+  it("names the pickaxe level instead of refusing silently", () => {
+    // Row 6 sits in rock tier 1, so a level-1 pickaxe is one shop visit
+    // short. The player must hear which upgrade opens it (user-reported:
+    // a boulder only played the deny sound).
+    const state = boulderState(1);
+
+    expect(applyAction(state, "right")).toEqual({
+      ok: false,
+      reason: "rock",
+      requiredPickaxeLevel: 2,
+    });
+    expect(cellAt(state, START_COL + 1, 6)?.kind).toBe("boulder");
+    expect(state.miner).toMatchObject({ col: START_COL, row: 6 });
+  });
+
+  it("breaks under a pickaxe that meets its row tier", () => {
+    const state = boulderState(2);
+
+    // Rock hardness at pickaxe 2: four swings, cracking as rock.
+    for (const remaining of [3, 2, 1]) {
+      expect(applyAction(state, "right")).toMatchObject({
+        ok: true,
+        dug: null,
+        cracked: { kind: "rock", remaining },
+      });
+      expect(cellAt(state, START_COL + 1, 6)?.kind).toBe("boulder");
+    }
+
+    expect(applyAction(state, "right")).toMatchObject({
+      ok: true,
+      dug: "rock",
+      dugAt: { col: START_COL + 1, row: 6 },
+    });
+    expect(cellAt(state, START_COL + 1, 6)?.kind).toBe("empty");
+    expect(state.miner).toMatchObject({ col: START_COL + 1, row: 6 });
+  });
+});

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="every-rock-breaks" data-date="2026-07-29">
+    <h3>Every rock breaks, and a scrap pick draws one box</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/issues-to-fix-df0hho</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Two user-reported mine bugs. (1) A standing boulder was the only stone in the mine that no pickaxe could ever cut: <code>step</code> returned <code>blocked</code>, which plays the deny sound and prints "No way through." with no upgrade path, while a teetering or fallen boulder was already diggable at its row tier. <code>src/sim/mine/replay.ts</code> now routes rock and boulder through one <code>isRockLike</code> predicate, so a boulder takes the row's tier gate (reporting <code>requiredPickaxeLevel</code>, which drives the clang and the "Pickaxe level N needed" hint), digs with rock hit counts and rock battery cost through <code>digKindFor</code>, and accepts a pre-placed plank like any other solid cell. The two-hit floor still applies only to falling or fallen stone. <code>MINE_VERSION</code> 58 to 59, because the same (seed, moves) pair now resolves differently and an in-flight trip on the old rules must be rejected at cash-out rather than re-priced. (2) A selected scrap target drew two red outlines, a tight box inside the support group plus the always-on-top cell box; the inner box is gone and beacons now use the same cell box as ladders and planks, so all three highlight identically.</dd>
+      <dt>Verification</dt><dd>Full unit suite (1,911 passing, including two new boulder-dig cases in <code>src/sim/mine/replay.test.ts</code> and a boulder gate case in the boarded-elevator test), type-check, Biome on the touched files, <code>pnpm check:dashes</code>, <code>pnpm check:purity</code>, and <code>git diff --check</code>. The boarded-elevator impassable-kinds loop dropped <code>boulder</code> and gained an explicit gated-boulder assertion beside the gated-rock one.</dd>
+      <dt>Assumptions</dt><dd>Recommended default: "minable" means every rock cell opens to a good enough pickaxe, not that the depth gate disappears. The Terraria-style tier wall in REQ-013 stays; what changes is that no stone is a permanent dead end and every refusal names the level that fixes it. Logged in <code>docs/OPEN_QUESTIONS.html</code> as Q-033.</dd>
+      <dt>GDD coverage</dt><dd>No coverage statuses changed. <code>docs/gdd/06-mining.html</code> gained a hardness spec bullet for the user-directed rule plus a build-log entry.</dd>
+      <dt>Followups</dt><dd>None opened. Rule 13 tip review done: added one tip that every rock and boulder breaks with the right pickaxe and that a blocked swing names the level, and the rest of the rotation still reads true. Rule 14 stamp review done: no stamp added, since this removes a dead end rather than adding a goal worth collecting.</dd>
+    </dl>
+  </article>
+
   <article data-slice="render-floor-deck-contract" data-date="2026-07-28">
     <h3>Floor decks keep their thin horizontal ray contract</h3>
     <dl>

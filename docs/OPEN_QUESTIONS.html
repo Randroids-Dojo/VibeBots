@@ -38,6 +38,22 @@
 <main id="open">
   <h2>Open</h2>
 
+  <section data-q="Q-033" data-status="open">
+    <h3>Q-033: Does "all rocks are minable" keep the depth tier gate?</h3>
+    <dl>
+      <dt>Context</dt><dd>User direction on 2026-07-29, from play: <q>Some falling rocks cannot be mined. There isn't a message about the pickaxe needing an upgrade, it just plays the ding SFX. All rocks need to be minable.</q> The mute refusal was the standing boulder, the one stone kind <code>step</code> rejected as <code>blocked</code> rather than gating on a pickaxe tier. That is unambiguously a dead end and it is fixed. What the sentence does not settle is whether the REQ-013 tier wall itself counts as "not minable": a tier-4 rock at depth 100 still will not break for a level-3 pickaxe, it just says so now.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Minable means every rock cell opens to a good enough pickaxe. No stone is a permanent dead end, every refusal names the level that fixes it, and the Terraria-style tier wall in REQ-013 stays as the progression spine.</li>
+          <li>Minable means no rock ever refuses a swing: drop the tier gate and let hit counts alone scale with depth, so a starter pickaxe grinds through granite slowly instead of bouncing off.</li>
+          <li>Keep the tier gate for the mine wall but let any loose stone (teetering or fallen) always break, on the grounds that debris blocking a dug tunnel is a trap rather than a wall.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. The tier wall is the mine's whole upgrade loop and REQ-013 names it as intentional ("the player should hit a visible wall one band before they can afford the answer"), while the reported bug is entirely explained by the boulder having no gate to report. Shipped under A. B is a one-line change to <code>canDigRock</code> if the user wants the gate gone.</dd>
+      <dt>Status</dt><dd>open</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-032" data-status="open">
     <h3>Q-032: Does miner health replace kill-on-contact in live raids for good?</h3>
     <dl>

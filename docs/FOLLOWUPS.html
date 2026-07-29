@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-220" data-f="F-220" data-priority="blocks-release">
+    <h3>F-220: Stop a read advancing the replay counter, and confirm banking in production</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-29 save-loss fix made an ore-less carving trip bank, which is the real cause of the reported loss, and made a trip-index divergence prompt instead of silently discarding the device's work. Two things it deliberately did not touch. First, <code>GET /api/mine/world</code> runs <code>trip_count = trip_count + 1</code> inside its elevator-rail install and repair path (<code>src/app/api/mine/world/route.ts</code>), and <code>POST /api/elevator/upgrade</code> bumps it too. That counter is the bank route's replay-protection compare-and-set, so a read (and an unrelated surface purchase) can invalidate a player's in-flight trip. It is a deliberate invalidation signal, not an accident: the server changed the world under the client, so client trips replaying the old diff are genuinely stale. But one counter is carrying two meanings, <q>trips banked</q> and <q>world revision</q>. Second, production logs across 72 hours contained zero <code>POST /api/mine/bank</code> requests, which is how the drift went unnoticed; there is no telemetry that would have made a silent absence of banking visible.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical.</dd>
+      <dt>Unblock condition</dt><dd>Two pieces. First, decide whether to split the counter: a separate world revision that invalidates client trips, leaving <code>trip_count</code> to mean only <q>trips banked</q>, so a rail repair or an elevator buy no longer invalidates an in-flight trip and no GET mutates the value the bank guard compares. With banking now firing on every carving trip the drift window is much smaller, so this is a correctness and clarity fix rather than an active data-loss one. Second, confirm in production that banking now happens: watch for <code>POST /api/mine/bank</code> after an ore-less digging trip, and consider a monitoring counter for accepted and rejected banks so a future regression to zero is visible rather than silent. Worth also checking whether an ore-less bank on every surface arrival is a request rate anyone minds on mobile.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-07-29 by the save-loss fix. The load-path half of the fix is recorded in the same progress-log entry.</dd>
+    </dl>
+  </section>
+
   <section id="F-219" data-f="F-219" data-priority="blocks-release">
     <h3>F-219: Confirm the raid melee balance in a playtest and an executed raid e2e</h3>
     <dl>

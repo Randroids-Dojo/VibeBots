@@ -24,11 +24,30 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest raid melee-combat note complete", () => {
+  it("keeps the latest offline-save note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-27-0.1.288-raid-melee-combat");
+    expect(release.noticeId).toBe(
+      "2026-07-29-0.1.289-digging-saves-without-ore",
+    );
+    expect(latestNote).toMatchObject({
+      version: "0.1.289",
+      title: "Digging saves even when you come up empty",
+      intro:
+        "A trip that carved the mine but carried nothing home is now saved when you reach the surface, so the shafts you dug are still there next time you play.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Reaching the surface only saved when you were carrying ore or parts. A trip that broke rock and placed ladders but sold nothing was never banked, so that digging could be lost when you reopened the game.",
+      "The mine you carve is progress in its own right, so any trip that changed the world now saves. Walking the surface and coming back still does nothing.",
+      "If your device and your cloud save ever disagree about a trip, the game now keeps what is on your device and asks which to use, instead of quietly dropping it.",
+    ]);
+  });
+
+  it("keeps the archived raid melee-combat note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.288");
+
     expect(latestNote).toMatchObject({
       version: "0.1.288",
       title: "Fight the Clankers off with your pickaxe",

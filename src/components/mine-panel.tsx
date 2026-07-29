@@ -92,7 +92,11 @@ import {
 } from "@/sim/mine";
 import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
-import { SAVE_SYNC_CHANNEL, useMineStore } from "@/state/mine-store";
+import {
+  SAVE_SYNC_CHANNEL,
+  tripChangedWorld,
+  useMineStore,
+} from "@/state/mine-store";
 import type { FpEditIntent } from "./bunker-fp-grid";
 import { BunkerFpHud } from "./bunker-fp-hud";
 import { attachFpKeyboard, resetFpInput } from "./bunker-fp-input";
@@ -326,6 +330,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
   "Tip: Upgrade Blast Charge to unlock larger dynamite blast shapes.",
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
+  "Tip: Head up to the surface to save the shafts you dug, even with an empty bag.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
@@ -1142,6 +1147,10 @@ export function MinePanel({
   const tripIndex = useMineStore((s) => s.tripIndex);
   const tripBaseDiff = useMineStore((s) => s.tripBaseDiff);
   const movesLength = useMineStore((s) => s.moves.length);
+  // Whether this trip altered the world. `moves` is pushed in place, so
+  // the selector reads it fresh on each store tick and returns a plain
+  // boolean for zustand to compare.
+  const carvedThisTrip = useMineStore((s) => tripChangedWorld(s.moves));
   const pendingBunker = useMineStore((s) => s.pendingBunker);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
@@ -3278,7 +3287,20 @@ export function MinePanel({
       mine.elevatorPhase === "boarded" &&
       movesLength > 0;
     if (!arrivedAtSurface && !restoredAtElevatorSurface) return;
-    if (bankedCredits <= 0 && bankedPartsCount <= 0 && !pendingBunkerActive) {
+    // Bank whenever the trip is worth persisting, which is not only when
+    // the hold has something to sell. A carved shaft, a placed ladder, or
+    // any other change to the world is progress the server must checkpoint
+    // (REQ-026), and the bank route already accepts a zero-value trip for
+    // exactly this reason. Gating on loot alone meant an ore-less digging
+    // trip never reached the server: the carving lived only in the device's
+    // move log, the stored world stayed frozen at the last loot-bearing
+    // trip, and the two trip counters drifted apart from there.
+    if (
+      bankedCredits <= 0 &&
+      bankedPartsCount <= 0 &&
+      !pendingBunkerActive &&
+      !carvedThisTrip
+    ) {
       return;
     }
     const key = `${seed}:${tripIndex}:${movesLength}:${bankedCredits}:${bankedPartsCount}:${pendingBunkerActive ? "bunker" : "mine"}`;
@@ -3294,6 +3316,7 @@ export function MinePanel({
     pendingBunkerActive,
     seed,
     submitCashOut,
+    carvedThisTrip,
     tripIndex,
     mine.elevatorPhase,
     worldLoaded,

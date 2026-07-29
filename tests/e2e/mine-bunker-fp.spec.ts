@@ -1413,7 +1413,8 @@ test(
     const beforePlace = await canvas.screenshot();
     await canvas.click();
 
-    // The slab lands in the place cell's floor slot and closes that cell.
+    // The slab lands in the place cell's floor slot. It is a thin deck, so
+    // this level horizontal ray still reaches the rock face beyond it.
     await expect(floorSlot).toHaveAttribute("aria-label", "Floor x3", {
       timeout: 10_000,
     });
@@ -1421,7 +1422,7 @@ test(
       .poll(async () => canvas.getAttribute("data-fp-target"), {
         timeout: 10_000,
       })
-      .toBe("3:0:2:part");
+      .toBe("3:0:3:rock-diggable");
     const placedPart = await page.evaluate(() =>
       JSON.parse(
         localStorage.getItem("vibebots-mine-trip-v2-slot-1") ?? "{}",

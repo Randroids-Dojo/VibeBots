@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="render-floor-deck-contract" data-date="2026-07-28">
+    <h3>Floor decks keep their thin horizontal ray contract</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/render-bunker-floor-and-raid</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd><code>E2E-MINE-BUNKER-FP-0010</code> now verifies the placed floor persists, consumes inventory, and changes visible pixels while its level horizontal crosshair ray continues through the thin slab to the rock face behind it. The old assertion treated the floor as a whole-cell blocker, contradicting the F-117 thin-floor contract. The separate <code>E2E-MINE-BUNKER-FP-0019</code> live-raid report was reproduced against the current mainline melee implementation and passed three focused runs without a product or assertion change.</dd>
+      <dt>Verification</dt><dd>Production build passed. Type-check passed. Unit suite passed 1,907 tests. Biome completed with the existing three informational template-literal suggestions. Sim purity, dash, and whitespace checks passed. The two affected render cases passed three consecutive focused runs each, six browser runs total, on one isolated worker.</dd>
+      <dt>Assumptions</dt><dd>The floor slab must remain passable to level horizontal rays because it occupies only the cell floor plane; persistence, inventory, and pixel movement are the player-visible placement contract.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row changes. This corrects a browser assertion for the existing F-117 thin-floor behavior.</dd>
+      <dt>Followups</dt><dd>No new followup. <code>F-132</code> remains active for broader physical-render stabilization.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bunker-raid-melee-combat" data-date="2026-07-27">
     <h3>Clankers attack you in the bunker, and you swing back</h3>
     <dl>

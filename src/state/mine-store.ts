@@ -483,20 +483,42 @@ export interface MineSessionState {
 }
 
 /**
- * Every logged action so far is a surface walk (left/right on row 0), so
- * the trip has changed nothing worth persisting. Its negation is this
- * codebase's one definition of "this trip made real progress": it decides
- * whether a divergence is worth a conflict prompt, and whether reaching
- * the surface is worth banking (a carved shaft is a world investment even
- * when the hold came up empty).
+ * Every logged action is surface traversal: walking, activating a portal
+ * beacon, or warping between them. Used to decide whether a save
+ * divergence is worth interrupting the player over, where none of these
+ * count as progress worth losing a prompt on.
+ *
+ * NOT a test for "the world is unchanged": activating a portal writes
+ * through to its cell and so does persist. Use {@link tripChangedWorld}
+ * for that question.
  */
-export function surfaceOnlyLog(moves: MineAction[]): boolean {
+function surfaceOnlyLog(moves: MineAction[]): boolean {
   return moves.every(
     (m) =>
       m === "left" ||
       m === "right" ||
       m.startsWith("activate-portal:") ||
       m.startsWith("portal-warp:"),
+  );
+}
+
+/**
+ * The trip carved, built, or otherwise altered the world, so reaching the
+ * surface is worth banking even when the hold came up empty: the stored
+ * world diff is the only durable copy of that work (REQ-026).
+ *
+ * Deliberately narrower than the negation of {@link surfaceOnlyLog}, which
+ * also forgives portal activation. `activatePortal` writes `kind`,
+ * `portal`, and `portalActive` onto its cell, so an activation is real
+ * world state and a trip that only did that still has to be banked. Only
+ * pure movement is exempt: walking and portal warps read the world without
+ * touching it. Anything else counts, which errs toward banking a no-op
+ * rather than dropping a change, and a redundant bank costs one request
+ * while keeping the device and server trip counters in step.
+ */
+export function tripChangedWorld(moves: MineAction[]): boolean {
+  return !moves.every(
+    (m) => m === "left" || m === "right" || m.startsWith("portal-warp:"),
   );
 }
 
@@ -683,35 +705,33 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       checkpointTripInBackground();
     }
   };
+  // True while the refresh below is in flight, read by the load path.
+  let adoptingCloudWorld = false;
   // Drops this device's local trip and adopts the cloud world, gear, and
   // save slots. Used after a cloud load and whenever another device
   // advanced the save.
-  // True while an adopt-the-cloud refresh is in flight. The player has
-  // already chosen the cloud copy, so the load it triggers must never ask
-  // again: the checkpoint restore below can put a trip back on disk whose
-  // index the incoming world has since moved past, and prompting on that
-  // would bounce the player between the dialog and the same load forever.
-  let adoptingCloudWorld = false;
   const refreshCloudWorld = async (slot: SaveSlotId) => {
+    // The player has already chosen the cloud copy, so the load this
+    // triggers must never ask again: the checkpoint restore below can put
+    // a trip back on disk whose index the incoming world has since moved
+    // past, and prompting on that would bounce the player between the
+    // dialog and the same load forever.
     adoptingCloudWorld = true;
     try {
-      await adoptCloudWorld(slot);
+      removeLocalTrip(slot);
+      await loadAccountTripCheckpoint(slot);
+      // The world/gear chain must follow the checkpoint restore, but the
+      // save-slot list is independent and can load alongside it.
+      await Promise.all([
+        (async () => {
+          await get().loadWorld();
+          await get().loadGear();
+        })(),
+        get().loadSaveSlots(),
+      ]);
     } finally {
       adoptingCloudWorld = false;
     }
-  };
-  const adoptCloudWorld = async (slot: SaveSlotId) => {
-    removeLocalTrip(slot);
-    await loadAccountTripCheckpoint(slot);
-    // The world/gear chain must follow the checkpoint restore, but the
-    // save-slot list is independent and can load alongside it.
-    await Promise.all([
-      (async () => {
-        await get().loadWorld();
-        await get().loadGear();
-      })(),
-      get().loadSaveSlots(),
-    ]);
   };
   // Bounded authoritative refetch for a rejected surface mutation (an elevator
   // conflict). Unlike refreshCloudWorld it deliberately SKIPS the

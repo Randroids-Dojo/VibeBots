@@ -94,7 +94,7 @@ import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
 import {
   SAVE_SYNC_CHANNEL,
-  surfaceOnlyLog,
+  tripChangedWorld,
   useMineStore,
 } from "@/state/mine-store";
 import type { FpEditIntent } from "./bunker-fp-grid";
@@ -330,7 +330,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
   "Tip: Upgrade Blast Charge to unlock larger dynamite blast shapes.",
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
-  "Tip: Reaching the surface saves the shafts you carved, even with an empty bag.",
+  "Tip: Head up to the surface to save the shafts you dug, even with an empty bag.",
   "Tip: Planted beacons only work within your current Warpcoil range.",
   "Tip: Distant biome beacons become free portals back to base.",
   "Tip: Clankers chew blockers with remaining battery, so layered walls matter.",
@@ -1147,10 +1147,10 @@ export function MinePanel({
   const tripIndex = useMineStore((s) => s.tripIndex);
   const tripBaseDiff = useMineStore((s) => s.tripBaseDiff);
   const movesLength = useMineStore((s) => s.moves.length);
-  // Whether this trip carved anything. `moves` is pushed in place, so the
-  // selector reads it fresh on each store tick and returns a plain boolean
-  // for zustand to compare.
-  const tripChangedWorld = useMineStore((s) => !surfaceOnlyLog(s.moves));
+  // Whether this trip altered the world. `moves` is pushed in place, so
+  // the selector reads it fresh on each store tick and returns a plain
+  // boolean for zustand to compare.
+  const carvedThisTrip = useMineStore((s) => tripChangedWorld(s.moves));
   const pendingBunker = useMineStore((s) => s.pendingBunker);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
@@ -3299,7 +3299,7 @@ export function MinePanel({
       bankedCredits <= 0 &&
       bankedPartsCount <= 0 &&
       !pendingBunkerActive &&
-      !tripChangedWorld
+      !carvedThisTrip
     ) {
       return;
     }
@@ -3316,7 +3316,7 @@ export function MinePanel({
     pendingBunkerActive,
     seed,
     submitCashOut,
-    tripChangedWorld,
+    carvedThisTrip,
     tripIndex,
     mine.elevatorPhase,
     worldLoaded,

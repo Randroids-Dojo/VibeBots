@@ -11,7 +11,7 @@ import {
   STARTING_CONSUMABLES,
   type WorldDiff,
 } from "@/sim/mine";
-import { surfaceOnlyLog, useMineStore } from "./mine-store";
+import { tripChangedWorld, useMineStore } from "./mine-store";
 import { localTripKey } from "./mine-trip-persistence";
 
 /**
@@ -140,9 +140,20 @@ describe("carved world survives a restart", () => {
     digOneBlockInStore();
 
     // The same predicate the surface-arrival effect in mine-panel reads.
-    expect(surfaceOnlyLog(store().moves)).toBe(false);
+    expect(tripChangedWorld(store().moves)).toBe(true);
     expect(store().mine.miner.bankedCredits).toBe(0);
     expect(store().mine.miner.bankedParts).toEqual([]);
+  });
+
+  it("counts activating a portal beacon as worth banking", async () => {
+    // Activating a beacon writes kind, portal, and portalActive onto its
+    // cell, so it is durable world state even though the miner never left
+    // the surface. The conflict-prompt rule forgives portal activity, which
+    // is why banking cannot simply reuse it: a trip that only lit a beacon
+    // still has to reach the server or the activation is lost.
+    expect(tripChangedWorld(["activate-portal:winter"])).toBe(true);
+    // Warping between lit beacons only moves the miner, so it is exempt.
+    expect(tripChangedWorld(["portal-warp:winter", "left"])).toBe(false);
   });
 
   it("does not treat a pure surface walk as worth banking", async () => {
@@ -153,7 +164,7 @@ describe("carved world survives a restart", () => {
     store().move("right");
 
     expect(store().moves.length).toBe(2);
-    expect(surfaceOnlyLog(store().moves)).toBe(true);
+    expect(tripChangedWorld(store().moves)).toBe(false);
   });
 
   it("keeps a dug block dug after a reload (guest, storage-less)", async () => {

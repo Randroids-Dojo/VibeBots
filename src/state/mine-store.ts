@@ -482,7 +482,16 @@ export interface MineSessionState {
   restart: (seed?: number) => void;
 }
 
-/** Every logged action so far is a surface walk (left/right on row 0). */
+/**
+ * Every logged action is surface traversal: walking, activating a portal
+ * beacon, or warping between them. Used to decide whether a save
+ * divergence is worth interrupting the player over, where none of these
+ * count as progress worth losing a prompt on.
+ *
+ * NOT a test for "the world is unchanged": activating a portal writes
+ * through to its cell and so does persist. Use {@link tripChangedWorld}
+ * for that question.
+ */
 function surfaceOnlyLog(moves: MineAction[]): boolean {
   return moves.every(
     (m) =>
@@ -490,6 +499,26 @@ function surfaceOnlyLog(moves: MineAction[]): boolean {
       m === "right" ||
       m.startsWith("activate-portal:") ||
       m.startsWith("portal-warp:"),
+  );
+}
+
+/**
+ * The trip carved, built, or otherwise altered the world, so reaching the
+ * surface is worth banking even when the hold came up empty: the stored
+ * world diff is the only durable copy of that work (REQ-026).
+ *
+ * Deliberately narrower than the negation of {@link surfaceOnlyLog}, which
+ * also forgives portal activation. `activatePortal` writes `kind`,
+ * `portal`, and `portalActive` onto its cell, so an activation is real
+ * world state and a trip that only did that still has to be banked. Only
+ * pure movement is exempt: walking and portal warps read the world without
+ * touching it. Anything else counts, which errs toward banking a no-op
+ * rather than dropping a change, and a redundant bank costs one request
+ * while keeping the device and server trip counters in step.
+ */
+export function tripChangedWorld(moves: MineAction[]): boolean {
+  return !moves.every(
+    (m) => m === "left" || m === "right" || m.startsWith("portal-warp:"),
   );
 }
 
@@ -676,21 +705,33 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       checkpointTripInBackground();
     }
   };
+  // True while the refresh below is in flight, read by the load path.
+  let adoptingCloudWorld = false;
   // Drops this device's local trip and adopts the cloud world, gear, and
   // save slots. Used after a cloud load and whenever another device
   // advanced the save.
   const refreshCloudWorld = async (slot: SaveSlotId) => {
-    removeLocalTrip(slot);
-    await loadAccountTripCheckpoint(slot);
-    // The world/gear chain must follow the checkpoint restore, but the
-    // save-slot list is independent and can load alongside it.
-    await Promise.all([
-      (async () => {
-        await get().loadWorld();
-        await get().loadGear();
-      })(),
-      get().loadSaveSlots(),
-    ]);
+    // The player has already chosen the cloud copy, so the load this
+    // triggers must never ask again: the checkpoint restore below can put
+    // a trip back on disk whose index the incoming world has since moved
+    // past, and prompting on that would bounce the player between the
+    // dialog and the same load forever.
+    adoptingCloudWorld = true;
+    try {
+      removeLocalTrip(slot);
+      await loadAccountTripCheckpoint(slot);
+      // The world/gear chain must follow the checkpoint restore, but the
+      // save-slot list is independent and can load alongside it.
+      await Promise.all([
+        (async () => {
+          await get().loadWorld();
+          await get().loadGear();
+        })(),
+        get().loadSaveSlots(),
+      ]);
+    } finally {
+      adoptingCloudWorld = false;
+    }
   };
   // Bounded authoritative refetch for a rejected surface mutation (an elevator
   // conflict). Unlike refreshCloudWorld it deliberately SKIPS the
@@ -876,14 +917,35 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         tripIndex: number,
         baseDiff: WorldDiff,
       ) => {
-        const saved = loadLocalTrip(slot);
-        if (
-          saved &&
-          saved.seed === seed &&
-          saved.tripIndex === tripIndex &&
-          saved.moves.length > 0
-        ) {
-          const replay = replaySavedTrip(saved, baseDiff);
+        const stored = loadLocalTrip(slot);
+        // A log for another world, or with no moves, is not progress to
+        // protect; narrowing to null here keeps the rest branch-free.
+        const saved =
+          stored && stored.seed === seed && stored.moves.length > 0
+            ? stored
+            : null;
+        // A trip anchored to a different point in this world's history is
+        // still real play: it is restored from its own base rather than
+        // spliced onto the server diff. A surface-only log is not worth
+        // keeping over the server's, so a diverged one adopts silently,
+        // the rule checkWorldFreshness already applies.
+        const diverged = saved !== null && saved.tripIndex !== tripIndex;
+        // Offering the cloud copy only makes sense when there IS one, and
+        // only when the player has not just asked for it. Same precondition
+        // checkWorldFreshness states as "only a cloud-linked save can
+        // advance on another device"; without it a guest, who also gets a
+        // server tripIndex from their cookie, would be told their save
+        // changed on a device they have never used.
+        const offerCloudCopy =
+          diverged &&
+          !adoptingCloudWorld &&
+          get().accountSync.mode === "cloud_loaded";
+        if (saved && !(diverged && surfaceOnlyLog(saved.moves))) {
+          // A diverged trip replays over the base it was saved against;
+          // an in-step one replays over the server's fresher diff.
+          const replayBase = diverged ? saved.baseDiff : baseDiff;
+          const effectiveTripIndex = diverged ? saved.tripIndex : tripIndex;
+          const replay = replaySavedTrip(saved, replayBase);
           if (
             replay.terminalReplayCollapsed &&
             !replay.terminalReplayConsumed
@@ -891,7 +953,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             saveLocalTrip(slot, {
               mineVersion: MINE_VERSION,
               seed,
-              tripIndex,
+              tripIndex: effectiveTripIndex,
               gear: saved.gear,
               consumables: saved.consumables,
               baseDiff: saved.baseDiff,
@@ -904,8 +966,8 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             activeSlot: slot,
             worldLoaded: true,
             seed,
-            tripIndex,
-            tripBaseDiff: baseDiff,
+            tripIndex: effectiveTripIndex,
+            tripBaseDiff: replayBase,
             gear: saved.gear,
             consumables: saved.consumables,
             mine: replay.mine,
@@ -918,8 +980,10 @@ export const useMineStore = create<MineSessionState>((set, get) => {
             tick: replay.moves.length,
             lastResult: replay.lastResult,
             resumeElevatorDirection: replay.resumeElevatorDirection,
-            // Any save conflict was about the world being replaced here.
-            saveConflict: "none",
+            // Diverged: the device's world is loaded and the cloud copy is
+            // offered through the normal conflict prompt. Otherwise any
+            // prior conflict was about the world being replaced here.
+            saveConflict: offerCloudCopy ? "prompt" : "none",
           });
           return;
         }

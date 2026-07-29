@@ -1,11 +1,11 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-29-0.1.289-every-rock-breaks";
+export const RELEASE_NOTICE_ID = "2026-07-29-0.1.290-every-rock-breaks";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
     {
-      version: "0.1.289",
+      version: "0.1.290",
       date: "2026-07-29",
       title: "Every rock in the mine can be broken",
       intro:
@@ -18,6 +18,27 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         {
           build,
           text: "Picking a ladder, plank, or beacon to scrap now draws one red box around it instead of two overlapping outlines.",
+        },
+      ],
+    },
+    {
+      version: "0.1.289",
+      date: "2026-07-29",
+      title: "Digging saves even when you come up empty",
+      intro:
+        "A trip that carved the mine but carried nothing home is now saved when you reach the surface, so the shafts you dug are still there next time you play.",
+      changes: [
+        {
+          build,
+          text: "Reaching the surface only saved when you were carrying ore or parts. A trip that broke rock and placed ladders but sold nothing was never banked, so that digging could be lost when you reopened the game.",
+        },
+        {
+          build,
+          text: "The mine you carve is progress in its own right, so any trip that changed the world now saves. Walking the surface and coming back still does nothing.",
+        },
+        {
+          build,
+          text: "If your device and your cloud save ever disagree about a trip, the game now keeps what is on your device and asks which to use, instead of quietly dropping it.",
         },
       ],
     },

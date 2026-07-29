@@ -28,9 +28,9 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-29-0.1.289-every-rock-breaks");
+    expect(release.noticeId).toBe("2026-07-29-0.1.290-every-rock-breaks");
     expect(latestNote).toMatchObject({
-      version: "0.1.289",
+      version: "0.1.290",
       title: "Every rock in the mine can be broken",
       intro:
         "Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
@@ -38,6 +38,25 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "Boulders cut like rock at their depth. If your pickaxe is too light for that row, the note names the level that opens it instead of just playing the deny sound, and you can plank across a boulder cell the way you can any other block.",
       "Picking a ladder, plank, or beacon to scrap now draws one red box around it instead of two overlapping outlines.",
+    ]);
+  });
+
+  it("keeps the archived offline-save note complete", () => {
+    const release = getAppRelease();
+    const offlineNote = release.notes.find(
+      (note) => note.version === "0.1.289",
+    );
+
+    expect(offlineNote).toMatchObject({
+      version: "0.1.289",
+      title: "Digging saves even when you come up empty",
+      intro:
+        "A trip that carved the mine but carried nothing home is now saved when you reach the surface, so the shafts you dug are still there next time you play.",
+    });
+    expect(offlineNote?.changes.map((change) => change.text)).toEqual([
+      "Reaching the surface only saved when you were carrying ore or parts. A trip that broke rock and placed ladders but sold nothing was never banked, so that digging could be lost when you reopened the game.",
+      "The mine you carve is progress in its own right, so any trip that changed the world now saves. Walking the surface and coming back still does nothing.",
+      "If your device and your cloud save ever disagree about a trip, the game now keeps what is on your device and asks which to use, instead of quietly dropping it.",
     ]);
   });
 

@@ -3,69 +3,18 @@ import { cellX } from "./mine-render-palette";
 
 export const SUPPORT_SELECT_RED = "#ff3b30";
 
-export function SupportSelectionOutline({
-  width,
-  height,
-  z = 0.14,
-}: {
-  width: number;
-  height: number;
-  z?: number;
-}) {
-  const bar = 0.045;
-  return (
-    <group position={[0, 0, z]}>
-      <SelectionOutlineBars
-        width={width}
-        height={height}
-        bar={bar}
-        renderOrder={0}
-        depthTest
-      />
-    </group>
-  );
-}
+const BOX = 1.1;
+const BAR = 0.065;
+/** The four sides of the one selection box, sized once at module load. */
+const SELECTION_BARS = [
+  { position: [0, BOX / 2, 0], args: [BOX, BAR, BAR] },
+  { position: [0, -BOX / 2, 0], args: [BOX, BAR, BAR] },
+  { position: [-BOX / 2, 0, 0], args: [BAR, BOX, BAR] },
+  { position: [BOX / 2, 0, 0], args: [BAR, BOX, BAR] },
+] as const;
 
-export function SelectionOutlineBars({
-  width,
-  height,
-  bar,
-  renderOrder,
-  depthTest,
-}: {
-  width: number;
-  height: number;
-  bar: number;
-  renderOrder: number;
-  depthTest: boolean;
-}) {
-  const bars = [
-    { position: [0, height / 2, 0], args: [width, bar, bar] },
-    { position: [0, -height / 2, 0], args: [width, bar, bar] },
-    { position: [-width / 2, 0, 0], args: [bar, height, bar] },
-    { position: [width / 2, 0, 0], args: [bar, height, bar] },
-  ] as const;
-  return (
-    <>
-      {bars.map(({ position, args }) => (
-        <mesh
-          key={position.join(":")}
-          position={position}
-          renderOrder={renderOrder}
-        >
-          <boxGeometry args={args} />
-          <meshBasicMaterial
-            color={SUPPORT_SELECT_RED}
-            toneMapped={false}
-            depthWrite={false}
-            depthTest={depthTest}
-          />
-        </mesh>
-      ))}
-    </>
-  );
-}
-
+// The one highlight a selected cell gets, whatever mix of supports stands
+// in it. It draws over everything so the selection reads at any depth.
 export function SelectedSupportCellOutline({
   col,
   row,
@@ -75,13 +24,17 @@ export function SelectedSupportCellOutline({
 }) {
   return (
     <group position={[cellX(col), -row, 1.02]}>
-      <SelectionOutlineBars
-        width={1.1}
-        height={1.1}
-        bar={0.065}
-        renderOrder={20}
-        depthTest={false}
-      />
+      {SELECTION_BARS.map(({ position, args }) => (
+        <mesh key={position.join(":")} position={position} renderOrder={20}>
+          <boxGeometry args={args} />
+          <meshBasicMaterial
+            color={SUPPORT_SELECT_RED}
+            toneMapped={false}
+            depthWrite={false}
+            depthTest={false}
+          />
+        </mesh>
+      ))}
     </group>
   );
 }

@@ -40,7 +40,6 @@ import type {
   WorldDiff,
 } from "./cells";
 import {
-  FALLING_ROCK_MIN_HITS,
   GAS_VENT_DRAIN,
   LADDER_RECOVERY_FLOOR,
   MINE_BOTTOM_ROW,
@@ -54,10 +53,13 @@ import {
 } from "./consumables";
 import {
   canDigRock,
-  hitsFor,
+  digKindFor,
+  hitsForCell,
+  isRockLike,
   MOVE_COST,
   oreSwingCostFor,
   rockTierAt,
+  rockTierForDig,
   START_COL,
   swingCostFor,
 } from "./digging";
@@ -408,7 +410,7 @@ function tickFalls(
     // shaken off, while the current row defines the pickaxe gate.
     const placed: MineCell = { kind: cell.kind };
     if (cell.kind === "rock") placed.rockTier = rockTierAt(rest);
-    if (cell.kind === "rock" || cell.kind === "boulder") placed.fallen = true;
+    if (isRockLike(cell)) placed.fallen = true;
     // A fallen ore cell keeps its deposit: the reserve locks to the
     // origin row so the drop neither mints nor destroys ore.
     if (cell.kind === "ore" && cell.ore) {
@@ -510,7 +512,7 @@ function markUnstable(
     if (cellAt(state, col, row)?.kind !== "empty") continue;
     for (let blockRow = row - 1; blockRow > HAZARD_FREE_ROWS; blockRow--) {
       const above = cellAt(state, col, blockRow);
-      if (!above || (above.kind !== "rock" && above.kind !== "boulder")) break;
+      if (!above || !isRockLike(above)) break;
       if (above.fallIn === undefined) {
         cellMut(state, col, blockRow).fallIn = FALL_DELAY_ACTIONS;
         warnings.push({ col, row: blockRow });
@@ -689,28 +691,6 @@ function refreshSpanInstability(
   return warnings;
 }
 
-function isFallingRock(cell: MineCell): boolean {
-  return (
-    (cell.kind === "rock" || cell.kind === "boulder") &&
-    (cell.fallIn !== undefined || cell.fallen === true)
-  );
-}
-
-function rockTierForDig(cell: MineCell, row: number): number {
-  return isFallingRock(cell)
-    ? rockTierAt(row)
-    : (cell.rockTier ?? rockTierAt(row));
-}
-
-function digKindFor(cell: MineCell): CellKind {
-  return isFallingRock(cell) ? "rock" : cell.kind;
-}
-
-function hitsForDig(cell: MineCell, gear: MineGear): number {
-  const base = hitsFor(digKindFor(cell), gear);
-  return isFallingRock(cell) ? Math.max(FALLING_ROCK_MIN_HITS, base) : base;
-}
-
 function settleAfterEmptied(
   state: MineState,
   emptied: Array<{ col: number; row: number }>,
@@ -814,8 +794,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
     cell = cellAt(state, t.col, t.row) ?? { kind: "empty" };
     miner.energy = Math.max(0, miner.energy - GAS_WISP_DISPERSE_DRAIN);
   }
-  const isRockLike = cell.kind === "rock" || isFallingRock(cell);
-  if (isRockLike) {
+  if (isRockLike(cell)) {
     const rockTier = rockTierForDig(cell, t.row);
     if (!canDigRock(state.gear, rockTier))
       return {
@@ -824,12 +803,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
         requiredPickaxeLevel: rockTier + 1,
       };
   }
-  if (
-    cell.kind === "metal" ||
-    (cell.kind === "boulder" && !isFallingRock(cell)) ||
-    cell.kind === "gas" ||
-    cell.kind === "magma"
-  )
+  if (cell.kind === "metal" || cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
   const isOverheadDig = dir === "up" && cell.kind !== "empty";
   if (cell.kind === "ore" && cell.ore) {
@@ -949,7 +923,7 @@ function stepMine(state: MineState, dir: Direction): MoveResult {
     clearJumpHover(state);
     const struck = cellMut(state, t.col, t.row);
     const kindForDig = digKindFor(struck);
-    const remaining = (struck.hp ?? hitsForDig(struck, state.gear)) - 1;
+    const remaining = (struck.hp ?? hitsForCell(struck, state.gear)) - 1;
     if (remaining > 0) {
       struck.hp = remaining;
       miner.energy = Math.max(
@@ -1400,7 +1374,7 @@ function plankPlacementTarget(
   // Planks bridge voids AND prop roofs: solid ground below is fine, the
   // brace still splits a wide span and steadies the ceiling above it.
   if (cell.ladder || cell.plank) return { ok: false, reason: "blocked" };
-  if (cell.kind === "boulder" || cell.kind === "gas" || cell.kind === "magma")
+  if (cell.kind === "gas" || cell.kind === "magma")
     return { ok: false, reason: "blocked" };
   return { ok: true, col: t.col, row: t.row };
 }

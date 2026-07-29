@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-29-0.1.289-digging-saves-without-ore",
+      releaseNoticeId: "2026-07-29-0.1.290-every-rock-breaks",
       releaseSummary:
-        "Digging saves even when you come up empty: A trip that carved the mine but carried nothing home is now saved when you reach the surface, so the shafts you dug are still there next time you play.",
+        "Every rock in the mine can be broken: Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-29-0.1.289-digging-saves-without-ore",
+      releaseNoticeId: "2026-07-29-0.1.290-every-rock-breaks",
       attempted: 2,
       sent: 1,
       expired: 1,

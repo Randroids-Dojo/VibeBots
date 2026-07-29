@@ -1,14 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
   canDigRock,
+  digKindFor,
   hitsFor,
+  hitsForCell,
   oreSwingCostFor,
   rockTierAt,
+  rockTierForDig,
   swingCostFor,
 } from "./digging";
 import { DEFAULT_GEAR } from "./gear";
 
 describe("mine digging helpers", () => {
+  it("digs every stone body as rock", () => {
+    // The renderer sizes crack states from the same count the dig path
+    // spends, so a boulder must not fall through to the unknown-kind 1.
+    expect(digKindFor({ kind: "boulder" })).toBe("rock");
+    expect(hitsForCell({ kind: "boulder" }, DEFAULT_GEAR)).toBe(5);
+    expect(
+      hitsForCell({ kind: "boulder" }, { ...DEFAULT_GEAR, pickaxe: 2 }),
+    ).toBe(4);
+    expect(hitsForCell({ kind: "rock" }, DEFAULT_GEAR)).toBe(5);
+
+    // Falling or fallen stone keeps the two-hit floor under any pickaxe.
+    expect(
+      hitsForCell(
+        { kind: "rock", fallen: true },
+        { ...DEFAULT_GEAR, pickaxe: 9 },
+      ),
+    ).toBe(2);
+    expect(
+      hitsForCell(
+        { kind: "boulder", fallIn: 1 },
+        { ...DEFAULT_GEAR, pickaxe: 9 },
+      ),
+    ).toBe(2);
+    expect(hitsForCell({ kind: "dirt" }, { ...DEFAULT_GEAR, pickaxe: 9 })).toBe(
+      1,
+    );
+  });
+
+  it("gates fallen stone by where it rests, standing stone by its own tier", () => {
+    expect(rockTierForDig({ kind: "boulder" }, 30)).toBe(2);
+    expect(rockTierForDig({ kind: "rock", rockTier: 1 }, 30)).toBe(1);
+    expect(
+      rockTierForDig({ kind: "rock", rockTier: 1, fallen: true }, 30),
+    ).toBe(2);
+  });
+
   it("scales hit counts and swing costs by pickaxe level", () => {
     expect(hitsFor("dirt", DEFAULT_GEAR)).toBe(4);
     expect(hitsFor("dirt", { ...DEFAULT_GEAR, pickaxe: 2 })).toBe(3);

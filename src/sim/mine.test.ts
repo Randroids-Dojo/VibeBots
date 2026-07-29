@@ -1118,6 +1118,17 @@ describe("mine", () => {
     expect(lockedRock.miner).toMatchObject({ col: shaftCol, row });
     expect(lockedRock.elevatorPhase).toBe("boarded");
 
+    const lockedBoulder = boardedState(2368 + offset);
+    setCell(lockedBoulder, exitCol, row, { kind: "boulder" });
+
+    expect(applyAction(lockedBoulder, dir)).toEqual({
+      ok: false,
+      reason: "rock",
+      requiredPickaxeLevel: 2,
+    });
+    expect(lockedBoulder.miner).toMatchObject({ col: shaftCol, row });
+    expect(lockedBoulder.elevatorPhase).toBe("boarded");
+
     const breakableRock = boardedState(2369 + offset, 2);
     setCell(breakableRock, exitCol, row, { kind: "rock", rockTier: 1 });
     setCell(breakableRock, exitCol, row + 1, { kind: "empty" });
@@ -1145,7 +1156,7 @@ describe("mine", () => {
     expect(breakableRock.elevatorPhase).toBe("idle");
 
     for (const [index, kind] of (
-      ["metal", "boulder", "gas", "magma"] as const
+      ["metal", "gas", "magma"] as const
     ).entries()) {
       const blocked = boardedState(2371 + offset + index * 10);
       setCell(blocked, exitCol, row, { kind });

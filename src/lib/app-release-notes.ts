@@ -1,9 +1,26 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-29-0.1.289-digging-saves-without-ore";
+export const RELEASE_NOTICE_ID = "2026-07-29-0.1.290-every-rock-breaks";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.290",
+      date: "2026-07-29",
+      title: "Every rock in the mine can be broken",
+      intro:
+        "Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
+      changes: [
+        {
+          build,
+          text: "Boulders cut like rock at their depth. If your pickaxe is too light for that row, the note names the level that opens it instead of just playing the deny sound, and you can plank across a boulder cell the way you can any other block.",
+        },
+        {
+          build,
+          text: "Picking a ladder, plank, or beacon to scrap now draws one red box around it instead of two overlapping outlines.",
+        },
+      ],
+    },
     {
       version: "0.1.289",
       date: "2026-07-29",

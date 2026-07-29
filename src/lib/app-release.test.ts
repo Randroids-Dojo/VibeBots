@@ -24,20 +24,36 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest offline-save note complete", () => {
+  it("keeps the latest every-rock-breaks note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-07-29-0.1.289-digging-saves-without-ore",
-    );
+    expect(release.noticeId).toBe("2026-07-29-0.1.290-every-rock-breaks");
     expect(latestNote).toMatchObject({
+      version: "0.1.290",
+      title: "Every rock in the mine can be broken",
+      intro:
+        "Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Boulders cut like rock at their depth. If your pickaxe is too light for that row, the note names the level that opens it instead of just playing the deny sound, and you can plank across a boulder cell the way you can any other block.",
+      "Picking a ladder, plank, or beacon to scrap now draws one red box around it instead of two overlapping outlines.",
+    ]);
+  });
+
+  it("keeps the archived offline-save note complete", () => {
+    const release = getAppRelease();
+    const offlineNote = release.notes.find(
+      (note) => note.version === "0.1.289",
+    );
+
+    expect(offlineNote).toMatchObject({
       version: "0.1.289",
       title: "Digging saves even when you come up empty",
       intro:
         "A trip that carved the mine but carried nothing home is now saved when you reach the surface, so the shafts you dug are still there next time you play.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(offlineNote?.changes.map((change) => change.text)).toEqual([
       "Reaching the surface only saved when you were carrying ore or parts. A trip that broke rock and placed ladders but sold nothing was never banked, so that digging could be lost when you reopened the game.",
       "The mine you carve is progress in its own right, so any trip that changed the world now saves. Walking the surface and coming back still does nothing.",
       "If your device and your cloud save ever disagree about a trip, the game now keeps what is on your device and asks which to use, instead of quietly dropping it.",
@@ -46,15 +62,15 @@ describe("app release notes", () => {
 
   it("keeps the archived raid melee-combat note complete", () => {
     const release = getAppRelease();
-    const latestNote = release.notes.find((note) => note.version === "0.1.288");
+    const meleeNote = release.notes.find((note) => note.version === "0.1.288");
 
-    expect(latestNote).toMatchObject({
+    expect(meleeNote).toMatchObject({
       version: "0.1.288",
       title: "Fight the Clankers off with your pickaxe",
       intro:
         "Clankers now chase you through the bunker and attack you where you stand, and you can swing back instead of losing the raid the moment one touches you.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(meleeNote?.changes.map((change) => change.text)).toEqual([
       "Attackers hunt your actual position instead of hopping between spaces, so one that gets inside runs you down and keeps coming as you back away.",
       "Contact costs health instead of ending the raid outright. You have a health bar for the fight, and every bite takes a piece of it.",
       "Your pickaxe is a weapon during a raid, whatever tool you had selected. Swings land on the nearest Clanker in front of you, and a better pickaxe puts them down faster. One attacker is a fight you can win; two at once is trouble.",

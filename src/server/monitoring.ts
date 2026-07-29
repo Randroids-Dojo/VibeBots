@@ -78,8 +78,11 @@ export interface MineClientDiagnosticEvent {
   target?: unknown;
   detail?: string;
   /** Why carving could not be banked: the cash-out state that settled,
-   * and how many logged actions are stranded on the device with it. */
-  cashOutState?: string;
+   * and how many logged actions are stranded on the device with it.
+   * Narrowed to the settled failure states rather than a free string, so
+   * this stays a bounded log dimension and type-checking catches any
+   * accidental widening. */
+  cashOutState?: "error" | "unavailable";
   moveCount?: number;
 }
 

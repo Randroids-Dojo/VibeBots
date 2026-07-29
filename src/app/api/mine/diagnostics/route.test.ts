@@ -105,6 +105,19 @@ describe("mine diagnostics API route", () => {
     });
   });
 
+  it("rejects an unbounded cash-out state on the unbanked report", async () => {
+    // The field is forwarded straight into monitoring, so it stays an
+    // enum rather than a free string: a client bug or a widened union
+    // must not become an unbounded log dimension.
+    const res = await submit({
+      code: "surfaced_carving_unbanked",
+      cashOutState: "something-unexpected",
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockedLogMineClientDiagnosticEvent).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid diagnostics", async () => {
     const res = await submit(
       diagnostic({

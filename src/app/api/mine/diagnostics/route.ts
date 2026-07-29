@@ -46,7 +46,9 @@ const diagnosticSchema = z
     mineSceneReady: z.boolean().optional(),
     movementTouchEnabled: z.boolean().optional(),
     displayMode: z.string().max(40).nullable().optional(),
-    cashOutState: z.string().max(40).optional(),
+    // Bounded on purpose: this is forwarded into monitoring, where a
+    // free-form string would be an unbounded log dimension.
+    cashOutState: z.enum(["error", "unavailable"]).optional(),
     moveCount: z.number().int().nonnegative().max(1_000_000).optional(),
     viewport: viewportSchema.optional(),
     target: targetSchema.optional(),

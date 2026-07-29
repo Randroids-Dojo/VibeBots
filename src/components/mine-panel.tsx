@@ -3334,7 +3334,15 @@ export function MinePanel({
   useEffect(() => {
     if (!worldLoaded || !carvedThisTrip) return;
     if (cashOut.state !== "error" && cashOut.state !== "unavailable") return;
-    const key = `unbanked:${seed}:${tripIndex}:${movesLength}:${cashOut.state}`;
+    // The report is about surfacing with unbanked work, so it only counts
+    // at the surface. A failed cash-out leaves its state settled while the
+    // player keeps going, and without this the next descent would report
+    // from underground.
+    if (miner.row !== 0) return;
+    // Keyed by trip and settled state only. Including the move count would
+    // mint a fresh key on every action, turning "report once" into a report
+    // per swing for a player who simply carries on after a failed bank.
+    const key = `unbanked:${seed}:${tripIndex}:${cashOut.state}`;
     if (inputDiagnosticKeysRef.current.has(key)) return;
     inputDiagnosticKeysRef.current.add(key);
     void fetch("/api/mine/diagnostics", {

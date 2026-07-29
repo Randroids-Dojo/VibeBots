@@ -3323,6 +3323,59 @@ export function MinePanel({
     worldLoaded,
   ]);
 
+  // A carving trip that surfaced and could NOT be banked leaves the only
+  // copy of that work on this device. The server cannot notice this for
+  // itself: a bank that is refused or never sent leaves no request behind,
+  // and that silence reads exactly like nobody playing, which is how
+  // ore-less digs went unbanked for days before a player reported it
+  // (F-220). Reporting it from the client is the only way the absence
+  // becomes visible. Deduped per trip and settled state, so a player stuck
+  // offline reports once rather than on every surface arrival.
+  useEffect(() => {
+    if (!worldLoaded || !carvedThisTrip) return;
+    if (cashOut.state !== "error" && cashOut.state !== "unavailable") return;
+    // The report is about surfacing with unbanked work, so it only counts
+    // at the surface. A failed cash-out leaves its state settled while the
+    // player keeps going, and without this the next descent would report
+    // from underground.
+    if (miner.row !== 0) return;
+    // Keyed by trip and settled state only. Including the move count would
+    // mint a fresh key on every action, turning "report once" into a report
+    // per swing for a player who simply carries on after a failed bank.
+    const key = `unbanked:${seed}:${tripIndex}:${cashOut.state}`;
+    if (inputDiagnosticKeysRef.current.has(key)) return;
+    inputDiagnosticKeysRef.current.add(key);
+    void fetch("/api/mine/diagnostics", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        code: "surfaced_carving_unbanked",
+        appVersion: appRelease.version,
+        appBuild: appRelease.build,
+        mineVersion: MINE_VERSION,
+        activeSlot,
+        minerRow: miner.row,
+        cashOutState: cashOut.state,
+        moveCount: movesLength,
+      }),
+    }).catch(() => {
+      // Offline is the likeliest reason the bank failed in the first
+      // place, so a failed report must never surface to the player.
+    });
+  }, [
+    activeSlot,
+    appRelease.build,
+    appRelease.version,
+    carvedThisTrip,
+    cashOut.state,
+    miner.row,
+    movesLength,
+    seed,
+    tripIndex,
+    worldLoaded,
+  ]);
+
   const startElevatorRide = (dir: MineAction) => {
     setDynamiteMenuOpen(false);
     if (dir === "ride-down" || dir === "ride-up") {

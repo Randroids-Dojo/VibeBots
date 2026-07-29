@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="unbanked-carving-telemetry" data-date="2026-07-29">
+    <h3>The game reports when carving cannot be banked</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/f220-unbanked-carving-telemetry</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>F-220's observability half, reframed once the code was read. The premise that banking lacked telemetry was wrong: the bank route already emits <code>cash_out_succeeded</code> and about nineteen failure codes, so every bank that reaches the server is instrumented. The gap is that no server-side counter can see a request that was never sent, and a bank that is skipped or refused leaves silence indistinguishable from nobody playing, which is how ore-less digging trips went unbanked for days. Another per-request counter would have been equally silent in exactly the case that mattered. Added instead a <code>surfaced_carving_unbanked</code> client diagnostic: when a trip that changed the world reaches the surface and the cash-out settles as <code>error</code> or <code>unavailable</code>, the client reports through the existing bounded <code>/api/mine/diagnostics</code> pipeline, carrying the settled cash-out state and the number of logged actions stranded on the device. Deduped per trip and state, so an offline player reports once instead of on every surface arrival, and the report's own failure is swallowed because being offline is the likeliest reason the bank failed to begin with. The code joins the existing zod enum and the monitoring event union, both bounded by design.</dd>
+      <dt>Verification</dt><dd>Type-check, Biome, sim purity, dash and whitespace checks clean. Unit suite green, including a new diagnostics route test pinning that the report and its cash-out context are accepted and forwarded to the monitoring sink.</dd>
+      <dt>Assumptions</dt><dd>A failed or unavailable cash-out on a carving trip is the reportable condition. A skipped bank is no longer reachable (the surface-arrival gate now includes world changes), so instrumenting the skip would be dead code; the failure path is the one that can still strand work.</dd>
+      <dt>GDD coverage</dt><dd>No requirement row change. Observability for the REQ-026 persistence promise, not a change to it.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html">F-220</a> updated: this closes its telemetry half, and records the decision NOT to split <code>trip_count</code> in this arc, with the reasoning and the <code>MINE_VERSION</code> hazard that would wipe every in-flight local trip if a split were done naively.</dd>
+    </dl>
+  </article>
+
   <article data-slice="every-rock-breaks" data-date="2026-07-29">
     <h3>Every rock breaks, and a scrap pick draws one box</h3>
     <dl>
@@ -55,6 +68,7 @@
       <dt>Assumptions</dt><dd><code>surfaceOnlyLog</code> is the right predicate for <q>worth banking</q>: it is already the shared notion of real progress, and a trip that descended through open cells without carving banks a no-op, which is harmless and actively helps by keeping the two trip counters in step. Preserving the device's work on divergence is treated as always correct; only the offer of the cloud copy is conditional.</dd>
       <dt>GDD coverage</dt><dd>Build log entry appended to <code>docs/gdd/06-mining.html</code>; no coverage row status change (REQ-026 was already <q>done</q> and this restores the behavior it claims).</dd>
       <dt>Followups</dt><dd>New <a href="FOLLOWUPS.html">F-220</a> (a GET that advances the replay-protection counter, plus banking telemetry to confirm the fix in production).</dd>
+      <dt>Player confirmation (2026-07-29)</dt><dd>Merged as <code>c09d767c</code> with main CI green and the production deploy healthy. The reporter then confirmed the fix on the same signed-in mobile installed app that showed the loss: an ore-less digging trip now survives killing and restarting the app. Recorded on F-220 too. Worth naming what this does and does not settle: the behavior is verified by a human replaying the exact scenario, which is the evidence that was missing, but nothing the project owns would notice a silent return to zero banks. That gap is why this reached a player instead of CI, and it stays open on F-220.</dd>
     </dl>
   </article>
 

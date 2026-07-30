@@ -227,14 +227,13 @@ test(
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-depth", String(targetRow));
 
-    const beacon = page.getByRole("button", { name: "Plant warp beacon" });
+    // H3: planting a beacon lives behind the hotbar's tools slot now, so
+    // the out-of-range state is a disabled menu item rather than a
+    // permanently visible button.
+    await page.getByRole("button", { name: "Tools" }).click();
+    const beacon = page.getByRole("menuitem", { name: "Plant warp beacon" });
     await expect(beacon).toBeVisible();
-    await expect(beacon).toHaveAttribute("aria-disabled", "true");
-    await expect(beacon).toHaveCSS("opacity", "0.42");
-    await beacon.click({ force: true });
-    await expect(
-      page.getByText("Beacon is beyond Warpcoil range. Upgrade Warpcoil."),
-    ).toBeVisible();
+    await expect(beacon).toBeDisabled();
     await expect(beacon).toContainText("1");
   },
 );

@@ -9349,6 +9349,19 @@
     </dl>
   </article>
 
+  <article data-slice="mine-hud-one-mode-sheet" data-date="2026-07-30">
+    <h3>Mine HUD One Mode Sheet (H4)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/hud-redesign-research-612nhx</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/309">#309</a>.</dd>
+      <dt>Changed</dt><dd>Scrap mode, elevator placement, and the bunker sheet now share one bottom anchor, one shape, and one dismissal contract via <code>mine-bottom-sheet.tsx</code>. Entering a mode dims the hotbar in place and silences the toast lane. Detail in the <code>docs/gdd/06-mining.html</code> build log.</dd>
+      <dt>Verification</dt><dd><code>pnpm verify</code> (all nine gates), <code>pnpm build</code>, the four critical Playwright smoke tests, the four mine-core scrap and dig specs, and the two elevator specs the slice touched. Baseline discipline again: four <code>mine-warp-elevator</code> specs failed, so the tree was stashed to the pre-slice state and rebuilt; three of the four (premium rail row, surface car call, reduced-motion timing) fail identically there, so they are sandbox failures from the missing storage backend and software rendering, not regressions. The fourth was mine and is fixed.</dd>
+      <dt>Assumptions</dt><dd>The blocking backdrop is opt-in and OFF for scrap and elevator placement. Both are world-interaction modes: the player taps supports in the canvas and walks to a column while the sheet is open, so a full-screen backdrop would have swallowed exactly the input those modes exist for. This was caught before shipping by reasoning about the scrap flow rather than by a test, and is now pinned by a smoke assertion that the backdrop is absent while Escape still closes the sheet. Those two modes therefore keep Escape, gamepad cancel, TV back, and their own Cancel as the exits, which is strictly more than the bespoke panels offered before; only the genuinely modal bunker sheet keeps a backdrop.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-024</code> stays <code>done</code>; refs gained <code>src/components/mine-bottom-sheet.tsx</code>.</dd>
+      <dt>Followups</dt><dd>H7 (SVG icon set) is the last unstarted slice from the research plan. Zoom removal and the base-tab fold remain deferred with reasons recorded in the H3 entry.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-hud-hotbar-context-ribbon" data-date="2026-07-30">
     <h3>Mine HUD Hotbar, Context Action, Depth Ribbon (H3, H5, H6)</h3>
     <dl>

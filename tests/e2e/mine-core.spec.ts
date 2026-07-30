@@ -1034,6 +1034,15 @@ test(
     await openScrapMode(page);
     const salvage = page.getByRole("region", { name: "Scrap mode" });
     await expect(salvage).toBeVisible();
+    // H4 shared mode sheet: every mode closes on Escape (the working
+    // agreement's keyboard dismissal path for a new window pattern).
+    // Scrap mode carries no blocking backdrop on purpose, because the
+    // player taps supports in the canvas while it is open.
+    await expect(page.locator("[data-sheet-backdrop='true']")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(salvage).toHaveCount(0);
+    await openScrapMode(page);
+    await expect(salvage).toBeVisible();
     await expectRegionHorizontalBounds(page, "Scrap mode");
     const before = await canvas.screenshot();
     const box = await canvas.boundingBox();

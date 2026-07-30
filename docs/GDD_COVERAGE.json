@@ -544,7 +544,8 @@
         "src/components/mine-readiness.ts",
         "src/components/mine-context-action.ts",
         "src/components/mine-depth-scale.ts",
-        "src/components/mine-depth-ribbon.tsx"
+        "src/components/mine-depth-ribbon.tsx",
+        "src/components/mine-bottom-sheet.tsx"
       ],
       "testRefs": [
         "tests/e2e/mine-core.spec.ts",

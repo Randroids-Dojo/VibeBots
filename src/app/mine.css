@@ -33,7 +33,10 @@
 .bunker-status-backdrop {
   position: absolute;
   z-index: 19;
-  inset: 0 0 104px;
+  /* Stops short of the bottom inset so the hotbar stays visible under an
+   * open mode (it dims rather than disappearing). Must match the sheet
+   * anchor below and MINE_SHEET_BOTTOM in mine-bottom-sheet.tsx. */
+  inset: 0 0 calc(68px + env(safe-area-inset-bottom));
   border: 0;
   background: rgba(2, 6, 12, 0.12);
   pointer-events: auto;
@@ -46,9 +49,10 @@
    * first-paint veil (30) and the loading/error notices (40). */
   z-index: 20;
   right: 10px;
-  bottom: 106px;
+  /* Shared mode-sheet anchor (H4): same edge as every other mode panel. */
+  bottom: calc(84px + env(safe-area-inset-bottom));
   left: 10px;
-  max-height: min(286px, calc(100vh - 188px));
+  max-height: min(46vh, 320px);
   overflow-y: auto;
   border: 1px solid #54e0c7;
   border-radius: 12px;
@@ -232,12 +236,6 @@
   font-weight: 900;
   pointer-events: auto;
   cursor: pointer;
-}
-
-@media (max-width: 430px) {
-  .bunker-status-sheet {
-    bottom: 108px;
-  }
 }
 
 @keyframes mine-fanfare-pop {

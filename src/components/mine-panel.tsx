@@ -114,6 +114,7 @@ import {
 } from "./dismissible-dialog-frame";
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
+import { MineBottomSheet, sheetActionStyle } from "./mine-bottom-sheet";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
 import { pickContextAction } from "./mine-context-action";
 import {
@@ -2847,6 +2848,11 @@ export function MinePanel({
     elevatorPlacementMode &&
     miner.row === 0 &&
     (gear.elevator <= 0 || elevatorPlacementRequired);
+  // A mode sheet owns the bottom of the screen while it is open: the
+  // hotbar dims in place (it never moves) and the toast lane yields.
+  const modeSheetOpen =
+    (collectMode || elevatorPlacementVisible || bunkerPanelOpen) &&
+    !fpBunkerActive;
   const usableElevatorDepth = Math.min(mine.gear.elevator, MINE_BOTTOM_ROW - 1);
   const minerOnElevatorRail = miner.col === ownedElevatorColumn;
   const salvagedSupportCount =
@@ -4538,84 +4544,67 @@ export function MinePanel({
           )}
         </>
       )}
-      {elevatorPlacementVisible && (
-        <section
-          ref={elevatorPlacementRef}
-          tabIndex={-1}
-          aria-label="Place elevator shaft"
-          aria-live="polite"
-          data-testid="elevator-placement"
-          style={{
-            ...surfaceActionPromptAnchorStyle,
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: 8,
-            alignItems: "center",
-            minWidth: "min(360px, calc(100vw - 24px))",
-            padding: 10,
-            borderRadius: 14,
-            border: "2px solid #9aa7ff",
-            background: "rgba(17, 21, 31, 0.95)",
-            color: "#e6e8ee",
-            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
-          }}
-        >
-          <span style={{ gridColumn: "1 / -1", fontWeight: 800 }}>
-            {elevatorPlacementIsFree
-              ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
-              : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
-          </span>
-          {elevatorPlacementError && (
-            <span
-              role="status"
-              style={{ gridColumn: "1 / -1", color: "#ff9b9b" }}
-            >
-              {elevatorPlacementError}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => void placeElevatorAtCurrentColumn()}
-            disabled={
-              elevatorPurchasePending ||
-              cashOut.state === "pending" ||
-              (!elevatorPlacementIsFree &&
-                (elevatorPurchaseFunds === null ||
-                  elevatorPurchaseFunds < elevatorRailPrice(0)))
-            }
-            style={{
-              ...sheetButtonStyle(
+      <MineBottomSheet
+        label="Place elevator shaft"
+        open={elevatorPlacementVisible}
+        onDismiss={() => setElevatorPlacementMode(false)}
+        sheetRef={elevatorPlacementRef}
+        testId="elevator-placement"
+        ariaLive="polite"
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => void placeElevatorAtCurrentColumn()}
+              disabled={
+                elevatorPurchasePending ||
+                cashOut.state === "pending" ||
+                (!elevatorPlacementIsFree &&
+                  (elevatorPurchaseFunds === null ||
+                    elevatorPurchaseFunds < elevatorRailPrice(0)))
+              }
+              style={sheetActionStyle(
                 !elevatorPurchasePending &&
                   cashOut.state !== "pending" &&
                   (elevatorPlacementIsFree ||
                     (elevatorPurchaseFunds !== null &&
                       elevatorPurchaseFunds >= elevatorRailPrice(0))),
-              ),
-              minHeight: 42,
-            }}
+                "confirm",
+              )}
+            >
+              {elevatorPurchasePending
+                ? elevatorPlacementIsFree
+                  ? "Moving..."
+                  : "Building..."
+                : elevatorPlacementIsFree
+                  ? "Move here: Free"
+                  : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
+            </button>
+            <button
+              type="button"
+              onClick={() => setElevatorPlacementMode(false)}
+              disabled={elevatorPurchasePending}
+              style={sheetActionStyle(!elevatorPurchasePending, "cancel")}
+            >
+              Cancel
+            </button>
+          </>
+        }
+      >
+        <span style={{ display: "block", fontWeight: 800 }}>
+          {elevatorPlacementIsFree
+            ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
+            : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
+        </span>
+        {elevatorPlacementError && (
+          <span
+            role="status"
+            style={{ display: "block", marginTop: 6, color: "#ff9b9b" }}
           >
-            {elevatorPurchasePending
-              ? elevatorPlacementIsFree
-                ? "Moving..."
-                : "Building..."
-              : elevatorPlacementIsFree
-                ? "Move here: Free"
-                : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
-          </button>
-          <button
-            type="button"
-            onClick={() => setElevatorPlacementMode(false)}
-            disabled={elevatorPurchasePending}
-            style={{
-              ...sheetButtonStyle(!elevatorPurchasePending),
-              minHeight: 42,
-              minWidth: 76,
-            }}
-          >
-            Cancel
-          </button>
-        </section>
-      )}
+            {elevatorPlacementError}
+          </span>
+        )}
+      </MineBottomSheet>
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
           on walk-by. Tapping again after close needs another tap. */}
       {!elevatorPlacementMode && stall && openStallCol !== miner.col && (
@@ -4999,54 +4988,15 @@ export function MinePanel({
         onToggleCell={toggleBagCell}
       />
 
-      {collectMode && !fpBunkerActive && (
-        <section
-          aria-label="Scrap mode"
-          style={{
-            position: "absolute",
-            right: 12,
-            bottom: 82,
-            zIndex: 10,
-            width: "min(300px, calc(100vw - 24px))",
-            border: "1px solid #26304a",
-            borderRadius: 12,
-            background: "rgba(17, 21, 31, 0.96)",
-            boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
-            padding: 10,
-            pointerEvents: "auto",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 10,
-              marginBottom: 10,
-            }}
-          >
-            <span
-              style={{
-                ...compactChipStyle,
-                flex: "1 1 132px",
-                color: "#8b93a7",
-              }}
-            >
-              {visibleSupports.length === 0
-                ? "nothing to scrap"
-                : "tap supports to scrap"}
-            </span>
-            <span
-              style={{
-                ...compactChipStyle,
-                flex: "1 1 166px",
-                color: "#54e0c7",
-              }}
-            >
-              {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
+      <MineBottomSheet
+        label="Scrap mode"
+        open={collectMode && !fpBunkerActive}
+        onDismiss={() => {
+          setCollectSelection([]);
+          setCollectMode(false);
+        }}
+        actions={
+          <>
             <button
               type="button"
               aria-label="Confirm scrap"
@@ -5056,19 +5006,7 @@ export function MinePanel({
                 setCollectSelection([]);
                 setCollectMode(false);
               }}
-              style={{
-                flex: 1,
-                minHeight: 40,
-                borderRadius: 10,
-                border: "1px solid #54e0c7",
-                background:
-                  selectedSupports.length > 0
-                    ? "#172b30"
-                    : "rgba(23, 43, 48, 0.35)",
-                color: selectedSupports.length > 0 ? "#54e0c7" : "#8b93a7",
-                fontWeight: 800,
-                cursor: selectedSupports.length > 0 ? "pointer" : "default",
-              }}
+              style={sheetActionStyle(selectedSupports.length > 0, "confirm")}
             >
               Scrap
             </button>
@@ -5079,22 +5017,39 @@ export function MinePanel({
                 setCollectSelection([]);
                 setCollectMode(false);
               }}
-              style={{
-                minWidth: 78,
-                minHeight: 40,
-                borderRadius: 10,
-                border: "1px solid #2c3a5c",
-                background: "rgba(38, 48, 74, 0.55)",
-                color: "#cdd6ea",
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
+              style={sheetActionStyle(true, "cancel")}
             >
               Cancel
             </button>
-          </div>
-        </section>
-      )}
+          </>
+        }
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
+          <span
+            style={{ ...compactChipStyle, flex: "1 1 132px", color: "#8b93a7" }}
+          >
+            {visibleSupports.length === 0
+              ? "nothing to scrap"
+              : "tap supports to scrap"}
+          </span>
+          <span
+            style={{
+              ...compactChipStyle,
+              flex: "1 1 166px",
+              color: HUD_ACCENT,
+            }}
+          >
+            {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
+          </span>
+        </div>
+      </MineBottomSheet>
 
       {!fpBunkerActive && (
         <button
@@ -5145,6 +5100,7 @@ export function MinePanel({
             alignItems: "flex-end",
             zIndex: 9,
             pointerEvents: "none",
+            opacity: modeSheetOpen ? 0.4 : 1,
           }}
         >
           <button
@@ -5500,39 +5456,41 @@ export function MinePanel({
           hotbar. Feedback used to land top left, the corner the eye only
           checks deliberately, and shared the status stack with permanent
           state. It belongs where the thumb and the eye already are. */}
-      {!fpBunkerActive && (statusLine || showSurfaceInfoLine) && (
-        <div
-          data-toast-lane="true"
-          style={{
-            position: "absolute",
-            left: "50%",
-            transform: "translateX(-50%)",
-            bottom: HUD_TOAST_LANE_BOTTOM,
-            zIndex: 8,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 6,
-            maxWidth: "calc(100vw - 24px)",
-            pointerEvents: "none",
-            textAlign: "center",
-          }}
-        >
-          {statusLine && (
-            <span
-              data-mine-status-tip="true"
-              style={{ ...statusChipStyle, color: "#f5c542" }}
-            >
-              {statusLine}
-            </span>
-          )}
-          {showSurfaceInfoLine && (
-            <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
-              {surfaceInfoLine}
-            </span>
-          )}
-        </div>
-      )}
+      {!fpBunkerActive &&
+        !modeSheetOpen &&
+        (statusLine || showSurfaceInfoLine) && (
+          <div
+            data-toast-lane="true"
+            style={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              bottom: HUD_TOAST_LANE_BOTTOM,
+              zIndex: 8,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+              maxWidth: "calc(100vw - 24px)",
+              pointerEvents: "none",
+              textAlign: "center",
+            }}
+          >
+            {statusLine && (
+              <span
+                data-mine-status-tip="true"
+                style={{ ...statusChipStyle, color: "#f5c542" }}
+              >
+                {statusLine}
+              </span>
+            )}
+            {showSurfaceInfoLine && (
+              <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
+                {surfaceInfoLine}
+              </span>
+            )}
+          </div>
+        )}
 
       {/* One-shot onboarding: gone after the first action. */}
       {tick === 0 && (

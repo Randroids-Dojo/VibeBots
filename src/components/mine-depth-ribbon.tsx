@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { MINE_BOTTOM_ROW, STRATA } from "@/sim/mine";
+import { MINE_BOTTOM_ROW, STRATA, stratumAt } from "@/sim/mine";
 import {
-  bandAtRow,
   buildRibbonBands,
   buildRibbonMarkers,
   RIBBON_BAND_COLORS,
   type RibbonMarkerKind,
+  rowToOffset,
 } from "./mine-depth-scale";
 import {
   HUD_ACCENT,
@@ -72,14 +72,13 @@ export function MineDepthRibbon({
     elevatorBottomRow,
     cargoRow,
   });
-  const band = bandAtRow(BANDS, minerRow);
+  const stratum = stratumAt(minerRow);
 
   return (
     <div
       data-depth-ribbon="true"
       data-depth-row={minerRow}
-      data-depth-stratum={band?.name ?? ""}
-      data-depth-open={open ? "true" : "false"}
+      data-depth-stratum={stratum.name}
       style={{
         position: "absolute",
         left: 12,
@@ -94,11 +93,7 @@ export function MineDepthRibbon({
     >
       <button
         type="button"
-        aria-label={
-          band
-            ? `Depth ${minerRow}, ${band.name}. Tap for the exact depth.`
-            : `Depth ${minerRow}`
-        }
+        aria-label={`Depth ${minerRow}, ${stratum.name}. Tap for the exact depth.`}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         style={{
@@ -124,7 +119,7 @@ export function MineDepthRibbon({
               right: 0,
               top: `${entry.start * 100}%`,
               height: `${(entry.end - entry.start) * 100}%`,
-              background: RIBBON_BAND_COLORS[index % RIBBON_BAND_COLORS.length],
+              background: RIBBON_BAND_COLORS[index],
               opacity: minerRow >= entry.startRow ? 0.92 : 0.3,
             }}
           />
@@ -166,10 +161,9 @@ export function MineDepthRibbon({
       {open && (
         <div
           role="status"
-          data-depth-readout="true"
           style={{
             alignSelf: "flex-start",
-            marginTop: `calc(${markers[markers.length - 1].offset * 100}% - 14px)`,
+            marginTop: `calc(${rowToOffset(BANDS, minerRow) * 100}% - 14px)`,
             padding: "4px 10px",
             borderRadius: HUD_RADIUS_PILL,
             border: `1px solid ${HUD_BORDER}`,
@@ -180,8 +174,7 @@ export function MineDepthRibbon({
             pointerEvents: "none",
           }}
         >
-          Depth {minerRow}
-          {band ? ` · ${band.name}` : ""}
+          Depth {minerRow} &#183; {stratum.name}
         </div>
       )}
     </div>

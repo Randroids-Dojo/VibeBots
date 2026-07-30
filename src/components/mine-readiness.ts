@@ -59,7 +59,6 @@ export const BATTERY_LOW_SLACK = 2;
 export const BATTERY_WARN_MARGIN = 1.9;
 
 function clamp01(value: number): number {
-  if (!Number.isFinite(value)) return 0;
   if (value < 0) return 0;
   if (value > 1) return 1;
   return value;

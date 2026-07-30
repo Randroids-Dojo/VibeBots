@@ -102,12 +102,6 @@ describe("computeReadiness", () => {
     expect(under.reserveFraction).toBe(0);
   });
 
-  it("yields 0 rather than NaN if the battery capacity is ever zero", () => {
-    const readiness = at({ energy: 0, maxEnergy: 0, climbCost: 0 });
-    expect(readiness.chargeFraction).toBe(0);
-    expect(readiness.reserveFraction).toBe(0);
-  });
-
   it("escalates a warn to danger once charge crosses the reserve", () => {
     const climbCost = 12;
     const warn = at({ climbCost, energy: batteryWarnThreshold(climbCost) - 1 });

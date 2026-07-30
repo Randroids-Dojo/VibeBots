@@ -103,18 +103,6 @@ export function rowToOffset(bands: readonly RibbonBand[], row: number): number {
   return 1;
 }
 
-export function bandAtRow(
-  bands: readonly RibbonBand[],
-  row: number,
-): RibbonBand | null {
-  if (bands.length === 0) return null;
-  let current = bands[0];
-  for (const band of bands) {
-    if (row >= band.startRow) current = band;
-  }
-  return current;
-}
-
 export type RibbonMarkerInput = {
   minerRow: number;
   deepestRow: number;

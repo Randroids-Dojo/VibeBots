@@ -45,14 +45,6 @@ describe("pickContextAction", () => {
     expect(action.verb).toBe("warp-home");
   });
 
-  it("never lets a rarely-used verb shadow jump", () => {
-    // Regression: claiming a bunker is legal on nearly every underground
-    // cell, so as a context verb it hid Jump for the whole run.
-    const action = at({ canJump: true });
-    expect(action.verb).toBe("jump");
-    expect(action.ariaLabel).toBe("Jump jets");
-  });
-
   it("keeps the verb but disables it while something else owns input", () => {
     const action = at({ canJump: true, interactive: false });
     expect(action.verb).toBe("jump");

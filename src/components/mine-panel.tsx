@@ -114,7 +114,11 @@ import {
 } from "./dismissible-dialog-frame";
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
-import { MineBottomSheet, sheetActionStyle } from "./mine-bottom-sheet";
+import {
+  MINE_SHEET_BOTTOM,
+  MineBottomSheet,
+  sheetActionStyle,
+} from "./mine-bottom-sheet";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
 import { pickContextAction } from "./mine-context-action";
 import {
@@ -143,6 +147,7 @@ import {
   HUD_FONT_BODY,
   HUD_FONT_LARGE,
   HUD_FONT_SMALL,
+  HUD_GOLD,
   HUD_RADIUS_LARGE,
   HUD_RADIUS_MEDIUM,
   HUD_RADIUS_PILL,
@@ -498,8 +503,6 @@ const chipStyle: React.CSSProperties = {
 const HUD_BOTTOM_INSET = "calc(18px + env(safe-area-inset-bottom))";
 const MINE_TOOLS_SEEN_KEY = "vibebots-mine-tools-seen";
 const HUD_SLOT_GAP = 6;
-/** Clears the hotbar row so a toast never covers a control. */
-const HUD_TOAST_LANE_BOTTOM = "calc(84px + env(safe-area-inset-bottom))";
 /**
  * Sized so the five slots and the context action both fit one 390px row
  * without overlapping: 12 + (5*48 + 4*6) + 8 + 88 + 12 = 384. Slots stay
@@ -576,19 +579,15 @@ function hotbarMenuStyle(width: number): React.CSSProperties {
   };
 }
 
-/** Readiness gauge palette, one entry per level. */
-const HUD_READINESS_FILL: Record<MineReadinessLevel, string> = {
-  surface: HUD_ACCENT,
-  clear: HUD_ACCENT,
-  warn: HUD_WARN,
-  danger: HUD_DANGER,
-};
-
-const HUD_READINESS_TEXT: Record<MineReadinessLevel, string> = {
-  surface: HUD_TEXT,
-  clear: HUD_TEXT,
-  warn: HUD_WARN_TEXT,
-  danger: HUD_DANGER_TEXT,
+/** Readiness gauge palette. Surface and clear share a look on purpose. */
+const HUD_READINESS: Record<
+  MineReadinessLevel,
+  { fill: string; text: string }
+> = {
+  surface: { fill: HUD_ACCENT, text: HUD_TEXT },
+  clear: { fill: HUD_ACCENT, text: HUD_TEXT },
+  warn: { fill: HUD_WARN, text: HUD_WARN_TEXT },
+  danger: { fill: HUD_DANGER, text: HUD_DANGER_TEXT },
 };
 
 const statusChipStyle: React.CSSProperties = {
@@ -1180,7 +1179,7 @@ function JuiceOverlays() {
             transform: "translateX(-50%)",
             background: "rgba(40, 32, 8, 0.95)",
             border: "2px solid #f5c542",
-            color: "#f5c542",
+            color: HUD_GOLD,
             borderRadius: 12,
             padding: "14px 30px",
             fontSize: "1.25rem",
@@ -1244,7 +1243,7 @@ function JuiceOverlays() {
                 style={{
                   margin: "10px 0 0",
                   fontSize: "0.9rem",
-                  color: "#f5c542",
+                  color: HUD_GOLD,
                 }}
               >
                 So close: {wreck.nearMiss}
@@ -2388,12 +2387,20 @@ export function MinePanel({
   }, [elevatorPlacementMode]);
 
   useEffect(() => {
-    setToolsSeen(window.localStorage.getItem(MINE_TOOLS_SEEN_KEY) === "1");
+    try {
+      setToolsSeen(window.localStorage.getItem(MINE_TOOLS_SEEN_KEY) === "1");
+    } catch {
+      // Blocked storage (private browsing): the badge just shows again.
+    }
   }, []);
 
   const markToolsSeen = useCallback(() => {
     setToolsSeen(true);
-    window.localStorage.setItem(MINE_TOOLS_SEEN_KEY, "1");
+    try {
+      window.localStorage.setItem(MINE_TOOLS_SEEN_KEY, "1");
+    } catch {
+      // Cosmetic only; never take the hotbar down for it.
+    }
   }, []);
 
   const dismissFloatingMenus = useCallback(() => {
@@ -2416,7 +2423,7 @@ export function MinePanel({
 
   /**
    * A hotbar menu opens upward, into the band the bunker sheet's backdrop
-   * covers (it cuts out only the bottom 104px, which is why the slots
+   * covers (it cuts out only the hotbar strip, which is why the slots
    * themselves stay tappable). Dismiss the bunker overlay when a menu
    * opens so the menu is reachable instead of trapped behind it, and so
    * one mode owns the screen at a time.
@@ -2696,10 +2703,7 @@ export function MinePanel({
   ]);
 
   const currentCell = cellAt(mine, miner.col, miner.row);
-  const stratum = stratumAt(miner.row);
   const horizontalDistance = miner.col - START_COL;
-  const horizontalDistanceLabel =
-    horizontalDistance > 0 ? `+${horizontalDistance}` : `${horizontalDistance}`;
   const bagCapacity = cargoCapacity(mine.gear);
   const carriedOreCount = carriedCount(miner);
   const carriedOreStackCount = carriedStackCount(miner);
@@ -2761,9 +2765,15 @@ export function MinePanel({
       )
     : [];
   const lostCargo = miner.lostCargo;
+  // `applyAction` mutates `mine` in place, so `mine` alone is not a
+  // sufficient key: it would never re-run. The beacon stock changes exactly
+  // when one is planted, and `findBeacons` walks the whole persistent cell
+  // map, so this must not be keyed on `tick`.
   const ribbonBeaconRows = useMemo(
     () => findBeacons(mine).map((beacon) => beacon.row),
-    [mine],
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the stock
+    // count is the change signal for an in-place-mutated world.
+    [mine, mine.consumables.beacon],
   );
   const visibleSupports = collectablePlacements(mine);
   const visibleSupportKeyList = visibleSupports.map(collectTargetKey).join("|");
@@ -2811,8 +2821,9 @@ export function MinePanel({
   // (Jump, Enter bunker, Warp home, Claim bunker) that each owned their
   // own screen location, and moves the survivor into the thumb arc and
   // out of the joystick's drag area.
+  const warpRangeRows = warpRange(mine.gear);
   const canWarpHomeHere = Boolean(
-    currentCell?.beacon && miner.row > 0 && miner.row <= warpRange(mine.gear),
+    currentCell?.beacon && miner.row > 0 && miner.row <= warpRangeRows,
   );
   const canEnterBunkerHere =
     fpEnterTriggerVisible && !fpBunkerActive && !bunkerPanelOpen;
@@ -2836,9 +2847,14 @@ export function MinePanel({
   };
   const toolsBadgeVisible =
     !toolsSeen && (mine.consumables.beacon > 0 || visibleSupports.length > 0);
-  const beaconRange = warpRange(mine.gear);
-  const beaconDepthAllowed = miner.row <= beaconRange;
-  const beaconButtonDisabled = elevatorInteractionActive || !beaconDepthAllowed;
+  const beaconDepthAllowed = miner.row <= warpRangeRows;
+  const canPlantBeacon =
+    !elevatorInteractionActive &&
+    beaconDepthAllowed &&
+    miner.row >= 1 &&
+    mine.consumables.beacon > 0;
+  const canScrapSupports =
+    !elevatorInteractionActive && (collectMode || visibleSupports.length > 0);
   const ownedElevatorColumn = elevatorColumn(mine.gear);
   const elevatorPurchaseFunds =
     balance === null ? null : balance + miner.bankedCredits;
@@ -3746,7 +3762,7 @@ export function MinePanel({
     ? cashOut.state === "error"
       ? "#ff6b6b"
       : "#54e0c7"
-    : "#f5c542";
+    : HUD_GOLD;
   const showSurfaceInfoLine =
     miner.row === 0 &&
     surfaceInfoLine !== null &&
@@ -4317,7 +4333,7 @@ export function MinePanel({
                   borderRadius: 10,
                   border: "1px solid #f5c542",
                   background: "#2d2616",
-                  color: "#f5c542",
+                  color: HUD_GOLD,
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   cursor: "pointer",
@@ -4544,67 +4560,69 @@ export function MinePanel({
           )}
         </>
       )}
-      <MineBottomSheet
-        label="Place elevator shaft"
-        open={elevatorPlacementVisible}
-        onDismiss={() => setElevatorPlacementMode(false)}
-        sheetRef={elevatorPlacementRef}
-        testId="elevator-placement"
-        ariaLive="polite"
-        actions={
-          <>
-            <button
-              type="button"
-              onClick={() => void placeElevatorAtCurrentColumn()}
-              disabled={
-                elevatorPurchasePending ||
-                cashOut.state === "pending" ||
-                (!elevatorPlacementIsFree &&
-                  (elevatorPurchaseFunds === null ||
-                    elevatorPurchaseFunds < elevatorRailPrice(0)))
-              }
-              style={sheetActionStyle(
-                !elevatorPurchasePending &&
-                  cashOut.state !== "pending" &&
-                  (elevatorPlacementIsFree ||
-                    (elevatorPurchaseFunds !== null &&
-                      elevatorPurchaseFunds >= elevatorRailPrice(0))),
-                "confirm",
-              )}
-            >
-              {elevatorPurchasePending
-                ? elevatorPlacementIsFree
-                  ? "Moving..."
-                  : "Building..."
-                : elevatorPlacementIsFree
-                  ? "Move here: Free"
-                  : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
-            </button>
-            <button
-              type="button"
-              onClick={() => setElevatorPlacementMode(false)}
-              disabled={elevatorPurchasePending}
-              style={sheetActionStyle(!elevatorPurchasePending, "cancel")}
-            >
-              Cancel
-            </button>
-          </>
-        }
-      >
-        <span style={{ display: "block", fontWeight: 800 }}>
-          {elevatorPlacementIsFree
-            ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
-            : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
-        </span>
-        {elevatorPlacementError && (
-          <span
-            role="status"
-            style={{ display: "block", marginTop: 6, color: "#ff9b9b" }}
-          >
-            {elevatorPlacementError}
+      {elevatorPlacementVisible && (
+        <MineBottomSheet
+          label="Place elevator shaft"
+          open
+          onDismiss={() => setElevatorPlacementMode(false)}
+          sheetRef={elevatorPlacementRef}
+          testId="elevator-placement"
+          ariaLive="polite"
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => void placeElevatorAtCurrentColumn()}
+                disabled={
+                  elevatorPurchasePending ||
+                  cashOut.state === "pending" ||
+                  (!elevatorPlacementIsFree &&
+                    (elevatorPurchaseFunds === null ||
+                      elevatorPurchaseFunds < elevatorRailPrice(0)))
+                }
+                style={sheetActionStyle(
+                  !elevatorPurchasePending &&
+                    cashOut.state !== "pending" &&
+                    (elevatorPlacementIsFree ||
+                      (elevatorPurchaseFunds !== null &&
+                        elevatorPurchaseFunds >= elevatorRailPrice(0))),
+                  "confirm",
+                )}
+              >
+                {elevatorPurchasePending
+                  ? elevatorPlacementIsFree
+                    ? "Moving..."
+                    : "Building..."
+                  : elevatorPlacementIsFree
+                    ? "Move here: Free"
+                    : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setElevatorPlacementMode(false)}
+                disabled={elevatorPurchasePending}
+                style={sheetActionStyle(!elevatorPurchasePending, "cancel")}
+              >
+                Cancel
+              </button>
+            </>
+          }
+        >
+          <span style={{ display: "block", fontWeight: 800 }}>
+            {elevatorPlacementIsFree
+              ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
+              : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
           </span>
-        )}
-      </MineBottomSheet>
+          {elevatorPlacementError && (
+            <span
+              role="status"
+              style={{ display: "block", marginTop: 6, color: "#ff9b9b" }}
+            >
+              {elevatorPlacementError}
+            </span>
+          )}
+        </MineBottomSheet>
+      )}
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
           on walk-by. Tapping again after close needs another tap. */}
       {!elevatorPlacementMode && stall && openStallCol !== miner.col && (
@@ -4871,7 +4889,7 @@ export function MinePanel({
               the readiness gauge leads instead. `data-wallet` stays on the
               section either way. */}
           {miner.row === 0 && (
-            <span style={{ ...chipStyle, color: "#f5c542", fontWeight: 700 }}>
+            <span style={{ ...chipStyle, color: HUD_GOLD, fontWeight: 700 }}>
               &#129689; {balance === null ? "offline" : `${balance} vibes`}
             </span>
           )}
@@ -4894,7 +4912,7 @@ export function MinePanel({
               alignItems: "center",
               gap: 8,
               minWidth: 176,
-              color: HUD_READINESS_TEXT[readiness.level],
+              color: HUD_READINESS[readiness.level].text,
             }}
           >
             <span
@@ -4903,7 +4921,7 @@ export function MinePanel({
                 position: "absolute",
                 inset: 0,
                 width: `${readiness.chargeFraction * 100}%`,
-                background: HUD_READINESS_FILL[readiness.level],
+                background: HUD_READINESS[readiness.level].fill,
                 opacity: readiness.level === "danger" ? 0.62 : 0.3,
               }}
             />
@@ -4946,7 +4964,7 @@ export function MinePanel({
             onClick={() => setBagPanelOpen(true)}
             style={{
               ...chipStyle,
-              color: "#f5c542",
+              color: HUD_GOLD,
               pointerEvents: "auto",
               cursor: "pointer",
               fontWeight: 800,
@@ -4963,7 +4981,7 @@ export function MinePanel({
           minerRow={miner.row}
           deepestRow={deepestDepth}
           beaconRows={ribbonBeaconRows}
-          elevatorBottomRow={mine.gear.elevator}
+          elevatorBottomRow={usableElevatorDepth}
           cargoRow={lostCargo ? lostCargo.row : null}
         />
       )}
@@ -4988,68 +5006,74 @@ export function MinePanel({
         onToggleCell={toggleBagCell}
       />
 
-      <MineBottomSheet
-        label="Scrap mode"
-        open={collectMode && !fpBunkerActive}
-        onDismiss={() => {
-          setCollectSelection([]);
-          setCollectMode(false);
-        }}
-        actions={
-          <>
-            <button
-              type="button"
-              aria-label="Confirm scrap"
-              disabled={selectedSupports.length === 0}
-              onClick={() => {
-                move(collectAction(selectedSupports));
-                setCollectSelection([]);
-                setCollectMode(false);
-              }}
-              style={sheetActionStyle(selectedSupports.length > 0, "confirm")}
-            >
-              Scrap
-            </button>
-            <button
-              type="button"
-              aria-label="Cancel scrap"
-              onClick={() => {
-                setCollectSelection([]);
-                setCollectMode(false);
-              }}
-              style={sheetActionStyle(true, "cancel")}
-            >
-              Cancel
-            </button>
-          </>
-        }
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 10,
+      {collectMode && !fpBunkerActive && (
+        <MineBottomSheet
+          label="Scrap mode"
+          open
+          onDismiss={() => {
+            setCollectSelection([]);
+            setCollectMode(false);
           }}
+          actions={
+            <>
+              <button
+                type="button"
+                aria-label="Confirm scrap"
+                disabled={selectedSupports.length === 0}
+                onClick={() => {
+                  move(collectAction(selectedSupports));
+                  setCollectSelection([]);
+                  setCollectMode(false);
+                }}
+                style={sheetActionStyle(selectedSupports.length > 0, "confirm")}
+              >
+                Scrap
+              </button>
+              <button
+                type="button"
+                aria-label="Cancel scrap"
+                onClick={() => {
+                  setCollectSelection([]);
+                  setCollectMode(false);
+                }}
+                style={sheetActionStyle(true, "cancel")}
+              >
+                Cancel
+              </button>
+            </>
+          }
         >
-          <span
-            style={{ ...compactChipStyle, flex: "1 1 132px", color: "#8b93a7" }}
-          >
-            {visibleSupports.length === 0
-              ? "nothing to scrap"
-              : "tap supports to scrap"}
-          </span>
-          <span
+          <div
             style={{
-              ...compactChipStyle,
-              flex: "1 1 166px",
-              color: HUD_ACCENT,
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 10,
             }}
           >
-            {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
-          </span>
-        </div>
-      </MineBottomSheet>
+            <span
+              style={{
+                ...compactChipStyle,
+                flex: "1 1 132px",
+                color: "#8b93a7",
+              }}
+            >
+              {visibleSupports.length === 0
+                ? "nothing to scrap"
+                : "tap supports to scrap"}
+            </span>
+            <span
+              style={{
+                ...compactChipStyle,
+                flex: "1 1 166px",
+                color: HUD_ACCENT,
+              }}
+            >
+              {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
+            </span>
+          </div>
+        </MineBottomSheet>
+      )}
 
       {!fpBunkerActive && (
         <button
@@ -5089,7 +5113,6 @@ export function MinePanel({
       {!fpBunkerActive && (
         <section
           aria-label="Dig controls"
-          data-hotbar="true"
           style={{
             position: "absolute",
             left: 12,
@@ -5138,7 +5161,6 @@ export function MinePanel({
             <button
               type="button"
               aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
-              data-slot="dynamite"
               onClick={() => {
                 setRecoveryMenuOpen(false);
                 setToolsMenuOpen(false);
@@ -5246,7 +5268,6 @@ export function MinePanel({
             <button
               type="button"
               aria-label="Recovery options"
-              data-slot="recovery"
               onClick={() => {
                 setDynamiteMenuOpen(false);
                 setToolsMenuOpen(false);
@@ -5358,8 +5379,6 @@ export function MinePanel({
             <button
               type="button"
               aria-label="Tools"
-              data-slot="tools"
-              data-tools-badge={toolsBadgeVisible ? "true" : "false"}
               onClick={() => {
                 setDynamiteMenuOpen(false);
                 setRecoveryMenuOpen(false);
@@ -5385,21 +5404,18 @@ export function MinePanel({
                   type="button"
                   role="menuitem"
                   aria-label="Plant warp beacon"
+                  title={
+                    beaconDepthAllowed
+                      ? "Plant warp beacon"
+                      : `Warpcoil range ${warpRangeRows} rows`
+                  }
                   onClick={() => {
                     setToolsMenuOpen(false);
                     move("place-beacon");
                   }}
-                  disabled={
-                    beaconButtonDisabled ||
-                    miner.row < 1 ||
-                    mine.consumables.beacon <= 0
-                  }
+                  disabled={!canPlantBeacon}
                   style={{
-                    ...sheetButtonStyle(
-                      !beaconButtonDisabled &&
-                        miner.row >= 1 &&
-                        mine.consumables.beacon > 0,
-                    ),
+                    ...sheetButtonStyle(canPlantBeacon),
                     width: "100%",
                     minHeight: 36,
                     marginBottom: 8,
@@ -5424,15 +5440,9 @@ export function MinePanel({
                       return next;
                     });
                   }}
-                  disabled={
-                    elevatorInteractionActive ||
-                    (!collectMode && visibleSupports.length === 0)
-                  }
+                  disabled={!canScrapSupports}
                   style={{
-                    ...sheetButtonStyle(
-                      !elevatorInteractionActive &&
-                        (collectMode || visibleSupports.length > 0),
-                    ),
+                    ...sheetButtonStyle(canScrapSupports),
                     width: "100%",
                     minHeight: 36,
                     ...(collectMode
@@ -5460,12 +5470,11 @@ export function MinePanel({
         !modeSheetOpen &&
         (statusLine || showSurfaceInfoLine) && (
           <div
-            data-toast-lane="true"
             style={{
               position: "absolute",
               left: "50%",
               transform: "translateX(-50%)",
-              bottom: HUD_TOAST_LANE_BOTTOM,
+              bottom: MINE_SHEET_BOTTOM,
               zIndex: 8,
               display: "flex",
               flexDirection: "column",
@@ -5479,7 +5488,7 @@ export function MinePanel({
             {statusLine && (
               <span
                 data-mine-status-tip="true"
-                style={{ ...statusChipStyle, color: "#f5c542" }}
+                style={{ ...statusChipStyle, color: HUD_GOLD }}
               >
                 {statusLine}
               </span>

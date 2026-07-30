@@ -99,9 +99,6 @@ test(
 
     await pressMineKey(page, "ArrowRight");
     await expect(status).toHaveAttribute("data-horizontal-distance", "1");
-    // Horizontal offset from base rides its data attribute now that the
-    // depth chip is gone; the ribbon carries the spatial read.
-    await expect(status).toHaveAttribute("data-horizontal-distance", "1");
     await page.waitForTimeout(650);
     await pressMineKey(page, "ArrowLeft");
     await expect(status).toHaveAttribute("data-horizontal-distance", "0");
@@ -639,6 +636,9 @@ test(
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-battery-low", "true");
     await expect(status).toHaveAttribute("data-ladder-short", "true");
+    await expect(
+      status.locator("[data-readiness-gauge='true']"),
+    ).toHaveAttribute("data-readiness-level", "danger");
     await expect(status).toHaveAttribute("data-return-route", "short");
     await expect(status).toHaveAttribute("data-return-capped", "false");
     await expect(status.locator("[data-battery-chip='true']")).toContainText(
@@ -1036,9 +1036,6 @@ test(
     await expect(salvage).toBeVisible();
     // H4 shared mode sheet: every mode closes on Escape (the working
     // agreement's keyboard dismissal path for a new window pattern).
-    // Scrap mode carries no blocking backdrop on purpose, because the
-    // player taps supports in the canvas while it is open.
-    await expect(page.locator("[data-sheet-backdrop='true']")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(salvage).toHaveCount(0);
     await openScrapMode(page);

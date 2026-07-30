@@ -3,9 +3,11 @@
 import type { ReactNode, RefObject } from "react";
 import { useDismissControls } from "./dismissible-dialog-frame";
 import {
+  HUD_ACCENT,
   HUD_BORDER,
   HUD_RADIUS_MEDIUM,
   HUD_TEXT,
+  HUD_TEXT_MUTED,
   HUD_TOUCH_MIN,
 } from "./mine-hud-tokens";
 
@@ -23,7 +25,7 @@ import {
  * back, all via `useDismissControls`, which the working agreement requires
  * of any new floating gameplay panel.
  */
-export const MINE_SHEET_BOTTOM = "calc(84px + env(safe-area-inset-bottom))";
+export const MINE_SHEET_BOTTOM = "var(--mine-sheet-bottom)";
 
 /**
  * Above the hotbar (z 9) and the toast lane (z 8) so a mode owns the
@@ -31,7 +33,6 @@ export const MINE_SHEET_BOTTOM = "calc(84px + env(safe-area-inset-bottom))";
  * and the first-paint veil (30).
  */
 const SHEET_Z = 12;
-const BACKDROP_Z = 11;
 
 export function MineBottomSheet({
   label,
@@ -42,7 +43,6 @@ export function MineBottomSheet({
   sheetRef,
   testId,
   ariaLive,
-  modal = false,
 }: {
   label: string;
   open: boolean;
@@ -53,77 +53,48 @@ export function MineBottomSheet({
   sheetRef?: RefObject<HTMLElement | null>;
   testId?: string;
   ariaLive?: "polite" | "assertive";
-  /**
-   * Off by default, and deliberately. Scrap mode and elevator placement
-   * are world-interaction modes: the player taps supports in the canvas
-   * or walks to a column while the sheet is open, so a blocking backdrop
-   * would swallow the very input the mode exists for. Those modes are
-   * dismissed by Escape, gamepad cancel, TV back, or their own Cancel.
-   * Turn this on only for a sheet that really does block the world.
-   */
-  modal?: boolean;
 }) {
   useDismissControls(open, onDismiss);
   if (!open) return null;
 
   return (
-    <>
-      {modal && (
-        /*
-         * Stops short of the bottom inset so the hotbar stays visible
-         * underneath (the caller dims it). Covering it would hide the
-         * controls the mode is about to be used with.
-         */
-        <button
-          type="button"
-          data-sheet-backdrop="true"
-          aria-label={`Dismiss ${label.toLowerCase()}`}
-          onClick={onDismiss}
-          style={{
-            position: "absolute",
-            inset: "0 0 calc(68px + env(safe-area-inset-bottom)) 0",
-            zIndex: BACKDROP_Z,
-            border: 0,
-            padding: 0,
-            background: "rgba(2, 6, 12, 0.18)",
-            cursor: "pointer",
-          }}
-        />
+    <section
+      ref={sheetRef}
+      tabIndex={sheetRef ? -1 : undefined}
+      aria-label={label}
+      aria-live={ariaLive}
+      data-testid={testId}
+      data-mine-sheet="true"
+      style={{
+        position: "absolute",
+        left: 10,
+        right: 10,
+        bottom: MINE_SHEET_BOTTOM,
+        zIndex: SHEET_Z,
+        maxHeight: "min(46vh, 320px)",
+        overflowY: "auto",
+        padding: 12,
+        borderRadius: HUD_RADIUS_MEDIUM,
+        border: `1px solid ${HUD_BORDER}`,
+        background: "rgba(14, 20, 28, 0.96)",
+        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.42)",
+        color: HUD_TEXT,
+        pointerEvents: "auto",
+      }}
+    >
+      {children}
+      {actions && (
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>{actions}</div>
       )}
-      <section
-        ref={sheetRef}
-        tabIndex={sheetRef ? -1 : undefined}
-        aria-label={label}
-        aria-live={ariaLive}
-        data-testid={testId}
-        data-mine-sheet="true"
-        style={{
-          position: "absolute",
-          left: 10,
-          right: 10,
-          bottom: MINE_SHEET_BOTTOM,
-          zIndex: SHEET_Z,
-          maxHeight: "min(46vh, 320px)",
-          overflowY: "auto",
-          padding: 12,
-          borderRadius: HUD_RADIUS_MEDIUM,
-          border: `1px solid ${HUD_BORDER}`,
-          background: "rgba(14, 20, 28, 0.96)",
-          boxShadow: "0 12px 32px rgba(0, 0, 0, 0.42)",
-          color: HUD_TEXT,
-          pointerEvents: "auto",
-        }}
-      >
-        {children}
-        {actions && (
-          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            {actions}
-          </div>
-        )}
-      </section>
-    </>
+    </section>
   );
 }
+
+const HUD_SHEET_BUTTON_BORDER = "#2c3a5c";
+const HUD_CONFIRM_SURFACE = "#172b30";
+const HUD_CONFIRM_SURFACE_OFF = "rgba(23, 43, 48, 0.35)";
+const HUD_CANCEL_SURFACE = "rgba(38, 48, 74, 0.55)";
+const HUD_CANCEL_TEXT = "#cdd6ea";
 
 /** Confirm and cancel share one shape across every mode sheet. */
 export function sheetActionStyle(
@@ -136,13 +107,13 @@ export function sheetActionStyle(
     minWidth: confirm ? undefined : 84,
     minHeight: HUD_TOUCH_MIN,
     borderRadius: HUD_RADIUS_MEDIUM,
-    border: `1px solid ${confirm && enabled ? "#54e0c7" : "#2c3a5c"}`,
+    border: `1px solid ${confirm && enabled ? HUD_ACCENT : HUD_SHEET_BUTTON_BORDER}`,
     background: confirm
       ? enabled
-        ? "#172b30"
-        : "rgba(23, 43, 48, 0.35)"
-      : "rgba(38, 48, 74, 0.55)",
-    color: confirm ? (enabled ? "#54e0c7" : "#8b93a7") : "#cdd6ea",
+        ? HUD_CONFIRM_SURFACE
+        : HUD_CONFIRM_SURFACE_OFF
+      : HUD_CANCEL_SURFACE,
+    color: confirm ? (enabled ? HUD_ACCENT : HUD_TEXT_MUTED) : HUD_CANCEL_TEXT,
     fontWeight: 800,
     cursor: enabled ? "pointer" : "default",
   };

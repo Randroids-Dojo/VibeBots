@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { STRATA } from "@/sim/mine";
 import {
-  bandAtRow,
   buildRibbonBands,
   buildRibbonMarkers,
   RIBBON_BAND_COLORS,
@@ -28,8 +27,10 @@ describe("buildRibbonBands", () => {
     expect(BANDS[BANDS.length - 1].endRow).toBe(BOTTOM);
   });
 
-  it("ships a colour for every stratum", () => {
-    expect(RIBBON_BAND_COLORS.length).toBeGreaterThanOrEqual(STRATA.length);
+  it("ships exactly one colour per stratum", () => {
+    // Exact, not "at least": the ribbon indexes directly, so a stratum
+    // added without a colour must fail here rather than render undefined.
+    expect(RIBBON_BAND_COLORS.length).toBe(STRATA.length);
   });
 });
 
@@ -66,20 +67,6 @@ describe("rowToOffset", () => {
     const middleRow = (clay.startRow + clay.endRow) / 2;
     const offset = rowToOffset(BANDS, middleRow);
     expect(offset).toBeCloseTo((clay.start + clay.end) / 2);
-  });
-});
-
-describe("bandAtRow", () => {
-  it("names the stratum the row sits in", () => {
-    expect(bandAtRow(BANDS, 0)?.name).toBe(STRATA[0].name);
-    expect(bandAtRow(BANDS, 12)?.name).toBe(STRATA[1].name);
-    expect(bandAtRow(BANDS, 13)?.name).toBe(STRATA[1].name);
-  });
-
-  it("holds the last stratum past the floor", () => {
-    expect(bandAtRow(BANDS, BOTTOM + 100)?.name).toBe(
-      STRATA[STRATA.length - 1].name,
-    );
   });
 });
 

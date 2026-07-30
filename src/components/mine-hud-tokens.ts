@@ -17,6 +17,7 @@ export const HUD_SURFACE_SOLID = "rgba(17, 21, 31, 0.88)";
 export const HUD_BORDER = "#26304a";
 
 export const HUD_TEXT = "#e6e8ee";
+export const HUD_TEXT_MUTED = "#8b93a7";
 
 /** The teal used for anything the player can act on or has armed. */
 export const HUD_ACCENT = "#54e0c7";
@@ -42,8 +43,8 @@ export const HUD_RADIUS_MEDIUM = 12;
 export const HUD_RADIUS_SMALL = 8;
 
 /**
- * Minimum touch target. Controls may be taller, never shorter. The old
- * zoom pair shipped at 42px, under every touch guideline's floor.
+ * Minimum touch target for controls this redesign owns. The zoom pair is
+ * still 42px and is not converted yet; it retires with its own slice.
  */
 export const HUD_TOUCH_MIN = 44;
 

@@ -1,10 +1,34 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID =
-  "2026-07-30-0.1.291-charge-bar-shows-the-way-home";
+export const RELEASE_NOTICE_ID = "2026-07-30-0.1.292-one-bar-one-button";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.292",
+      date: "2026-07-30",
+      title: "One row of tools, one button for what you can do",
+      intro:
+        "The mine had controls in five corners of the screen and a bottom row that changed shape as your inventory did. The tools are one fixed row now, what you can do right here is one button, and depth reads as a map down the side of the screen.",
+      changes: [
+        {
+          build,
+          text: "Your consumables sit in five fixed slots along the bottom. A slot never moves and never disappears: something you cannot use right now dims in place instead of vanishing, so the slot under your thumb is always the same slot.",
+        },
+        {
+          build,
+          text: "Jump, Enter bunker, and Warp home were three buttons in three places that were almost never useful at the same time. They are one button in the bottom right that shows whichever one applies where you are standing. It also moved out of the middle of the screen, where it used to fight the drag-to-move control.",
+        },
+        {
+          build,
+          text: "Depth is a ribbon down the left edge instead of a line of text: one band per rock layer, showing how far into the current layer you are, with markers for base, your elevator, planted beacons, dropped cargo, and your deepest dig. Tap it for the exact depth.",
+        },
+        {
+          build,
+          text: "Action messages moved to the bottom of the screen, just above the tools, instead of the top left corner you had to look away to read. Your vibes now show at the surface and in shops, where you can actually spend them.",
+        },
+      ],
+    },
     {
       version: "0.1.291",
       date: "2026-07-30",

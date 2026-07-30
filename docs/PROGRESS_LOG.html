@@ -9349,6 +9349,19 @@
     </dl>
   </article>
 
+  <article data-slice="mine-hud-hotbar-context-ribbon" data-date="2026-07-30">
+    <h3>Mine HUD Hotbar, Context Action, Depth Ribbon (H3, H5, H6)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/hud-redesign-research-612nhx</code>, continuing on the PR branch so its preview deploy shows the redesign as it lands.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/309">#309</a>.</dd>
+      <dt>Changed</dt><dd>H3 fixed five-slot hotbar plus one context action button, H5 left-edge depth ribbon, H6 bottom toast lane and surface-only wallet. Detail in the <code>docs/gdd/06-mining.html</code> build log.</dd>
+      <dt>Verification</dt><dd><code>pnpm verify</code> (all nine gates), <code>pnpm build</code>, and <code>tests/e2e/mine-core.spec.ts</code> in full. <strong>Baseline discipline:</strong> the first post-H3 run failed six specs, so the tree was stashed back to the last verified-green commit, rebuilt, and the suspect specs re-run there. Three of the six (<q>surface day and night</q> draw-call ceiling, the pickaxe gate hint, and the falling-rock crush camera) fail identically on that baseline, which makes them sandbox render failures, not regressions: this container has no GPU and runs Chromium build 1194 against a config pinned to 1223. Only the remaining failures were treated as mine.</dd>
+      <dt>Assumptions</dt><dd>Two real regressions were found and fixed rather than worked around. <strong>Claim shadowed Jump:</strong> "could claim a bunker here" is true on nearly every underground cell, so as a context verb it hid Jump for an entire run. Claiming keeps its own pill and is out of the context button; the priority ladder is now Enter, Warp, Jump. <strong>Hotbar menus opened behind the bunker backdrop:</strong> that backdrop cuts out only the bottom 104px, which is why the old flat cluster stayed tappable, but a menu opening upward landed under it. Opening any hotbar menu now dismisses the bunker overlay, which also preserves the F-082 scrap-closes-claim contract. Two planned items were deliberately NOT landed, with reasons, rather than half-built: the zoom pair stays (removing it needs <code>mine-viewport.spec.ts</code> rewritten around gear-based max zoom and persistence, its own slice), and the base-direction tab stays because it owns a paid teleport transaction that a ribbon marker cannot absorb without redesigning that flow. Rule 13 tip review done: two tips added for the tools slot and the context button, no tip made stale. Rule 14 stamp review done: no stamp, this is a control-layout change.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-024</code> stays <code>done</code>; refs gained the context-action and depth-scale modules and their tests.</dd>
+      <dt>Followups</dt><dd>Zoom removal and the base-tab fold are the two open items from the research plan; H4 (one bottom sheet) and H7 (SVG icon set) remain unstarted.</dd>
+    </dl>
+  </article>
+
   <article data-slice="hud-session-decisions" data-date="2026-07-30">
     <h3>HUD Session Decisions And Doc Repairs</h3>
     <dl>

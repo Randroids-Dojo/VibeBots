@@ -33,10 +33,19 @@ export const HUD_WARN_TEXT = "#ffdfae";
 /** The reserve marker has to read on both the filled and empty track. */
 export const HUD_RESERVE_TICK = "rgba(230, 232, 238, 0.85)";
 
+/** Vibes and carried-value numerals, and the dropped-cargo marker. */
+export const HUD_GOLD = "#f5c542";
+
 export const HUD_RADIUS_PILL = 999;
 export const HUD_RADIUS_LARGE = 14;
 export const HUD_RADIUS_MEDIUM = 12;
 export const HUD_RADIUS_SMALL = 8;
+
+/**
+ * Minimum touch target. Controls may be taller, never shorter. The old
+ * zoom pair shipped at 42px, under every touch guideline's floor.
+ */
+export const HUD_TOUCH_MIN = 44;
 
 export const HUD_FONT_SMALL = "0.8rem";
 export const HUD_FONT_BODY = "0.95rem";

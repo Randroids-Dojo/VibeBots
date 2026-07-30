@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-30-0.1.291-charge-bar-shows-the-way-home",
+      releaseNoticeId: "2026-07-30-0.1.292-one-bar-one-button",
       releaseSummary:
-        "The charge bar now shows your trip home: Your charge, your ladders, and whether there is a way back were three separate readouts in three corners of the screen. They are one bar now, and it marks how much charge the climb home actually costs.",
+        "One row of tools, one button for what you can do: The mine had controls in five corners of the screen and a bottom row that changed shape as your inventory did. The tools are one fixed row now, what you can do right here is one button, and depth reads as a map down the side of the screen.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-30-0.1.291-charge-bar-shows-the-way-home",
+      releaseNoticeId: "2026-07-30-0.1.292-one-bar-one-button",
       attempted: 2,
       sent: 1,
       expired: 1,

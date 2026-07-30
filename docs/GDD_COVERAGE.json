@@ -541,14 +541,19 @@
         "src/app/globals.css",
         "src/components/dismissible-dialog-frame.tsx",
         "src/components/mine-hud-tokens.ts",
-        "src/components/mine-readiness.ts"
+        "src/components/mine-readiness.ts",
+        "src/components/mine-context-action.ts",
+        "src/components/mine-depth-scale.ts",
+        "src/components/mine-depth-ribbon.tsx"
       ],
       "testRefs": [
         "tests/e2e/mine-core.spec.ts",
         "tests/e2e/mine-ui.spec.ts",
         "tests/e2e/mine-firetv-controls.spec.ts",
         "src/components/mine-hud-tokens.test.ts",
-        "src/components/mine-readiness.test.ts"
+        "src/components/mine-readiness.test.ts",
+        "src/components/mine-context-action.test.ts",
+        "src/components/mine-depth-scale.test.ts"
       ],
       "followupRefs": []
     },

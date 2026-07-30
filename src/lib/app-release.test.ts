@@ -24,20 +24,27 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest readiness-gauge note complete", () => {
+  it("keeps the latest control-layout note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-07-30-0.1.291-charge-bar-shows-the-way-home",
-    );
+    expect(release.noticeId).toBe("2026-07-30-0.1.292-one-bar-one-button");
     expect(latestNote).toMatchObject({
+      version: "0.1.292",
+      title: "One row of tools, one button for what you can do",
+    });
+    expect(latestNote?.changes).toHaveLength(4);
+  });
+
+  it("keeps the archived readiness-gauge note complete", () => {
+    const release = getAppRelease();
+    const gaugeNote = release.notes.find((note) => note.version === "0.1.291");
+
+    expect(gaugeNote).toMatchObject({
       version: "0.1.291",
       title: "The charge bar now shows your trip home",
-      intro:
-        "Your charge, your ladders, and whether there is a way back were three separate readouts in three corners of the screen. They are one bar now, and it marks how much charge the climb home actually costs.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(gaugeNote?.changes.map((change) => change.text)).toEqual([
       "The charge bar has a notch on it. Everything to the right of the notch is charge you can spend digging; the notch itself is the trip home. The bar turns amber as you approach it and red once your charge drops past it.",
       "Your ladder count moved onto that same bar, so running short of ladders or losing your route home now reads in the same place as your charge instead of the opposite corner of the screen.",
       "With the separate ladder chip gone, the bottom row of controls fits on one line again instead of spilling the last button onto a second row.",

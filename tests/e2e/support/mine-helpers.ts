@@ -577,6 +577,19 @@ export async function openSettings(page: Page) {
   return settings;
 }
 
+/**
+ * Scrap moved into the hotbar's tools slot (H3), so entering scrap mode is
+ * two taps: open Tools, then the scrap menu item.
+ */
+export async function openScrapMode(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Tools" }).click();
+  const scrap = page.getByRole("menuitemcheckbox", {
+    name: "Scrap placed supports",
+  });
+  await expect(scrap).toBeEnabled();
+  await scrap.click();
+}
+
 export async function speedUpVersionRefreshChecks(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const realSetTimeout = window.setTimeout;

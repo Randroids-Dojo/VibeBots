@@ -68,6 +68,7 @@ import {
   elevatorBoardingTarget,
   elevatorColumn,
   elevatorRailPrice,
+  findBeacons,
   findPortalBeacons,
   MAX_BEACONS,
   MINE_BOTTOM_ROW,
@@ -114,12 +115,14 @@ import {
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
+import { pickContextAction } from "./mine-context-action";
 import {
   CRUSH_REPORT_AFTER_IMPACT_MS,
   FALL_REPORT_AFTER_IMPACT_MS,
   POWER_DOWN_REPORT_AFTER_IMPACT_MS,
   wreckReportCeilingMs,
 } from "./mine-death-playback";
+import { MineDepthRibbon } from "./mine-depth-ribbon";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
 import { MineElevatorControls } from "./mine-elevator-controls";
 import {
@@ -147,6 +150,7 @@ import {
   HUD_SURFACE,
   HUD_SURFACE_SOLID,
   HUD_TEXT,
+  HUD_TOUCH_MIN,
   HUD_WARN,
   HUD_WARN_TEXT,
 } from "./mine-hud-tokens";
@@ -352,6 +356,8 @@ const MINE_SURFACE_TIPS = [
   "Tip: the notch on the charge bar is the climb home. Dig above it, head back below it.",
   "Tip: Lantern upgrades reveal more rows and let you zoom out farther.",
   "Tip: Buy ladders and planks at the Supply Depot before heading deeper.",
+  "Tip: the tools slot holds your beacon and the scrap tool. Tap it when you need them.",
+  "Tip: the button in the bottom right does whatever fits where you stand: jump, warp, or step inside your bunker.",
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
   "Tip: Upgrade Blast Charge to unlock larger dynamite blast shapes.",
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
@@ -482,6 +488,92 @@ const chipStyle: React.CSSProperties = {
   whiteSpace: "nowrap",
   display: "inline-block",
 };
+
+/**
+ * Bottom zone geometry. Every bottom-anchored control shares one inset so
+ * the hotbar and the context action sit on the same line, and it respects
+ * the home indicator, which the old fixed `bottom: 18` did not.
+ */
+const HUD_BOTTOM_INSET = "calc(18px + env(safe-area-inset-bottom))";
+const MINE_TOOLS_SEEN_KEY = "vibebots-mine-tools-seen";
+const HUD_SLOT_GAP = 6;
+/** Clears the hotbar row so a toast never covers a control. */
+const HUD_TOAST_LANE_BOTTOM = "calc(84px + env(safe-area-inset-bottom))";
+/**
+ * Sized so the five slots and the context action both fit one 390px row
+ * without overlapping: 12 + (5*48 + 4*6) + 8 + 88 + 12 = 384. Slots stay
+ * above the 44px touch floor.
+ */
+const HUD_SLOT_SIZE = 48;
+
+/**
+ * A hotbar slot is a fixed-size tile: same width whether it holds a count
+ * of 0 or 999, so the row never reflows. Disabled dims in place.
+ */
+function hotbarSlotStyle(enabled: boolean): React.CSSProperties {
+  return {
+    position: "relative",
+    width: HUD_SLOT_SIZE,
+    height: HUD_TOUCH_MIN + 6,
+    borderRadius: HUD_RADIUS_MEDIUM,
+    border: `1px solid ${HUD_BORDER}`,
+    background: HUD_SURFACE_SOLID,
+    color: HUD_TEXT,
+    fontSize: HUD_FONT_BODY,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "auto",
+    opacity: enabled ? 1 : 0.42,
+    cursor: enabled ? "pointer" : "default",
+  };
+}
+
+const hotbarSlotArmedStyle: React.CSSProperties = {
+  background: HUD_ACCENT_SURFACE,
+  borderColor: HUD_ACCENT,
+  color: HUD_ACCENT,
+};
+
+/** Count badge, bottom right of its slot. */
+const hotbarCountStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 4,
+  bottom: 2,
+  fontSize: "0.62rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  color: HUD_TEXT,
+  opacity: 0.85,
+};
+
+/** One-time "there is something new in here" dot on the tools slot. */
+const hotbarBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 5,
+  right: 5,
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: HUD_ACCENT,
+  boxShadow: HUD_ACCENT_GLOW,
+};
+
+function hotbarMenuStyle(width: number): React.CSSProperties {
+  return {
+    position: "absolute",
+    left: 0,
+    bottom: HUD_TOUCH_MIN + 16,
+    width,
+    maxWidth: "calc(100vw - 24px)",
+    padding: 10,
+    borderRadius: HUD_RADIUS_MEDIUM,
+    border: "1px solid #34415f",
+    background: "rgba(10, 13, 20, 0.96)",
+    color: HUD_TEXT,
+    boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
+  };
+}
 
 /** Readiness gauge palette, one entry per level. */
 const HUD_READINESS_FILL: Record<MineReadinessLevel, string> = {
@@ -1259,6 +1351,11 @@ export function MinePanel({
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
   const [recoveryMenuOpen, setRecoveryMenuOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  // The tools slot hides beacon and scrap behind one tap, so a player can
+  // forget they own them. A one-time dot marks the slot until it is opened
+  // once (Q-036: the accepted cost of keeping slot positions fixed).
+  const [toolsSeen, setToolsSeen] = useState(true);
   const [selectedDynamiteTier, setSelectedDynamiteTier] =
     useState<DynamiteTier>(1);
   const [abandonArmed, setAbandonArmed] = useState(false);
@@ -1430,6 +1527,7 @@ export function MinePanel({
   const previousElevatorPlacementModeRef = useRef(false);
   const dynamiteMenuRef = useRef<HTMLDivElement | null>(null);
   const recoveryMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuRef = useRef<HTMLDivElement | null>(null);
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
@@ -2288,6 +2386,15 @@ export function MinePanel({
     return () => cancelAnimationFrame(frame);
   }, [elevatorPlacementMode]);
 
+  useEffect(() => {
+    setToolsSeen(window.localStorage.getItem(MINE_TOOLS_SEEN_KEY) === "1");
+  }, []);
+
+  const markToolsSeen = useCallback(() => {
+    setToolsSeen(true);
+    window.localStorage.setItem(MINE_TOOLS_SEEN_KEY, "1");
+  }, []);
+
   const dismissFloatingMenus = useCallback(() => {
     setSettingsOpen(false);
     setBaseReturnOpen(false);
@@ -2295,7 +2402,27 @@ export function MinePanel({
     setOpenStallCol(null);
     setDynamiteMenuOpen(false);
     setRecoveryMenuOpen(false);
+    setToolsMenuOpen(false);
     setAbandonArmed(false);
+  }, []);
+
+  /** Opening any hotbar menu closes the others; acting closes all. */
+  const closeHotbarMenus = useCallback(() => {
+    setDynamiteMenuOpen(false);
+    setRecoveryMenuOpen(false);
+    setToolsMenuOpen(false);
+  }, []);
+
+  /**
+   * A hotbar menu opens upward, into the band the bunker sheet's backdrop
+   * covers (it cuts out only the bottom 104px, which is why the slots
+   * themselves stay tappable). Dismiss the bunker overlay when a menu
+   * opens so the menu is reachable instead of trapped behind it, and so
+   * one mode owns the screen at a time.
+   */
+  const yieldBunkerOverlay = useCallback(() => {
+    setBunkerClaimMode(false);
+    setBunkerPanelOpen(false);
   }, []);
 
   const chooseElevatorShaft = useCallback(() => {
@@ -2389,6 +2516,9 @@ export function MinePanel({
       if (recoveryMenuOpen && eventInsideRef(recoveryMenuRef, target, path)) {
         return true;
       }
+      if (toolsMenuOpen && eventInsideRef(toolsMenuRef, target, path)) {
+        return true;
+      }
       return false;
     },
     [
@@ -2397,6 +2527,7 @@ export function MinePanel({
       openStallCol,
       recoveryMenuOpen,
       settingsOpen,
+      toolsMenuOpen,
     ],
   );
 
@@ -2405,7 +2536,8 @@ export function MinePanel({
       baseReturnOpen ||
       openStallCol !== null ||
       dynamiteMenuOpen ||
-      recoveryMenuOpen,
+      recoveryMenuOpen ||
+      toolsMenuOpen,
     isInsideOpenFloatingMenu,
     dismissFloatingMenus,
   );
@@ -2628,12 +2760,10 @@ export function MinePanel({
       )
     : [];
   const lostCargo = miner.lostCargo;
-  const lostDistance = lostCargo
-    ? Math.abs(lostCargo.col - miner.col) + Math.abs(lostCargo.row - miner.row)
-    : 0;
-  const lostPulseSeconds = lostCargo
-    ? Math.max(0.45, Math.min(1.6, 0.35 + lostDistance * 0.08))
-    : 1;
+  const ribbonBeaconRows = useMemo(
+    () => findBeacons(mine).map((beacon) => beacon.row),
+    [mine],
+  );
   const visibleSupports = collectablePlacements(mine);
   const visibleSupportKeyList = visibleSupports.map(collectTargetKey).join("|");
   const selectedSupports = visibleSupports.filter((target) =>
@@ -2676,6 +2806,35 @@ export function MinePanel({
     !elevatorInteractionActive && canPlacePlank(mine, "left");
   const rightPlankEnabled =
     !elevatorInteractionActive && canPlacePlank(mine, "right");
+  // One context action button replaces the four persistent verb buttons
+  // (Jump, Enter bunker, Warp home, Claim bunker) that each owned their
+  // own screen location, and moves the survivor into the thumb arc and
+  // out of the joystick's drag area.
+  const canWarpHomeHere = Boolean(
+    currentCell?.beacon && miner.row > 0 && miner.row <= warpRange(mine.gear),
+  );
+  const canEnterBunkerHere =
+    fpEnterTriggerVisible && !fpBunkerActive && !bunkerPanelOpen;
+  const contextAction = pickContextAction({
+    canEnterBunker: canEnterBunkerHere,
+    canWarpHome: canWarpHomeHere,
+    canJump: jumpButtonVisible,
+    interactive:
+      mineSceneReady &&
+      !elevatorInteractionActive &&
+      !elevatorPurchasePending &&
+      !creditsOpen,
+  });
+  const fireContextAction = () => {
+    setDynamiteMenuOpen(false);
+    setRecoveryMenuOpen(false);
+    setToolsMenuOpen(false);
+    if (contextAction.verb === "enter-bunker") enterFpBunker();
+    else if (contextAction.verb === "warp-home") move("warp-home");
+    else if (contextAction.verb === "jump") fireJump();
+  };
+  const toolsBadgeVisible =
+    !toolsSeen && (mine.consumables.beacon > 0 || visibleSupports.length > 0);
   const beaconRange = warpRange(mine.gear);
   const beaconDepthAllowed = miner.row <= beaconRange;
   const beaconButtonDisabled = elevatorInteractionActive || !beaconDepthAllowed;
@@ -4628,25 +4787,11 @@ export function MinePanel({
         // server hard-reset route.
         onStartFresh={() => void startFreshBankedBunker()}
         onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
+        // The context action button owns Enter bunker; Claim and Upkeep
+        // keep their own pill, because "could claim here" is true on
+        // nearly every underground cell and would shadow Jump forever.
         entryButtonVisible={fpEnterTriggerVisible || fpBunkerActive}
       />
-      {/* THE build entry point: a single floating button enters the
-          first-person builder while the miner stands inside an editable
-          claim. It takes the collapsed status trigger's slot (the
-          trigger hides via entryButtonVisible), so exactly one bunker
-          pill is on screen at a time; while the status sheet is open
-          (e.g. right after the fp Bunker doorway) it yields entirely. */}
-      {!fpBunkerActive && !bunkerPanelOpen && fpEnterTriggerVisible && (
-        <button
-          type="button"
-          className="bunker-fp-enter-trigger"
-          data-testid="bunker-fp-enter"
-          aria-label="Enter bunker"
-          onClick={enterFpBunker}
-        >
-          Enter bunker
-        </button>
-      )}
       {!elevatorPlacementMode && stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
@@ -4731,15 +4876,16 @@ export function MinePanel({
             maxWidth: "calc(100% - 250px)",
           }}
         >
-          <span style={{ ...chipStyle, color: "#f5c542", fontWeight: 700 }}>
-            &#129689; {balance === null ? "offline" : `${balance} vibes`}
-          </span>
-          <span style={chipStyle}>
-            <span style={{ opacity: 0.65 }}>&#9660;</span> Depth {miner.row}{" "}
-            <span style={{ opacity: 0.65 }}>{stratum.name}</span>
-            <span style={{ opacity: 0.65 }}> | Base </span>
-            {horizontalDistanceLabel}
-          </span>
+          {/* The wallet only matters where it can be spent: the surface,
+              the stalls, and the upkeep sheet all show it. Underground it
+              was decoration in the first-read position, so it hides and
+              the readiness gauge leads instead. `data-wallet` stays on the
+              section either way. */}
+          {miner.row === 0 && (
+            <span style={{ ...chipStyle, color: "#f5c542", fontWeight: 700 }}>
+              &#129689; {balance === null ? "offline" : `${balance} vibes`}
+            </span>
+          )}
           {/* Readiness gauge: charge, the reserve the climb home costs,
               and the ladder or route shortfall are one question, so they
               are one control. The reserve tick splits spendable digging
@@ -4821,40 +4967,17 @@ export function MinePanel({
             {bagCapacity})
           </button>
         </div>
-        {statusLine && (
-          <span
-            data-mine-status-tip="true"
-            style={{ ...statusChipStyle, color: "#f5c542" }}
-          >
-            {statusLine}
-          </span>
-        )}
-        {showSurfaceInfoLine && (
-          <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
-            {surfaceInfoLine}
-          </span>
-        )}
-        {lostCargo && (
-          <span
-            className="mine-lost-locator"
-            title={`Dropped cargo locator, ${lostDistance} cells away`}
-            style={{
-              ...chipStyle,
-              color: lostDistance <= 1 ? "#f5c542" : "#ff9f6b",
-              borderColor:
-                lostDistance <= 1
-                  ? "rgba(245, 197, 66, 0.75)"
-                  : "rgba(255, 159, 107, 0.55)",
-              animationDuration: `${lostPulseSeconds}s`,
-            }}
-          >
-            &#128229;{" "}
-            {lostDistance === 0
-              ? "Dropped cargo here"
-              : `Dropped cargo ${lostDistance} cells away`}
-          </span>
-        )}
       </section>
+
+      {!fpBunkerActive && (
+        <MineDepthRibbon
+          minerRow={miner.row}
+          deepestRow={deepestDepth}
+          beaconRows={ribbonBeaconRows}
+          elevatorBottomRow={mine.gear.elevator}
+          cargoRow={lostCargo ? lostCargo.row : null}
+        />
+      )}
 
       <MineBagPanel
         open={bagPanelOpen}
@@ -4973,127 +5096,84 @@ export function MinePanel({
         </section>
       )}
 
-      {jumpButtonVisible && (
+      {!fpBunkerActive && (
         <button
           type="button"
-          aria-label="Jump jets"
-          title="Jump up one cell"
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            setRecoveryMenuOpen(false);
-            fireJump();
-          }}
-          disabled={!jumpEnabled}
+          aria-label={contextAction.ariaLabel}
+          data-context-action={contextAction.verb ?? "none"}
+          // The fp builder entry kept this id across five spec files; the
+          // context button inherits it when it carries that verb.
+          data-testid={
+            contextAction.verb === "enter-bunker"
+              ? "bunker-fp-enter"
+              : undefined
+          }
+          onClick={fireContextAction}
+          disabled={!contextAction.enabled}
           style={{
             ...jumpButtonStyle,
             position: "absolute",
-            right: 14,
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 6,
-            opacity: jumpEnabled ? 1 : 0.46,
-            cursor: jumpEnabled ? "pointer" : "default",
+            right: 12,
+            bottom: HUD_BOTTOM_INSET,
+            zIndex: 9,
+            opacity: contextAction.enabled ? 1 : 0.4,
+            cursor: contextAction.enabled ? "pointer" : "default",
           }}
         >
-          Jump
+          {contextAction.label}
         </button>
       )}
 
-      {/* Consumable cluster: thumb-reach icon buttons. Movement is the
-          thumbstick (or WASD/arrows); the D-pad is gone. Hidden while
-          the first-person view owns the screen (its HUD replaces it). */}
+      {/* Fixed five-slot hotbar (H3). Slot positions never move: an
+          unowned or illegal consumable dims in place rather than
+          unmounting, so the bar keeps one shape and one width and the
+          thumb learns it once. The old cluster wrapped to a second row
+          as inventory changed, which is what made the last button spill
+          off the edge. Hidden while the first-person view owns the
+          screen (its HUD replaces it). */}
       {!fpBunkerActive && (
         <section
           aria-label="Dig controls"
+          data-hotbar="true"
           style={{
             position: "absolute",
-            right: 12,
-            bottom: 18,
+            left: 12,
+            bottom: HUD_BOTTOM_INSET,
             display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            maxWidth: "calc(100vw - 24px)",
+            gap: HUD_SLOT_GAP,
+            flexWrap: "nowrap",
+            alignItems: "flex-end",
             zIndex: 9,
             pointerEvents: "none",
           }}
         >
-          <span style={{ ...chipStyle, color: "#8b93a7" }}>
-            &#129717; {mine.consumables.plank}
-          </span>
           <button
             type="button"
             aria-label="Place plank left"
+            data-slot="plank-left"
             onClick={() => {
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
+              closeHotbarMenus();
               move("plank-left");
             }}
             disabled={!leftPlankEnabled}
-            style={{
-              ...iconButtonStyle,
-              opacity: leftPlankEnabled ? 1 : 0.42,
-              cursor: leftPlankEnabled ? "pointer" : "default",
-            }}
+            style={hotbarSlotStyle(leftPlankEnabled)}
           >
-            &#129717; {"\u25C0"}
+            <span aria-hidden="true">&#129717;{"◀"}</span>
+            <span style={hotbarCountStyle}>{mine.consumables.plank}</span>
           </button>
           <button
             type="button"
             aria-label="Place plank right"
+            data-slot="plank-right"
             onClick={() => {
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
+              closeHotbarMenus();
               move("plank-right");
             }}
             disabled={!rightPlankEnabled}
-            style={{
-              ...iconButtonStyle,
-              opacity: rightPlankEnabled ? 1 : 0.42,
-              cursor: rightPlankEnabled ? "pointer" : "default",
-            }}
+            style={hotbarSlotStyle(rightPlankEnabled)}
           >
-            &#129717; {"\u25B6"}
-          </button>
-          <button
-            type="button"
-            aria-label="Scrap placed supports"
-            aria-pressed={collectMode}
-            onClick={() => {
-              if (elevatorInteractionActive) return;
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
-              setCollectMode((open) => {
-                const next = !open;
-                if (next) {
-                  setBunkerClaimMode(false);
-                  setBunkerPanelOpen(false);
-                }
-                return next;
-              });
-            }}
-            disabled={
-              elevatorInteractionActive ||
-              (!collectMode && visibleSupports.length === 0)
-            }
-            style={{
-              ...iconButtonStyle,
-              opacity: collectMode || visibleSupports.length > 0 ? 1 : 0.42,
-              cursor:
-                collectMode || visibleSupports.length > 0
-                  ? "pointer"
-                  : "default",
-              ...(collectMode
-                ? {
-                    background: "#172b30",
-                    borderColor: "#54e0c7",
-                    color: "#54e0c7",
-                  }
-                : null),
-            }}
-          >
-            &#8635;
+            <span aria-hidden="true">&#129717;{"▶"}</span>
+            <span style={hotbarCountStyle}>{mine.consumables.plank}</span>
           </button>
           <div
             ref={dynamiteMenuRef}
@@ -5102,41 +5182,28 @@ export function MinePanel({
             <button
               type="button"
               aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
+              data-slot="dynamite"
               onClick={() => {
                 setRecoveryMenuOpen(false);
+                setToolsMenuOpen(false);
+                yieldBunkerOverlay();
                 setDynamiteMenuOpen((open) => !open);
               }}
               disabled={elevatorInteractionActive}
               aria-pressed={dynamiteMenuOpen}
               style={{
-                ...iconButtonStyle,
-                ...(dynamiteMenuOpen
-                  ? {
-                      background: "#3a2430",
-                      borderColor: "#ffb347",
-                      boxShadow: "0 0 12px rgba(255, 179, 71, 0.42)",
-                    }
-                  : null),
+                ...hotbarSlotStyle(!elevatorInteractionActive),
+                ...(dynamiteMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              &#129512; {mine.consumables.dynamite} &#9662;
+              <span aria-hidden="true">&#129512;</span>
+              <span style={hotbarCountStyle}>{mine.consumables.dynamite}</span>
             </button>
             {dynamiteMenuOpen && (
               <div
                 role="menu"
                 aria-label="Dynamite tiers"
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: 54,
-                  width: 260,
-                  padding: 10,
-                  borderRadius: 12,
-                  border: "1px solid #34415f",
-                  background: "rgba(10, 13, 20, 0.96)",
-                  color: "#e6e8ee",
-                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
-                }}
+                style={hotbarMenuStyle(260)}
               >
                 <div
                   style={{
@@ -5157,7 +5224,7 @@ export function MinePanel({
                         onClick={() => setSelectedDynamiteTier(tier)}
                         style={{
                           border: selected
-                            ? "1px solid #ffb347"
+                            ? `1px solid ${HUD_WARN}`
                             : "1px solid #2c3a5c",
                           background: selected
                             ? "rgba(255, 179, 71, 0.16)"
@@ -5223,41 +5290,28 @@ export function MinePanel({
             <button
               type="button"
               aria-label="Recovery options"
+              data-slot="recovery"
               onClick={() => {
                 setDynamiteMenuOpen(false);
+                setToolsMenuOpen(false);
                 if (recoveryMenuOpen) setAbandonArmed(false);
+                yieldBunkerOverlay();
                 setRecoveryMenuOpen(!recoveryMenuOpen);
               }}
               aria-pressed={recoveryMenuOpen}
               style={{
-                ...iconButtonStyle,
-                ...(recoveryMenuOpen
-                  ? {
-                      background: "#21314a",
-                      borderColor: "#8fb8ff",
-                      boxShadow: "0 0 12px rgba(143, 184, 255, 0.34)",
-                    }
-                  : null),
+                ...hotbarSlotStyle(true),
+                ...(recoveryMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              &#129526; {mine.consumables.rope} &#9662;
+              <span aria-hidden="true">&#129526;</span>
+              <span style={hotbarCountStyle}>{mine.consumables.rope}</span>
             </button>
             {recoveryMenuOpen && (
               <div
                 role="menu"
                 aria-label="Recovery actions"
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: 54,
-                  width: 244,
-                  padding: 10,
-                  borderRadius: 12,
-                  border: "1px solid #34415f",
-                  background: "rgba(10, 13, 20, 0.96)",
-                  color: "#e6e8ee",
-                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
-                }}
+                style={hotbarMenuStyle(244)}
               >
                 <button
                   type="button"
@@ -5341,55 +5395,143 @@ export function MinePanel({
               </div>
             )}
           </div>
-          {miner.row >= 1 && mine.consumables.beacon > 0 && (
+          <div
+            ref={toolsMenuRef}
+            style={{ position: "relative", pointerEvents: "auto" }}
+          >
             <button
               type="button"
-              aria-label="Plant warp beacon"
-              aria-disabled={beaconButtonDisabled}
+              aria-label="Tools"
+              data-slot="tools"
+              data-tools-badge={toolsBadgeVisible ? "true" : "false"}
               onClick={() => {
-                if (elevatorInteractionActive) return;
                 setDynamiteMenuOpen(false);
                 setRecoveryMenuOpen(false);
-                move("place-beacon");
+                yieldBunkerOverlay();
+                setToolsMenuOpen((open) => !open);
+                if (!toolsMenuOpen) markToolsSeen();
               }}
+              aria-pressed={toolsMenuOpen}
               disabled={elevatorInteractionActive}
-              title={
-                beaconDepthAllowed
-                  ? "Plant warp beacon"
-                  : `Warpcoil range ${beaconRange} rows`
-              }
               style={{
-                ...iconButtonStyle,
-                opacity: beaconButtonDisabled ? 0.42 : 1,
-                cursor: beaconButtonDisabled ? "default" : "pointer",
+                ...hotbarSlotStyle(!elevatorInteractionActive),
+                ...(toolsMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              &#128225; {mine.consumables.beacon}
+              <span aria-hidden="true">&#9881;</span>
+              {toolsBadgeVisible && (
+                <span aria-hidden="true" style={hotbarBadgeStyle} />
+              )}
             </button>
-          )}
-          {(() => {
-            const onBeacon = currentCell?.beacon;
-            return (
-              onBeacon &&
-              miner.row <= warpRange(mine.gear) && (
+            {toolsMenuOpen && (
+              <div role="menu" aria-label="Tools" style={hotbarMenuStyle(232)}>
                 <button
                   type="button"
-                  aria-label="Warp home"
+                  role="menuitem"
+                  aria-label="Plant warp beacon"
                   onClick={() => {
-                    if (!elevatorInteractionActive) {
-                      setRecoveryMenuOpen(false);
-                      move("warp-home");
-                    }
+                    setToolsMenuOpen(false);
+                    move("place-beacon");
                   }}
-                  disabled={elevatorInteractionActive}
-                  style={iconButtonStyle}
+                  disabled={
+                    beaconButtonDisabled ||
+                    miner.row < 1 ||
+                    mine.consumables.beacon <= 0
+                  }
+                  style={{
+                    ...sheetButtonStyle(
+                      !beaconButtonDisabled &&
+                        miner.row >= 1 &&
+                        mine.consumables.beacon > 0,
+                    ),
+                    width: "100%",
+                    minHeight: 36,
+                    marginBottom: 8,
+                  }}
                 >
-                  &#127756;
+                  &#128225; Plant beacon ({mine.consumables.beacon})
                 </button>
-              )
-            );
-          })()}
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-label="Scrap placed supports"
+                  aria-checked={collectMode}
+                  onClick={() => {
+                    if (elevatorInteractionActive) return;
+                    setToolsMenuOpen(false);
+                    setCollectMode((open) => {
+                      const next = !open;
+                      if (next) {
+                        setBunkerClaimMode(false);
+                        setBunkerPanelOpen(false);
+                      }
+                      return next;
+                    });
+                  }}
+                  disabled={
+                    elevatorInteractionActive ||
+                    (!collectMode && visibleSupports.length === 0)
+                  }
+                  style={{
+                    ...sheetButtonStyle(
+                      !elevatorInteractionActive &&
+                        (collectMode || visibleSupports.length > 0),
+                    ),
+                    width: "100%",
+                    minHeight: 36,
+                    ...(collectMode
+                      ? {
+                          background: "#172b30",
+                          borderColor: HUD_ACCENT,
+                          color: HUD_ACCENT,
+                        }
+                      : null),
+                  }}
+                >
+                  &#8635; Scrap supports ({visibleSupports.length})
+                </button>
+              </div>
+            )}
+          </div>
         </section>
+      )}
+
+      {/* Toast lane (H6): one line at a time, bottom centre above the
+          hotbar. Feedback used to land top left, the corner the eye only
+          checks deliberately, and shared the status stack with permanent
+          state. It belongs where the thumb and the eye already are. */}
+      {!fpBunkerActive && (statusLine || showSurfaceInfoLine) && (
+        <div
+          data-toast-lane="true"
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            bottom: HUD_TOAST_LANE_BOTTOM,
+            zIndex: 8,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 6,
+            maxWidth: "calc(100vw - 24px)",
+            pointerEvents: "none",
+            textAlign: "center",
+          }}
+        >
+          {statusLine && (
+            <span
+              data-mine-status-tip="true"
+              style={{ ...statusChipStyle, color: "#f5c542" }}
+            >
+              {statusLine}
+            </span>
+          )}
+          {showSurfaceInfoLine && (
+            <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
+              {surfaceInfoLine}
+            </span>
+          )}
+        </div>
       )}
 
       {/* One-shot onboarding: gone after the first action. */}

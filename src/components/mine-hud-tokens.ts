@@ -24,6 +24,15 @@ export const HUD_ACCENT_TEXT = "#eafff9";
 export const HUD_ACCENT_SURFACE = "rgba(15, 31, 37, 0.94)";
 export const HUD_ACCENT_GLOW = "0 0 18px rgba(84, 224, 199, 0.2)";
 
+/** Readiness states: the trip home is at risk, or getting close to it. */
+export const HUD_DANGER = "#ff2f2f";
+export const HUD_DANGER_TEXT = "#ffe7e7";
+export const HUD_WARN = "#ffb347";
+export const HUD_WARN_TEXT = "#ffdfae";
+
+/** The reserve marker has to read on both the filled and empty track. */
+export const HUD_RESERVE_TICK = "rgba(230, 232, 238, 0.85)";
+
 export const HUD_RADIUS_PILL = 999;
 export const HUD_RADIUS_LARGE = 14;
 export const HUD_RADIUS_MEDIUM = 12;

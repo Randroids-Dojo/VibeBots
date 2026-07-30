@@ -134,6 +134,8 @@ import {
   HUD_ACCENT_SURFACE,
   HUD_ACCENT_TEXT,
   HUD_BORDER,
+  HUD_DANGER,
+  HUD_DANGER_TEXT,
   HUD_FONT_BODY,
   HUD_FONT_LARGE,
   HUD_FONT_SMALL,
@@ -141,9 +143,12 @@ import {
   HUD_RADIUS_MEDIUM,
   HUD_RADIUS_PILL,
   HUD_RADIUS_SMALL,
+  HUD_RESERVE_TICK,
   HUD_SURFACE,
   HUD_SURFACE_SOLID,
   HUD_TEXT,
+  HUD_WARN,
+  HUD_WARN_TEXT,
 } from "./mine-hud-tokens";
 import {
   createDirectionCadenceController,
@@ -151,6 +156,7 @@ import {
 } from "./mine-input-cadence";
 import { actionRepeatMs } from "./mine-pacing";
 import { useMinePerformanceSampling } from "./mine-performance-sampling";
+import { computeReadiness, type MineReadinessLevel } from "./mine-readiness";
 import { ReleaseNotesPopup } from "./mine-release-notes-popup";
 import { SaveConflictPopup } from "./mine-save-conflict-popup";
 import { SaveSlotsPopup } from "./mine-save-slots-popup";
@@ -343,6 +349,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: falling rocks drop after two moves and need at least two hits to break.",
   "Tip: every rock and boulder breaks with the right pickaxe. A blocked swing names the level it needs.",
   "Tip: tunnels five cells wide shake their roof loose. A plank props the ceiling above it.",
+  "Tip: the notch on the charge bar is the climb home. Dig above it, head back below it.",
   "Tip: Lantern upgrades reveal more rows and let you zoom out farther.",
   "Tip: Buy ladders and planks at the Supply Depot before heading deeper.",
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
@@ -474,6 +481,21 @@ const chipStyle: React.CSSProperties = {
   lineHeight: 1.3,
   whiteSpace: "nowrap",
   display: "inline-block",
+};
+
+/** Readiness gauge palette, one entry per level. */
+const HUD_READINESS_FILL: Record<MineReadinessLevel, string> = {
+  surface: HUD_ACCENT,
+  clear: HUD_ACCENT,
+  warn: HUD_WARN,
+  danger: HUD_DANGER,
+};
+
+const HUD_READINESS_TEXT: Record<MineReadinessLevel, string> = {
+  surface: HUD_TEXT,
+  clear: HUD_TEXT,
+  warn: HUD_WARN_TEXT,
+  danger: HUD_DANGER_TEXT,
 };
 
 const statusChipStyle: React.CSSProperties = {
@@ -2566,22 +2588,30 @@ export function MinePanel({
   const climbCost = returnEstimate.reachable
     ? returnEstimate.energyCost
     : returnEnergyCost(miner);
-  // The route estimate prices known clear paths back home (REQ-017).
-  const batteryLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
   const laddersNeeded = returnEstimate.laddersNeeded;
-  const returnRouteBlocked = miner.row > 0 && !returnEstimate.reachable;
-  const ladderShort =
-    miner.row > 0 &&
-    returnEstimate.reachable &&
-    laddersNeeded > mine.consumables.ladder;
-  const returnRouteState =
-    miner.row <= 0
-      ? "surface"
-      : returnRouteBlocked
-        ? "blocked"
-        : ladderShort
-          ? "short"
-          : "clear";
+  // The route estimate prices known clear paths back home (REQ-017). One
+  // derivation feeds both the readiness gauge and the data attributes, so
+  // the gauge can never disagree with what the tests read.
+  const readiness = computeReadiness({
+    depth: miner.row,
+    energy: miner.energy,
+    maxEnergy: maxEnergy(mine.gear),
+    climbCost,
+    routeReachable: returnEstimate.reachable,
+    laddersNeeded,
+    laddersCarried: mine.consumables.ladder,
+  });
+  const batteryLow = readiness.batteryLow;
+  const ladderShort = readiness.ladderShort;
+  const returnRouteBlocked = readiness.routeBlocked;
+  const returnRouteState = readiness.routeState;
+  const readinessTitle = returnRouteBlocked
+    ? "No clear route home from here."
+    : ladderShort
+      ? `${readiness.ladderShortfall} more ladder${readiness.ladderShortfall > 1 ? "s" : ""} to climb out.`
+      : returnRouteState === "surface"
+        ? "At the surface."
+        : `Climbing home costs ${climbCost.toFixed(1)} charge.`;
   // The village (REQ-021): standing on a stall's column opens its menu,
   // unless the player just closed it here (swipe-down or close button).
   const stall = miner.row === 0 ? stallAt(miner.col) : null;
@@ -4709,31 +4739,65 @@ export function MinePanel({
             <span style={{ opacity: 0.65 }}> | Base </span>
             {horizontalDistanceLabel}
           </span>
+          {/* Readiness gauge: charge, the reserve the climb home costs,
+              and the ladder or route shortfall are one question, so they
+              are one control. The reserve tick splits spendable digging
+              charge from the trip home. */}
           <span
-            className={batteryLow ? "mine-hud-chip-danger" : undefined}
-            data-battery-chip="true"
+            className={
+              readiness.level === "danger" ? "mine-hud-chip-danger" : undefined
+            }
+            data-readiness-gauge="true"
+            data-readiness-level={readiness.level}
+            title={readinessTitle}
             style={{
               ...chipStyle,
               position: "relative",
               overflow: "hidden",
-              minWidth: 118,
-              color: batteryLow ? "#ffe7e7" : "#e6e8ee",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              minWidth: 176,
+              color: HUD_READINESS_TEXT[readiness.level],
             }}
           >
             <span
+              aria-hidden="true"
               style={{
                 position: "absolute",
                 inset: 0,
-                width: `${Math.max(0, Math.min(100, (miner.energy / maxEnergy(mine.gear)) * 100))}%`,
-                background: batteryLow ? "#ff2f2f" : "#54e0c7",
-                opacity: batteryLow ? 0.62 : 0.3,
+                width: `${readiness.chargeFraction * 100}%`,
+                background: HUD_READINESS_FILL[readiness.level],
+                opacity: readiness.level === "danger" ? 0.62 : 0.3,
               }}
             />
-            <span style={{ position: "relative" }}>
+            {readiness.routeState !== "surface" && (
+              <span
+                aria-hidden="true"
+                data-reserve-tick="true"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: `${readiness.reserveFraction * 100}%`,
+                  width: 2,
+                  background: HUD_RESERVE_TICK,
+                }}
+              />
+            )}
+            <span data-battery-chip="true" style={{ position: "relative" }}>
               &#128267; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
               {batteryLow ? (
                 <strong className="mine-chip-alert"> Low</strong>
               ) : null}
+            </span>
+            <span data-ladder-chip="true" style={{ position: "relative" }}>
+              &#129692; {mine.consumables.ladder}
+              {returnRouteBlocked
+                ? " route blocked"
+                : ladderShort
+                  ? `/${laddersNeeded} needed`
+                  : ""}
             </span>
           </span>
           <button
@@ -4954,26 +5018,6 @@ export function MinePanel({
             pointerEvents: "none",
           }}
         >
-          <span
-            className={
-              ladderShort || returnRouteBlocked
-                ? "mine-hud-chip-danger"
-                : undefined
-            }
-            data-ladder-chip="true"
-            style={{
-              ...chipStyle,
-              color: ladderShort || returnRouteBlocked ? "#ffe7e7" : "#8b93a7",
-            }}
-          >
-            {ladderShort || returnRouteBlocked ? "!" : ""} &#129692;{" "}
-            {mine.consumables.ladder}
-            {returnRouteBlocked
-              ? " route blocked"
-              : ladderShort
-                ? `/${laddersNeeded} needed`
-                : ""}
-          </span>
           <span style={{ ...chipStyle, color: "#8b93a7" }}>
             &#129717; {mine.consumables.plank}
           </span>

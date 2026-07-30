@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-29-0.1.290-every-rock-breaks",
+      releaseNoticeId: "2026-07-30-0.1.291-charge-bar-shows-the-way-home",
       releaseSummary:
-        "Every rock in the mine can be broken: Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
+        "The charge bar now shows your trip home: Your charge, your ladders, and whether there is a way back were three separate readouts in three corners of the screen. They are one bar now, and it marks how much charge the climb home actually costs.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-29-0.1.290-every-rock-breaks",
+      releaseNoticeId: "2026-07-30-0.1.291-charge-bar-shows-the-way-home",
       attempted: 2,
       sent: 1,
       expired: 1,

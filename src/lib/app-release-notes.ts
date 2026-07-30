@@ -1,9 +1,31 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-29-0.1.290-every-rock-breaks";
+export const RELEASE_NOTICE_ID =
+  "2026-07-30-0.1.291-charge-bar-shows-the-way-home";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.291",
+      date: "2026-07-30",
+      title: "The charge bar now shows your trip home",
+      intro:
+        "Your charge, your ladders, and whether there is a way back were three separate readouts in three corners of the screen. They are one bar now, and it marks how much charge the climb home actually costs.",
+      changes: [
+        {
+          build,
+          text: "The charge bar has a notch on it. Everything to the right of the notch is charge you can spend digging; the notch itself is the trip home. The bar turns amber as you approach it and red once your charge drops past it.",
+        },
+        {
+          build,
+          text: "Your ladder count moved onto that same bar, so running short of ladders or losing your route home now reads in the same place as your charge instead of the opposite corner of the screen.",
+        },
+        {
+          build,
+          text: "With the separate ladder chip gone, the bottom row of controls fits on one line again instead of spilling the last button onto a second row.",
+        },
+      ],
+    },
     {
       version: "0.1.290",
       date: "2026-07-29",

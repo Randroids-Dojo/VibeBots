@@ -4700,6 +4700,7 @@ export function MinePanel({
         data-banked={miner.bankedCredits}
         data-wallet={balance ?? ""}
         data-climb-ladders={laddersNeeded}
+        data-ladder-shortfall={readiness.ladderShortfall}
         data-return-route={returnRouteState}
         data-return-steps={returnEstimate.steps}
         data-return-capped={returnEstimate.capped ? "true" : "false"}
@@ -4792,12 +4793,12 @@ export function MinePanel({
               ) : null}
             </span>
             <span data-ladder-chip="true" style={{ position: "relative" }}>
-              &#129692; {mine.consumables.ladder}
+              &#129692;{" "}
               {returnRouteBlocked
-                ? " route blocked"
+                ? "no route home"
                 : ladderShort
-                  ? `/${laddersNeeded} needed`
-                  : ""}
+                  ? `${mine.consumables.ladder}, ${readiness.ladderShortfall} short`
+                  : mine.consumables.ladder}
             </span>
           </span>
           <button

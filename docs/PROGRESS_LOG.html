@@ -9349,6 +9349,19 @@
     </dl>
   </article>
 
+  <article data-slice="hud-session-decisions" data-date="2026-07-30">
+    <h3>HUD Session Decisions And Doc Repairs</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/hud-redesign-research-612nhx</code>.</dd>
+      <dt>PR</dt><dd>pending, same PR as the readiness-gauge slice below.</dd>
+      <dt>Changed</dt><dd>All eight questions raised by the H1/H2 slice were answered live and are recorded in <code>docs/QUESTIONS_2026-07-30.html</code>, with the three decision-shaped ones resolved in <code>docs/OPEN_QUESTIONS.html</code> (<code>Q-034</code> branch structure, <code>Q-035</code> the red scheduled gate, <code>Q-036</code> hotbar slot count) and moved to the resolved aside. Acting on them: the ladder readout took the concrete shortfall copy and both pinning e2e specs moved onto a new <code>data-ladder-shortfall</code> attribute, which is what REQ-024 says they should have used; <code>docs/RELEASE_NOTES.html</code> was retired; <code>F-217</code> gained the one-call unblock as a progress update; and the working agreement's masked-pipeline ban was widened past named verification gates.</dd>
+      <dt>Verification</dt><dd><code>pnpm verify</code> (all nine gates), <code>pnpm build</code>, and the two mine HUD specs plus the four critical Playwright smoke tests, all re-run after the copy change. Exit statuses captured directly, never through a formatting pipe.</dd>
+      <dt>Assumptions</dt><dd>Two deviations, both deliberate and both flagged. <strong>Q-035</strong> was decided against the recommended default: the chronically red scheduled Full E2E gate stays red and gets re-triaged per slice rather than becoming a slice, so every future slice pays the triage cost and a real Full E2E regression can hide inside the standing red. The cheap triage method is recorded so it stays a minute of work, not an afternoon. <strong>Retiring the release-notes ledger</strong> was implemented as a freeze in place, not a delete: append-only history in this log and the GDD build logs links to that file, and those entries cannot be edited, so deleting it would strand dead links in immutable history. The file carries a retirement banner, README and the coverage ledger point at <code>src/lib/app-release-notes.ts</code>, and the historical coverage ref was kept alongside the new one rather than replaced, per the append-only rule.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-039</code> implementation refs gained <code>src/lib/app-release-notes.ts</code> next to the retired ledger. No status changed.</dd>
+      <dt>Followups</dt><dd><code>F-217</code> progress update recorded: adding <code>randroids-dojo/vibekit</code> to session scope clears the install 403, proven by a full green suite here. It is per session, not durable, so the remaining question is whether to bake the grant into the environment definition. The <code>next</code> 16.2.12 bump is approved for its own branch and PR, next.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-hud-tokens-and-readiness-gauge" data-date="2026-07-30">
     <h3>Mine HUD Tokens And Readiness Gauge (H1, H2)</h3>
     <dl>

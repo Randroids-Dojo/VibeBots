@@ -623,9 +623,12 @@ test(
     await expect(status.locator("[data-battery-chip='true']")).toContainText(
       "Low",
     );
-    await expect(page.locator("[data-ladder-chip='true']")).toContainText(
-      "needed",
-    );
+    // REQ-024: the shortfall rides a data attribute so this spec does not
+    // pin the readout's wording. The gauge still has to render it.
+    expect(
+      Number(await status.getAttribute("data-ladder-shortfall")),
+    ).toBeGreaterThan(0);
+    await expect(page.locator("[data-ladder-chip='true']")).toBeVisible();
 
     const edgeWarning = page.locator("[data-battery-edge-warning='true']");
     await expect(edgeWarning).toBeVisible();
@@ -693,9 +696,7 @@ test(
     await expect(status).toHaveAttribute("data-return-route", "clear");
     await expect(status).toHaveAttribute("data-return-steps", "4");
     await expect(status).toHaveAttribute("data-return-capped", "false");
-    await expect(page.locator("[data-ladder-chip='true']")).not.toContainText(
-      "needed",
-    );
+    await expect(status).toHaveAttribute("data-ladder-shortfall", "0");
   },
 );
 

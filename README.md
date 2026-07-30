@@ -195,6 +195,6 @@ vars, and public and server deprecated after redirect env vars unset.
 - `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts
 - `docs/CI_WORKFLOW.html`: parallel CI, critical smoke, full smoke, and superseded-run policy
 - `docs/ci-rewrite-prompt.md`, `docs/CI_REWRITE_OWNER_QUESTIONS.html`: staged CI migration design and owner decisions that would otherwise pause it
-- `docs/RELEASE_NOTES.html`: versioned release notes
+- `src/lib/app-release-notes.ts`: player-facing release notes shown in game (`docs/RELEASE_NOTES.html` is a frozen pre-0.1.259 archive, not maintained)
 - `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`: continuity ledgers
 - `.dots/`: task backlog (HTML Dots, `dot-html` CLI)

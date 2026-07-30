@@ -969,7 +969,8 @@
         "public/icon-192.png",
         "public/icon-512.png",
         "public/apple-touch-icon.png",
-        "docs/RELEASE_NOTES.html"
+        "docs/RELEASE_NOTES.html",
+        "src/lib/app-release-notes.ts"
       ],
       "testRefs": [
         "src/app/api/notifications/route.test.ts",

@@ -129,6 +129,23 @@ import {
   initialElevatorPresentation,
 } from "./mine-elevator-presentation";
 import {
+  HUD_ACCENT,
+  HUD_ACCENT_GLOW,
+  HUD_ACCENT_SURFACE,
+  HUD_ACCENT_TEXT,
+  HUD_BORDER,
+  HUD_FONT_BODY,
+  HUD_FONT_LARGE,
+  HUD_FONT_SMALL,
+  HUD_RADIUS_LARGE,
+  HUD_RADIUS_MEDIUM,
+  HUD_RADIUS_PILL,
+  HUD_RADIUS_SMALL,
+  HUD_SURFACE,
+  HUD_SURFACE_SOLID,
+  HUD_TEXT,
+} from "./mine-hud-tokens";
+import {
   createDirectionCadenceController,
   type DirectionCadenceController,
 } from "./mine-input-cadence";
@@ -449,11 +466,11 @@ function randomMineSurfaceTip(current: string | null): string | null {
 }
 
 const chipStyle: React.CSSProperties = {
-  background: "rgba(17, 21, 31, 0.82)",
-  border: "1px solid #26304a",
-  borderRadius: 999,
+  background: HUD_SURFACE,
+  border: `1px solid ${HUD_BORDER}`,
+  borderRadius: HUD_RADIUS_PILL,
   padding: "4px 10px",
-  fontSize: "0.8rem",
+  fontSize: HUD_FONT_SMALL,
   lineHeight: 1.3,
   whiteSpace: "nowrap",
   display: "inline-block",
@@ -628,13 +645,13 @@ function soldHaulLine(
 }
 
 const iconButtonStyle: React.CSSProperties = {
-  background: "rgba(17, 21, 31, 0.88)",
-  border: "1px solid #26304a",
-  borderRadius: 14,
-  color: "#e6e8ee",
+  background: HUD_SURFACE_SOLID,
+  border: `1px solid ${HUD_BORDER}`,
+  borderRadius: HUD_RADIUS_LARGE,
+  color: HUD_TEXT,
   minWidth: 54,
   height: 46,
-  fontSize: "0.95rem",
+  fontSize: HUD_FONT_BODY,
   pointerEvents: "auto",
 };
 
@@ -642,24 +659,24 @@ const jumpButtonStyle: React.CSSProperties = {
   ...iconButtonStyle,
   minWidth: 88,
   height: 64,
-  borderRadius: 8,
-  border: "2px solid #54e0c7",
-  background: "rgba(15, 31, 37, 0.94)",
-  color: "#eafff9",
-  fontSize: "0.95rem",
+  borderRadius: HUD_RADIUS_SMALL,
+  border: `2px solid ${HUD_ACCENT}`,
+  background: HUD_ACCENT_SURFACE,
+  color: HUD_ACCENT_TEXT,
+  fontSize: HUD_FONT_BODY,
   fontWeight: 900,
   letterSpacing: 0,
-  boxShadow: "0 0 18px rgba(84, 224, 199, 0.2)",
+  boxShadow: HUD_ACCENT_GLOW,
 };
 
 const zoomButtonStyle: React.CSSProperties = {
   width: 42,
   height: 42,
-  borderRadius: 12,
-  border: "1px solid #26304a",
-  background: "rgba(17, 21, 31, 0.88)",
-  color: "#e6e8ee",
-  fontSize: "1.35rem",
+  borderRadius: HUD_RADIUS_MEDIUM,
+  border: `1px solid ${HUD_BORDER}`,
+  background: HUD_SURFACE_SOLID,
+  color: HUD_TEXT,
+  fontSize: HUD_FONT_LARGE,
   fontWeight: 900,
   lineHeight: 1,
   pointerEvents: "auto",

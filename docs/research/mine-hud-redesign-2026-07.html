@@ -155,7 +155,7 @@
       <li><em>Option B, radial wheel:</em> one thumb button opens a radial of every consumable. Radials suit touch well because the finger sets the focal point and the gesture angle becomes memorable, and they keep the play area unobscured. The counter-argument here is decisive: this game's consumables are <em>directional</em> (plank left versus plank right), and a radial's lower arc gets covered by the hand on a phone. A radial adds a gesture layer to solve a problem that fixed slots solve for free.</li>
       <li><em>Option C, context-only:</em> show a consumable only where it is legal (planks only at a ledge, and so on). Rejected as the primary rule: controls that appear and vanish destroy muscle memory and hide capability from new players. Use disabled states instead, which teach the same thing without moving.</li>
     </ul>
-    <p><strong>Recommend A.</strong> On plank left/right specifically: fold the pair into one plank slot whose direction is chosen by the last movement direction or by a tap on the target gap, so the slot count drops by one. That needs a playtest before committing, so it is worth an explicit open question rather than a silent design call.</p>
+    <p><strong>Recommend A.</strong> On plank left/right specifically: folding the pair into one direction-inferred slot would free a slot, but it was considered and rejected (section 10) because a mis-inferred direction spends a real consumable at the exact moment the player needs the plank. Both slots stay. That leaves plank left, plank right, dynamite, and recovery as four of the five fixed slots, so the tools slot carries beacon, warp, scrap, and abandon and its one-time new-tool badge is not optional.</p>
   </article>
 
   <article>
@@ -273,12 +273,13 @@
 </section>
 
 <section id="questions">
-  <h2>10. Questions to settle before H3</h2>
+  <h2>10. Decisions (user-directed 2026-07-30)</h2>
+  <p>All four open questions were answered live before implementation. These are settled inputs to the slices above, not defaults to revisit mid-slice.</p>
   <ul>
-    <li>Do plank left and plank right merge into one direction-inferred slot, or stay as two? Recommended default: keep two until a playtest says otherwise, because a wrong-direction plank costs a real resource.</li>
-    <li>Which five consumables earn permanent hotbar slots, and does that set change as gear unlocks? Recommended default: fixed set, tools slot absorbs the tail, so slot positions never move.</li>
-    <li>Does the wallet vanish underground, or shrink? Recommended default: vanish underground, appear in every sheet that spends.</li>
-    <li>Does the depth ribbon replace or supplement the numeric depth? Recommended default: ribbon shows the numeral at the marker, so the exact number never disappears.</li>
+    <li><strong>Planks stay two slots.</strong> Plank left and plank right keep separate hotbar slots. A wrong-direction plank spends a real consumable, and the sim already models the two as distinct actions, so this is the zero-risk path. Consequence: four of the five fixed slots are spoken for (plank left, plank right, dynamite, recovery), so the tools slot absorbs a longer tail.</li>
+    <li><strong>Hotbar is a fixed set plus a tools slot.</strong> Slot positions never move; unowned or locked consumables render as disabled slots rather than unmounting, so the bar keeps one shape and teaches what exists. Beacon, warp, scrap, and abandon live behind the tools slot. Required mitigation: a one-time badge on the tools slot the first time a new tool enters inventory, so hiding never reads as losing.</li>
+    <li><strong>Wallet hides underground.</strong> It appears at the surface and inside every sheet that spends vibes, next to the price. Live haul value is explicitly not part of this work; if it is wanted later it is a separate juice slice with its own call on whether it spoils the sell-at-surface reveal.</li>
+    <li><strong>Depth ribbon only, exact row behind a tap.</strong> The persistent readout is the ribbon and its stratum band; the numeric row is not drawn at the marker. This is the cleanest left edge and pushes players toward strata as the mental model. It carries a real cost that H5 must absorb: gear ranges, stamp goals, and mine tips are all quoted in exact rows today, so H5 has to (a) make the tap target for the exact row large, obvious, and reachable one-handed, (b) surface the exact row automatically wherever a row threshold is live (recall range, warp range, elevator depth, a stamp in progress), and (c) audit tip and stall copy under Rule 13 for anything that assumes a permanently visible depth number. If the H5 playtest shows players tapping the ribbon constantly just to read the number, that is the signal to revisit, and it is the only decision here with a revisit condition.</li>
   </ul>
 </section>
 

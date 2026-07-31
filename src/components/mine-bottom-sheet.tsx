@@ -76,7 +76,7 @@ export function MineBottomSheet({
         padding: 12,
         borderRadius: HUD_RADIUS_MEDIUM,
         border: `1px solid ${HUD_BORDER}`,
-        background: "rgba(14, 20, 28, 0.96)",
+        background: "var(--hud-sheet-surface)",
         boxShadow: "0 12px 32px rgba(0, 0, 0, 0.42)",
         color: HUD_TEXT,
         pointerEvents: "auto",
@@ -90,11 +90,11 @@ export function MineBottomSheet({
   );
 }
 
-const HUD_SHEET_BUTTON_BORDER = "#2c3a5c";
-const HUD_CONFIRM_SURFACE = "#172b30";
-const HUD_CONFIRM_SURFACE_OFF = "rgba(23, 43, 48, 0.35)";
-const HUD_CANCEL_SURFACE = "rgba(38, 48, 74, 0.55)";
-const HUD_CANCEL_TEXT = "#cdd6ea";
+const HUD_SHEET_BUTTON_BORDER = "var(--hud-sheet-button-border)";
+const HUD_CONFIRM_SURFACE = "var(--hud-confirm-surface)";
+const HUD_CONFIRM_SURFACE_OFF = "var(--hud-confirm-surface-off)";
+const HUD_CANCEL_SURFACE = "var(--hud-cancel-surface)";
+const HUD_CANCEL_TEXT = "var(--hud-cancel-text)";
 
 /** Confirm and cancel share one shape across every mode sheet. */
 export function sheetActionStyle(

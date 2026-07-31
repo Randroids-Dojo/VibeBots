@@ -25,9 +25,9 @@ const MARKER_STYLES: Record<
   { color: string; size: number; z: number }
 > = {
   base: { color: HUD_TEXT, size: 8, z: 1 },
-  elevator: { color: "#9aa7ff", size: 7, z: 2 },
-  beacon: { color: "#7dd3fc", size: 7, z: 3 },
-  deepest: { color: "rgba(230, 232, 238, 0.5)", size: 6, z: 2 },
+  elevator: { color: "var(--hud-marker-elevator)", size: 7, z: 2 },
+  beacon: { color: "var(--hud-marker-beacon)", size: 7, z: 3 },
+  deepest: { color: "var(--hud-marker-deepest)", size: 6, z: 2 },
   cargo: { color: HUD_GOLD, size: 9, z: 4 },
   miner: { color: HUD_ACCENT, size: 12, z: 5 },
 };
@@ -150,7 +150,7 @@ export function MineDepthRibbon({
                 zIndex: style.z,
                 boxShadow:
                   marker.kind === "miner"
-                    ? "0 0 10px rgba(84, 224, 199, 0.65)"
+                    ? "0 0 10px rgb(var(--hud-accent-rgb) / 0.65)"
                     : undefined,
               }}
             />

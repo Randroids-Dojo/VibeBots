@@ -3,34 +3,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as tokens from "./mine-hud-tokens";
 
-const PANEL_SOURCE = readFileSync(
-  join(import.meta.dirname, "mine-panel.tsx"),
-  "utf8",
+const MINE_CSS = readFileSync(join(process.cwd(), "src/app/mine.css"), "utf8");
+
+const VAR_REFERENCE = /^var\((--[a-z0-9-]+)\)$/;
+
+/** Tokens whose value is a colour, shadow, or other palette reference. */
+const paletteTokens = Object.entries(tokens).filter(
+  ([, value]) => typeof value === "string" && value.startsWith("var("),
 );
-
-/**
- * The six shared HUD style constants. These are the objects every chip,
- * icon button, and CTA in the mine spreads, so a literal that creeps
- * back into one of them silently forks the palette again.
- */
-const SHARED_STYLE_CONSTANTS = [
-  "chipStyle",
-  "statusChipStyle",
-  "compactChipStyle",
-  "iconButtonStyle",
-  "jumpButtonStyle",
-  "zoomButtonStyle",
-];
-
-function styleConstantBody(name: string): string {
-  const start = PANEL_SOURCE.indexOf(`const ${name}: React.CSSProperties = {`);
-  expect(start, `${name} should exist in mine-panel.tsx`).toBeGreaterThan(-1);
-  const end = PANEL_SOURCE.indexOf("\n};", start);
-  expect(end, `${name} should be a closed object literal`).toBeGreaterThan(
-    start,
-  );
-  return PANEL_SOURCE.slice(start, end);
-}
 
 describe("mine HUD tokens", () => {
   it("exposes every token as a non-empty value", () => {
@@ -41,33 +21,43 @@ describe("mine HUD tokens", () => {
     }
   });
 
-  it("has no duplicate colour values under two names", () => {
-    const colours = Object.entries(tokens).filter(
-      ([, value]) =>
-        typeof value === "string" &&
-        (value.startsWith("#") || value.startsWith("rgba(")),
-    );
-    const seen = new Map<string, string>();
-    for (const [name, value] of colours) {
-      const previous = seen.get(value as string);
-      expect(
-        previous,
-        `${name} repeats the value already exported as ${previous}`,
-      ).toBeUndefined();
-      seen.set(value as string, name);
+  it("carries no raw colour literal, only palette references", () => {
+    // A literal here would fork the palette away from mine.css again,
+    // which is the duplication this module exists to remove.
+    for (const [name, value] of Object.entries(tokens)) {
+      if (typeof value !== "string") continue;
+      expect(value, `${name} should not name a colour`).not.toMatch(
+        /#[0-9a-fA-F]{3,8}\b/,
+      );
+      expect(value, `${name} should not name a colour`).not.toMatch(/rgba?\(/);
     }
   });
 
-  it.each(
-    SHARED_STYLE_CONSTANTS,
-  )("%s carries no raw colour literal", (name) => {
-    const body = styleConstantBody(name);
-    expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
-    expect(body).not.toMatch(/rgba?\(/);
+  it("names a custom property that mine.css actually declares", () => {
+    // The failure this catches is a silent one: an undeclared var() falls
+    // back to nothing, so the control renders transparent rather than
+    // throwing.
+    expect(paletteTokens.length).toBeGreaterThan(0);
+    for (const [name, value] of paletteTokens) {
+      const match = VAR_REFERENCE.exec(value as string);
+      expect(match, `${name} should be a plain var() reference`).not.toBeNull();
+      const property = match?.[1] ?? "";
+      expect(
+        MINE_CSS,
+        `${property} (${name}) should be declared in mine.css`,
+      ).toContain(`${property}:`);
+    }
   });
 
-  it.each(SHARED_STYLE_CONSTANTS)("%s carries no raw font size", (name) => {
-    const body = styleConstantBody(name);
-    expect(body).not.toMatch(/fontSize:\s*"/);
+  it("declares every palette property it references from another", () => {
+    // The tint properties reference the base triplets; a renamed base
+    // would leave those dangling the same silent way.
+    const referenced = MINE_CSS.match(/var\((--hud-[a-z0-9-]+)\)/g) ?? [];
+    for (const raw of referenced) {
+      const property = raw.slice(4, -1);
+      expect(MINE_CSS, `${property} should be declared`).toContain(
+        `${property}:`,
+      );
+    }
   });
 });

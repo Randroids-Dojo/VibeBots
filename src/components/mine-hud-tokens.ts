@@ -1,6 +1,11 @@
 /**
  * HUD design tokens (mine surface).
  *
+ * These are `var()` references into the one palette declared in
+ * `src/app/mine.css`, so TypeScript and CSS cannot hold different ideas of
+ * what the accent colour is. Inline styles resolve custom properties the
+ * same way a stylesheet rule does.
+ *
  * The mine HUD grew six independent style objects in `mine-panel.tsx`,
  * each repeating the same literal hex strings. That is one reason the
  * HUD reads as several unrelated toolbars instead of one system (see
@@ -11,31 +16,31 @@
  */
 
 /** Panel and control fills. */
-export const HUD_SURFACE = "rgba(17, 21, 31, 0.82)";
-export const HUD_SURFACE_SOLID = "rgba(17, 21, 31, 0.88)";
+export const HUD_SURFACE = "var(--hud-surface)";
+export const HUD_SURFACE_SOLID = "var(--hud-surface-solid)";
 
-export const HUD_BORDER = "#26304a";
+export const HUD_BORDER = "var(--hud-border)";
 
-export const HUD_TEXT = "#e6e8ee";
-export const HUD_TEXT_MUTED = "#8b93a7";
+export const HUD_TEXT = "var(--hud-text)";
+export const HUD_TEXT_MUTED = "var(--hud-text-muted)";
 
 /** The teal used for anything the player can act on or has armed. */
-export const HUD_ACCENT = "#54e0c7";
-export const HUD_ACCENT_TEXT = "#eafff9";
-export const HUD_ACCENT_SURFACE = "rgba(15, 31, 37, 0.94)";
-export const HUD_ACCENT_GLOW = "0 0 18px rgba(84, 224, 199, 0.2)";
+export const HUD_ACCENT = "var(--hud-accent)";
+export const HUD_ACCENT_TEXT = "var(--hud-accent-text)";
+export const HUD_ACCENT_SURFACE = "var(--hud-accent-surface)";
+export const HUD_ACCENT_GLOW = "var(--hud-accent-glow)";
 
 /** Readiness states: the trip home is at risk, or getting close to it. */
-export const HUD_DANGER = "#ff2f2f";
-export const HUD_DANGER_TEXT = "#ffe7e7";
-export const HUD_WARN = "#ffb347";
-export const HUD_WARN_TEXT = "#ffdfae";
+export const HUD_DANGER = "var(--hud-danger)";
+export const HUD_DANGER_TEXT = "var(--hud-danger-text)";
+export const HUD_WARN = "var(--hud-warn)";
+export const HUD_WARN_TEXT = "var(--hud-warn-text)";
 
 /** The reserve marker has to read on both the filled and empty track. */
-export const HUD_RESERVE_TICK = "rgba(230, 232, 238, 0.85)";
+export const HUD_RESERVE_TICK = "var(--hud-reserve-tick)";
 
 /** Vibes and carried-value numerals, and the dropped-cargo marker. */
-export const HUD_GOLD = "#f5c542";
+export const HUD_GOLD = "var(--hud-gold)";
 
 export const HUD_RADIUS_PILL = 999;
 export const HUD_RADIUS_LARGE = 14;

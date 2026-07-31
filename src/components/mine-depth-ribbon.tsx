@@ -20,14 +20,19 @@ import {
 
 const BANDS = buildRibbonBands(STRATA, MINE_BOTTOM_ROW);
 
+/**
+ * Marker tints. The two unique hues are literals: one consumer, no
+ * stylesheet reader. The faded one composes from the shared text hue so
+ * that hue stays single-sourced.
+ */
 const MARKER_STYLES: Record<
   RibbonMarkerKind,
   { color: string; size: number; z: number }
 > = {
   base: { color: HUD_TEXT, size: 8, z: 1 },
-  elevator: { color: "var(--hud-marker-elevator)", size: 7, z: 2 },
-  beacon: { color: "var(--hud-marker-beacon)", size: 7, z: 3 },
-  deepest: { color: "var(--hud-marker-deepest)", size: 6, z: 2 },
+  elevator: { color: "#9aa7ff", size: 7, z: 2 },
+  beacon: { color: "#7dd3fc", size: 7, z: 3 },
+  deepest: { color: "rgb(var(--hud-text-rgb) / 0.5)", size: 6, z: 2 },
   cargo: { color: HUD_GOLD, size: 9, z: 4 },
   miner: { color: HUD_ACCENT, size: 12, z: 5 },
 };

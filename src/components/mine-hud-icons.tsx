@@ -18,26 +18,12 @@
  * `aria-label`, so the icons are `aria-hidden` and never announced.
  */
 
-export type HudIconName =
-  | "battery"
-  | "ladder"
-  | "bag"
-  | "coin"
-  | "plank-left"
-  | "plank-right"
-  | "dynamite"
-  | "rope"
-  | "tools"
-  | "beacon"
-  | "scrap"
-  | "settings";
-
 /**
  * Path data only. Every icon inherits stroke, width, and linecaps from the
  * wrapper, so a new icon cannot quietly ship a different weight, and none
  * of them may name a colour.
  */
-const ICON_PATHS: Record<HudIconName, string> = {
+export const ICON_PATHS = {
   // Cell body, terminal, one charge bar. More bars turn to mush at 16px.
   battery: "M3 8.5h13v7H3z M18.5 11v2 M5.5 10.5v3",
   ladder: "M8 3v18 M16 3v18 M8 7.5h8 M8 12h8 M8 16.5h8",
@@ -59,6 +45,15 @@ const ICON_PATHS: Record<HudIconName, string> = {
   // Sliders, not a gear: at 20px a gear's teeth read as sun rays, and the
   // tools slot already owns "mechanical".
   settings: "M4 7h16 M4 12h16 M4 17h16 M9 5v4 M15 10v4 M8 15v4",
+} satisfies Record<string, string>;
+
+export type HudIconName = keyof typeof ICON_PATHS;
+
+/** Constant, so React can skip the style prop instead of diffing it. */
+const ICON_STYLE: React.CSSProperties = {
+  display: "inline-block",
+  verticalAlign: "-0.15em",
+  flexShrink: 0,
 };
 
 export function HudIcon({
@@ -81,15 +76,9 @@ export function HudIcon({
       strokeLinecap="round"
       strokeLinejoin="round"
       // Flows inline next to label text, and still behaves in a flex row.
-      style={{
-        display: "inline-block",
-        verticalAlign: "-0.15em",
-        flexShrink: 0,
-      }}
+      style={ICON_STYLE}
     >
       <path d={ICON_PATHS[name]} />
     </svg>
   );
 }
-
-export const HUD_ICON_NAMES = Object.keys(ICON_PATHS) as HudIconName[];

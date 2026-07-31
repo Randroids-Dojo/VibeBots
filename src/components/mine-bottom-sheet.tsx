@@ -90,11 +90,16 @@ export function MineBottomSheet({
   );
 }
 
-const HUD_SHEET_BUTTON_BORDER = "var(--hud-sheet-button-border)";
-const HUD_CONFIRM_SURFACE = "var(--hud-confirm-surface)";
-const HUD_CONFIRM_SURFACE_OFF = "var(--hud-confirm-surface-off)";
-const HUD_CANCEL_SURFACE = "var(--hud-cancel-surface)";
-const HUD_CANCEL_TEXT = "var(--hud-cancel-text)";
+/**
+ * Sheet-button tones. These have one consumer and no stylesheet reader, so
+ * they stay literals here rather than becoming global custom properties:
+ * the shared palette is what has to be single-sourced, not every colour.
+ */
+const SHEET_BUTTON_BORDER = "#2c3a5c";
+const CONFIRM_SURFACE = "#172b30";
+const CONFIRM_SURFACE_OFF = "rgb(23 43 48 / 0.35)";
+const CANCEL_SURFACE = "rgb(38 48 74 / 0.55)";
+const CANCEL_TEXT = "#cdd6ea";
 
 /** Confirm and cancel share one shape across every mode sheet. */
 export function sheetActionStyle(
@@ -107,13 +112,13 @@ export function sheetActionStyle(
     minWidth: confirm ? undefined : 84,
     minHeight: HUD_TOUCH_MIN,
     borderRadius: HUD_RADIUS_MEDIUM,
-    border: `1px solid ${confirm && enabled ? HUD_ACCENT : HUD_SHEET_BUTTON_BORDER}`,
+    border: `1px solid ${confirm && enabled ? HUD_ACCENT : SHEET_BUTTON_BORDER}`,
     background: confirm
       ? enabled
-        ? HUD_CONFIRM_SURFACE
-        : HUD_CONFIRM_SURFACE_OFF
-      : HUD_CANCEL_SURFACE,
-    color: confirm ? (enabled ? HUD_ACCENT : HUD_TEXT_MUTED) : HUD_CANCEL_TEXT,
+        ? CONFIRM_SURFACE
+        : CONFIRM_SURFACE_OFF
+      : CANCEL_SURFACE,
+    color: confirm ? (enabled ? HUD_ACCENT : HUD_TEXT_MUTED) : CANCEL_TEXT,
     fontWeight: 800,
     cursor: enabled ? "pointer" : "default",
   };

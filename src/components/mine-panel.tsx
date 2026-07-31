@@ -157,6 +157,7 @@ import {
   HUD_SURFACE,
   HUD_SURFACE_SOLID,
   HUD_TEXT,
+  HUD_TEXT_MUTED,
   HUD_TOUCH_MIN,
   HUD_WARN,
   HUD_WARN_TEXT,
@@ -576,7 +577,7 @@ function hotbarMenuStyle(width: number): React.CSSProperties {
     padding: 10,
     borderRadius: HUD_RADIUS_MEDIUM,
     border: "1px solid #34415f",
-    background: "rgba(10, 13, 20, 0.96)",
+    background: "rgb(var(--hud-surface-rgb) / 0.96)",
     color: HUD_TEXT,
     boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
   };
@@ -617,6 +618,7 @@ const compactChipStyle: React.CSSProperties = {
   overflowWrap: "break-word",
 };
 
+/** Ore art, not chrome: these are the resource hues, palette-independent. */
 const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   coal: "#8b93a7",
   copper: "#d28445",
@@ -1050,7 +1052,7 @@ function JuiceOverlays() {
       const ore = oreDef(lastResult.oreHarvested.ore);
       const count = lastResult.oreHarvested.units;
       const color =
-        RESOURCE_FLOAT_COLORS[lastResult.oreHarvested.ore] ?? "#54e0c7";
+        RESOURCE_FLOAT_COLORS[lastResult.oreHarvested.ore] ?? HUD_ACCENT;
       const id = nextId.current++;
       setFloats((prev) => [
         ...prev.slice(-4),
@@ -1188,7 +1190,7 @@ function JuiceOverlays() {
             left: "50%",
             transform: "translateX(-50%)",
             background: "rgba(40, 32, 8, 0.95)",
-            border: "2px solid #f5c542",
+            border: `2px solid ${HUD_GOLD}`,
             color: HUD_GOLD,
             borderRadius: 12,
             padding: "14px 30px",
@@ -2930,7 +2932,7 @@ export function MinePanel({
       : {
           border: "1px solid #54e0c7",
           background: "#173033",
-          color: "#54e0c7",
+          color: HUD_ACCENT,
         };
   const bunkerPreview =
     miner.row > 0 &&
@@ -3771,7 +3773,7 @@ export function MinePanel({
   const surfaceInfoColor = autoSellStatusLine
     ? cashOut.state === "error"
       ? "#ff6b6b"
-      : "#54e0c7"
+      : HUD_ACCENT
     : HUD_GOLD;
   const showSurfaceInfoLine =
     miner.row === 0 &&
@@ -4252,9 +4254,9 @@ export function MinePanel({
               width: 42,
               height: 42,
               borderRadius: 12,
-              border: "1px solid #26304a",
-              background: "rgba(17, 21, 31, 0.88)",
-              color: "#e6e8ee",
+              border: `1px solid ${HUD_BORDER}`,
+              background: HUD_SURFACE_SOLID,
+              color: HUD_TEXT,
               fontSize: "1.12rem",
               fontWeight: 800,
               pointerEvents: "auto",
@@ -4322,12 +4324,12 @@ export function MinePanel({
                 // its lower buttons past the edge.
                 maxHeight: `calc(100% - ${SETTINGS_MENU_TOP + SETTINGS_MENU_EDGE_GAP}px)`,
                 overflowY: "auto",
-                border: "1px solid #26304a",
+                border: `1px solid ${HUD_BORDER}`,
                 borderRadius: 12,
-                background: "rgba(17, 21, 31, 0.96)",
+                background: "rgb(var(--hud-surface-rgb) / 0.96)",
                 boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
                 padding: 10,
-                color: "#e6e8ee",
+                color: HUD_TEXT,
               }}
             >
               <button
@@ -4364,7 +4366,7 @@ export function MinePanel({
                   borderRadius: 10,
                   border: "1px solid #cdd6ea",
                   background: "#20283a",
-                  color: "#e6e8ee",
+                  color: HUD_TEXT,
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   cursor: "pointer",
@@ -4406,7 +4408,7 @@ export function MinePanel({
                   borderRadius: 10,
                   border: "1px solid #54e0c7",
                   background: "#172b30",
-                  color: "#54e0c7",
+                  color: HUD_ACCENT,
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   cursor: "pointer",
@@ -4427,7 +4429,7 @@ export function MinePanel({
                   borderRadius: 10,
                   border: "1px solid #cdd6ea",
                   background: "#20283a",
-                  color: "#e6e8ee",
+                  color: HUD_TEXT,
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   cursor: "pointer",
@@ -4503,7 +4505,7 @@ export function MinePanel({
                   borderRadius: 10,
                   border: "1px solid #54e0c7",
                   background: "#172b30",
-                  color: "#54e0c7",
+                  color: HUD_ACCENT,
                   fontSize: "0.9rem",
                   fontWeight: 800,
                   cursor: "pointer",
@@ -4543,7 +4545,7 @@ export function MinePanel({
               aria-label="Base return"
               className={`mine-base-return-menu mine-base-return-menu-${baseReturn.direction}`}
             >
-              <div style={{ fontWeight: 800, color: "#e6e8ee" }}>
+              <div style={{ fontWeight: 800, color: HUD_TEXT }}>
                 Base is {baseReturn.distance} cells {baseReturn.direction}
               </div>
               <div style={{ fontSize: "0.82rem", color: "#aab2c7" }}>
@@ -4648,8 +4650,8 @@ export function MinePanel({
             padding: "10px 16px",
             borderRadius: 999,
             border: `2px solid ${stall.color}`,
-            background: "rgba(17, 21, 31, 0.92)",
-            color: "#e6e8ee",
+            background: "rgb(var(--hud-surface-rgb) / 0.92)",
+            color: HUD_TEXT,
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
@@ -4675,8 +4677,8 @@ export function MinePanel({
             padding: "10px 16px",
             borderRadius: 999,
             border: `2px solid ${destination.color}`,
-            background: "rgba(17, 21, 31, 0.92)",
-            color: "#e6e8ee",
+            background: "rgb(var(--hud-surface-rgb) / 0.92)",
+            color: HUD_TEXT,
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
@@ -4703,8 +4705,8 @@ export function MinePanel({
             padding: "10px 16px",
             borderRadius: 999,
             border: `2px solid ${portalHere.color}`,
-            background: "rgba(17, 21, 31, 0.92)",
-            color: "#e6e8ee",
+            background: "rgb(var(--hud-surface-rgb) / 0.92)",
+            color: HUD_TEXT,
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
@@ -4730,7 +4732,7 @@ export function MinePanel({
             padding: "8px",
             borderRadius: 999,
             border: `2px solid ${activePortalHere.color}`,
-            background: "rgba(17, 21, 31, 0.94)",
+            background: "rgb(var(--hud-surface-rgb) / 0.94)",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
           }}
         >
@@ -4926,8 +4928,7 @@ export function MinePanel({
               ...chipStyle,
               position: "relative",
               overflow: "hidden",
-              display: "inline-flex",
-              alignItems: "center",
+              ...HUD_CHIP_WITH_ICON,
               gap: 8,
               minWidth: 176,
               color: HUD_READINESS[readiness.level].text,
@@ -4971,7 +4972,7 @@ export function MinePanel({
               data-ladder-chip="true"
               style={{ position: "relative", ...HUD_CHIP_WITH_ICON }}
             >
-              <HudIcon name="ladder" />{" "}
+              <HudIcon name="ladder" />
               {returnRouteBlocked
                 ? "no route home"
                 : ladderShort
@@ -5081,7 +5082,7 @@ export function MinePanel({
               style={{
                 ...compactChipStyle,
                 flex: "1 1 132px",
-                color: "#8b93a7",
+                color: HUD_TEXT_MUTED,
               }}
             >
               {visibleSupports.length === 0
@@ -5230,7 +5231,7 @@ export function MinePanel({
                           background: selected
                             ? "rgba(255, 179, 71, 0.16)"
                             : "rgba(38, 48, 74, 0.55)",
-                          color: locked ? "#8b93a7" : "#f5efe3",
+                          color: locked ? HUD_TEXT_MUTED : "#f5efe3",
                           borderRadius: 8,
                           padding: "8px 6px",
                           textAlign: "left",
@@ -5529,7 +5530,7 @@ export function MinePanel({
             left: "50%",
             transform: "translateX(-50%)",
             ...chipStyle,
-            color: "#8b93a7",
+            color: HUD_TEXT_MUTED,
             pointerEvents: "none",
           }}
         >

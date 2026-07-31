@@ -545,7 +545,8 @@
         "src/components/mine-context-action.ts",
         "src/components/mine-depth-scale.ts",
         "src/components/mine-depth-ribbon.tsx",
-        "src/components/mine-bottom-sheet.tsx"
+        "src/components/mine-bottom-sheet.tsx",
+        "src/components/mine-hud-icons.tsx"
       ],
       "testRefs": [
         "tests/e2e/mine-core.spec.ts",
@@ -554,7 +555,8 @@
         "src/components/mine-hud-tokens.test.ts",
         "src/components/mine-readiness.test.ts",
         "src/components/mine-context-action.test.ts",
-        "src/components/mine-depth-scale.test.ts"
+        "src/components/mine-depth-scale.test.ts",
+        "src/components/mine-hud-icons.test.ts"
       ],
       "followupRefs": []
     },

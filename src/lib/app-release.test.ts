@@ -24,16 +24,27 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest control-layout note complete", () => {
+  it("keeps the latest icon-set note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-30-0.1.292-one-bar-one-button");
+    expect(release.noticeId).toBe("2026-07-30-0.1.293-one-icon-set");
     expect(latestNote).toMatchObject({
+      version: "0.1.293",
+      title: "The mine's icons are one set now",
+    });
+    expect(latestNote?.changes).toHaveLength(3);
+  });
+
+  it("keeps the archived control-layout note complete", () => {
+    const release = getAppRelease();
+    const layoutNote = release.notes.find((note) => note.version === "0.1.292");
+
+    expect(layoutNote).toMatchObject({
       version: "0.1.292",
       title: "One row of tools, one button for what you can do",
     });
-    expect(latestNote?.changes).toHaveLength(4);
+    expect(layoutNote?.changes).toHaveLength(4);
   });
 
   it("keeps the archived readiness-gauge note complete", () => {

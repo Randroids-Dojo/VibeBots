@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-30-0.1.292-one-bar-one-button";
+export const RELEASE_NOTICE_ID = "2026-07-30-0.1.293-one-icon-set";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.293",
+      date: "2026-07-30",
+      title: "The mine's icons are one set now",
+      intro:
+        "The HUD was built out of emoji, which is why it looked like a pile of stickers: every icon came from a different artist, at a different weight, and none of them could change colour with the control they sat on.",
+      changes: [
+        {
+          build,
+          text: "Every icon in the mine is drawn in one line style now, and takes the colour of whatever it sits on. A dimmed tool, an armed tool, and a warning all tint their icon to match instead of showing the same flat emoji.",
+        },
+        {
+          build,
+          text: "The settings button and the tools slot used to be the same gear. Settings is sliders, tools is a wrench.",
+        },
+        {
+          build,
+          text: "Opening the tools or recovery slot no longer pushes its menu off the side of the screen on a phone.",
+        },
+      ],
+    },
     {
       version: "0.1.292",
       date: "2026-07-30",

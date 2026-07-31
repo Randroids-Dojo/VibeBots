@@ -136,6 +136,7 @@ import {
   type ElevatorRideAction,
   initialElevatorPresentation,
 } from "./mine-elevator-presentation";
+import { HudIcon } from "./mine-hud-icons";
 import {
   HUD_ACCENT,
   HUD_ACCENT_GLOW,
@@ -565,6 +566,8 @@ const hotbarBadgeStyle: React.CSSProperties = {
 
 function hotbarMenuStyle(width: number): React.CSSProperties {
   return {
+    // Resolves against the hotbar section, not the slot: a slot-anchored
+    // menu cannot fit on a 390px screen from the rightmost slots.
     position: "absolute",
     left: 0,
     bottom: HUD_TOUCH_MIN + 16,
@@ -588,6 +591,13 @@ const HUD_READINESS: Record<
   clear: { fill: HUD_ACCENT, text: HUD_TEXT },
   warn: { fill: HUD_WARN, text: HUD_WARN_TEXT },
   danger: { fill: HUD_DANGER, text: HUD_DANGER_TEXT },
+};
+
+/** Chips that pair an icon with a label sit them on one baseline. */
+const HUD_CHIP_WITH_ICON: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
 };
 
 const statusChipStyle: React.CSSProperties = {
@@ -4251,7 +4261,7 @@ export function MinePanel({
               cursor: "pointer",
             }}
           >
-            &#9881;
+            <HudIcon name="settings" size={20} />
           </button>
           <section
             aria-label="Zoom controls"
@@ -4889,8 +4899,16 @@ export function MinePanel({
               the readiness gauge leads instead. `data-wallet` stays on the
               section either way. */}
           {miner.row === 0 && (
-            <span style={{ ...chipStyle, color: HUD_GOLD, fontWeight: 700 }}>
-              &#129689; {balance === null ? "offline" : `${balance} vibes`}
+            <span
+              style={{
+                ...chipStyle,
+                ...HUD_CHIP_WITH_ICON,
+                color: HUD_GOLD,
+                fontWeight: 700,
+              }}
+            >
+              <HudIcon name="coin" />
+              {balance === null ? "offline" : `${balance} vibes`}
             </span>
           )}
           {/* Readiness gauge: charge, the reserve the climb home costs,
@@ -4939,14 +4957,21 @@ export function MinePanel({
                 }}
               />
             )}
-            <span data-battery-chip="true" style={{ position: "relative" }}>
-              &#128267; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
+            <span
+              data-battery-chip="true"
+              style={{ position: "relative", ...HUD_CHIP_WITH_ICON }}
+            >
+              <HudIcon name="battery" />
+              {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
               {batteryLow ? (
                 <strong className="mine-chip-alert"> Low</strong>
               ) : null}
             </span>
-            <span data-ladder-chip="true" style={{ position: "relative" }}>
-              &#129692;{" "}
+            <span
+              data-ladder-chip="true"
+              style={{ position: "relative", ...HUD_CHIP_WITH_ICON }}
+            >
+              <HudIcon name="ladder" />{" "}
               {returnRouteBlocked
                 ? "no route home"
                 : ladderShort
@@ -4964,14 +4989,15 @@ export function MinePanel({
             onClick={() => setBagPanelOpen(true)}
             style={{
               ...chipStyle,
+              ...HUD_CHIP_WITH_ICON,
               color: HUD_GOLD,
               pointerEvents: "auto",
               cursor: "pointer",
               fontWeight: 800,
             }}
           >
-            &#127890; {carriedOreCount} ore ({carriedOreStackCount}/
-            {bagCapacity})
+            <HudIcon name="bag" />
+            {carriedOreCount} ore ({carriedOreStackCount}/{bagCapacity})
           </button>
         </div>
       </section>
@@ -5137,7 +5163,7 @@ export function MinePanel({
             disabled={!leftPlankEnabled}
             style={hotbarSlotStyle(leftPlankEnabled)}
           >
-            <span aria-hidden="true">&#129717;{"◀"}</span>
+            <HudIcon name="plank-left" size={22} />
             <span style={hotbarCountStyle}>{mine.consumables.plank}</span>
           </button>
           <button
@@ -5151,13 +5177,10 @@ export function MinePanel({
             disabled={!rightPlankEnabled}
             style={hotbarSlotStyle(rightPlankEnabled)}
           >
-            <span aria-hidden="true">&#129717;{"▶"}</span>
+            <HudIcon name="plank-right" size={22} />
             <span style={hotbarCountStyle}>{mine.consumables.plank}</span>
           </button>
-          <div
-            ref={dynamiteMenuRef}
-            style={{ position: "relative", pointerEvents: "auto" }}
-          >
+          <div ref={dynamiteMenuRef} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
@@ -5174,7 +5197,7 @@ export function MinePanel({
                 ...(dynamiteMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              <span aria-hidden="true">&#129512;</span>
+              <HudIcon name="dynamite" size={22} />
               <span style={hotbarCountStyle}>{mine.consumables.dynamite}</span>
             </button>
             {dynamiteMenuOpen && (
@@ -5261,10 +5284,7 @@ export function MinePanel({
               </div>
             )}
           </div>
-          <div
-            ref={recoveryMenuRef}
-            style={{ position: "relative", pointerEvents: "auto" }}
-          >
+          <div ref={recoveryMenuRef} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label="Recovery options"
@@ -5281,7 +5301,7 @@ export function MinePanel({
                 ...(recoveryMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              <span aria-hidden="true">&#129526;</span>
+              <HudIcon name="rope" size={22} />
               <span style={hotbarCountStyle}>{mine.consumables.rope}</span>
             </button>
             {recoveryMenuOpen && (
@@ -5326,7 +5346,7 @@ export function MinePanel({
                     marginBottom: 8,
                   }}
                 >
-                  &#129526; Recall ({mine.consumables.rope}) row{" "}
+                  <HudIcon name="rope" /> Recall ({mine.consumables.rope}) row{" "}
                   {currentRecallRange}
                 </button>
                 <button
@@ -5372,10 +5392,7 @@ export function MinePanel({
               </div>
             )}
           </div>
-          <div
-            ref={toolsMenuRef}
-            style={{ position: "relative", pointerEvents: "auto" }}
-          >
+          <div ref={toolsMenuRef} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label="Tools"
@@ -5393,7 +5410,7 @@ export function MinePanel({
                 ...(toolsMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              <span aria-hidden="true">&#9881;</span>
+              <HudIcon name="tools" size={22} />
               {toolsBadgeVisible && (
                 <span aria-hidden="true" style={hotbarBadgeStyle} />
               )}
@@ -5421,7 +5438,8 @@ export function MinePanel({
                     marginBottom: 8,
                   }}
                 >
-                  &#128225; Plant beacon ({mine.consumables.beacon})
+                  <HudIcon name="beacon" /> Plant beacon (
+                  {mine.consumables.beacon})
                 </button>
                 <button
                   type="button"
@@ -5454,7 +5472,8 @@ export function MinePanel({
                       : null),
                   }}
                 >
-                  &#8635; Scrap supports ({visibleSupports.length})
+                  <HudIcon name="scrap" /> Scrap supports (
+                  {visibleSupports.length})
                 </button>
               </div>
             )}

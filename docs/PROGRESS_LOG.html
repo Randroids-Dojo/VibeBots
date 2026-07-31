@@ -9349,6 +9349,19 @@
     </dl>
   </article>
 
+  <article data-slice="mine-hud-icon-set" data-date="2026-07-30">
+    <h3>Mine HUD Icon Set (H7)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/hud-redesign-research-612nhx</code>.</dd>
+      <dt>PR</dt><dd><a href="https://github.com/Randroids-Dojo/VibeBots/pull/309">#309</a>.</dd>
+      <dt>Changed</dt><dd>The HUD's emoji became one inline SVG set drawn in <code>currentColor</code>, so state colour tints the icon instead of needing a second asset. Detail in the <code>docs/gdd/06-mining.html</code> build log. This is the last slice of the redesign plan in <code>docs/research/mine-hud-redesign-2026-07.html</code>.</dd>
+      <dt>Verification</dt><dd><code>pnpm verify</code> (all nine gates), <code>pnpm build</code>, the four critical Playwright smoke tests, the four mine-core HUD and scrap specs, and the beacon-range elevator spec. Scripted captures at 390x844 were read at each step, which is what caught both defects below; a first pass of icon paths was redrawn after the captures showed the bag and dynamite reading as padlocks and the gear as a sun.</dd>
+      <dt>Assumptions</dt><dd>Two defects found by looking at rendered pixels rather than trusting green tests. The settings button and the hotbar tools slot had both shipped as the same gear glyph in H3, so the two most-used chrome controls were indistinguishable; settings is now sliders and tools a wrench, pinned by a unit test that fails if they ever converge again. The recovery and tools menus were anchored to their own slot, so a 244px menu opening from the fourth or fifth slot could not fit a 390px screen in either direction and ran off the edge; they now anchor to the hotbar section. Scope: HUD chips, hotbar slots, and the slot menus take the set, so a slot and its contents match. Sheet decoration such as the confirm tick stays a glyph, per the research. Rule 13 tip review done: no tip named an icon, none went stale, none added. Rule 14 stamp review done: no stamp, this is presentation.</dd>
+      <dt>GDD coverage</dt><dd><code>REQ-024</code> stays <code>done</code>; refs gained the icon module and its test.</dd>
+      <dt>Followups</dt><dd>The research plan's H1 through H7 are now all shipped. Two items remain deliberately deferred with reasons in the H3 entry: retiring the zoom pair (needs <code>mine-viewport.spec.ts</code> rewritten) and folding the base-direction tab into the ribbon (it owns a paid teleport). The palette still lives in two places, TS tokens and <code>mine.css</code>; unifying it on CSS custom properties is the natural next cleanup.</dd>
+    </dl>
+  </article>
+
   <article data-slice="mine-hud-one-mode-sheet" data-date="2026-07-30">
     <h3>Mine HUD One Mode Sheet (H4)</h3>
     <dl>

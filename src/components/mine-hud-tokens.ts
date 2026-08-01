@@ -53,6 +53,33 @@ export const HUD_RADIUS_SMALL = 8;
  */
 export const HUD_TOUCH_MIN = 44;
 
+/**
+ * Stacking order for the mine surface, in one place.
+ *
+ * These were scattered magic numbers, and got it wrong twice: a hotbar menu
+ * opened underneath the bunker backdrop, and the settings menu sat beneath
+ * the toast lane and the hotbar that were added above it. The rule is that
+ * anything the player opened on purpose outranks the persistent HUD.
+ *
+ * The bunker sheet (19/20), the first-paint veil (30), and the loading
+ * notices (40) live in mine.css and sit above everything here.
+ */
+export const HUD_LAYER = {
+  /** Depth ribbon: background furniture, never covers a control. */
+  ribbon: 6,
+  /** Always-on chrome: the settings gear and the zoom pair. */
+  chrome: 7,
+  /** Transient feedback, above chrome but below anything interactive. */
+  toast: 8,
+  /** The hotbar and the context action: the persistent controls. */
+  controls: 9,
+  /** Mode sheets and their backdrop. */
+  sheetBackdrop: 11,
+  sheet: 12,
+  /** Menus the player opened: they outrank every layer above. */
+  menu: 14,
+} as const;
+
 export const HUD_FONT_SMALL = "0.8rem";
 export const HUD_FONT_BODY = "0.95rem";
 export const HUD_FONT_LARGE = "1.35rem";

@@ -5,6 +5,7 @@ import { useDismissControls } from "./dismissible-dialog-frame";
 import {
   HUD_ACCENT,
   HUD_BORDER,
+  HUD_LAYER,
   HUD_RADIUS_MEDIUM,
   HUD_TEXT,
   HUD_TEXT_MUTED,
@@ -26,13 +27,6 @@ import {
  * of any new floating gameplay panel.
  */
 export const MINE_SHEET_BOTTOM = "var(--mine-sheet-bottom)";
-
-/**
- * Above the hotbar (z 9) and the toast lane (z 8) so a mode owns the
- * bottom of the screen, and below the bunker sheet's own modal layer (20)
- * and the first-paint veil (30).
- */
-const SHEET_Z = 12;
 
 export function MineBottomSheet({
   label,
@@ -70,7 +64,7 @@ export function MineBottomSheet({
         left: 10,
         right: 10,
         bottom: MINE_SHEET_BOTTOM,
-        zIndex: SHEET_Z,
+        zIndex: HUD_LAYER.sheet,
         maxHeight: "min(46vh, 320px)",
         overflowY: "auto",
         padding: 12,

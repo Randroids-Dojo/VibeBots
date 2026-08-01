@@ -13,6 +13,7 @@ import {
   HUD_ACCENT,
   HUD_BORDER,
   HUD_GOLD,
+  HUD_LAYER,
   HUD_RADIUS_PILL,
   HUD_SURFACE_SOLID,
   HUD_TEXT,
@@ -92,7 +93,7 @@ export function MineDepthRibbon({
         display: "flex",
         alignItems: "stretch",
         gap: 8,
-        zIndex: 6,
+        zIndex: HUD_LAYER.ribbon,
         pointerEvents: "none",
       }}
     >

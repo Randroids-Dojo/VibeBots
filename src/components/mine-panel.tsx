@@ -149,6 +149,7 @@ import {
   HUD_FONT_LARGE,
   HUD_FONT_SMALL,
   HUD_GOLD,
+  HUD_LAYER,
   HUD_RADIUS_LARGE,
   HUD_RADIUS_MEDIUM,
   HUD_RADIUS_PILL,
@@ -2876,10 +2877,14 @@ export function MinePanel({
     elevatorPlacementMode &&
     miner.row === 0 &&
     (gear.elevator <= 0 || elevatorPlacementRequired);
-  // A mode sheet owns the bottom of the screen while it is open: the
-  // hotbar dims in place (it never moves) and the toast lane yields.
-  const modeSheetOpen =
-    (collectMode || elevatorPlacementVisible || bunkerPanelOpen) &&
+  // Anything the player opened owns the screen while it is up: the hotbar
+  // dims in place (it never moves) and the toast lane yields, so a tip
+  // cannot paint over a menu the player is reading.
+  const overlayOpen =
+    (collectMode ||
+      elevatorPlacementVisible ||
+      bunkerPanelOpen ||
+      settingsOpen) &&
     !fpBunkerActive;
   const usableElevatorDepth = Math.min(mine.gear.elevator, MINE_BOTTOM_ROW - 1);
   const minerOnElevatorRail = miner.col === ownedElevatorColumn;
@@ -4250,7 +4255,7 @@ export function MinePanel({
               position: "absolute",
               top: 58,
               right: 14,
-              zIndex: 7,
+              zIndex: HUD_LAYER.menu,
               width: 42,
               height: 42,
               borderRadius: 12,
@@ -4273,7 +4278,7 @@ export function MinePanel({
               position: "absolute",
               top: 108,
               right: 14,
-              zIndex: 7,
+              zIndex: HUD_LAYER.chrome,
               display: "grid",
               gridTemplateRows: "42px 42px",
               gap: 6,
@@ -4317,7 +4322,7 @@ export function MinePanel({
                 position: "absolute",
                 top: SETTINGS_MENU_TOP,
                 right: SETTINGS_MENU_EDGE_GAP,
-                zIndex: 7,
+                zIndex: HUD_LAYER.menu,
                 width: 238,
                 // The shell clips at its bottom edge (overflow hidden), so
                 // on short viewports the menu scrolls instead of losing
@@ -5121,7 +5126,7 @@ export function MinePanel({
             position: "absolute",
             right: 12,
             bottom: HUD_BOTTOM_INSET,
-            zIndex: 9,
+            zIndex: HUD_LAYER.controls,
             opacity: contextAction.enabled ? 1 : 0.4,
             cursor: contextAction.enabled ? "pointer" : "default",
           }}
@@ -5148,9 +5153,9 @@ export function MinePanel({
             gap: HUD_SLOT_GAP,
             flexWrap: "nowrap",
             alignItems: "flex-end",
-            zIndex: 9,
+            zIndex: HUD_LAYER.controls,
             pointerEvents: "none",
-            opacity: modeSheetOpen ? 0.4 : 1,
+            opacity: overlayOpen ? 0.4 : 1,
           }}
         >
           <button
@@ -5487,7 +5492,7 @@ export function MinePanel({
           checks deliberately, and shared the status stack with permanent
           state. It belongs where the thumb and the eye already are. */}
       {!fpBunkerActive &&
-        !modeSheetOpen &&
+        !overlayOpen &&
         (statusLine || showSurfaceInfoLine) && (
           <div
             style={{
@@ -5495,7 +5500,7 @@ export function MinePanel({
               left: "50%",
               transform: "translateX(-50%)",
               bottom: MINE_SHEET_BOTTOM,
-              zIndex: 8,
+              zIndex: HUD_LAYER.toast,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",

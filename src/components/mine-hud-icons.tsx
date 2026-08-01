@@ -45,6 +45,10 @@ export const ICON_PATHS = {
   // Sliders, not a gear: at 20px a gear's teeth read as sun rays, and the
   // tools slot already owns "mechanical".
   settings: "M4 7h16 M4 12h16 M4 17h16 M9 5v4 M15 10v4 M8 15v4",
+  // Drill-down and step-back in the options menu. A bare chevron, so the
+  // row's own label carries the meaning and the glyph carries direction.
+  "chevron-right": "M9.5 5.5l6.5 6.5-6.5 6.5",
+  "chevron-left": "M14.5 5.5L8 12l6.5 6.5",
 } satisfies Record<string, string>;
 
 export type HudIconName = keyof typeof ICON_PATHS;

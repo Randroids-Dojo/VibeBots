@@ -8,6 +8,7 @@ import {
   enterBuilding,
   expectSurfacePromptBottomClearance,
   exportDiff,
+  openSettings,
   openStall,
   pressMineKey,
   routeStarterMineWorld,
@@ -562,5 +563,53 @@ test(
     await expect(baseReturn).toBeVisible();
     await page.mouse.click(outsidePoint.x, outsidePoint.y);
     await expect(baseReturn).not.toBeVisible();
+  },
+);
+
+test(
+  "the options menu drills into a folder and backs out one level at a time",
+  ciCase("E2E-MINE-NAVIGATION-0011", "@functional"),
+  async ({ page }) => {
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+
+    const settings = await openSettings(page);
+    await expect(settings).toHaveAttribute("data-options-folder", "root");
+    // The root fits without scrolling, which is the point of the folders:
+    // nothing below the fold means nothing unreachable on a phone.
+    expect(
+      await settings.evaluate((el) => el.scrollHeight <= el.clientHeight),
+    ).toBe(true);
+    // Credits lives a level down, so it is not reachable from the root.
+    // Exact, because the folder row names Credits in its own label.
+    await expect(
+      settings.getByRole("button", { name: "Credits", exact: true }),
+    ).toHaveCount(0);
+
+    // The folder row advertises what it holds, per the nested-doll fix.
+    const about = settings.getByRole("button", { name: /^About and help\./ });
+    await expect(about).toContainText("Credits");
+    await about.click();
+    await expect(settings).toHaveAttribute("data-options-folder", "about");
+    await expect(
+      settings.getByRole("button", { name: "Credits", exact: true }),
+    ).toBeVisible();
+
+    // Escape steps up one level before it closes anything.
+    await page.keyboard.press("Escape");
+    await expect(settings).toHaveAttribute("data-options-folder", "root");
+    await expect(settings).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(settings).not.toBeVisible();
+
+    // Reopening lands at the root, never back inside the last folder.
+    const reopened = await openSettings(page);
+    await expect(reopened).toHaveAttribute("data-options-folder", "root");
+
+    // An outside tap still means "away", not "up one level".
+    await reopened.getByRole("button", { name: /^About and help\./ }).click();
+    await expect(reopened).toHaveAttribute("data-options-folder", "about");
+    await page.mouse.click(18, 220);
+    await expect(reopened).not.toBeVisible();
   },
 );

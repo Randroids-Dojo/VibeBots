@@ -180,9 +180,9 @@ import {
   FeedbackDialog,
   IosHomeScreenPrompt,
   LadderGravityFeedbackPrompt,
-  PerfTelemetryControl,
-  ReleaseNotificationControl,
 } from "./mine-settings-dialogs";
+import { type MineMenuActionId, MineSettingsMenu } from "./mine-settings-menu";
+import type { MineMenuFolderId } from "./mine-settings-menu-model";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { sheetButtonStyle, triggerShopHaptic } from "./mine-sheet-controls";
 import { STALL_ICONS, StallMenu } from "./mine-stall-menu";
@@ -1385,6 +1385,15 @@ export function MinePanel({
     string | null
   >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Which options folder is drilled into, or null at the root. The menu
+  // always reopens at the root: one that remembers where it was left
+  // surprises the next visit.
+  const [settingsFolder, setSettingsFolder] = useState<MineMenuFolderId | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!settingsOpen) setSettingsFolder(null);
+  }, [settingsOpen]);
   // "Replay bunker tutorial" confirmation: shows an inline "next
   // entry" note after the flag clears, reset whenever the menu closes.
   const [tutorialReplayArmed, setTutorialReplayArmed] = useState(false);
@@ -2427,6 +2436,20 @@ export function MinePanel({
     setAbandonArmed(false);
   }, []);
 
+  /**
+   * Back (Escape, and the TV remote's Back) steps up one level inside the
+   * options menu before it closes anything, so back never skips a level.
+   * Tapping outside still closes outright: that gesture means "away from
+   * this", not "up one".
+   */
+  const stepBackFromFloatingMenus = useCallback(() => {
+    if (settingsOpen && settingsFolder !== null) {
+      setSettingsFolder(null);
+      return;
+    }
+    dismissFloatingMenus();
+  }, [dismissFloatingMenus, settingsFolder, settingsOpen]);
+
   /** Opening any hotbar menu closes the others; acting closes all. */
   const closeHotbarMenus = useCallback(() => {
     setDynamiteMenuOpen(false);
@@ -2571,8 +2594,20 @@ export function MinePanel({
       openStallCol !== null ||
       dynamiteMenuOpen ||
       recoveryMenuOpen,
-    dismissFloatingMenus,
+    stepBackFromFloatingMenus,
   );
+
+  // Escape mirrors Back: out of a folder first, then out of the menu.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      stepBackFromFloatingMenus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen, stepBackFromFloatingMenus]);
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
   // haul twenty minutes deep.
@@ -3663,6 +3698,45 @@ export function MinePanel({
     setFeedbackOpen(true);
   }, []);
 
+  // Every options row that goes somewhere. Replaying the tutorial is the
+  // one that stays put: it arms an inline confirmation instead of
+  // opening a surface, so the menu has to stay up to show it.
+  const selectSettingsItem = useCallback(
+    (id: MineMenuActionId) => {
+      if (id === "replay-tutorial") {
+        clearFpTutorialDone();
+        setTutorialReplayArmed(true);
+        return;
+      }
+      setSettingsOpen(false);
+      switch (id) {
+        case "stamp-book":
+          setStampBookFocusId(null);
+          setStampBookOpen(true);
+          return;
+        case "load-game":
+          setSaveSlotsOpen(true);
+          return;
+        case "account":
+          setAccountOpen(true);
+          return;
+        case "release-notes":
+          setReleaseNotesOpenCount((count) => count + 1);
+          return;
+        case "feedback":
+          openFeedback({ source: "pause" });
+          return;
+        case "credits":
+          setCreditsOpen(true);
+          return;
+        case "holodeck":
+          router.push("/holodeck");
+          return;
+      }
+    },
+    [openFeedback, router],
+  );
+
   const toggleCollectTarget = useCallback((target: CollectTarget) => {
     const key = collectTargetKey(target);
     setCollectSelection((prev) =>
@@ -4315,213 +4389,16 @@ export function MinePanel({
             </button>
           </section>
           {settingsOpen && (
-            <section
-              ref={settingsMenuRef}
-              aria-label="Settings"
-              style={{
-                position: "absolute",
-                top: SETTINGS_MENU_TOP,
-                right: SETTINGS_MENU_EDGE_GAP,
-                zIndex: HUD_LAYER.menu,
-                width: 238,
-                // The shell clips at its bottom edge (overflow hidden), so
-                // on short viewports the menu scrolls instead of losing
-                // its lower buttons past the edge.
-                maxHeight: `calc(100% - ${SETTINGS_MENU_TOP + SETTINGS_MENU_EDGE_GAP}px)`,
-                overflowY: "auto",
-                border: `1px solid ${HUD_BORDER}`,
-                borderRadius: 12,
-                background: "rgb(var(--hud-surface-rgb) / 0.96)",
-                boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
-                padding: 10,
-                color: HUD_TEXT,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setStampBookFocusId(null);
-                  setStampBookOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #f5c542",
-                  background: "#2d2616",
-                  color: HUD_GOLD,
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Stamp Book
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setSaveSlotsOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #cdd6ea",
-                  background: "#20283a",
-                  color: HUD_TEXT,
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Load game
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setAccountOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #9fb6ff",
-                  background: "#1c2440",
-                  color: "#c7d4ff",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Account
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setReleaseNotesOpenCount((count) => count + 1);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #54e0c7",
-                  background: "#172b30",
-                  color: HUD_ACCENT,
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                Release notes
-              </button>
-              <button
-                type="button"
-                data-testid="replay-bunker-tutorial"
-                onClick={() => {
-                  clearFpTutorialDone();
-                  setTutorialReplayArmed(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #cdd6ea",
-                  background: "#20283a",
-                  color: HUD_TEXT,
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Replay bunker tutorial
-              </button>
-              {tutorialReplayArmed && (
-                <div
-                  role="status"
-                  style={{
-                    marginTop: 6,
-                    fontSize: "0.76rem",
-                    color: "#9aa3b2",
-                    textAlign: "center",
-                  }}
-                >
-                  Shows the next time you enter your bunker.
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  openFeedback({ source: "pause" });
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #f0c36b",
-                  background: "#2d2616",
-                  color: "#f0c36b",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Feedback
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setCreditsOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #9fb6ff",
-                  background: "#1c2440",
-                  color: "#c7d4ff",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Credits
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  router.push("/holodeck");
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #54e0c7",
-                  background: "#172b30",
-                  color: HUD_ACCENT,
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Holodeck
-              </button>
-              <ReleaseNotificationControl />
-              <PerfTelemetryControl />
-            </section>
+            <MineSettingsMenu
+              menuRef={settingsMenuRef}
+              top={SETTINGS_MENU_TOP}
+              edgeGap={SETTINGS_MENU_EDGE_GAP}
+              zIndex={HUD_LAYER.menu}
+              openFolder={settingsFolder}
+              onOpenFolder={setSettingsFolder}
+              onSelect={selectSettingsItem}
+              tutorialReplayArmed={tutorialReplayArmed}
+            />
           )}
         </>
       )}

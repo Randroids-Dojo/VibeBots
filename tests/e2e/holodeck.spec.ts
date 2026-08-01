@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { ciCase } from "./support/ci-case";
 import { imagePixelDifferenceRatio } from "./support/image-pixels";
-import { dismissReleaseNotes, openSettings } from "./support/mine-helpers";
+import { dismissReleaseNotes, openSettingsFor } from "./support/mine-helpers";
 
 const REDUCED_MOTION_PIXEL_DIFF_BUDGET = 0.0001;
 
@@ -12,8 +12,9 @@ test(
     await page.goto("/mine");
     await dismissReleaseNotes(page);
 
-    // Open the options (gear) menu and jump to the Holodeck.
-    await openSettings(page);
+    // Open the options (gear) menu, drill into Advanced, and jump to the
+    // Holodeck.
+    await openSettingsFor(page, "holodeck");
     await page.getByRole("button", { name: "Holodeck" }).click();
 
     await expect(page).toHaveURL(/\/holodeck$/);

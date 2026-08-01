@@ -1,6 +1,10 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import packageJson from "../../../package.json";
 import { START_ACTION_REPEAT_MS } from "../../../src/components/mine-pacing";
+import {
+  type MineMenuLeafId,
+  mineMenuFolderOf,
+} from "../../../src/components/mine-settings-menu-model";
 import { getAppRelease } from "../../../src/lib/app-release";
 import {
   applyAction,
@@ -574,6 +578,28 @@ export async function openSettings(page: Page) {
     await page.getByRole("button", { name: "Open settings" }).click();
   }
   await expect(settings).toBeVisible();
+  return settings;
+}
+
+/**
+ * Open the options menu at whichever level holds `item`, and return the
+ * menu region. Six of the ten options moved a folder deep in the menu
+ * redesign; the folder each one lives in comes from the menu's own model,
+ * so moving an option between folders cannot leave a spec clicking into
+ * an empty panel.
+ */
+export async function openSettingsFor(
+  page: Page,
+  item: MineMenuLeafId,
+): Promise<Locator> {
+  const settings = await openSettings(page);
+  const folder = mineMenuFolderOf(item);
+  if (folder) {
+    await settings
+      .getByRole("button", { name: new RegExp(`^${folder.label}\\.`) })
+      .click();
+    await expect(settings).toHaveAttribute("data-options-folder", folder.id);
+  }
   return settings;
 }
 

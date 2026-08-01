@@ -7,6 +7,7 @@ import {
   installStandaloneVisualViewport,
   MINE_KEY_CADENCE_MS,
   openSettings,
+  openSettingsFor,
   speedUpVersionRefreshChecks,
 } from "./support/mine-helpers";
 
@@ -48,7 +49,7 @@ test(
     await page.reload();
     await expect(dialog).not.toBeVisible();
 
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "release-notes");
     await settings.getByRole("button", { name: "Release notes" }).click();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
@@ -341,7 +342,7 @@ test(
 
     await page.goto("/mine");
     await dismissReleaseNotes(page);
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "credits");
     await settings.getByRole("button", { name: "Credits" }).click();
     const dialog = page.getByRole("dialog", { name: "Credits" });
     await expect(dialog).toBeVisible();
@@ -359,7 +360,7 @@ test(
     await page.mouse.click(8, 8);
     await expect(dialog).not.toBeVisible();
 
-    const settingsAgain = await openSettings(page);
+    const settingsAgain = await openSettingsFor(page, "credits");
     await settingsAgain.getByRole("button", { name: "Credits" }).click();
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Escape");

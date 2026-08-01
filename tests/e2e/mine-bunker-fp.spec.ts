@@ -16,6 +16,7 @@ import {
   exportDiff,
   holdFpDigUntil,
   MINE_VERSION,
+  openSettingsFor,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -2274,7 +2275,7 @@ test(
     await expect(status).toHaveAttribute("data-fp-mode", "0");
     await awaitMineSceneReady(page);
     const gear = page.getByRole("button", { name: "Open settings" });
-    await gear.click();
+    await openSettingsFor(page, "replay-tutorial");
     const replay = page.getByTestId("replay-bunker-tutorial");
     await expect(replay).toBeVisible();
     await replay.click();

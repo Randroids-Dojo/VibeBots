@@ -11,7 +11,7 @@ import {
   exportDiff,
   installGamepadBackControl,
   MINE_VERSION,
-  openSettings,
+  openSettingsFor,
   pressGamepadBack,
   pressMineKey,
   START_COL,
@@ -199,7 +199,7 @@ test(
 
     await page.goto("/mine");
     await dismissReleaseNotes(page);
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "feedback");
     await settings.getByRole("button", { name: "Feedback" }).click();
     const dialog = page.getByRole("dialog", { name: "Feedback" });
     await expect(dialog).toBeVisible();
@@ -220,7 +220,7 @@ test(
 
     await dialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(dialog).not.toBeVisible();
-    const settingsAgain = await openSettings(page);
+    const settingsAgain = await openSettingsFor(page, "feedback");
     await settingsAgain.getByRole("button", { name: "Feedback" }).click();
     await expect(dialog).toBeVisible();
     await pressGamepadBack(page);

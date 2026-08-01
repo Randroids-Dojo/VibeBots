@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Research: Mine Options Menu</title>
+</head>
+<body>
+
+<header>
+  <h1>Research: Mine Options Menu</h1>
+  <p>Date: 2026-07-30. User-directed: "can we actually research and redesign the options menu. it should probably utilize folders / nesting for better organization".</p>
+  <p>Follows the HUD redesign in <a href="mine-hud-redesign-2026-07.html">docs/research/mine-hud-redesign-2026-07.html</a>. That work left the settings gear as the single piece of persistent top-right chrome; this is about what opens when it is tapped.</p>
+</header>
+
+<section id="current">
+  <h2>1. What the menu is today</h2>
+  <p>One flat scroll of ten leaves, rendered inline in <code>mine-panel.tsx</code>, with explanatory paragraphs interleaved between buttons:</p>
+  <table border="1" cellpadding="6" cellspacing="0">
+    <thead><tr><th>Item</th><th>Kind</th><th>What it really is</th></tr></thead>
+    <tbody>
+      <tr><td>Stamp Book</td><td>destination</td><td>the cosmetic collection layer (Rule 14)</td></tr>
+      <tr><td>Load game</td><td>destination</td><td>save slots</td></tr>
+      <tr><td>Account</td><td>destination</td><td>cloud sync and sign-in</td></tr>
+      <tr><td>Release notes</td><td>destination</td><td>version history</td></tr>
+      <tr><td>Replay bunker tutorial</td><td>action</td><td>re-arms an onboarding flow</td></tr>
+      <tr><td>Feedback</td><td>destination</td><td>report a problem</td></tr>
+      <tr><td>Credits</td><td>destination</td><td>attribution</td></tr>
+      <tr><td>Holodeck</td><td>destination</td><td>the art and animation QA bench</td></tr>
+      <tr><td>Enable update alerts</td><td>toggle + copy</td><td>Web Push opt-in</td></tr>
+      <tr><td>Enable performance telemetry</td><td>toggle + copy</td><td>diagnostics opt-in</td></tr>
+    </tbody>
+  </table>
+  <p><strong>The problem is not the count, it is that nothing is adjacent to anything related.</strong> Progression sits next to save state sits next to attribution sits next to a developer bench. There is no grouping, no hierarchy, and two of the ten carry multi-line body copy that pushes the rest below the fold, so the panel scrolls on a phone and its last items are reachable only by dragging. The 2026-07-30 layering bug (a rotating tip and the Jump button painting over the options) was made worse by exactly that height.</p>
+</section>
+
+<section id="principles">
+  <h2>2. What the research says about nesting</h2>
+  <ul>
+    <li><strong>Broadest first, increasing granularity.</strong> A multilevel menu should show the widest categories at the top level and narrow through submenus, and the hierarchy has to match the player's mental model rather than the code's structure.</li>
+    <li><strong>Beware nested-doll navigation.</strong> Nielsen Norman Group's specific warning: menus that make users take a sequence of selections without showing useful information along the way are a pattern mobile users dislike. Depth is a cost, not a feature.</li>
+    <li><strong>Information scent beats brevity.</strong> Long or nested menus need icons and supporting text so a row advertises what is behind it. A folder labelled only "More" is the failure case.</li>
+    <li><strong>Games specifically:</strong> group related items and nest secondary features (settings, support, stats) behind a gear rather than spreading them across the main screen.</li>
+  </ul>
+  <p>Read together, those give the constraint this design has to satisfy: nesting is allowed to remove scrolling, but every top-level row must say what is inside it, and no player should ever make two decisions to reach something they use often.</p>
+</section>
+
+<section id="design">
+  <h2>3. The design</h2>
+  <p>Decisions taken with the owner on 2026-07-30: <strong>nested folders with drill-down</strong>, and <strong>developer-facing entries grouped under Advanced</strong> rather than hidden behind a debug gate.</p>
+
+  <h3>Top level: five rows, no scrolling</h3>
+  <ol>
+    <li><strong>Stamp Book</strong> (direct). The headline collection feature stays one tap. Burying a progression surface behind a folder to win tidiness is the trade the research warns against.</li>
+    <li><strong>Saves and account</strong> (folder, 2): Load game, Account.</li>
+    <li><strong>About and help</strong> (folder, 4): Release notes, Replay bunker tutorial, Feedback, Credits.</li>
+    <li><strong>Advanced</strong> (folder, 2): Holodeck, Performance telemetry.</li>
+    <li><strong>Update alerts</strong> (inline toggle). A switch, not a destination, and player-facing.</li>
+  </ol>
+
+  <h3>The rules that keep it honest</h3>
+  <ul>
+    <li><strong>Exactly two levels, ever.</strong> Root and one folder. Anything that wants a third level is a sign the grouping is wrong.</li>
+    <li><strong>No folder holds fewer than two items.</strong> A one-item folder is a tap tax with no organising benefit. This is why "Notifications" is not a folder: update alerts is its only member, so it stays a top-level toggle.</li>
+    <li><strong>Every folder row names its contents.</strong> Each carries a subtitle listing what is inside ("Release notes, tutorial, feedback, credits"), which is the direct answer to the nested-doll critique: the player can read the folder without opening it.</li>
+    <li><strong>Toggles never nest for their own sake.</strong> Update alerts is player-facing and stays at root; performance telemetry is diagnostics and sits in Advanced. The split is by audience, not by control type.</li>
+    <li><strong>Body copy belongs to its control.</strong> The two explanatory paragraphs move inside their folders, next to the toggle they describe, instead of pushing unrelated buttons below the fold at root.</li>
+  </ul>
+
+  <h3>Navigation and dismissal</h3>
+  <ul>
+    <li>Opening a folder replaces the panel contents; a back row at the top returns to root, labelled with the folder name so the player knows where they are.</li>
+    <li>Escape, gamepad cancel, and TV back step <em>up</em> one level first, and close the menu from root. That matches the platform expectation and means back never skips a level.</li>
+    <li>The menu reopens at root, never at the last folder: a menu that remembers its position surprises the next visit.</li>
+    <li>Dismissal otherwise keeps the existing contract (tap outside, the shared dismissal marker).</li>
+  </ul>
+</section>
+
+<section id="why">
+  <h2>4. What this fixes</h2>
+  <ul>
+    <li>Root goes from ten items plus two paragraphs to five rows, which fits without scrolling on a 390x844 phone. That also removes the height that made the layering bug so visible.</li>
+    <li>Related things become adjacent: saves with account, attribution with version history, the QA bench with the diagnostics toggle.</li>
+    <li>The developer surfaces stop sitting beside a progression feature, without being hidden from the owner.</li>
+    <li>Adding an option later has an obvious home, instead of being appended to a flat list.</li>
+  </ul>
+</section>
+
+<section id="risks">
+  <h2>5. Risks and constraints</h2>
+  <ul>
+    <li><strong>Drill-down costs a tap</strong> for six of the ten leaves. Mitigated by keeping the two most-used destinations (Stamp Book, and Load game one level down) shallow, but it is a real trade the owner accepted.</li>
+    <li><strong>The e2e suite reaches these items by role and name.</strong> Several specs click "Release notes", "Account", "Holodeck", and the two toggles straight from the open menu; each now needs its folder opened first. That wants a helper in <code>tests/e2e/support/mine-helpers.ts</code>, in the same shape as <code>openScrapMode</code>, rather than the folder tap being repeated at every call site.</li>
+    <li><strong>Rule 10 dismissal coverage applies:</strong> the back step and the outside-tap path both need smoke coverage, and the menu must stay above the HUD chrome (the <code>HUD_LAYER.menu</code> level added on 2026-07-30).</li>
+    <li><strong>Not in scope:</strong> the destinations themselves. Stamp Book, Account, and the save-slot popup keep their current internals; this is the menu that opens them.</li>
+  </ul>
+</section>
+
+<section id="sources">
+  <h2>6. Sources</h2>
+  <ul>
+    <li><a href="https://www.nngroup.com/articles/mobile-subnavigation/">Mobile Subnavigation, Nielsen Norman Group</a> (the nested-doll warning)</li>
+    <li><a href="https://www.nngroup.com/articles/menu-design/">Menu-Design Checklist: 17 UX Guidelines, Nielsen Norman Group</a></li>
+    <li><a href="https://www.toptal.com/designers/ux/multilevel-menu-design">Multilevel Menu Design Best Practices, Toptal</a></li>
+    <li><a href="https://www.appnality.com/blog/guide-to-mobile-game-ui-ux-design/">A Technical Guide to Mobile Game UI/UX Design, Appnality</a></li>
+    <li><a href="https://www.gameuidatabase.com/index.php?scrn=26">Settings menus, Game UI Database</a></li>
+    <li>Internal: <a href="mine-hud-redesign-2026-07.html">docs/research/mine-hud-redesign-2026-07.html</a>, <a href="../gdd/06-mining.html">docs/gdd/06-mining.html</a> REQ-024.</li>
+  </ul>
+</section>
+
+</body>
+</html>

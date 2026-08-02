@@ -113,6 +113,7 @@ import {
   useTvBackDismiss,
 } from "./dismissible-dialog-frame";
 import { AccountSyncPopup } from "./mine-account-popup";
+import { autoBankDecision } from "./mine-auto-bank";
 import { MineBagPanel } from "./mine-bag-panel";
 import {
   MINE_SHEET_BOTTOM,
@@ -3558,32 +3559,24 @@ export function MinePanel({
   ]);
 
   useEffect(() => {
-    const previousRow = previousMinerRowRef.current;
+    const decision = autoBankDecision({
+      previousRow: previousMinerRowRef.current,
+      minerRow: miner.row,
+      tripReportOpen: lastResult?.ok === true && lastResult.collapsed,
+      cashOutPending: cashOut.state === "pending",
+      worldLoaded,
+      elevatorBoarded: mine.elevatorPhase === "boarded",
+      movesLength,
+      bankedCredits,
+      bankedPartsCount,
+      pendingBunkerActive,
+      carvedThisTrip,
+    });
+    // A held arrival stays pending, so the previous row is NOT advanced:
+    // the death teleport to row 0 is banked once the report is dismissed.
+    if (decision === "hold") return;
     previousMinerRowRef.current = miner.row;
-    if (cashOut.state === "pending") return;
-    const arrivedAtSurface = previousRow > 0 && miner.row === 0;
-    const restoredAtElevatorSurface =
-      worldLoaded &&
-      miner.row === 0 &&
-      mine.elevatorPhase === "boarded" &&
-      movesLength > 0;
-    if (!arrivedAtSurface && !restoredAtElevatorSurface) return;
-    // Bank whenever the trip is worth persisting, which is not only when
-    // the hold has something to sell. A carved shaft, a placed ladder, or
-    // any other change to the world is progress the server must checkpoint
-    // (REQ-026), and the bank route already accepts a zero-value trip for
-    // exactly this reason. Gating on loot alone meant an ore-less digging
-    // trip never reached the server: the carving lived only in the device's
-    // move log, the stored world stayed frozen at the last loot-bearing
-    // trip, and the two trip counters drifted apart from there.
-    if (
-      bankedCredits <= 0 &&
-      bankedPartsCount <= 0 &&
-      !pendingBunkerActive &&
-      !carvedThisTrip
-    ) {
-      return;
-    }
+    if (decision === "skip") return;
     const key = `${seed}:${tripIndex}:${movesLength}:${bankedCredits}:${bankedPartsCount}:${pendingBunkerActive ? "bunker" : "mine"}`;
     if (lastAutoCashOutKeyRef.current === key) return;
     lastAutoCashOutKeyRef.current = key;
@@ -3592,6 +3585,7 @@ export function MinePanel({
     bankedCredits,
     bankedPartsCount,
     cashOut.state,
+    lastResult,
     miner.row,
     movesLength,
     pendingBunkerActive,

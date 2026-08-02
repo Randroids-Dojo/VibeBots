@@ -3562,7 +3562,7 @@ export function MinePanel({
     const decision = autoBankDecision({
       previousRow: previousMinerRowRef.current,
       minerRow: miner.row,
-      tripReportOpen: lastResult?.ok === true && lastResult.collapsed,
+      tripReportOpen: terminalMineState,
       cashOutPending: cashOut.state === "pending",
       worldLoaded,
       elevatorBoarded: mine.elevatorPhase === "boarded",
@@ -3585,7 +3585,7 @@ export function MinePanel({
     bankedCredits,
     bankedPartsCount,
     cashOut.state,
-    lastResult,
+    terminalMineState,
     miner.row,
     movesLength,
     pendingBunkerActive,

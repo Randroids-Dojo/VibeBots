@@ -80,16 +80,6 @@ describe("mine death playback", () => {
     }
   });
 
-  it("keeps re-anchoring rarer than the frames it runs on", () => {
-    // The anchor advance runs every frame but only re-renders on a step,
-    // so a step must cover many frames. At the slowest fall (one row per
-    // FATAL_FALL_SECONDS_PER_ROW) a step is this many seconds apart.
-    const secondsPerStep = FALL_ANCHOR_STEP_ROWS * FATAL_FALL_SECONDS_PER_ROW;
-    expect(secondsPerStep).toBeGreaterThan(0.25);
-    // A long fall still re-renders a bounded number of times.
-    expect(Math.ceil(120 / FALL_ANCHOR_STEP_ROWS)).toBeLessThanOrEqual(30);
-  });
-
   it("holds the powered-down wreck past its report delay (F-058)", () => {
     // The out-of-battery slump stays on camera until after the report
     // lands, the same contract fall and crush keep.

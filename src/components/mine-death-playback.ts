@@ -84,14 +84,17 @@ function fallPlaybackFromResult(
     result.fell
   ) {
     const toRow = result.lost.row;
+    const fromRow = Math.max(0, toRow - result.fell);
     return {
       key,
       kind: "fall",
       col: result.lost.col,
-      fromRow: Math.max(0, toRow - result.fell),
+      fromRow,
       toRow,
       fell: result.fell,
-      anchorRow: Math.max(0, toRow - result.fell),
+      // The anchor starts at the top of the fall and streams down after
+      // the bot (see FallWindow.anchorRow).
+      anchorRow: fromRow,
       track: null,
       impacted: false,
       doneAt: null,
@@ -188,7 +191,7 @@ export function useMineDeathPlaybackBridge(
   fallPlayback: RefObject<FallPlayback | null>;
   fallWindow: FallWindow | null;
   clearFallPlayback: (key: number) => void;
-  advanceFallAnchor: (key: number, row: number) => void;
+  advanceFallAnchor: (row: number) => void;
 } {
   const fallPlayback = useRef<FallPlayback | null>(null);
   const fallClearTimeout = useRef<number | null>(null);
@@ -224,14 +227,14 @@ export function useMineDeathPlaybackBridge(
   // allocation-free (frame-loop rule): the ref carries the live anchor and
   // only a real step allocates the state updater. Forward-only, so a
   // re-render that rebuilds the window cannot rewind the stream.
-  const advanceFallAnchor = useCallback((key: number, row: number) => {
+  const advanceFallAnchor = useCallback((row: number) => {
     const playback = fallPlayback.current;
-    if (playback === null || playback.key !== key) return;
+    if (playback === null) return;
     if (row < playback.anchorRow + FALL_ANCHOR_STEP_ROWS) return;
     const anchorRow = Math.min(row, playback.toRow);
     playback.anchorRow = anchorRow;
     setFallWindow((prev) =>
-      prev?.key === key ? { ...prev, anchorRow } : prev,
+      prev?.key === playback.key ? { ...prev, anchorRow } : prev,
     );
   }, []);
 

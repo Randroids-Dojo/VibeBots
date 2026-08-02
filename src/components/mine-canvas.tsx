@@ -1378,7 +1378,7 @@ function MineScene({
         t,
         motionSample.current,
       );
-      advanceFallAnchor(activeFall.key, Math.round(-visualTargetY));
+      advanceFallAnchor(Math.round(-visualTargetY));
       if (motionProgress(activeFall.track, t) >= 1 && !activeFall.impacted) {
         activeFall.impacted = true;
         // Signal the panel that the impact frame has rendered; the trip

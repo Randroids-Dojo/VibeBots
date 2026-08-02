@@ -19,6 +19,16 @@ export interface FallWindow {
   fromRow: number;
   toRow: number;
   fell: number;
+  /**
+   * Row the render window and the lantern are centred on while the
+   * playback runs. A fall travels further than the loaded window is tall,
+   * so anchoring on `toRow` for the whole playback culled everything above
+   * `toRow - renderWindow.above` and opened a black void where the top of
+   * the shaft should be. The frame loop walks this down after the bot, in
+   * FALL_ANCHOR_STEP_ROWS steps, so the window streams with the fall
+   * instead of covering the whole span at once.
+   */
+  anchorRow: number;
 }
 
 export interface FallPlayback extends FallWindow {
@@ -27,6 +37,11 @@ export interface FallPlayback extends FallWindow {
   impacted: boolean;
   doneAt: number | null;
 }
+
+/** How far the bot falls before the render window re-centres on it. Must
+ * stay under mineRenderWindow's `below`, so the rows under the bot are
+ * always loaded by the time it reaches them. */
+export const FALL_ANCHOR_STEP_ROWS = 4;
 
 export const FATAL_FALL_HOLD_SECONDS = 0.38;
 export const CRUSH_HOLD_SECONDS = 3.6;
@@ -76,6 +91,7 @@ function fallPlaybackFromResult(
       fromRow: Math.max(0, toRow - result.fell),
       toRow,
       fell: result.fell,
+      anchorRow: Math.max(0, toRow - result.fell),
       track: null,
       impacted: false,
       doneAt: null,
@@ -89,6 +105,7 @@ function fallPlaybackFromResult(
       fromRow: result.lost.row,
       toRow: result.lost.row,
       fell: 0,
+      anchorRow: result.lost.row,
       track: null,
       impacted: false,
       doneAt: null,
@@ -111,6 +128,7 @@ function fallPlaybackFromResult(
       fromRow: result.lost.row,
       toRow: result.lost.row,
       fell: 0,
+      anchorRow: result.lost.row,
       track: null,
       impacted: false,
       doneAt: null,
@@ -126,6 +144,7 @@ function fallWindowFromPlayback(playback: FallPlayback): FallWindow {
     fromRow: playback.fromRow,
     toRow: playback.toRow,
     fell: playback.fell,
+    anchorRow: playback.anchorRow,
   };
 }
 
@@ -169,6 +188,7 @@ export function useMineDeathPlaybackBridge(
   fallPlayback: RefObject<FallPlayback | null>;
   fallWindow: FallWindow | null;
   clearFallPlayback: (key: number) => void;
+  advanceFallAnchor: (key: number, row: number) => void;
 } {
   const fallPlayback = useRef<FallPlayback | null>(null);
   const fallClearTimeout = useRef<number | null>(null);
@@ -199,6 +219,21 @@ export function useMineDeathPlaybackBridge(
     },
     [clearPendingTimeout, clearImpactSubscription],
   );
+
+  // Called every frame of a fall, so the reject path must stay
+  // allocation-free (frame-loop rule): the ref carries the live anchor and
+  // only a real step allocates the state updater. Forward-only, so a
+  // re-render that rebuilds the window cannot rewind the stream.
+  const advanceFallAnchor = useCallback((key: number, row: number) => {
+    const playback = fallPlayback.current;
+    if (playback === null || playback.key !== key) return;
+    if (row < playback.anchorRow + FALL_ANCHOR_STEP_ROWS) return;
+    const anchorRow = Math.min(row, playback.toRow);
+    playback.anchorRow = anchorRow;
+    setFallWindow((prev) =>
+      prev?.key === key ? { ...prev, anchorRow } : prev,
+    );
+  }, []);
 
   useEffect(
     () => () => {
@@ -263,5 +298,5 @@ export function useMineDeathPlaybackBridge(
     }
   }, [tick]);
 
-  return { fallPlayback, fallWindow, clearFallPlayback };
+  return { fallPlayback, fallWindow, clearFallPlayback, advanceFallAnchor };
 }

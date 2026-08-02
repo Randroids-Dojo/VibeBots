@@ -40,16 +40,48 @@ describe("auto bank decision", () => {
     ).toBe("bank");
   });
 
-  it("skips a trip that changed nothing and carries nothing", () => {
+  it("skips a restored elevator state with no recorded moves", () => {
     expect(
-      autoBankDecision({ ...CARVED_ARRIVAL, carvedThisTrip: false }),
+      autoBankDecision({
+        ...CARVED_ARRIVAL,
+        previousRow: 0,
+        elevatorBoarded: true,
+        movesLength: 0,
+      }),
     ).toBe("skip");
   });
 
-  it("skips while a bank request is already in flight", () => {
+  it("skips a restored elevator state before the world has loaded", () => {
     expect(
-      autoBankDecision({ ...CARVED_ARRIVAL, cashOutPending: true }),
+      autoBankDecision({
+        ...CARVED_ARRIVAL,
+        previousRow: 0,
+        elevatorBoarded: true,
+        worldLoaded: false,
+      }),
     ).toBe("skip");
+  });
+
+  it("banks a surfaced pending bunker even with nothing to sell", () => {
+    expect(
+      autoBankDecision({
+        ...CARVED_ARRIVAL,
+        carvedThisTrip: false,
+        pendingBunkerActive: true,
+      }),
+    ).toBe("bank");
+  });
+
+  it("skips a trip that changed nothing and carries nothing", () => {
+    expect(autoBankDecision({ ...CARVED_ARRIVAL, carvedThisTrip: false })).toBe(
+      "skip",
+    );
+  });
+
+  it("skips while a bank request is already in flight", () => {
+    expect(autoBankDecision({ ...CARVED_ARRIVAL, cashOutPending: true })).toBe(
+      "skip",
+    );
   });
 
   it("skips while the miner is still underground", () => {
@@ -62,9 +94,9 @@ describe("auto bank decision", () => {
   // pulled back up out of its own fall, so the arrival must be HELD, not
   // consumed, and must still bank once the report is dismissed.
   it("holds the arrival while a trip report is on screen", () => {
-    expect(
-      autoBankDecision({ ...CARVED_ARRIVAL, tripReportOpen: true }),
-    ).toBe("hold");
+    expect(autoBankDecision({ ...CARVED_ARRIVAL, tripReportOpen: true })).toBe(
+      "hold",
+    );
   });
 
   it("holds a death arrival even with nothing left to sell", () => {

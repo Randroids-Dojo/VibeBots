@@ -12,6 +12,7 @@ import {
   FALL_REPORT_AFTER_IMPACT_MS,
   FATAL_FALL_SECONDS_PER_ROW,
   fatalFallPlaybackSeconds,
+  nextFallAnchorRow,
   POWER_DOWN_HOLD_SECONDS,
   POWER_DOWN_REPORT_AFTER_IMPACT_MS,
   wreckReportCeilingMs,
@@ -64,11 +65,7 @@ describe("mine death playback", () => {
       lantern: index + 1,
     }));
     for (const gear of gears) {
-      const zooms = [
-        clampMineCameraZoom(0, gear),
-        1,
-        maxMineCameraZoom(gear),
-      ];
+      const zooms = [clampMineCameraZoom(0, gear), 1, maxMineCameraZoom(gear)];
       for (const zoom of zooms) {
         const { above, below } = mineRenderWindow(gear, zoom);
         // The rows the bot falls into during one step are already drawn.
@@ -78,6 +75,30 @@ describe("mine death playback", () => {
         expect(FALL_ANCHOR_STEP_ROWS).toBeLessThan(above);
       }
     }
+  });
+
+  it("streams the anchor down in whole steps, never backwards", () => {
+    // Inside a step: no re-anchor, so the frame loop's reject path stays
+    // allocation-free and the window does not re-render every frame.
+    expect(nextFallAnchorRow(10, 40, 10)).toBeNull();
+    expect(
+      nextFallAnchorRow(10, 40, 10 + FALL_ANCHOR_STEP_ROWS - 1),
+    ).toBeNull();
+    // A full step re-centres ON the bot's row, so a stalled frame that
+    // skipped many rows snaps the window to the bot instead of trailing
+    // it a step at a time.
+    expect(nextFallAnchorRow(10, 40, 10 + FALL_ANCHOR_STEP_ROWS)).toBe(
+      10 + FALL_ANCHOR_STEP_ROWS,
+    );
+    expect(nextFallAnchorRow(10, 40, 27)).toBe(27);
+    // Forward-only: a rendered row behind the anchor (an eased sample or
+    // a rebuilt window) never rewinds the stream.
+    expect(nextFallAnchorRow(20, 40, 12)).toBeNull();
+    // Capped at the impact row; once the anchor sits there, the sampled
+    // row (itself capped at toRow by the motion track) can never reach a
+    // full step past it, so every post-impact frame rejects for free.
+    expect(nextFallAnchorRow(38, 40, 55)).toBe(40);
+    expect(nextFallAnchorRow(40, 40, 40)).toBeNull();
   });
 
   it("holds the powered-down wreck past its report delay (F-058)", () => {

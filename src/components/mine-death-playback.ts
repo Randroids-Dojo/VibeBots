@@ -39,9 +39,25 @@ export interface FallPlayback extends FallWindow {
 }
 
 /** How far the bot falls before the render window re-centres on it. Must
- * stay under mineRenderWindow's `below`, so the rows under the bot are
- * always loaded by the time it reaches them. */
+ * stay under mineRenderWindow's `above` AND `below`: under `below` so the
+ * rows the bot falls into are loaded before it reaches them, under
+ * `above` so the rows it just left stay drawn between steps. */
 export const FALL_ANCHOR_STEP_ROWS = 4;
+
+/** Pure step rule for the streaming anchor: the next anchor row, or null
+ * while the bot is still inside the current step. A step lands ON the
+ * bot's rendered row (not anchor + step) so a stalled frame that skipped
+ * several rows re-centres the window on the bot immediately instead of
+ * trailing it, capped at the impact row. Null on every pre-step frame
+ * keeps the useFrame reject path allocation-free. */
+export function nextFallAnchorRow(
+  anchorRow: number,
+  toRow: number,
+  row: number,
+): number | null {
+  if (row < anchorRow + FALL_ANCHOR_STEP_ROWS) return null;
+  return Math.min(row, toRow);
+}
 
 export const FATAL_FALL_HOLD_SECONDS = 0.38;
 export const CRUSH_HOLD_SECONDS = 3.6;
@@ -230,8 +246,12 @@ export function useMineDeathPlaybackBridge(
   const advanceFallAnchor = useCallback((row: number) => {
     const playback = fallPlayback.current;
     if (playback === null) return;
-    if (row < playback.anchorRow + FALL_ANCHOR_STEP_ROWS) return;
-    const anchorRow = Math.min(row, playback.toRow);
+    const anchorRow = nextFallAnchorRow(
+      playback.anchorRow,
+      playback.toRow,
+      row,
+    );
+    if (anchorRow === null) return;
     playback.anchorRow = anchorRow;
     setFallWindow((prev) =>
       prev?.key === playback.key ? { ...prev, anchorRow } : prev,

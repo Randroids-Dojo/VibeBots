@@ -24,18 +24,55 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest every-rock-breaks note complete", () => {
+  it("keeps the latest icon-set note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-29-0.1.290-every-rock-breaks");
+    expect(release.noticeId).toBe("2026-07-30-0.1.293-one-icon-set");
     expect(latestNote).toMatchObject({
+      version: "0.1.293",
+      title: "The mine's icons are one set now",
+    });
+    expect(latestNote?.changes).toHaveLength(3);
+  });
+
+  it("keeps the archived control-layout note complete", () => {
+    const release = getAppRelease();
+    const layoutNote = release.notes.find((note) => note.version === "0.1.292");
+
+    expect(layoutNote).toMatchObject({
+      version: "0.1.292",
+      title: "One row of tools, one button for what you can do",
+    });
+    expect(layoutNote?.changes).toHaveLength(4);
+  });
+
+  it("keeps the archived readiness-gauge note complete", () => {
+    const release = getAppRelease();
+    const gaugeNote = release.notes.find((note) => note.version === "0.1.291");
+
+    expect(gaugeNote).toMatchObject({
+      version: "0.1.291",
+      title: "The charge bar now shows your trip home",
+    });
+    expect(gaugeNote?.changes.map((change) => change.text)).toEqual([
+      "The charge bar has a notch on it. Everything to the right of the notch is charge you can spend digging; the notch itself is the trip home. The bar turns amber as you approach it and red once your charge drops past it.",
+      "Your ladder count moved onto that same bar, so running short of ladders or losing your route home now reads in the same place as your charge instead of the opposite corner of the screen.",
+      "With the separate ladder chip gone, the bottom row of controls fits on one line again instead of spilling the last button onto a second row.",
+    ]);
+  });
+
+  it("keeps the archived every-rock-breaks note complete", () => {
+    const release = getAppRelease();
+    const rockNote = release.notes.find((note) => note.version === "0.1.290");
+
+    expect(rockNote).toMatchObject({
       version: "0.1.290",
       title: "Every rock in the mine can be broken",
       intro:
         "Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
     });
-    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+    expect(rockNote?.changes.map((change) => change.text)).toEqual([
       "Boulders cut like rock at their depth. If your pickaxe is too light for that row, the note names the level that opens it instead of just playing the deny sound, and you can plank across a boulder cell the way you can any other block.",
       "Picking a ladder, plank, or beacon to scrap now draws one red box around it instead of two overlapping outlines.",
     ]);

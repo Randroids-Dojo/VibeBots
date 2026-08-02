@@ -68,6 +68,7 @@ import {
   elevatorBoardingTarget,
   elevatorColumn,
   elevatorRailPrice,
+  findBeacons,
   findPortalBeacons,
   MAX_BEACONS,
   MINE_BOTTOM_ROW,
@@ -113,13 +114,20 @@ import {
 } from "./dismissible-dialog-frame";
 import { AccountSyncPopup } from "./mine-account-popup";
 import { MineBagPanel } from "./mine-bag-panel";
+import {
+  MINE_SHEET_BOTTOM,
+  MineBottomSheet,
+  sheetActionStyle,
+} from "./mine-bottom-sheet";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
+import { pickContextAction } from "./mine-context-action";
 import {
   CRUSH_REPORT_AFTER_IMPACT_MS,
   FALL_REPORT_AFTER_IMPACT_MS,
   POWER_DOWN_REPORT_AFTER_IMPACT_MS,
   wreckReportCeilingMs,
 } from "./mine-death-playback";
+import { MineDepthRibbon } from "./mine-depth-ribbon";
 import { DESTINATIONS, destinationAt } from "./mine-destinations";
 import { MineElevatorControls } from "./mine-elevator-controls";
 import {
@@ -128,12 +136,40 @@ import {
   type ElevatorRideAction,
   initialElevatorPresentation,
 } from "./mine-elevator-presentation";
+import { HudIcon } from "./mine-hud-icons";
+import {
+  HUD_ACCENT,
+  HUD_ACCENT_GLOW,
+  HUD_ACCENT_SURFACE,
+  HUD_ACCENT_TEXT,
+  HUD_BORDER,
+  HUD_DANGER,
+  HUD_DANGER_TEXT,
+  HUD_FONT_BODY,
+  HUD_FONT_LARGE,
+  HUD_FONT_SMALL,
+  HUD_GOLD,
+  HUD_LAYER,
+  HUD_RADIUS_LARGE,
+  HUD_RADIUS_MEDIUM,
+  HUD_RADIUS_PILL,
+  HUD_RADIUS_SMALL,
+  HUD_RESERVE_TICK,
+  HUD_SURFACE,
+  HUD_SURFACE_SOLID,
+  HUD_TEXT,
+  HUD_TEXT_MUTED,
+  HUD_TOUCH_MIN,
+  HUD_WARN,
+  HUD_WARN_TEXT,
+} from "./mine-hud-tokens";
 import {
   createDirectionCadenceController,
   type DirectionCadenceController,
 } from "./mine-input-cadence";
 import { actionRepeatMs } from "./mine-pacing";
 import { useMinePerformanceSampling } from "./mine-performance-sampling";
+import { computeReadiness, type MineReadinessLevel } from "./mine-readiness";
 import { ReleaseNotesPopup } from "./mine-release-notes-popup";
 import { SaveConflictPopup } from "./mine-save-conflict-popup";
 import { SaveSlotsPopup } from "./mine-save-slots-popup";
@@ -144,9 +180,9 @@ import {
   FeedbackDialog,
   IosHomeScreenPrompt,
   LadderGravityFeedbackPrompt,
-  PerfTelemetryControl,
-  ReleaseNotificationControl,
 } from "./mine-settings-dialogs";
+import { type MineMenuActionId, MineSettingsMenu } from "./mine-settings-menu";
+import type { MineMenuFolderId } from "./mine-settings-menu-model";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
 import { sheetButtonStyle, triggerShopHaptic } from "./mine-sheet-controls";
 import { STALL_ICONS, StallMenu } from "./mine-stall-menu";
@@ -326,8 +362,11 @@ const MINE_SURFACE_TIPS = [
   "Tip: falling rocks drop after two moves and need at least two hits to break.",
   "Tip: every rock and boulder breaks with the right pickaxe. A blocked swing names the level it needs.",
   "Tip: tunnels five cells wide shake their roof loose. A plank props the ceiling above it.",
+  "Tip: the notch on the charge bar is the climb home. Dig above it, head back below it.",
   "Tip: Lantern upgrades reveal more rows and let you zoom out farther.",
   "Tip: Buy ladders and planks at the Supply Depot before heading deeper.",
+  "Tip: the tools slot holds your beacon and the scrap tool. Tap it when you need them.",
+  "Tip: the button in the bottom right does whatever fits where you stand: jump, warp, or step inside your bunker.",
   "Tip: Dynamite collects the ore and parts it breaks if your hold has room.",
   "Tip: Upgrade Blast Charge to unlock larger dynamite blast shapes.",
   "Tip: Upgrade Recall Rope to bank from deeper rows.",
@@ -449,14 +488,118 @@ function randomMineSurfaceTip(current: string | null): string | null {
 }
 
 const chipStyle: React.CSSProperties = {
-  background: "rgba(17, 21, 31, 0.82)",
-  border: "1px solid #26304a",
-  borderRadius: 999,
+  background: HUD_SURFACE,
+  border: `1px solid ${HUD_BORDER}`,
+  borderRadius: HUD_RADIUS_PILL,
   padding: "4px 10px",
-  fontSize: "0.8rem",
+  fontSize: HUD_FONT_SMALL,
   lineHeight: 1.3,
   whiteSpace: "nowrap",
   display: "inline-block",
+};
+
+/**
+ * Bottom zone geometry. Every bottom-anchored control shares one inset so
+ * the hotbar and the context action sit on the same line, and it respects
+ * the home indicator, which the old fixed `bottom: 18` did not.
+ */
+const HUD_BOTTOM_INSET = "calc(18px + env(safe-area-inset-bottom))";
+const MINE_TOOLS_SEEN_KEY = "vibebots-mine-tools-seen";
+const HUD_SLOT_GAP = 6;
+/**
+ * Sized so the five slots and the context action both fit one 390px row
+ * without overlapping: 12 + (5*48 + 4*6) + 8 + 88 + 12 = 384. Slots stay
+ * above the 44px touch floor.
+ */
+const HUD_SLOT_SIZE = 48;
+
+/**
+ * A hotbar slot is a fixed-size tile: same width whether it holds a count
+ * of 0 or 999, so the row never reflows. Disabled dims in place.
+ */
+function hotbarSlotStyle(enabled: boolean): React.CSSProperties {
+  return {
+    position: "relative",
+    width: HUD_SLOT_SIZE,
+    height: HUD_TOUCH_MIN + 6,
+    borderRadius: HUD_RADIUS_MEDIUM,
+    border: `1px solid ${HUD_BORDER}`,
+    background: HUD_SURFACE_SOLID,
+    color: HUD_TEXT,
+    fontSize: HUD_FONT_BODY,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    pointerEvents: "auto",
+    opacity: enabled ? 1 : 0.42,
+    cursor: enabled ? "pointer" : "default",
+  };
+}
+
+const hotbarSlotArmedStyle: React.CSSProperties = {
+  background: HUD_ACCENT_SURFACE,
+  borderColor: HUD_ACCENT,
+  color: HUD_ACCENT,
+};
+
+/** Count badge, bottom right of its slot. */
+const hotbarCountStyle: React.CSSProperties = {
+  position: "absolute",
+  right: 4,
+  bottom: 2,
+  fontSize: "0.62rem",
+  fontWeight: 800,
+  lineHeight: 1,
+  color: HUD_TEXT,
+  opacity: 0.85,
+};
+
+/** One-time "there is something new in here" dot on the tools slot. */
+const hotbarBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 5,
+  right: 5,
+  width: 8,
+  height: 8,
+  borderRadius: "50%",
+  background: HUD_ACCENT,
+  boxShadow: HUD_ACCENT_GLOW,
+};
+
+function hotbarMenuStyle(width: number): React.CSSProperties {
+  return {
+    // Resolves against the hotbar section, not the slot: a slot-anchored
+    // menu cannot fit on a 390px screen from the rightmost slots.
+    position: "absolute",
+    left: 0,
+    bottom: HUD_TOUCH_MIN + 16,
+    width,
+    maxWidth: "calc(100vw - 24px)",
+    padding: 10,
+    borderRadius: HUD_RADIUS_MEDIUM,
+    border: "1px solid #34415f",
+    background: "rgb(var(--hud-surface-rgb) / 0.96)",
+    color: HUD_TEXT,
+    boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
+  };
+}
+
+/** Readiness gauge palette. Surface and clear share a look on purpose. */
+const HUD_READINESS: Record<
+  MineReadinessLevel,
+  { fill: string; text: string }
+> = {
+  surface: { fill: HUD_ACCENT, text: HUD_TEXT },
+  clear: { fill: HUD_ACCENT, text: HUD_TEXT },
+  warn: { fill: HUD_WARN, text: HUD_WARN_TEXT },
+  danger: { fill: HUD_DANGER, text: HUD_DANGER_TEXT },
+};
+
+/** Chips that pair an icon with a label sit them on one baseline. */
+const HUD_CHIP_WITH_ICON: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 5,
 };
 
 const statusChipStyle: React.CSSProperties = {
@@ -476,6 +619,7 @@ const compactChipStyle: React.CSSProperties = {
   overflowWrap: "break-word",
 };
 
+/** Ore art, not chrome: these are the resource hues, palette-independent. */
 const RESOURCE_FLOAT_COLORS: Record<OreId, string> = {
   coal: "#8b93a7",
   copper: "#d28445",
@@ -628,13 +772,13 @@ function soldHaulLine(
 }
 
 const iconButtonStyle: React.CSSProperties = {
-  background: "rgba(17, 21, 31, 0.88)",
-  border: "1px solid #26304a",
-  borderRadius: 14,
-  color: "#e6e8ee",
+  background: HUD_SURFACE_SOLID,
+  border: `1px solid ${HUD_BORDER}`,
+  borderRadius: HUD_RADIUS_LARGE,
+  color: HUD_TEXT,
   minWidth: 54,
   height: 46,
-  fontSize: "0.95rem",
+  fontSize: HUD_FONT_BODY,
   pointerEvents: "auto",
 };
 
@@ -642,24 +786,24 @@ const jumpButtonStyle: React.CSSProperties = {
   ...iconButtonStyle,
   minWidth: 88,
   height: 64,
-  borderRadius: 8,
-  border: "2px solid #54e0c7",
-  background: "rgba(15, 31, 37, 0.94)",
-  color: "#eafff9",
-  fontSize: "0.95rem",
+  borderRadius: HUD_RADIUS_SMALL,
+  border: `2px solid ${HUD_ACCENT}`,
+  background: HUD_ACCENT_SURFACE,
+  color: HUD_ACCENT_TEXT,
+  fontSize: HUD_FONT_BODY,
   fontWeight: 900,
   letterSpacing: 0,
-  boxShadow: "0 0 18px rgba(84, 224, 199, 0.2)",
+  boxShadow: HUD_ACCENT_GLOW,
 };
 
 const zoomButtonStyle: React.CSSProperties = {
   width: 42,
   height: 42,
-  borderRadius: 12,
-  border: "1px solid #26304a",
-  background: "rgba(17, 21, 31, 0.88)",
-  color: "#e6e8ee",
-  fontSize: "1.35rem",
+  borderRadius: HUD_RADIUS_MEDIUM,
+  border: `1px solid ${HUD_BORDER}`,
+  background: HUD_SURFACE_SOLID,
+  color: HUD_TEXT,
+  fontSize: HUD_FONT_LARGE,
   fontWeight: 900,
   lineHeight: 1,
   pointerEvents: "auto",
@@ -909,7 +1053,7 @@ function JuiceOverlays() {
       const ore = oreDef(lastResult.oreHarvested.ore);
       const count = lastResult.oreHarvested.units;
       const color =
-        RESOURCE_FLOAT_COLORS[lastResult.oreHarvested.ore] ?? "#54e0c7";
+        RESOURCE_FLOAT_COLORS[lastResult.oreHarvested.ore] ?? HUD_ACCENT;
       const id = nextId.current++;
       setFloats((prev) => [
         ...prev.slice(-4),
@@ -1047,8 +1191,8 @@ function JuiceOverlays() {
             left: "50%",
             transform: "translateX(-50%)",
             background: "rgba(40, 32, 8, 0.95)",
-            border: "2px solid #f5c542",
-            color: "#f5c542",
+            border: `2px solid ${HUD_GOLD}`,
+            color: HUD_GOLD,
             borderRadius: 12,
             padding: "14px 30px",
             fontSize: "1.25rem",
@@ -1112,7 +1256,7 @@ function JuiceOverlays() {
                 style={{
                   margin: "10px 0 0",
                   fontSize: "0.9rem",
-                  color: "#f5c542",
+                  color: HUD_GOLD,
                 }}
               >
                 So close: {wreck.nearMiss}
@@ -1220,6 +1364,11 @@ export function MinePanel({
   const router = useRouter();
   const [dynamiteMenuOpen, setDynamiteMenuOpen] = useState(false);
   const [recoveryMenuOpen, setRecoveryMenuOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+  // The tools slot hides beacon and scrap behind one tap, so a player can
+  // forget they own them. A one-time dot marks the slot until it is opened
+  // once (Q-036: the accepted cost of keeping slot positions fixed).
+  const [toolsSeen, setToolsSeen] = useState(true);
   const [selectedDynamiteTier, setSelectedDynamiteTier] =
     useState<DynamiteTier>(1);
   const [abandonArmed, setAbandonArmed] = useState(false);
@@ -1236,6 +1385,15 @@ export function MinePanel({
     string | null
   >(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Which options folder is drilled into, or null at the root. The menu
+  // always reopens at the root: one that remembers where it was left
+  // surprises the next visit.
+  const [settingsFolder, setSettingsFolder] = useState<MineMenuFolderId | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!settingsOpen) setSettingsFolder(null);
+  }, [settingsOpen]);
   // "Replay bunker tutorial" confirmation: shows an inline "next
   // entry" note after the flag clears, reset whenever the menu closes.
   const [tutorialReplayArmed, setTutorialReplayArmed] = useState(false);
@@ -1391,6 +1549,7 @@ export function MinePanel({
   const previousElevatorPlacementModeRef = useRef(false);
   const dynamiteMenuRef = useRef<HTMLDivElement | null>(null);
   const recoveryMenuRef = useRef<HTMLDivElement | null>(null);
+  const toolsMenuRef = useRef<HTMLDivElement | null>(null);
   const lastCashOutStateRef = useRef(cashOut.state);
   const lastShopNoteRef = useRef<string | null>(null);
   const lastGamepadZoomRef = useRef(0);
@@ -2249,6 +2408,23 @@ export function MinePanel({
     return () => cancelAnimationFrame(frame);
   }, [elevatorPlacementMode]);
 
+  useEffect(() => {
+    try {
+      setToolsSeen(window.localStorage.getItem(MINE_TOOLS_SEEN_KEY) === "1");
+    } catch {
+      // Blocked storage (private browsing): the badge just shows again.
+    }
+  }, []);
+
+  const markToolsSeen = useCallback(() => {
+    setToolsSeen(true);
+    try {
+      window.localStorage.setItem(MINE_TOOLS_SEEN_KEY, "1");
+    } catch {
+      // Cosmetic only; never take the hotbar down for it.
+    }
+  }, []);
+
   const dismissFloatingMenus = useCallback(() => {
     setSettingsOpen(false);
     setBaseReturnOpen(false);
@@ -2256,7 +2432,41 @@ export function MinePanel({
     setOpenStallCol(null);
     setDynamiteMenuOpen(false);
     setRecoveryMenuOpen(false);
+    setToolsMenuOpen(false);
     setAbandonArmed(false);
+  }, []);
+
+  /**
+   * Back (Escape, and the TV remote's Back) steps up one level inside the
+   * options menu before it closes anything, so back never skips a level.
+   * Tapping outside still closes outright: that gesture means "away from
+   * this", not "up one".
+   */
+  const stepBackFromFloatingMenus = useCallback(() => {
+    if (settingsOpen && settingsFolder !== null) {
+      setSettingsFolder(null);
+      return;
+    }
+    dismissFloatingMenus();
+  }, [dismissFloatingMenus, settingsFolder, settingsOpen]);
+
+  /** Opening any hotbar menu closes the others; acting closes all. */
+  const closeHotbarMenus = useCallback(() => {
+    setDynamiteMenuOpen(false);
+    setRecoveryMenuOpen(false);
+    setToolsMenuOpen(false);
+  }, []);
+
+  /**
+   * A hotbar menu opens upward, into the band the bunker sheet's backdrop
+   * covers (it cuts out only the hotbar strip, which is why the slots
+   * themselves stay tappable). Dismiss the bunker overlay when a menu
+   * opens so the menu is reachable instead of trapped behind it, and so
+   * one mode owns the screen at a time.
+   */
+  const yieldBunkerOverlay = useCallback(() => {
+    setBunkerClaimMode(false);
+    setBunkerPanelOpen(false);
   }, []);
 
   const chooseElevatorShaft = useCallback(() => {
@@ -2350,6 +2560,9 @@ export function MinePanel({
       if (recoveryMenuOpen && eventInsideRef(recoveryMenuRef, target, path)) {
         return true;
       }
+      if (toolsMenuOpen && eventInsideRef(toolsMenuRef, target, path)) {
+        return true;
+      }
       return false;
     },
     [
@@ -2358,6 +2571,7 @@ export function MinePanel({
       openStallCol,
       recoveryMenuOpen,
       settingsOpen,
+      toolsMenuOpen,
     ],
   );
 
@@ -2366,7 +2580,8 @@ export function MinePanel({
       baseReturnOpen ||
       openStallCol !== null ||
       dynamiteMenuOpen ||
-      recoveryMenuOpen,
+      recoveryMenuOpen ||
+      toolsMenuOpen,
     isInsideOpenFloatingMenu,
     dismissFloatingMenus,
   );
@@ -2379,8 +2594,20 @@ export function MinePanel({
       openStallCol !== null ||
       dynamiteMenuOpen ||
       recoveryMenuOpen,
-    dismissFloatingMenus,
+    stepBackFromFloatingMenus,
   );
+
+  // Escape mirrors Back: out of a folder first, then out of the menu.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      stepBackFromFloatingMenus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [settingsOpen, stepBackFromFloatingMenus]);
 
   // The abandon confirm disarms itself; a stray thumb cannot torch a
   // haul twenty minutes deep.
@@ -2524,10 +2751,7 @@ export function MinePanel({
   ]);
 
   const currentCell = cellAt(mine, miner.col, miner.row);
-  const stratum = stratumAt(miner.row);
   const horizontalDistance = miner.col - START_COL;
-  const horizontalDistanceLabel =
-    horizontalDistance > 0 ? `+${horizontalDistance}` : `${horizontalDistance}`;
   const bagCapacity = cargoCapacity(mine.gear);
   const carriedOreCount = carriedCount(miner);
   const carriedOreStackCount = carriedStackCount(miner);
@@ -2549,22 +2773,30 @@ export function MinePanel({
   const climbCost = returnEstimate.reachable
     ? returnEstimate.energyCost
     : returnEnergyCost(miner);
-  // The route estimate prices known clear paths back home (REQ-017).
-  const batteryLow = miner.row > 0 && miner.energy < climbCost * 1.25 + 2;
   const laddersNeeded = returnEstimate.laddersNeeded;
-  const returnRouteBlocked = miner.row > 0 && !returnEstimate.reachable;
-  const ladderShort =
-    miner.row > 0 &&
-    returnEstimate.reachable &&
-    laddersNeeded > mine.consumables.ladder;
-  const returnRouteState =
-    miner.row <= 0
-      ? "surface"
-      : returnRouteBlocked
-        ? "blocked"
-        : ladderShort
-          ? "short"
-          : "clear";
+  // The route estimate prices known clear paths back home (REQ-017). One
+  // derivation feeds both the readiness gauge and the data attributes, so
+  // the gauge can never disagree with what the tests read.
+  const readiness = computeReadiness({
+    depth: miner.row,
+    energy: miner.energy,
+    maxEnergy: maxEnergy(mine.gear),
+    climbCost,
+    routeReachable: returnEstimate.reachable,
+    laddersNeeded,
+    laddersCarried: mine.consumables.ladder,
+  });
+  const batteryLow = readiness.batteryLow;
+  const ladderShort = readiness.ladderShort;
+  const returnRouteBlocked = readiness.routeBlocked;
+  const returnRouteState = readiness.routeState;
+  const readinessTitle = returnRouteBlocked
+    ? "No clear route home from here."
+    : ladderShort
+      ? `${readiness.ladderShortfall} more ladder${readiness.ladderShortfall > 1 ? "s" : ""} to climb out.`
+      : returnRouteState === "surface"
+        ? "At the surface."
+        : `Climbing home costs ${climbCost.toFixed(1)} charge.`;
   // The village (REQ-021): standing on a stall's column opens its menu,
   // unless the player just closed it here (swipe-down or close button).
   const stall = miner.row === 0 ? stallAt(miner.col) : null;
@@ -2581,12 +2813,16 @@ export function MinePanel({
       )
     : [];
   const lostCargo = miner.lostCargo;
-  const lostDistance = lostCargo
-    ? Math.abs(lostCargo.col - miner.col) + Math.abs(lostCargo.row - miner.row)
-    : 0;
-  const lostPulseSeconds = lostCargo
-    ? Math.max(0.45, Math.min(1.6, 0.35 + lostDistance * 0.08))
-    : 1;
+  // `applyAction` mutates `mine` in place, so `mine` alone is not a
+  // sufficient key: it would never re-run. The beacon stock changes exactly
+  // when one is planted, and `findBeacons` walks the whole persistent cell
+  // map, so this must not be keyed on `tick`.
+  const ribbonBeaconRows = useMemo(
+    () => findBeacons(mine).map((beacon) => beacon.row),
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the stock
+    // count is the change signal for an in-place-mutated world.
+    [mine, mine.consumables.beacon],
+  );
   const visibleSupports = collectablePlacements(mine);
   const visibleSupportKeyList = visibleSupports.map(collectTargetKey).join("|");
   const selectedSupports = visibleSupports.filter((target) =>
@@ -2629,9 +2865,44 @@ export function MinePanel({
     !elevatorInteractionActive && canPlacePlank(mine, "left");
   const rightPlankEnabled =
     !elevatorInteractionActive && canPlacePlank(mine, "right");
-  const beaconRange = warpRange(mine.gear);
-  const beaconDepthAllowed = miner.row <= beaconRange;
-  const beaconButtonDisabled = elevatorInteractionActive || !beaconDepthAllowed;
+  // One context action button replaces the four persistent verb buttons
+  // (Jump, Enter bunker, Warp home, Claim bunker) that each owned their
+  // own screen location, and moves the survivor into the thumb arc and
+  // out of the joystick's drag area.
+  const warpRangeRows = warpRange(mine.gear);
+  const canWarpHomeHere = Boolean(
+    currentCell?.beacon && miner.row > 0 && miner.row <= warpRangeRows,
+  );
+  const canEnterBunkerHere =
+    fpEnterTriggerVisible && !fpBunkerActive && !bunkerPanelOpen;
+  const contextAction = pickContextAction({
+    canEnterBunker: canEnterBunkerHere,
+    canWarpHome: canWarpHomeHere,
+    canJump: jumpButtonVisible,
+    interactive:
+      mineSceneReady &&
+      !elevatorInteractionActive &&
+      !elevatorPurchasePending &&
+      !creditsOpen,
+  });
+  const fireContextAction = () => {
+    setDynamiteMenuOpen(false);
+    setRecoveryMenuOpen(false);
+    setToolsMenuOpen(false);
+    if (contextAction.verb === "enter-bunker") enterFpBunker();
+    else if (contextAction.verb === "warp-home") move("warp-home");
+    else if (contextAction.verb === "jump") fireJump();
+  };
+  const toolsBadgeVisible =
+    !toolsSeen && (mine.consumables.beacon > 0 || visibleSupports.length > 0);
+  const beaconDepthAllowed = miner.row <= warpRangeRows;
+  const canPlantBeacon =
+    !elevatorInteractionActive &&
+    beaconDepthAllowed &&
+    miner.row >= 1 &&
+    mine.consumables.beacon > 0;
+  const canScrapSupports =
+    !elevatorInteractionActive && (collectMode || visibleSupports.length > 0);
   const ownedElevatorColumn = elevatorColumn(mine.gear);
   const elevatorPurchaseFunds =
     balance === null ? null : balance + miner.bankedCredits;
@@ -2641,6 +2912,15 @@ export function MinePanel({
     elevatorPlacementMode &&
     miner.row === 0 &&
     (gear.elevator <= 0 || elevatorPlacementRequired);
+  // Anything the player opened owns the screen while it is up: the hotbar
+  // dims in place (it never moves) and the toast lane yields, so a tip
+  // cannot paint over a menu the player is reading.
+  const overlayOpen =
+    (collectMode ||
+      elevatorPlacementVisible ||
+      bunkerPanelOpen ||
+      settingsOpen) &&
+    !fpBunkerActive;
   const usableElevatorDepth = Math.min(mine.gear.elevator, MINE_BOTTOM_ROW - 1);
   const minerOnElevatorRail = miner.col === ownedElevatorColumn;
   const salvagedSupportCount =
@@ -2692,7 +2972,7 @@ export function MinePanel({
       : {
           border: "1px solid #54e0c7",
           background: "#173033",
-          color: "#54e0c7",
+          color: HUD_ACCENT,
         };
   const bunkerPreview =
     miner.row > 0 &&
@@ -3418,6 +3698,45 @@ export function MinePanel({
     setFeedbackOpen(true);
   }, []);
 
+  // Every options row that goes somewhere. Replaying the tutorial is the
+  // one that stays put: it arms an inline confirmation instead of
+  // opening a surface, so the menu has to stay up to show it.
+  const selectSettingsItem = useCallback(
+    (id: MineMenuActionId) => {
+      if (id === "replay-tutorial") {
+        clearFpTutorialDone();
+        setTutorialReplayArmed(true);
+        return;
+      }
+      setSettingsOpen(false);
+      switch (id) {
+        case "stamp-book":
+          setStampBookFocusId(null);
+          setStampBookOpen(true);
+          return;
+        case "load-game":
+          setSaveSlotsOpen(true);
+          return;
+        case "account":
+          setAccountOpen(true);
+          return;
+        case "release-notes":
+          setReleaseNotesOpenCount((count) => count + 1);
+          return;
+        case "feedback":
+          openFeedback({ source: "pause" });
+          return;
+        case "credits":
+          setCreditsOpen(true);
+          return;
+        case "holodeck":
+          router.push("/holodeck");
+          return;
+      }
+    },
+    [openFeedback, router],
+  );
+
   const toggleCollectTarget = useCallback((target: CollectTarget) => {
     const key = collectTargetKey(target);
     setCollectSelection((prev) =>
@@ -3533,8 +3852,8 @@ export function MinePanel({
   const surfaceInfoColor = autoSellStatusLine
     ? cashOut.state === "error"
       ? "#ff6b6b"
-      : "#54e0c7"
-    : "#f5c542";
+      : HUD_ACCENT
+    : HUD_GOLD;
   const showSurfaceInfoLine =
     miner.row === 0 &&
     surfaceInfoLine !== null &&
@@ -4010,20 +4329,20 @@ export function MinePanel({
               position: "absolute",
               top: 58,
               right: 14,
-              zIndex: 7,
+              zIndex: HUD_LAYER.menu,
               width: 42,
               height: 42,
               borderRadius: 12,
-              border: "1px solid #26304a",
-              background: "rgba(17, 21, 31, 0.88)",
-              color: "#e6e8ee",
+              border: `1px solid ${HUD_BORDER}`,
+              background: HUD_SURFACE_SOLID,
+              color: HUD_TEXT,
               fontSize: "1.12rem",
               fontWeight: 800,
               pointerEvents: "auto",
               cursor: "pointer",
             }}
           >
-            &#9881;
+            <HudIcon name="settings" size={20} />
           </button>
           <section
             aria-label="Zoom controls"
@@ -4033,7 +4352,7 @@ export function MinePanel({
               position: "absolute",
               top: 108,
               right: 14,
-              zIndex: 7,
+              zIndex: HUD_LAYER.chrome,
               display: "grid",
               gridTemplateRows: "42px 42px",
               gap: 6,
@@ -4070,213 +4389,16 @@ export function MinePanel({
             </button>
           </section>
           {settingsOpen && (
-            <section
-              ref={settingsMenuRef}
-              aria-label="Settings"
-              style={{
-                position: "absolute",
-                top: SETTINGS_MENU_TOP,
-                right: SETTINGS_MENU_EDGE_GAP,
-                zIndex: 7,
-                width: 238,
-                // The shell clips at its bottom edge (overflow hidden), so
-                // on short viewports the menu scrolls instead of losing
-                // its lower buttons past the edge.
-                maxHeight: `calc(100% - ${SETTINGS_MENU_TOP + SETTINGS_MENU_EDGE_GAP}px)`,
-                overflowY: "auto",
-                border: "1px solid #26304a",
-                borderRadius: 12,
-                background: "rgba(17, 21, 31, 0.96)",
-                boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
-                padding: 10,
-                color: "#e6e8ee",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setStampBookFocusId(null);
-                  setStampBookOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #f5c542",
-                  background: "#2d2616",
-                  color: "#f5c542",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Stamp Book
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setSaveSlotsOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #cdd6ea",
-                  background: "#20283a",
-                  color: "#e6e8ee",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Load game
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setAccountOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #9fb6ff",
-                  background: "#1c2440",
-                  color: "#c7d4ff",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Account
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setReleaseNotesOpenCount((count) => count + 1);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #54e0c7",
-                  background: "#172b30",
-                  color: "#54e0c7",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                Release notes
-              </button>
-              <button
-                type="button"
-                data-testid="replay-bunker-tutorial"
-                onClick={() => {
-                  clearFpTutorialDone();
-                  setTutorialReplayArmed(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #cdd6ea",
-                  background: "#20283a",
-                  color: "#e6e8ee",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Replay bunker tutorial
-              </button>
-              {tutorialReplayArmed && (
-                <div
-                  role="status"
-                  style={{
-                    marginTop: 6,
-                    fontSize: "0.76rem",
-                    color: "#9aa3b2",
-                    textAlign: "center",
-                  }}
-                >
-                  Shows the next time you enter your bunker.
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  openFeedback({ source: "pause" });
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #f0c36b",
-                  background: "#2d2616",
-                  color: "#f0c36b",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Feedback
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  setCreditsOpen(true);
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #9fb6ff",
-                  background: "#1c2440",
-                  color: "#c7d4ff",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Credits
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSettingsOpen(false);
-                  router.push("/holodeck");
-                }}
-                style={{
-                  width: "100%",
-                  minHeight: 40,
-                  borderRadius: 10,
-                  border: "1px solid #54e0c7",
-                  background: "#172b30",
-                  color: "#54e0c7",
-                  fontSize: "0.9rem",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  marginTop: 8,
-                }}
-              >
-                Holodeck
-              </button>
-              <ReleaseNotificationControl />
-              <PerfTelemetryControl />
-            </section>
+            <MineSettingsMenu
+              menuRef={settingsMenuRef}
+              top={SETTINGS_MENU_TOP}
+              edgeGap={SETTINGS_MENU_EDGE_GAP}
+              zIndex={HUD_LAYER.menu}
+              openFolder={settingsFolder}
+              onOpenFolder={setSettingsFolder}
+              onSelect={selectSettingsItem}
+              tutorialReplayArmed={tutorialReplayArmed}
+            />
           )}
         </>
       )}
@@ -4305,7 +4427,7 @@ export function MinePanel({
               aria-label="Base return"
               className={`mine-base-return-menu mine-base-return-menu-${baseReturn.direction}`}
             >
-              <div style={{ fontWeight: 800, color: "#e6e8ee" }}>
+              <div style={{ fontWeight: 800, color: HUD_TEXT }}>
                 Base is {baseReturn.distance} cells {baseReturn.direction}
               </div>
               <div style={{ fontSize: "0.82rem", color: "#aab2c7" }}>
@@ -4333,28 +4455,54 @@ export function MinePanel({
         </>
       )}
       {elevatorPlacementVisible && (
-        <section
-          ref={elevatorPlacementRef}
-          tabIndex={-1}
-          aria-label="Place elevator shaft"
-          aria-live="polite"
-          data-testid="elevator-placement"
-          style={{
-            ...surfaceActionPromptAnchorStyle,
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: 8,
-            alignItems: "center",
-            minWidth: "min(360px, calc(100vw - 24px))",
-            padding: 10,
-            borderRadius: 14,
-            border: "2px solid #9aa7ff",
-            background: "rgba(17, 21, 31, 0.95)",
-            color: "#e6e8ee",
-            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
-          }}
+        <MineBottomSheet
+          label="Place elevator shaft"
+          open
+          onDismiss={() => setElevatorPlacementMode(false)}
+          sheetRef={elevatorPlacementRef}
+          testId="elevator-placement"
+          ariaLive="polite"
+          actions={
+            <>
+              <button
+                type="button"
+                onClick={() => void placeElevatorAtCurrentColumn()}
+                disabled={
+                  elevatorPurchasePending ||
+                  cashOut.state === "pending" ||
+                  (!elevatorPlacementIsFree &&
+                    (elevatorPurchaseFunds === null ||
+                      elevatorPurchaseFunds < elevatorRailPrice(0)))
+                }
+                style={sheetActionStyle(
+                  !elevatorPurchasePending &&
+                    cashOut.state !== "pending" &&
+                    (elevatorPlacementIsFree ||
+                      (elevatorPurchaseFunds !== null &&
+                        elevatorPurchaseFunds >= elevatorRailPrice(0))),
+                  "confirm",
+                )}
+              >
+                {elevatorPurchasePending
+                  ? elevatorPlacementIsFree
+                    ? "Moving..."
+                    : "Building..."
+                  : elevatorPlacementIsFree
+                    ? "Move here: Free"
+                    : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setElevatorPlacementMode(false)}
+                disabled={elevatorPurchasePending}
+                style={sheetActionStyle(!elevatorPurchasePending, "cancel")}
+              >
+                Cancel
+              </button>
+            </>
+          }
         >
-          <span style={{ gridColumn: "1 / -1", fontWeight: 800 }}>
+          <span style={{ display: "block", fontWeight: 800 }}>
             {elevatorPlacementIsFree
               ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
               : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
@@ -4362,53 +4510,12 @@ export function MinePanel({
           {elevatorPlacementError && (
             <span
               role="status"
-              style={{ gridColumn: "1 / -1", color: "#ff9b9b" }}
+              style={{ display: "block", marginTop: 6, color: "#ff9b9b" }}
             >
               {elevatorPlacementError}
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => void placeElevatorAtCurrentColumn()}
-            disabled={
-              elevatorPurchasePending ||
-              cashOut.state === "pending" ||
-              (!elevatorPlacementIsFree &&
-                (elevatorPurchaseFunds === null ||
-                  elevatorPurchaseFunds < elevatorRailPrice(0)))
-            }
-            style={{
-              ...sheetButtonStyle(
-                !elevatorPurchasePending &&
-                  cashOut.state !== "pending" &&
-                  (elevatorPlacementIsFree ||
-                    (elevatorPurchaseFunds !== null &&
-                      elevatorPurchaseFunds >= elevatorRailPrice(0))),
-              ),
-              minHeight: 42,
-            }}
-          >
-            {elevatorPurchasePending
-              ? elevatorPlacementIsFree
-                ? "Moving..."
-                : "Building..."
-              : elevatorPlacementIsFree
-                ? "Move here: Free"
-                : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
-          </button>
-          <button
-            type="button"
-            onClick={() => setElevatorPlacementMode(false)}
-            disabled={elevatorPurchasePending}
-            style={{
-              ...sheetButtonStyle(!elevatorPurchasePending),
-              minHeight: 42,
-              minWidth: 76,
-            }}
-          >
-            Cancel
-          </button>
-        </section>
+        </MineBottomSheet>
       )}
       {/* Standing on a stall shows a prompt; the menu opens on tap, not
           on walk-by. Tapping again after close needs another tap. */}
@@ -4425,8 +4532,8 @@ export function MinePanel({
             padding: "10px 16px",
             borderRadius: 999,
             border: `2px solid ${stall.color}`,
-            background: "rgba(17, 21, 31, 0.92)",
-            color: "#e6e8ee",
+            background: "rgb(var(--hud-surface-rgb) / 0.92)",
+            color: HUD_TEXT,
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
@@ -4452,8 +4559,8 @@ export function MinePanel({
             padding: "10px 16px",
             borderRadius: 999,
             border: `2px solid ${destination.color}`,
-            background: "rgba(17, 21, 31, 0.92)",
-            color: "#e6e8ee",
+            background: "rgb(var(--hud-surface-rgb) / 0.92)",
+            color: HUD_TEXT,
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
@@ -4480,8 +4587,8 @@ export function MinePanel({
             padding: "10px 16px",
             borderRadius: 999,
             border: `2px solid ${portalHere.color}`,
-            background: "rgba(17, 21, 31, 0.92)",
-            color: "#e6e8ee",
+            background: "rgb(var(--hud-surface-rgb) / 0.92)",
+            color: HUD_TEXT,
             fontWeight: 700,
             fontSize: "0.95rem",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
@@ -4507,7 +4614,7 @@ export function MinePanel({
             padding: "8px",
             borderRadius: 999,
             border: `2px solid ${activePortalHere.color}`,
-            background: "rgba(17, 21, 31, 0.94)",
+            background: "rgb(var(--hud-surface-rgb) / 0.94)",
             boxShadow: "0 6px 20px rgba(0, 0, 0, 0.45)",
           }}
         >
@@ -4581,25 +4688,11 @@ export function MinePanel({
         // server hard-reset route.
         onStartFresh={() => void startFreshBankedBunker()}
         onSelectSkin={(skinId) => void setBunkerSkin(skinId)}
+        // The context action button owns Enter bunker; Claim and Upkeep
+        // keep their own pill, because "could claim here" is true on
+        // nearly every underground cell and would shadow Jump forever.
         entryButtonVisible={fpEnterTriggerVisible || fpBunkerActive}
       />
-      {/* THE build entry point: a single floating button enters the
-          first-person builder while the miner stands inside an editable
-          claim. It takes the collapsed status trigger's slot (the
-          trigger hides via entryButtonVisible), so exactly one bunker
-          pill is on screen at a time; while the status sheet is open
-          (e.g. right after the fp Bunker doorway) it yields entirely. */}
-      {!fpBunkerActive && !bunkerPanelOpen && fpEnterTriggerVisible && (
-        <button
-          type="button"
-          className="bunker-fp-enter-trigger"
-          data-testid="bunker-fp-enter"
-          aria-label="Enter bunker"
-          onClick={enterFpBunker}
-        >
-          Enter bunker
-        </button>
-      )}
       {!elevatorPlacementMode && stall && openStallCol === miner.col && (
         <StallMenu
           stall={stall}
@@ -4653,6 +4746,7 @@ export function MinePanel({
         data-banked={miner.bankedCredits}
         data-wallet={balance ?? ""}
         data-climb-ladders={laddersNeeded}
+        data-ladder-shortfall={readiness.ladderShortfall}
         data-return-route={returnRouteState}
         data-return-steps={returnEstimate.steps}
         data-return-capped={returnEstimate.capped ? "true" : "false"}
@@ -4683,40 +4777,89 @@ export function MinePanel({
             maxWidth: "calc(100% - 250px)",
           }}
         >
-          <span style={{ ...chipStyle, color: "#f5c542", fontWeight: 700 }}>
-            &#129689; {balance === null ? "offline" : `${balance} vibes`}
-          </span>
-          <span style={chipStyle}>
-            <span style={{ opacity: 0.65 }}>&#9660;</span> Depth {miner.row}{" "}
-            <span style={{ opacity: 0.65 }}>{stratum.name}</span>
-            <span style={{ opacity: 0.65 }}> | Base </span>
-            {horizontalDistanceLabel}
-          </span>
+          {/* The wallet only matters where it can be spent: the surface,
+              the stalls, and the upkeep sheet all show it. Underground it
+              was decoration in the first-read position, so it hides and
+              the readiness gauge leads instead. `data-wallet` stays on the
+              section either way. */}
+          {miner.row === 0 && (
+            <span
+              style={{
+                ...chipStyle,
+                ...HUD_CHIP_WITH_ICON,
+                color: HUD_GOLD,
+                fontWeight: 700,
+              }}
+            >
+              <HudIcon name="coin" />
+              {balance === null ? "offline" : `${balance} vibes`}
+            </span>
+          )}
+          {/* Readiness gauge: charge, the reserve the climb home costs,
+              and the ladder or route shortfall are one question, so they
+              are one control. The reserve tick splits spendable digging
+              charge from the trip home. */}
           <span
-            className={batteryLow ? "mine-hud-chip-danger" : undefined}
-            data-battery-chip="true"
+            className={
+              readiness.level === "danger" ? "mine-hud-chip-danger" : undefined
+            }
+            data-readiness-gauge="true"
+            data-readiness-level={readiness.level}
+            title={readinessTitle}
             style={{
               ...chipStyle,
               position: "relative",
               overflow: "hidden",
-              minWidth: 118,
-              color: batteryLow ? "#ffe7e7" : "#e6e8ee",
+              ...HUD_CHIP_WITH_ICON,
+              gap: 8,
+              minWidth: 176,
+              color: HUD_READINESS[readiness.level].text,
             }}
           >
             <span
+              aria-hidden="true"
               style={{
                 position: "absolute",
                 inset: 0,
-                width: `${Math.max(0, Math.min(100, (miner.energy / maxEnergy(mine.gear)) * 100))}%`,
-                background: batteryLow ? "#ff2f2f" : "#54e0c7",
-                opacity: batteryLow ? 0.62 : 0.3,
+                width: `${readiness.chargeFraction * 100}%`,
+                background: HUD_READINESS[readiness.level].fill,
+                opacity: readiness.level === "danger" ? 0.62 : 0.3,
               }}
             />
-            <span style={{ position: "relative" }}>
-              &#128267; {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
+            {readiness.routeState !== "surface" && (
+              <span
+                aria-hidden="true"
+                data-reserve-tick="true"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  bottom: 0,
+                  left: `${readiness.reserveFraction * 100}%`,
+                  width: 2,
+                  background: HUD_RESERVE_TICK,
+                }}
+              />
+            )}
+            <span
+              data-battery-chip="true"
+              style={{ position: "relative", ...HUD_CHIP_WITH_ICON }}
+            >
+              <HudIcon name="battery" />
+              {miner.energy.toFixed(1)}/{maxEnergy(mine.gear)}
               {batteryLow ? (
                 <strong className="mine-chip-alert"> Low</strong>
               ) : null}
+            </span>
+            <span
+              data-ladder-chip="true"
+              style={{ position: "relative", ...HUD_CHIP_WITH_ICON }}
+            >
+              <HudIcon name="ladder" />
+              {returnRouteBlocked
+                ? "no route home"
+                : ladderShort
+                  ? `${mine.consumables.ladder}, ${readiness.ladderShortfall} short`
+                  : mine.consumables.ladder}
             </span>
           </span>
           <button
@@ -4729,50 +4872,28 @@ export function MinePanel({
             onClick={() => setBagPanelOpen(true)}
             style={{
               ...chipStyle,
-              color: "#f5c542",
+              ...HUD_CHIP_WITH_ICON,
+              color: HUD_GOLD,
               pointerEvents: "auto",
               cursor: "pointer",
               fontWeight: 800,
             }}
           >
-            &#127890; {carriedOreCount} ore ({carriedOreStackCount}/
-            {bagCapacity})
+            <HudIcon name="bag" />
+            {carriedOreCount} ore ({carriedOreStackCount}/{bagCapacity})
           </button>
         </div>
-        {statusLine && (
-          <span
-            data-mine-status-tip="true"
-            style={{ ...statusChipStyle, color: "#f5c542" }}
-          >
-            {statusLine}
-          </span>
-        )}
-        {showSurfaceInfoLine && (
-          <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
-            {surfaceInfoLine}
-          </span>
-        )}
-        {lostCargo && (
-          <span
-            className="mine-lost-locator"
-            title={`Dropped cargo locator, ${lostDistance} cells away`}
-            style={{
-              ...chipStyle,
-              color: lostDistance <= 1 ? "#f5c542" : "#ff9f6b",
-              borderColor:
-                lostDistance <= 1
-                  ? "rgba(245, 197, 66, 0.75)"
-                  : "rgba(255, 159, 107, 0.55)",
-              animationDuration: `${lostPulseSeconds}s`,
-            }}
-          >
-            &#128229;{" "}
-            {lostDistance === 0
-              ? "Dropped cargo here"
-              : `Dropped cargo ${lostDistance} cells away`}
-          </span>
-        )}
       </section>
+
+      {!fpBunkerActive && (
+        <MineDepthRibbon
+          minerRow={miner.row}
+          deepestRow={deepestDepth}
+          beaconRows={ribbonBeaconRows}
+          elevatorBottomRow={usableElevatorDepth}
+          cargoRow={lostCargo ? lostCargo.row : null}
+        />
+      )}
 
       <MineBagPanel
         open={bagPanelOpen}
@@ -4795,21 +4916,41 @@ export function MinePanel({
       />
 
       {collectMode && !fpBunkerActive && (
-        <section
-          aria-label="Scrap mode"
-          style={{
-            position: "absolute",
-            right: 12,
-            bottom: 82,
-            zIndex: 10,
-            width: "min(300px, calc(100vw - 24px))",
-            border: "1px solid #26304a",
-            borderRadius: 12,
-            background: "rgba(17, 21, 31, 0.96)",
-            boxShadow: "0 12px 34px rgba(0, 0, 0, 0.42)",
-            padding: 10,
-            pointerEvents: "auto",
+        <MineBottomSheet
+          label="Scrap mode"
+          open
+          onDismiss={() => {
+            setCollectSelection([]);
+            setCollectMode(false);
           }}
+          actions={
+            <>
+              <button
+                type="button"
+                aria-label="Confirm scrap"
+                disabled={selectedSupports.length === 0}
+                onClick={() => {
+                  move(collectAction(selectedSupports));
+                  setCollectSelection([]);
+                  setCollectMode(false);
+                }}
+                style={sheetActionStyle(selectedSupports.length > 0, "confirm")}
+              >
+                Scrap
+              </button>
+              <button
+                type="button"
+                aria-label="Cancel scrap"
+                onClick={() => {
+                  setCollectSelection([]);
+                  setCollectMode(false);
+                }}
+                style={sheetActionStyle(true, "cancel")}
+              >
+                Cancel
+              </button>
+            </>
+          }
         >
           <div
             style={{
@@ -4817,14 +4958,13 @@ export function MinePanel({
               alignItems: "center",
               flexWrap: "wrap",
               gap: 10,
-              marginBottom: 10,
             }}
           >
             <span
               style={{
                 ...compactChipStyle,
                 flex: "1 1 132px",
-                color: "#8b93a7",
+                color: HUD_TEXT_MUTED,
               }}
             >
               {visibleSupports.length === 0
@@ -4835,246 +4975,119 @@ export function MinePanel({
               style={{
                 ...compactChipStyle,
                 flex: "1 1 166px",
-                color: "#54e0c7",
+                color: HUD_ACCENT,
               }}
             >
               {`${selectedSupports.length} selected, scrap value: ${selectedSupportValue}`}
             </span>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              aria-label="Confirm scrap"
-              disabled={selectedSupports.length === 0}
-              onClick={() => {
-                move(collectAction(selectedSupports));
-                setCollectSelection([]);
-                setCollectMode(false);
-              }}
-              style={{
-                flex: 1,
-                minHeight: 40,
-                borderRadius: 10,
-                border: "1px solid #54e0c7",
-                background:
-                  selectedSupports.length > 0
-                    ? "#172b30"
-                    : "rgba(23, 43, 48, 0.35)",
-                color: selectedSupports.length > 0 ? "#54e0c7" : "#8b93a7",
-                fontWeight: 800,
-                cursor: selectedSupports.length > 0 ? "pointer" : "default",
-              }}
-            >
-              Scrap
-            </button>
-            <button
-              type="button"
-              aria-label="Cancel scrap"
-              onClick={() => {
-                setCollectSelection([]);
-                setCollectMode(false);
-              }}
-              style={{
-                minWidth: 78,
-                minHeight: 40,
-                borderRadius: 10,
-                border: "1px solid #2c3a5c",
-                background: "rgba(38, 48, 74, 0.55)",
-                color: "#cdd6ea",
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
+        </MineBottomSheet>
       )}
 
-      {jumpButtonVisible && (
+      {!fpBunkerActive && (
         <button
           type="button"
-          aria-label="Jump jets"
-          title="Jump up one cell"
-          onClick={() => {
-            setDynamiteMenuOpen(false);
-            setRecoveryMenuOpen(false);
-            fireJump();
-          }}
-          disabled={!jumpEnabled}
+          aria-label={contextAction.ariaLabel}
+          data-context-action={contextAction.verb ?? "none"}
+          // The fp builder entry kept this id across five spec files; the
+          // context button inherits it when it carries that verb.
+          data-testid={
+            contextAction.verb === "enter-bunker"
+              ? "bunker-fp-enter"
+              : undefined
+          }
+          onClick={fireContextAction}
+          disabled={!contextAction.enabled}
           style={{
             ...jumpButtonStyle,
             position: "absolute",
-            right: 14,
-            top: "50%",
-            transform: "translateY(-50%)",
-            zIndex: 6,
-            opacity: jumpEnabled ? 1 : 0.46,
-            cursor: jumpEnabled ? "pointer" : "default",
+            right: 12,
+            bottom: HUD_BOTTOM_INSET,
+            zIndex: HUD_LAYER.controls,
+            opacity: contextAction.enabled ? 1 : 0.4,
+            cursor: contextAction.enabled ? "pointer" : "default",
           }}
         >
-          Jump
+          {contextAction.label}
         </button>
       )}
 
-      {/* Consumable cluster: thumb-reach icon buttons. Movement is the
-          thumbstick (or WASD/arrows); the D-pad is gone. Hidden while
-          the first-person view owns the screen (its HUD replaces it). */}
+      {/* Fixed five-slot hotbar (H3). Slot positions never move: an
+          unowned or illegal consumable dims in place rather than
+          unmounting, so the bar keeps one shape and one width and the
+          thumb learns it once. The old cluster wrapped to a second row
+          as inventory changed, which is what made the last button spill
+          off the edge. Hidden while the first-person view owns the
+          screen (its HUD replaces it). */}
       {!fpBunkerActive && (
         <section
           aria-label="Dig controls"
           style={{
             position: "absolute",
-            right: 12,
-            bottom: 18,
+            left: 12,
+            bottom: HUD_BOTTOM_INSET,
             display: "flex",
-            gap: 8,
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            maxWidth: "calc(100vw - 24px)",
-            zIndex: 9,
+            gap: HUD_SLOT_GAP,
+            flexWrap: "nowrap",
+            alignItems: "flex-end",
+            zIndex: HUD_LAYER.controls,
             pointerEvents: "none",
+            opacity: overlayOpen ? 0.4 : 1,
           }}
         >
-          <span
-            className={
-              ladderShort || returnRouteBlocked
-                ? "mine-hud-chip-danger"
-                : undefined
-            }
-            data-ladder-chip="true"
-            style={{
-              ...chipStyle,
-              color: ladderShort || returnRouteBlocked ? "#ffe7e7" : "#8b93a7",
-            }}
-          >
-            {ladderShort || returnRouteBlocked ? "!" : ""} &#129692;{" "}
-            {mine.consumables.ladder}
-            {returnRouteBlocked
-              ? " route blocked"
-              : ladderShort
-                ? `/${laddersNeeded} needed`
-                : ""}
-          </span>
-          <span style={{ ...chipStyle, color: "#8b93a7" }}>
-            &#129717; {mine.consumables.plank}
-          </span>
           <button
             type="button"
             aria-label="Place plank left"
+            data-slot="plank-left"
             onClick={() => {
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
+              closeHotbarMenus();
               move("plank-left");
             }}
             disabled={!leftPlankEnabled}
-            style={{
-              ...iconButtonStyle,
-              opacity: leftPlankEnabled ? 1 : 0.42,
-              cursor: leftPlankEnabled ? "pointer" : "default",
-            }}
+            style={hotbarSlotStyle(leftPlankEnabled)}
           >
-            &#129717; {"\u25C0"}
+            <HudIcon name="plank-left" size={22} />
+            <span style={hotbarCountStyle}>{mine.consumables.plank}</span>
           </button>
           <button
             type="button"
             aria-label="Place plank right"
+            data-slot="plank-right"
             onClick={() => {
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
+              closeHotbarMenus();
               move("plank-right");
             }}
             disabled={!rightPlankEnabled}
-            style={{
-              ...iconButtonStyle,
-              opacity: rightPlankEnabled ? 1 : 0.42,
-              cursor: rightPlankEnabled ? "pointer" : "default",
-            }}
+            style={hotbarSlotStyle(rightPlankEnabled)}
           >
-            &#129717; {"\u25B6"}
+            <HudIcon name="plank-right" size={22} />
+            <span style={hotbarCountStyle}>{mine.consumables.plank}</span>
           </button>
-          <button
-            type="button"
-            aria-label="Scrap placed supports"
-            aria-pressed={collectMode}
-            onClick={() => {
-              if (elevatorInteractionActive) return;
-              setDynamiteMenuOpen(false);
-              setRecoveryMenuOpen(false);
-              setCollectMode((open) => {
-                const next = !open;
-                if (next) {
-                  setBunkerClaimMode(false);
-                  setBunkerPanelOpen(false);
-                }
-                return next;
-              });
-            }}
-            disabled={
-              elevatorInteractionActive ||
-              (!collectMode && visibleSupports.length === 0)
-            }
-            style={{
-              ...iconButtonStyle,
-              opacity: collectMode || visibleSupports.length > 0 ? 1 : 0.42,
-              cursor:
-                collectMode || visibleSupports.length > 0
-                  ? "pointer"
-                  : "default",
-              ...(collectMode
-                ? {
-                    background: "#172b30",
-                    borderColor: "#54e0c7",
-                    color: "#54e0c7",
-                  }
-                : null),
-            }}
-          >
-            &#8635;
-          </button>
-          <div
-            ref={dynamiteMenuRef}
-            style={{ position: "relative", pointerEvents: "auto" }}
-          >
+          <div ref={dynamiteMenuRef} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label={`Dynamite ${DYNAMITE_TIER_LABELS[selectedDynamiteTier]} (${mine.consumables.dynamite})`}
               onClick={() => {
                 setRecoveryMenuOpen(false);
+                setToolsMenuOpen(false);
+                yieldBunkerOverlay();
                 setDynamiteMenuOpen((open) => !open);
               }}
               disabled={elevatorInteractionActive}
               aria-pressed={dynamiteMenuOpen}
               style={{
-                ...iconButtonStyle,
-                ...(dynamiteMenuOpen
-                  ? {
-                      background: "#3a2430",
-                      borderColor: "#ffb347",
-                      boxShadow: "0 0 12px rgba(255, 179, 71, 0.42)",
-                    }
-                  : null),
+                ...hotbarSlotStyle(!elevatorInteractionActive),
+                ...(dynamiteMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              &#129512; {mine.consumables.dynamite} &#9662;
+              <HudIcon name="dynamite" size={22} />
+              <span style={hotbarCountStyle}>{mine.consumables.dynamite}</span>
             </button>
             {dynamiteMenuOpen && (
               <div
                 role="menu"
                 aria-label="Dynamite tiers"
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: 54,
-                  width: 260,
-                  padding: 10,
-                  borderRadius: 12,
-                  border: "1px solid #34415f",
-                  background: "rgba(10, 13, 20, 0.96)",
-                  color: "#e6e8ee",
-                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
-                }}
+                style={hotbarMenuStyle(260)}
               >
                 <div
                   style={{
@@ -5095,12 +5108,12 @@ export function MinePanel({
                         onClick={() => setSelectedDynamiteTier(tier)}
                         style={{
                           border: selected
-                            ? "1px solid #ffb347"
+                            ? `1px solid ${HUD_WARN}`
                             : "1px solid #2c3a5c",
                           background: selected
                             ? "rgba(255, 179, 71, 0.16)"
                             : "rgba(38, 48, 74, 0.55)",
-                          color: locked ? "#8b93a7" : "#f5efe3",
+                          color: locked ? HUD_TEXT_MUTED : "#f5efe3",
                           borderRadius: 8,
                           padding: "8px 6px",
                           textAlign: "left",
@@ -5154,48 +5167,31 @@ export function MinePanel({
               </div>
             )}
           </div>
-          <div
-            ref={recoveryMenuRef}
-            style={{ position: "relative", pointerEvents: "auto" }}
-          >
+          <div ref={recoveryMenuRef} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
               aria-label="Recovery options"
               onClick={() => {
                 setDynamiteMenuOpen(false);
+                setToolsMenuOpen(false);
                 if (recoveryMenuOpen) setAbandonArmed(false);
+                yieldBunkerOverlay();
                 setRecoveryMenuOpen(!recoveryMenuOpen);
               }}
               aria-pressed={recoveryMenuOpen}
               style={{
-                ...iconButtonStyle,
-                ...(recoveryMenuOpen
-                  ? {
-                      background: "#21314a",
-                      borderColor: "#8fb8ff",
-                      boxShadow: "0 0 12px rgba(143, 184, 255, 0.34)",
-                    }
-                  : null),
+                ...hotbarSlotStyle(true),
+                ...(recoveryMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              &#129526; {mine.consumables.rope} &#9662;
+              <HudIcon name="rope" size={22} />
+              <span style={hotbarCountStyle}>{mine.consumables.rope}</span>
             </button>
             {recoveryMenuOpen && (
               <div
                 role="menu"
                 aria-label="Recovery actions"
-                style={{
-                  position: "absolute",
-                  right: 0,
-                  bottom: 54,
-                  width: 244,
-                  padding: 10,
-                  borderRadius: 12,
-                  border: "1px solid #34415f",
-                  background: "rgba(10, 13, 20, 0.96)",
-                  color: "#e6e8ee",
-                  boxShadow: "0 12px 32px rgba(0, 0, 0, 0.38)",
-                }}
+                style={hotbarMenuStyle(244)}
               >
                 <button
                   type="button"
@@ -5233,7 +5229,7 @@ export function MinePanel({
                     marginBottom: 8,
                   }}
                 >
-                  &#129526; Recall ({mine.consumables.rope}) row{" "}
+                  <HudIcon name="rope" /> Recall ({mine.consumables.rope}) row{" "}
                   {currentRecallRange}
                 </button>
                 <button
@@ -5279,56 +5275,133 @@ export function MinePanel({
               </div>
             )}
           </div>
-          {miner.row >= 1 && mine.consumables.beacon > 0 && (
+          <div ref={toolsMenuRef} style={{ pointerEvents: "auto" }}>
             <button
               type="button"
-              aria-label="Plant warp beacon"
-              aria-disabled={beaconButtonDisabled}
+              aria-label="Tools"
               onClick={() => {
-                if (elevatorInteractionActive) return;
                 setDynamiteMenuOpen(false);
                 setRecoveryMenuOpen(false);
-                move("place-beacon");
+                yieldBunkerOverlay();
+                setToolsMenuOpen((open) => !open);
+                if (!toolsMenuOpen) markToolsSeen();
               }}
+              aria-pressed={toolsMenuOpen}
               disabled={elevatorInteractionActive}
-              title={
-                beaconDepthAllowed
-                  ? "Plant warp beacon"
-                  : `Warpcoil range ${beaconRange} rows`
-              }
               style={{
-                ...iconButtonStyle,
-                opacity: beaconButtonDisabled ? 0.42 : 1,
-                cursor: beaconButtonDisabled ? "default" : "pointer",
+                ...hotbarSlotStyle(!elevatorInteractionActive),
+                ...(toolsMenuOpen ? hotbarSlotArmedStyle : null),
               }}
             >
-              &#128225; {mine.consumables.beacon}
+              <HudIcon name="tools" size={22} />
+              {toolsBadgeVisible && (
+                <span aria-hidden="true" style={hotbarBadgeStyle} />
+              )}
             </button>
-          )}
-          {(() => {
-            const onBeacon = currentCell?.beacon;
-            return (
-              onBeacon &&
-              miner.row <= warpRange(mine.gear) && (
+            {toolsMenuOpen && (
+              <div role="menu" aria-label="Tools" style={hotbarMenuStyle(232)}>
                 <button
                   type="button"
-                  aria-label="Warp home"
+                  role="menuitem"
+                  aria-label="Plant warp beacon"
+                  title={
+                    beaconDepthAllowed
+                      ? "Plant warp beacon"
+                      : `Warpcoil range ${warpRangeRows} rows`
+                  }
                   onClick={() => {
-                    if (!elevatorInteractionActive) {
-                      setRecoveryMenuOpen(false);
-                      move("warp-home");
-                    }
+                    setToolsMenuOpen(false);
+                    move("place-beacon");
                   }}
-                  disabled={elevatorInteractionActive}
-                  style={iconButtonStyle}
+                  disabled={!canPlantBeacon}
+                  style={{
+                    ...sheetButtonStyle(canPlantBeacon),
+                    width: "100%",
+                    minHeight: 36,
+                    marginBottom: 8,
+                  }}
                 >
-                  &#127756;
+                  <HudIcon name="beacon" /> Plant beacon (
+                  {mine.consumables.beacon})
                 </button>
-              )
-            );
-          })()}
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-label="Scrap placed supports"
+                  aria-checked={collectMode}
+                  onClick={() => {
+                    if (elevatorInteractionActive) return;
+                    setToolsMenuOpen(false);
+                    setCollectMode((open) => {
+                      const next = !open;
+                      if (next) {
+                        setBunkerClaimMode(false);
+                        setBunkerPanelOpen(false);
+                      }
+                      return next;
+                    });
+                  }}
+                  disabled={!canScrapSupports}
+                  style={{
+                    ...sheetButtonStyle(canScrapSupports),
+                    width: "100%",
+                    minHeight: 36,
+                    ...(collectMode
+                      ? {
+                          background: "#172b30",
+                          borderColor: HUD_ACCENT,
+                          color: HUD_ACCENT,
+                        }
+                      : null),
+                  }}
+                >
+                  <HudIcon name="scrap" /> Scrap supports (
+                  {visibleSupports.length})
+                </button>
+              </div>
+            )}
+          </div>
         </section>
       )}
+
+      {/* Toast lane (H6): one line at a time, bottom centre above the
+          hotbar. Feedback used to land top left, the corner the eye only
+          checks deliberately, and shared the status stack with permanent
+          state. It belongs where the thumb and the eye already are. */}
+      {!fpBunkerActive &&
+        !overlayOpen &&
+        (statusLine || showSurfaceInfoLine) && (
+          <div
+            style={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              bottom: MINE_SHEET_BOTTOM,
+              zIndex: HUD_LAYER.toast,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+              maxWidth: "calc(100vw - 24px)",
+              pointerEvents: "none",
+              textAlign: "center",
+            }}
+          >
+            {statusLine && (
+              <span
+                data-mine-status-tip="true"
+                style={{ ...statusChipStyle, color: HUD_GOLD }}
+              >
+                {statusLine}
+              </span>
+            )}
+            {showSurfaceInfoLine && (
+              <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
+                {surfaceInfoLine}
+              </span>
+            )}
+          </div>
+        )}
 
       {/* One-shot onboarding: gone after the first action. */}
       {tick === 0 && (
@@ -5339,7 +5412,7 @@ export function MinePanel({
             left: "50%",
             transform: "translateX(-50%)",
             ...chipStyle,
-            color: "#8b93a7",
+            color: HUD_TEXT_MUTED,
             pointerEvents: "none",
           }}
         >

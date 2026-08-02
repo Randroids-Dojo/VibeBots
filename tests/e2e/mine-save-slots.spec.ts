@@ -4,7 +4,7 @@ import {
   bypassMineRenderer,
   digTo,
   dismissReleaseNotes,
-  openSettings,
+  openSettingsFor,
   pressMineKey,
 } from "./support/mine-helpers";
 
@@ -111,15 +111,13 @@ test(
 
     await page.goto("/mine");
     await dismissReleaseNotes(page);
-    await page.getByRole("button", { name: "Open settings" }).click();
-    const settings = page.getByRole("region", { name: "Settings" });
-    await expect(settings).toBeVisible();
+    const settings = await openSettingsFor(page, "load-game");
     await settings.getByRole("button", { name: "Load game" }).click();
     const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
     await expect(saveSlots).toBeVisible();
     await page.mouse.click(8, 8);
     await expect(saveSlots).not.toBeVisible();
-    const settingsAgain = await openSettings(page);
+    const settingsAgain = await openSettingsFor(page, "load-game");
     await settingsAgain.getByRole("button", { name: "Load game" }).click();
     await expect(saveSlots).toBeVisible();
 
@@ -229,7 +227,7 @@ test(
 
     await page.goto("/mine");
     await dismissReleaseNotes(page);
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "load-game");
     await settings.getByRole("button", { name: "Load game" }).click();
     const saveSlots = page.getByRole("dialog", { name: "Load Save Slot" });
     await expect(saveSlots).toBeVisible();

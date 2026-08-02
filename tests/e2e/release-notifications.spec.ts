@@ -7,6 +7,7 @@ import {
   installStandaloneVisualViewport,
   MINE_KEY_CADENCE_MS,
   openSettings,
+  openSettingsFor,
   speedUpVersionRefreshChecks,
 } from "./support/mine-helpers";
 
@@ -22,18 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText(
-      "Boulders used to be dead ends that answered a swing with a thud",
-    );
+    await expect(dialog).toContainText("like a pile of stickers");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
-    await expect(dialog.locator("li")).toHaveCount(2);
+    await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "Boulders cut like rock at their depth",
+      "drawn in one line style now",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "draws one red box around it instead of two overlapping outlines",
+      "Settings is sliders, tools is a wrench",
+    );
+    await expect(dialog.locator("li").nth(2)).toContainText(
+      "off the side of the screen",
     );
 
     await page.mouse.click(8, 8);
@@ -47,12 +49,15 @@ test(
     await page.reload();
     await expect(dialog).not.toBeVisible();
 
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "release-notes");
     await settings.getByRole("button", { name: "Release notes" }).click();
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.293", "The mine's icons are one set now"],
+      ["0.1.292", "One row of tools, one button for what you can do"],
+      ["0.1.291", "The charge bar now shows your trip home"],
       ["0.1.290", "Every rock in the mine can be broken"],
       ["0.1.289", "Digging saves even when you come up empty"],
       ["0.1.288", "Fight the Clankers off with your pickaxe"],
@@ -337,7 +342,7 @@ test(
 
     await page.goto("/mine");
     await dismissReleaseNotes(page);
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "credits");
     await settings.getByRole("button", { name: "Credits" }).click();
     const dialog = page.getByRole("dialog", { name: "Credits" });
     await expect(dialog).toBeVisible();
@@ -355,7 +360,7 @@ test(
     await page.mouse.click(8, 8);
     await expect(dialog).not.toBeVisible();
 
-    const settingsAgain = await openSettings(page);
+    const settingsAgain = await openSettingsFor(page, "credits");
     await settingsAgain.getByRole("button", { name: "Credits" }).click();
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Escape");

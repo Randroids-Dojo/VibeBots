@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Research: Mine HUD Redesign</title>
+</head>
+<body>
+
+<header>
+  <h1>Research: Mine HUD Redesign</h1>
+  <p>Date: 2026-07-30. User-directed: "Let's completely rethink our HUD. There's too much going on. It doesn't feel sleek or flow well together. Research possible better UI/UX that would be applicable for each element we currently are displaying."</p>
+  <p>Evidence: a portrait phone capture of the live mine at depth 12 (Clay Beds), plus a full read of the HUD source. This is a research and options document, not a slice. It inventories every element the mine currently draws, diagnoses why the whole reads as noisy, and proposes options with a recommendation per element. The GDD rule this has to answer to is REQ-024 HUD discipline in <a href="../gdd/06-mining.html">docs/gdd/06-mining.html</a>.</p>
+</header>
+
+<section id="inventory">
+  <h2>1. What the mine draws today</h2>
+
+  <p>Twenty-six distinct HUD elements across five independent screen anchors, in three different visual languages. Source is <code>src/components/mine-panel.tsx</code> unless noted.</p>
+
+  <table border="1" cellpadding="6" cellspacing="0">
+    <thead>
+      <tr><th>#</th><th>Element</th><th>Anchor</th><th>Kind</th><th>Visible when</th><th>Source</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Wallet chip: "81 vibes"</td><td>top left stack</td><td>pill chip, static</td><td>always</td><td>mine-panel.tsx:4686</td></tr>
+      <tr><td>2</td><td>Depth chip: "Depth 12 Clay Beds | Base -2"</td><td>top left stack</td><td>pill chip, static</td><td>always</td><td>mine-panel.tsx:4689</td></tr>
+      <tr><td>3</td><td>Battery chip: "15.0/60" with fill bar and Low flag</td><td>top left stack</td><td>pill chip with bar</td><td>always</td><td>mine-panel.tsx:4695</td></tr>
+      <tr><td>4</td><td>Bag chip: "3 ore (1/4)"</td><td>top left stack</td><td>pill chip, tappable</td><td>always</td><td>mine-panel.tsx:4722</td></tr>
+      <tr><td>5</td><td>Action toast (statusLine)</td><td>top left stack</td><td>pill chip, transient</td><td>after most actions</td><td>mine-panel.tsx:4742</td></tr>
+      <tr><td>6</td><td>Surface info line (auto-sell result or rotating tip)</td><td>top left stack</td><td>pill chip, transient</td><td>surface only</td><td>mine-panel.tsx:4750</td></tr>
+      <tr><td>7</td><td>Lost cargo locator, pulsing</td><td>top left stack</td><td>pill chip, animated</td><td>after a death with cargo</td><td>mine-panel.tsx:4755</td></tr>
+      <tr><td>8</td><td>Settings gear</td><td>top right</td><td>42px square icon button</td><td>always</td><td>mine-panel.tsx:4003</td></tr>
+      <tr><td>9</td><td>Zoom in</td><td>top right</td><td>42px square icon button</td><td>always</td><td>mine-panel.tsx:4043</td></tr>
+      <tr><td>10</td><td>Zoom out</td><td>top right</td><td>42px square icon button</td><td>always</td><td>mine-panel.tsx:4057</td></tr>
+      <tr><td>11</td><td>Jump</td><td>right edge, vertical center</td><td>large outlined CTA</td><td>when jump jets are owned and legal</td><td>mine-panel.tsx:4894</td></tr>
+      <tr><td>12</td><td>Base direction indicator (arrow plus house) and its popover</td><td>left or right edge</td><td>edge tab plus menu</td><td>underground, off-column</td><td>mine-panel.tsx:4285</td></tr>
+      <tr><td>13</td><td>Claim bunker / Upkeep pill</td><td>bottom left, 154px up</td><td>outlined CTA pill</td><td>underground</td><td>mine-bunker-control-panel.tsx:174</td></tr>
+      <tr><td>14</td><td>Enter bunker</td><td>bottom area</td><td>CTA</td><td>standing on a claimed bunker</td><td>mine-panel.tsx:4597</td></tr>
+      <tr><td>15</td><td>Elevator placement prompt with Build and Cancel</td><td>bottom center</td><td>bordered panel</td><td>placement mode</td><td>mine-panel.tsx:4335</td></tr>
+      <tr><td>16</td><td>Ladder chip: "! 0/2 needed"</td><td>bottom right cluster</td><td>pill chip, static</td><td>always</td><td>mine-panel.tsx:4940</td></tr>
+      <tr><td>17</td><td>Plank count chip: "2"</td><td>bottom right cluster</td><td>pill chip, static</td><td>always</td><td>mine-panel.tsx:4960</td></tr>
+      <tr><td>18</td><td>Plank left</td><td>bottom right cluster</td><td>icon button</td><td>always</td><td>mine-panel.tsx:4963</td></tr>
+      <tr><td>19</td><td>Plank right</td><td>bottom right cluster</td><td>icon button</td><td>always</td><td>mine-panel.tsx:4980</td></tr>
+      <tr><td>20</td><td>Scrap supports toggle</td><td>bottom right cluster</td><td>icon toggle</td><td>always</td><td>mine-panel.tsx:4997</td></tr>
+      <tr><td>21</td><td>Dynamite button plus 4-tier menu</td><td>bottom right cluster</td><td>icon button plus popover</td><td>always</td><td>mine-panel.tsx:5040</td></tr>
+      <tr><td>22</td><td>Recovery button plus Recall and Abandon menu</td><td>bottom right cluster</td><td>icon button plus popover</td><td>always</td><td>mine-panel.tsx:5161</td></tr>
+      <tr><td>23</td><td>Plant beacon</td><td>bottom right cluster</td><td>icon button</td><td>underground with beacons</td><td>mine-panel.tsx:5283</td></tr>
+      <tr><td>24</td><td>Warp home</td><td>bottom right cluster</td><td>icon button</td><td>standing on a beacon in range</td><td>mine-panel.tsx:5313</td></tr>
+      <tr><td>25</td><td>Scrap mode panel with Scrap and Cancel</td><td>bottom right, above cluster</td><td>bordered panel</td><td>scrap mode on</td><td>mine-panel.tsx:4797</td></tr>
+      <tr><td>26</td><td>One-shot "drag anywhere to move" hint</td><td>bottom center</td><td>pill chip</td><td>tick 0 only</td><td>mine-panel.tsx:5334</td></tr>
+    </tbody>
+  </table>
+
+  <p>Plus the floating thumbstick overlay (<code>mine-touch-controls.tsx</code>), which owns the entire screen at z-index 4 and spawns a 2-ring visual under the finger, and the full-screen surfaces that take over on demand: bag grid, settings menu, stall sheets, trip report, save and stamp popups.</p>
+</section>
+
+<section id="diagnosis">
+  <h2>2. Why it reads as noisy</h2>
+
+  <p>The problem is not the number of features. It is that ten independent decisions were each locally reasonable and never reconciled. Nine specific findings:</p>
+
+  <ol>
+    <li><strong>Five anchors, no hierarchy.</strong> Top left, top right, right center, bottom left, bottom right. The eye has five places to check and no ordering between them. Nothing tells the player which corner matters right now.</li>
+    <li><strong>The bottom cluster wraps and breaks.</strong> Eight children in a <code>flexWrap: "wrap"</code> row at 390px means the last item drops to a second row hanging off the right edge under the rest. The capture shows exactly that: the rope button orphaned below the row. A control bar whose layout changes shape as inventory changes can never build muscle memory.</li>
+    <li><strong>Same shape, different contract.</strong> The bag is a <code>&lt;button&gt;</code> styled with the identical <code>chipStyle</code> as the depth readout, which is inert. The ladder and plank counters are pills sitting inside a row of tappable icon buttons. Players cannot tell what is tappable by looking.</li>
+    <li><strong>Counts are represented three different ways.</strong> Planks get a count chip <em>and</em> two action buttons. Dynamite and rope carry their counts on the button face. Ladders get a count chip and no button at all, because ladders are spent implicitly by climbing. Three grammars for one concept.</li>
+    <li><strong>The most urgent warning is the smallest element.</strong> "! 0/2 needed" means the player cannot climb out. It renders at 0.8rem in a wrapping row, in the same weight class as the plank counter, at the opposite end of the screen from the battery gauge that carries the other half of the same question.</li>
+    <li><strong>"Can I get home?" is split across three widgets.</strong> Battery chip (top left), ladder chip (bottom right), and base direction tab (left edge) are three views of one decision. <code>returnHomeEstimate</code> already computes all of it in one call: <code>energyCost</code>, <code>laddersNeeded</code>, <code>reachable</code>. The sim is more unified than the HUD.</li>
+    <li><strong>One chip carries four data points.</strong> "Depth 12 Clay Beds | Base -2" is depth, stratum name, a separator, and a signed horizontal offset. It reads as a log line, not a gauge. Signed horizontal distance in particular is spatial data rendered as text.</li>
+    <li><strong>Persistent chrome for contextual verbs.</strong> Jump, Claim bunker, Enter bunker, and Warp home are each a dedicated button in a dedicated place, each valid only in a narrow situation. Four buttons that are almost never simultaneously relevant occupy four permanent locations.</li>
+    <li><strong>No safe-area handling and a thumb-path collision.</strong> The status stack pins to <code>top: 10</code> and the cluster to <code>bottom: 18</code> with no <code>env(safe-area-inset-*)</code>, so notch and home-indicator devices crowd both edges. Worse, Jump sits at the right edge at exactly 50% height, which is the middle of the screen the floating joystick expects to own; the joystick spawns wherever the thumb lands, so the two fight for the same pixels.</li>
+  </ol>
+
+  <p>One more, cosmetic but pervasive: every icon is an emoji. Emoji render with per-platform color, weight, and metrics, they cannot be tinted for disabled or danger states, and a few are semantically weak on their own (yarn for Recall Rope, satellite dish for a warp beacon). A HUD built from emoji cannot have a consistent silhouette.</p>
+</section>
+
+<section id="principles">
+  <h2>3. Principles for the redesign</h2>
+
+  <ul>
+    <li><strong>Answer questions, do not report fields.</strong> The player asks three questions while digging: Can I get home? Is my bag full? What can I do right here? Everything else is reference data that belongs behind a tap.</li>
+    <li><strong>Contextual minimalism, not the minimal-HUD trap.</strong> Show what is needed when it is needed. The failure mode of naive minimalism is hiding something the player then has to hunt for, so every hidden thing must have a loud, in-context trigger.</li>
+    <li><strong>One thumb, one bar.</strong> Touch UI wants big targets in the bottom thumb arc and a layout that never reflows. Fixed slots beat wrapping rows.</li>
+    <li><strong>One vocabulary.</strong> Three component types total: a <em>gauge</em> (continuous state, never tappable), a <em>slot</em> (a stock you can spend, always tappable, count as a badge), and an <em>action</em> (a verb). If a new element does not fit one of the three, the design is wrong, not the vocabulary.</li>
+    <li><strong>Spatial data gets spatial treatment.</strong> Depth, base direction, lost cargo, beacon, and elevator are all positions. Positions render on a map, not in a sentence.</li>
+    <li><strong>Keep the test surface.</strong> The <code>data-*</code> attributes on the status section are deliberately the stable e2e contract (REQ-024). Any redesign moves the visuals and keeps the attributes, so the smoke suite does not have to be rewritten alongside a visual change.</li>
+  </ul>
+</section>
+
+<section id="elements">
+  <h2>4. Element by element: options and recommendation</h2>
+
+  <article>
+    <h3>4.1 Wallet: "81 vibes"</h3>
+    <p><strong>Job:</strong> tells the player what they can afford. <strong>Problem:</strong> it is only actionable at the surface, in a stall, or in the bunker upkeep sheet, yet it holds the top-left, first-read position during the entire dig, where it is pure decoration.</p>
+    <ul>
+      <li><em>Option A, contextual:</em> show the wallet only at the surface and inside any sheet that spends vibes. Underground it disappears entirely. Genre precedent: Motherload pins credits to the top bar permanently, but Motherload lets you buy from the pod. VibeBots does not.</li>
+      <li><em>Option B, merged:</em> fold wallet and the current haul value into one "worth" readout that counts up as ore is collected, then resets when it auto-sells at the surface. Ties the number to the loop's payoff.</li>
+      <li><em>Option C, keep as is</em> but demote to the smallest type size and put it last in the stack.</li>
+    </ul>
+    <p><strong>Recommend A, with a B follow-on.</strong> Underground the wallet is noise. Inside every purchase sheet the wallet should appear next to the price, which is where affordability is actually decided. The haul-value counter from B is a good juice slice later, but it needs a design call on whether showing live haul value spoils the sell-at-surface reveal.</p>
+  </article>
+
+  <article>
+    <h3>4.2 Depth, stratum, and base offset</h3>
+    <p><strong>Job:</strong> where am I, how deep have I got, how far from the shaft. <strong>Problem:</strong> four values crammed in one string, and the stratum name (the actual progression signal, 14 named bands down to row 1000) is rendered at 65% opacity as an aside.</p>
+    <ul>
+      <li><em>Option A, split chips:</em> depth number gets its own large numeral, stratum becomes a labelled band. Cheap, still text, still no spatial sense.</li>
+      <li><em>Option B, depth ribbon (recommended):</em> a thin vertical gauge on the left edge showing the strata as stacked colored bands with the current position as a marker. Non-linear scale (one segment per stratum) so early depths are not a hairline. Markers ride the same ribbon: base, elevator top and bottom, planted beacon, lost cargo, deepest-ever depth. Tapping it expands to a labelled legend.</li>
+      <li><em>Option C, diegetic:</em> depth readout painted on the mine wall or the miner's chassis. Rejected: Rule 10 forbids runtime 3D text in the mine canvas because mobile fallback paths render glyph atlas failures as white cards.</li>
+    </ul>
+    <p><strong>Recommend B.</strong> It answers depth, stratum, progress toward the next stratum, and base direction in one glance, and it absorbs three other elements outright (base indicator, lost cargo locator, and the depth chip's own text). The strata table already has the exact data shape needed (<code>STRATA</code> in <code>src/sim/mine/ores.ts</code>, <code>startRow</code> per band). Cost: it is the largest single piece of new code in the whole redesign.</p>
+  </article>
+
+  <article>
+    <h3>4.3 Battery, ladders, and route: the readiness gauge</h3>
+    <p><strong>Job:</strong> can I get home? <strong>Problem:</strong> split across a top-left bar, a bottom-right count, and a route-blocked string, so the player has to do the arithmetic themselves.</p>
+    <ul>
+      <li><em>Option A, keep three, style them alike.</em> Minimum effort, does not fix the arithmetic.</li>
+      <li><em>Option B, reserve marker on one bar (recommended):</em> one energy bar with a tick mark at <code>returnEstimate.energyCost</code>, the "reserve to get home" line. Charge above the tick is spendable digging budget; charge below it is the trip home. The bar goes amber as the fill approaches the tick and red when it crosses. The ladder shortfall and blocked route render as a badge on the same gauge, because they are the same question, and the copy becomes concrete: "2 ladders short" or "no route home".</li>
+      <li><em>Option C, two-headed gauge:</em> stacked bars, one for charge and one for ladders. Rejected: two bars is the state we already have.</li>
+    </ul>
+    <p><strong>Recommend B.</strong> This is the single highest-value change in the document. <code>returnHomeEstimate</code> already returns <code>energyCost</code>, <code>laddersNeeded</code>, and <code>reachable</code> in one call, and <code>batteryLow</code> is already derived from <code>climbCost * 1.25 + 2</code>. The gauge visualizes a number the sim already computes; no sim change, no <code>MINE_VERSION</code> bump. Genre precedent is the Motherload fuel gauge, whose whole tension is "fuel remaining versus fuel to surface", except Motherload leaves the subtraction to the player and this would not.</p>
+  </article>
+
+  <article>
+    <h3>4.4 Bag: "3 ore (1/4)"</h3>
+    <p><strong>Job:</strong> how full am I, and open the grid. <strong>Problem:</strong> the count is text, the parenthetical is the number that actually matters (stack slots, not chunks), and it looks exactly like the inert chips beside it.</p>
+    <ul>
+      <li><em>Option A, slot pips (recommended):</em> render the capacity as N pips, one per stack slot, filled pips tinted with the ore they hold. Four pips is instantly readable with zero parsing; a full bag is unmistakable. It is also the natural preview of the bag grid it opens, so the tap target explains itself.</li>
+      <li><em>Option B, on-avatar:</em> a small backpack fill indicator anchored above the miner. Diegetic and pretty, but the miner moves, the camera zooms, and Rule 10 pushes text-like overlays out of the canvas.</li>
+      <li><em>Option C, radial ring</em> around the bag icon. Compact, less legible than pips at four slots, better if capacity ever exceeds about eight.</li>
+    </ul>
+    <p><strong>Recommend A</strong> with a hard rule that anything tappable in the HUD reads as a control, not a chip. Keep the existing bag-full flash on the pips instead of the chip.</p>
+  </article>
+
+  <article>
+    <h3>4.5 Action toasts, surface tips, and the onboarding hint</h3>
+    <p><strong>Job:</strong> feedback. <strong>Problem:</strong> one 30-branch ternary produces everything from "Plank placed." to "Crushed! The crew dug you out" to a marketing tip, and all of it lands in the same top-left pill, far from where the event happened.</p>
+    <p>These are three different classes and want three different treatments:</p>
+    <ul>
+      <li><strong>Confirmations</strong> ("Plank placed", "Collected 3 ore", "Jump jets fired") are redundant with the world. The plank is visibly there. Recommend: delete most of them and let the existing <code>mine-float-up</code> juice at the miner carry the ones with a number.</li>
+      <li><strong>Refusals</strong> ("No ladders", "Too hard for this pickaxe", "Hold full") must be loud and must appear at the point of failure. Recommend: a short shake plus a floating label on the blocked cell or the relevant slot, so the answer arrives where the player is looking. The slot that lacks stock is the natural place to say zero.</li>
+      <li><strong>Run-ending events</strong> (crushed, fell, collapsed, abandoned) already have the trip report dialog. Recommend: they stop competing in the toast lane at all.</li>
+      <li><strong>Surface tips</strong> are release copy under Rule 13. Recommend: they belong on the surface only, in a fixed lane at the bottom above the hotbar, never underground.</li>
+    </ul>
+    <p><strong>Recommend</strong> one toast lane, bottom center above the action bar, one message at a time, plus in-world feedback for the two cases above. The lane placement matters: bottom center is inside the thumb's visual focus during play, top left is where the eye goes only when it chooses to check status.</p>
+  </article>
+
+  <article>
+    <h3>4.6 The consumable cluster: planks, dynamite, rope, beacon, scrap</h3>
+    <p><strong>Job:</strong> spend a stock. <strong>Problem:</strong> a wrapping row of six to eight heterogeneous controls in three sub-shapes, two of which are counters that do nothing.</p>
+    <ul>
+      <li><em>Option A, fixed hotbar (recommended):</em> exactly five fixed slots, no wrap, no reflow, in the bottom thumb arc. Each slot is icon plus count badge plus a disabled state; the count chips die because the count lives on the slot. Long-press or tap-expand opens a slot's sub-menu where one exists (dynamite tiers, recovery actions). The tail (beacon, warp, scrap toggle, abandon) moves behind one "tools" slot. Muscle memory works because slot 3 is always slot 3.</li>
+      <li><em>Option B, radial wheel:</em> one thumb button opens a radial of every consumable. Radials suit touch well because the finger sets the focal point and the gesture angle becomes memorable, and they keep the play area unobscured. The counter-argument here is decisive: this game's consumables are <em>directional</em> (plank left versus plank right), and a radial's lower arc gets covered by the hand on a phone. A radial adds a gesture layer to solve a problem that fixed slots solve for free.</li>
+      <li><em>Option C, context-only:</em> show a consumable only where it is legal (planks only at a ledge, and so on). Rejected as the primary rule: controls that appear and vanish destroy muscle memory and hide capability from new players. Use disabled states instead, which teach the same thing without moving.</li>
+    </ul>
+    <p><strong>Recommend A.</strong> On plank left/right specifically: folding the pair into one direction-inferred slot would free a slot, but it was considered and rejected (section 10) because a mis-inferred direction spends a real consumable at the exact moment the player needs the plank. Both slots stay. That leaves plank left, plank right, dynamite, and recovery as four of the five fixed slots, so the tools slot carries beacon, warp, scrap, and abandon and its one-time new-tool badge is not optional.</p>
+  </article>
+
+  <article>
+    <h3>4.7 Jump, Enter bunker, Warp home, Claim bunker</h3>
+    <p><strong>Job:</strong> the one thing you can do right here. <strong>Problem:</strong> four buttons, four locations, near-zero overlap in when they are valid, and Jump parks in the joystick's path.</p>
+    <ul>
+      <li><em>Option A, one context action button (recommended):</em> a single large primary button in the bottom right thumb arc that shows whichever verb is live: Jump, Enter, Warp, Claim, Recover cargo, Ride. This is the standard context-sensitive button pattern; its value is that the player learns one control instead of four, and the game decides which command that control carries. Its known cost is ambiguity when two contexts overlap, which is fixed by a fixed priority order plus always naming the verb on the face.</li>
+      <li><em>Option B, keep separate buttons, unify styling and move Jump off the joystick path.</em> Lower risk, keeps four persistent targets.</li>
+      <li><em>Option C, in-world prompts</em> anchored to the interactable (a marker over the bunker cell). Diegetic and clean, but Rule 10 restricts canvas text, and off-screen interactables get no prompt.</li>
+    </ul>
+    <p><strong>Recommend A</strong> with a published priority ladder (Ride &gt; Enter &gt; Recover &gt; Warp &gt; Claim &gt; Jump), a DOM-labelled face for accessibility and e2e per Rule 12's pinned-controls lesson, and a rule that the button is always present, disabled and dimmed when no verb is live, so its position never moves.</p>
+  </article>
+
+  <article>
+    <h3>4.8 Zoom in and zoom out</h3>
+    <p><strong>Job:</strong> camera control that pinch already provides. <strong>Problem:</strong> two permanent 42px buttons in prime top-right real estate for a rarely used, already-gestural function, and the gear above them makes a three-button tower that reads as a toolbar.</p>
+    <ul>
+      <li><em>Option A, delete on touch (recommended):</em> pinch and wheel already work (<code>mine-touch-controls.tsx</code>). Keep discoverability by putting a zoom row inside the settings menu, and keep keyboard bindings for desktop.</li>
+      <li><em>Option B, auto-zoom:</em> the camera pulls back as depth increases or when a hazard is near, with a single reset-view control. Strong game feel, more design risk, and it interacts with the max-zoom gear upgrade.</li>
+      <li><em>Option C, merge into one toggle</em> that cycles two or three preset framings.</li>
+    </ul>
+    <p><strong>Recommend A now, prototype B later.</strong> Note the accessibility caveat: pinch is a two-finger gesture, so the settings-menu zoom row is the required single-pointer path, not optional.</p>
+  </article>
+
+  <article>
+    <h3>4.9 Base direction indicator and lost cargo locator</h3>
+    <p><strong>Job:</strong> point at an off-screen thing. <strong>Problem:</strong> two bespoke locators with different shapes, plus a third representation of base as text in the depth chip.</p>
+    <p><strong>Recommend</strong> folding both into the depth ribbon from 4.2 as markers, with an off-screen edge arrow only when the target is outside the viewport. One locator grammar, extensible to beacons and elevators for free. The base popover's Teleport action moves to the context action button when standing on the right cell, or stays as a tap on the base marker.</p>
+  </article>
+
+  <article>
+    <h3>4.10 Settings gear</h3>
+    <p><strong>Recommend</strong> keeping exactly one persistent top-right control, and letting it absorb zoom (4.8) and any other overflow. One gear, one menu, one place for everything that is not a moment-to-moment decision.</p>
+  </article>
+
+  <article>
+    <h3>4.11 Contextual panels: scrap mode, elevator placement, bunker sheet</h3>
+    <p><strong>Problem:</strong> each is a bespoke bordered box at its own coordinates with its own confirm and cancel styling; the scrap panel sits at <code>bottom: 82</code>, the bunker sheet at <code>bottom: 106</code>, the elevator prompt at a third anchor.</p>
+    <p><strong>Recommend</strong> one bottom-sheet component for every mode: same anchor, same entrance, same confirm-and-cancel row, same dismissal (backdrop tap, Escape, and the shared dismissal marker the TV path already uses). Entering a mode dims the hotbar so the player knows they are in a mode. This is pure consolidation and it is the cheapest slice in the plan.</p>
+  </article>
+
+  <article>
+    <h3>4.12 The floating thumbstick</h3>
+    <p>The thumbstick itself is good: float-where-you-tap is the right pattern for a phone and the axis hysteresis is already tuned. Two notes. First, it owns the full screen at z-index 4, so every HUD element is competing with the movement surface; the redesign should keep HUD controls out of the central drag zone by construction, which the 4.7 consolidation does. Second, the stick renders at <code>position: fixed</code> while the HUD is absolute inside the shell, which is a latent mismatch if the shell ever stops being full-viewport.</p>
+  </article>
+
+  <article>
+    <h3>4.13 Iconography</h3>
+    <p>Replace the emoji set with a single inline SVG sprite: one stroke weight, one corner radius, tintable via <code>currentColor</code> so disabled, armed, and danger states are one CSS property instead of an opacity hack. This is what makes the whole HUD read as one system rather than a collection of stickers, and it costs one asset pass. Keep the emoji only where they are decorative inside sheets, not in the HUD.</p>
+  </article>
+</section>
+
+<section id="target">
+  <h2>5. The target layout</h2>
+
+  <p>Five anchors collapse to four zones, and 26 always-considered elements collapse to seven persistent ones.</p>
+
+  <ul>
+    <li><strong>Zone 1, top left (status, never tappable except the bag):</strong> the readiness gauge (4.3) and the bag pips (4.4). Two objects. The wallet joins them only at the surface.</li>
+    <li><strong>Zone 2, left edge (place):</strong> the depth ribbon (4.2) with base, beacon, elevator, lost cargo, and deepest-depth markers.</li>
+    <li><strong>Zone 3, top right (system):</strong> the gear. One control.</li>
+    <li><strong>Zone 4, bottom (act):</strong> the five-slot hotbar (4.6) on the left of the arc, the context action button (4.7) on the right, and the toast lane (4.5) directly above them. Every mode sheet (4.11) rises from this edge.</li>
+    <li><strong>Center:</strong> nothing. The play area and the thumbstick own it.</li>
+  </ul>
+
+  <p>Layout rules that must hold: all four zones respect <code>env(safe-area-inset-*)</code>; nothing in zone 4 wraps or reflows as inventory changes; every interactive target is at least 44px; disabled controls stay in place rather than unmounting.</p>
+</section>
+
+<section id="vocabulary">
+  <h2>6. One visual vocabulary</h2>
+
+  <ul>
+    <li><strong>Gauge:</strong> a filled track with an optional threshold tick. Never interactive. Used by readiness and the depth ribbon. Colors: neutral, amber warning, red danger. No other element may look like this.</li>
+    <li><strong>Slot:</strong> a square tile, icon plus count badge, four states (available, empty, armed, disabled). Used by the hotbar and the bag pips. Always tappable.</li>
+    <li><strong>Action:</strong> a pill with a verb, one primary (the context button) and one secondary (sheet confirms). Always tappable, always labelled in text.</li>
+  </ul>
+  <p>Tokens to extract from the current inline styles into one place: surface, border, text, muted text, accent, warning, danger, radius small and large, and the two type sizes. The HUD currently defines these as literal hex strings in six separate style objects in <code>mine-panel.tsx</code> plus a 2110-line <code>mine.css</code>; the redesign should not add a seventh.</p>
+</section>
+
+<section id="deletions">
+  <h2>7. What this deletes</h2>
+  <ul>
+    <li>The wallet chip underground, the depth chip, the ladder count chip, the plank count chip, the lost cargo chip, the base direction tab, the two zoom buttons, and the standalone Jump, Enter bunker, Warp home, and Claim bunker buttons. Eleven persistent elements.</li>
+    <li>Roughly two thirds of the toast branches, replaced by in-world feedback or by the trip report that already exists.</li>
+    <li>The three bespoke panel anchors, replaced by one sheet.</li>
+  </ul>
+</section>
+
+<section id="risks">
+  <h2>8. Constraints and risks</h2>
+  <ul>
+    <li><strong>The e2e contract.</strong> The <code>data-*</code> attributes on the status section (depth, energy, ladders, planks, banked, wallet, return-route, and the rest) are the pinned test surface. They must survive the redesign on whatever element carries them, or the smoke suite breaks for reasons unrelated to the change. This is a feature: it lets the visuals change freely.</li>
+    <li><strong>Rule 10 applies throughout.</strong> Any animated gauge or ribbon marker needs coverage that measures observable movement, not a flag. Any new sheet needs a z-index audit against the fp raid panel at 14, the bunker sheet at 20, the first-paint veil at 30, and the notices at 40.</li>
+    <li><strong>Rule 10 also forbids canvas text.</strong> Every option above that touches the 3D scene keeps text in the DOM.</li>
+    <li><strong>Frame-loop rule.</strong> The HUD is React DOM outside the canvas, so it is not per-frame code today. If a ribbon marker or gauge is ever driven from <code>useFrame</code>, it inherits the no-allocation rule and the <code>dataset-diagnostics</code> quantization pattern.</li>
+    <li><strong>TV and gamepad paths.</strong> Q-018 exempts the TV control deck from the no-D-pad rule. A context action button must map cleanly to the TV center button, which already carries a context action, and the hotbar needs a focus order for cursor-driven TV browsers.</li>
+    <li><strong>Discoverability regression is the real risk.</strong> Hiding beacon, warp, and scrap behind a tools slot can make players forget they own them. Mitigation: a one-time badge on the tools slot the first time a new consumable enters inventory, plus stall copy that names where the tool lives.</li>
+    <li><strong>Scope.</strong> This touches the largest file in the repo (<code>mine-panel.tsx</code>, 5355 lines). It has to land as several small slices, each independently shippable and revertible, not one rewrite.</li>
+  </ul>
+</section>
+
+<section id="slices">
+  <h2>9. Proposed slice order</h2>
+  <ol>
+    <li><strong>H1, tokens and vocabulary.</strong> Extract the HUD style constants into one token module and the three component primitives (gauge, slot, action). No layout change, no behavior change. Everything after this is cheap.</li>
+    <li><strong>H2, readiness gauge.</strong> Merge battery, ladders, and route into one gauge with the reserve tick. Retire the ladder chip. Highest player value per line changed.</li>
+    <li><strong>H3, bottom bar.</strong> Fixed five-slot hotbar plus the context action button; retire Jump, Enter, Warp, Claim, the plank count chip, and the wrapping row. Biggest visual win.</li>
+    <li><strong>H4, one sheet.</strong> Consolidate scrap, elevator placement, and bunker into a single bottom sheet component.</li>
+    <li><strong>H5, depth ribbon.</strong> Replace the depth chip, base tab, and lost cargo chip with the ribbon and its markers.</li>
+    <li><strong>H6, feedback pass.</strong> Toast lane, in-world refusals, toast branch cull, surface tips confined to the surface.</li>
+    <li><strong>H7, icon set.</strong> SVG sprite replaces emoji across the HUD.</li>
+  </ol>
+  <p>H1 through H3 alone address the "too much going on" complaint. H5 is the one with real new-code risk and it is deliberately last among the structural slices.</p>
+  <p>Each slice should carry a before-and-after capture at 390x760 portrait per Rule 12, and the whole sequence wants one baseline playtest before H1 so the confirmation passes have something to measure against.</p>
+</section>
+
+<section id="questions">
+  <h2>10. Decisions (user-directed 2026-07-30)</h2>
+  <p>All four open questions were answered live before implementation. These are settled inputs to the slices above, not defaults to revisit mid-slice.</p>
+  <ul>
+    <li><strong>Planks stay two slots.</strong> Plank left and plank right keep separate hotbar slots. A wrong-direction plank spends a real consumable, and the sim already models the two as distinct actions, so this is the zero-risk path. Consequence: four of the five fixed slots are spoken for (plank left, plank right, dynamite, recovery), so the tools slot absorbs a longer tail.</li>
+    <li><strong>Hotbar is a fixed set plus a tools slot.</strong> Slot positions never move; unowned or locked consumables render as disabled slots rather than unmounting, so the bar keeps one shape and teaches what exists. Beacon, warp, scrap, and abandon live behind the tools slot. Required mitigation: a one-time badge on the tools slot the first time a new tool enters inventory, so hiding never reads as losing.</li>
+    <li><strong>Wallet hides underground.</strong> It appears at the surface and inside every sheet that spends vibes, next to the price. Live haul value is explicitly not part of this work; if it is wanted later it is a separate juice slice with its own call on whether it spoils the sell-at-surface reveal.</li>
+    <li><strong>Depth ribbon only, exact row behind a tap.</strong> The persistent readout is the ribbon and its stratum band; the numeric row is not drawn at the marker. This is the cleanest left edge and pushes players toward strata as the mental model. It carries a real cost that H5 must absorb: gear ranges, stamp goals, and mine tips are all quoted in exact rows today, so H5 has to (a) make the tap target for the exact row large, obvious, and reachable one-handed, (b) surface the exact row automatically wherever a row threshold is live (recall range, warp range, elevator depth, a stamp in progress), and (c) audit tip and stall copy under Rule 13 for anything that assumes a permanently visible depth number. If the H5 playtest shows players tapping the ribbon constantly just to read the number, that is the signal to revisit, and it is the only decision here with a revisit condition.</li>
+  </ul>
+</section>
+
+<section id="sources">
+  <h2>11. Sources</h2>
+  <ul>
+    <li><a href="https://www.gamedeveloper.com/design/implementing-context-sensitive-commands-in-ui-design">Implementing Context Sensitive Commands in UI Design, Game Developer</a></li>
+    <li><a href="https://tvtropes.org/pmwiki/pmwiki.php/Main/ContextSensitiveButton">Context-Sensitive Button, TV Tropes</a></li>
+    <li><a href="https://blog.prototypr.io/putting-the-rad-back-in-radial-menus-66ea76a39acc">Putting the Rad Back in Radial Menus, Lucy Morris</a></li>
+    <li><a href="https://www.stirlingweir.com/radial-menus">Radial Menus, Stirling Weir</a></li>
+    <li><a href="https://medium.com/@salamatizm/the-minimal-hud-paradox-how-dreams-of-diegetic-game-interfaces-often-lead-to-cluttered-nightmares-e9cf7fae9d73">The Minimal HUD Paradox, Ahmed Salama</a></li>
+    <li><a href="https://sunstrikestudios.com/en/blog/HUD_design_in_games/">HUD in Video Games: Meaning, Examples and Design Guide, Sunstrike Studios</a></li>
+    <li><a href="https://www.appnality.com/blog/guide-to-mobile-game-ui-ux-design/">A Technical Guide to Mobile Game UI/UX Design, Appnality</a></li>
+    <li><a href="https://gamefaqs.gamespot.com/flash/933421-motherload/faqs/53229">Motherload guide (fuel, hull, credits top bar), GameFAQs</a></li>
+    <li><a href="https://www.pcgamingwiki.com/wiki/SteamWorld_Dig">SteamWorld Dig (adaptive HUD, resizable interface), PCGamingWiki</a></li>
+    <li>Internal: <a href="../gdd/06-mining.html">docs/gdd/06-mining.html</a> REQ-024, <a href="./mining-mechanics.html">docs/research/mining-mechanics.html</a>, <a href="./workshop-interaction-overhaul.html">docs/research/workshop-interaction-overhaul.html</a> (same slice-shaped format).</li>
+  </ul>
+</section>
+
+</body>
+</html>

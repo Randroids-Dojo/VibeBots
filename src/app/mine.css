@@ -14,10 +14,10 @@
 .bunker-status-trigger {
   position: absolute;
   z-index: 8;
-  border: 1px solid #54e0c7;
-  background: rgba(14, 20, 28, 0.94);
+  border: 1px solid var(--hud-accent);
+  background: rgb(var(--hud-sheet-rgb) / 0.94);
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
-  color: #54e0c7;
+  color: var(--hud-accent);
   font-weight: 900;
   pointer-events: auto;
 }
@@ -33,7 +33,9 @@
 .bunker-status-backdrop {
   position: absolute;
   z-index: 19;
-  inset: 0 0 104px;
+  /* Stops short of the hotbar so it stays visible under an open mode (it
+   * dims rather than disappearing). */
+  inset: 0 0 var(--mine-hotbar-clear);
   border: 0;
   background: rgba(2, 6, 12, 0.12);
   pointer-events: auto;
@@ -46,15 +48,16 @@
    * first-paint veil (30) and the loading/error notices (40). */
   z-index: 20;
   right: 10px;
-  bottom: 106px;
+  /* Shared mode-sheet anchor (H4): same edge as every other mode panel. */
+  bottom: var(--mine-sheet-bottom);
   left: 10px;
-  max-height: min(286px, calc(100vh - 188px));
+  max-height: min(46vh, 320px);
   overflow-y: auto;
-  border: 1px solid #54e0c7;
+  border: 1px solid var(--hud-accent);
   border-radius: 12px;
-  background: rgba(14, 20, 28, 0.96);
+  background: rgb(var(--hud-sheet-rgb) / 0.96);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.42);
-  color: #e6e8ee;
+  color: var(--hud-text);
   padding: 12px;
   pointer-events: auto;
 }
@@ -81,7 +84,7 @@
 }
 
 .bunker-status-heading strong {
-  color: #54e0c7;
+  color: var(--hud-accent);
   font-size: 1rem;
 }
 
@@ -121,13 +124,13 @@
 }
 
 .bunker-result-success {
-  border-color: rgba(84, 224, 199, 0.42);
-  background: rgba(84, 224, 199, 0.1);
+  border-color: rgb(var(--hud-accent-rgb) / 0.42);
+  background: rgb(var(--hud-accent-rgb) / 0.1);
 }
 
 .bunker-result-failed {
-  border-color: rgba(255, 107, 107, 0.5);
-  background: rgba(255, 107, 107, 0.11);
+  border-color: rgb(var(--hud-danger-soft-rgb) / 0.5);
+  background: rgb(var(--hud-danger-soft-rgb) / 0.11);
 }
 
 .bunker-status-actions {
@@ -145,7 +148,7 @@
 .bunker-balance {
   margin: 8px 0 0;
   font-size: 0.82rem;
-  color: #f5c542;
+  color: var(--hud-gold);
   text-align: right;
 }
 
@@ -196,48 +199,20 @@
   flex: 1;
   padding: 8px 4px;
   border-radius: 6px;
-  border: 1px solid #26304a;
-  background: rgba(17, 21, 31, 0.72);
+  border: 1px solid var(--hud-border);
+  background: rgb(var(--hud-surface-rgb) / 0.72);
   color: inherit;
   font-size: 0.78rem;
 }
 
 .bunker-skin-picker button[aria-pressed="true"] {
-  border-color: #54e0c7;
-  color: #54e0c7;
+  border-color: var(--hud-accent);
+  color: var(--hud-accent);
 }
 
 .bunker-skin-picker button:disabled[aria-pressed="false"],
 .bunker-repair-button:disabled {
   opacity: 0.45;
-}
-
-/* THE build entry point since the hammer toolbelt retired: a single
- * floating pill while the miner stands inside an editable claim. It
- * takes the Bunker status trigger's slot (the trigger hides in that
- * state, F-119 fold), which also keeps it clear of the consumable
- * cluster when that row wraps on narrow phones. */
-.bunker-fp-enter-trigger {
-  position: absolute;
-  z-index: 10;
-  left: 12px;
-  bottom: 154px;
-  min-height: 42px;
-  padding: 0 16px;
-  border: 1px solid #54e0c7;
-  border-radius: 999px;
-  background: rgba(84, 224, 199, 0.14);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.36);
-  color: #8ef3df;
-  font-weight: 900;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-@media (max-width: 430px) {
-  .bunker-status-sheet {
-    bottom: 108px;
-  }
 }
 
 @keyframes mine-fanfare-pop {
@@ -335,15 +310,15 @@
     opacity: 0.38;
     box-shadow:
       inset 0 0 0 4px rgba(255, 38, 38, 0.58),
-      inset 0 0 42px rgba(255, 0, 0, 0.42),
-      inset 0 0 118px rgba(255, 0, 0, 0.18);
+      inset 0 0 42px rgb(var(--hud-danger-rgb) / 0.42),
+      inset 0 0 118px rgb(var(--hud-danger-rgb) / 0.18);
   }
   50% {
     opacity: 0.82;
     box-shadow:
       inset 0 0 0 9px rgba(255, 58, 58, 0.82),
-      inset 0 0 70px rgba(255, 0, 0, 0.66),
-      inset 0 0 150px rgba(255, 0, 0, 0.32);
+      inset 0 0 70px rgb(var(--hud-danger-rgb) / 0.66),
+      inset 0 0 150px rgb(var(--hud-danger-rgb) / 0.32);
   }
 }
 
@@ -366,22 +341,22 @@
   background:
     radial-gradient(
       ellipse at center,
-      rgba(255, 0, 0, 0) 52%,
-      rgba(255, 0, 0, 0.22) 100%
+      rgb(var(--hud-danger-rgb) / 0) 52%,
+      rgb(var(--hud-danger-rgb) / 0.22) 100%
     ),
     linear-gradient(
       90deg,
-      rgba(255, 0, 0, 0.2),
+      rgb(var(--hud-danger-rgb) / 0.2),
       transparent 13%,
       transparent 87%,
-      rgba(255, 0, 0, 0.2)
+      rgb(var(--hud-danger-rgb) / 0.2)
     ),
     linear-gradient(
       180deg,
-      rgba(255, 0, 0, 0.24),
+      rgb(var(--hud-danger-rgb) / 0.24),
       transparent 15%,
       transparent 85%,
-      rgba(255, 0, 0, 0.24)
+      rgb(var(--hud-danger-rgb) / 0.24)
     );
   animation: mine-battery-edge-throb 0.82s ease-in-out infinite;
 }
@@ -392,12 +367,12 @@
   left: 50%;
   z-index: 9;
   padding: 10px 22px;
-  color: #54e0c7;
+  color: var(--hud-accent);
   font-weight: 600;
   font-size: 1.1rem;
   pointer-events: none;
-  background: rgba(17, 21, 31, 0.92);
-  border: 1px solid #54e0c7;
+  background: rgb(var(--hud-surface-rgb) / 0.92);
+  border: 1px solid var(--hud-accent);
   border-radius: 10px;
   animation: mine-stratum-banner-fade 2600ms ease-out forwards;
 }
@@ -476,7 +451,7 @@
 }
 
 .mine-elevator-controls button:focus-visible {
-  outline: 3px solid #f5c542;
+  outline: 3px solid var(--hud-gold);
   outline-offset: 2px;
 }
 
@@ -533,12 +508,12 @@
   max-width: min(340px, calc(100vw - 32px));
   padding: 10px 16px 10px 10px;
   pointer-events: none;
-  background: rgba(17, 21, 31, 0.94);
-  border: 1px solid #f5c542;
+  background: rgb(var(--hud-surface-rgb) / 0.94);
+  border: 1px solid var(--hud-gold);
   border-radius: 12px;
   box-shadow:
     0 10px 34px rgba(0, 0, 0, 0.5),
-    0 0 22px rgba(245, 197, 66, 0.22);
+    0 0 22px rgb(var(--hud-gold-rgb) / 0.22);
   animation: mine-stamp-alert-pop 3000ms ease-out forwards;
 }
 
@@ -565,13 +540,13 @@
 }
 
 .mine-stamp-alert-open:focus-visible {
-  outline: 2px solid #f5c542;
+  outline: 2px solid var(--hud-gold);
   outline-offset: 6px;
 }
 
 .mine-stamp-alert-eyebrow {
   display: block;
-  color: #f5c542;
+  color: var(--hud-gold);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -581,7 +556,7 @@
 .mine-stamp-alert-title {
   display: block;
   margin-top: 2px;
-  color: #e6e8ee;
+  color: var(--hud-text);
   font-size: 1.02rem;
   font-weight: 900;
   line-height: 1.2;
@@ -594,7 +569,7 @@
   background:
     radial-gradient(
       circle at 50% 18%,
-      rgba(84, 224, 199, 0.16),
+      rgb(var(--hud-accent-rgb) / 0.16),
       transparent 24%
     ),
     linear-gradient(180deg, #0b0e14 0%, #090910 46%, #130f0b 100%);
@@ -634,7 +609,7 @@
   gap: 12px;
   justify-items: center;
   padding: 18px 20px;
-  color: #e6e8ee;
+  color: var(--hud-text);
   text-align: center;
   pointer-events: auto;
 }
@@ -642,7 +617,7 @@
 .mine-scene-notice[role="status"] {
   pointer-events: none;
   background: rgba(8, 12, 20, 0.72);
-  border: 1px solid rgba(84, 224, 199, 0.42);
+  border: 1px solid rgb(var(--hud-accent-rgb) / 0.42);
   border-radius: 14px;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38);
   transform: translate(-50%, -50%);
@@ -667,7 +642,7 @@
     #a98658 10px 16px
   );
   border-radius: 999px;
-  box-shadow: 0 0 12px rgba(245, 197, 66, 0.22);
+  box-shadow: 0 0 12px rgb(var(--hud-gold-rgb) / 0.22);
 }
 
 .mine-scene-loader-cart {
@@ -710,13 +685,13 @@
 .mine-scene-loader-gem {
   width: 9px;
   height: 12px;
-  background: #54e0c7;
+  background: var(--hud-accent);
   clip-path: polygon(50% 0, 100% 35%, 76% 100%, 24% 100%, 0 35%);
   animation: mine-loader-gem-glow 0.82s ease-in-out infinite;
 }
 
 .mine-scene-loader-gem:nth-child(2) {
-  background: #f5c542;
+  background: var(--hud-gold);
   animation-delay: 0.12s;
 }
 
@@ -731,9 +706,9 @@
   left: 50%;
   width: 18px;
   height: 36px;
-  background: linear-gradient(180deg, #f5c542, #8f5a2d);
+  background: linear-gradient(180deg, var(--hud-gold), #8f5a2d);
   clip-path: polygon(50% 0, 100% 58%, 50% 100%, 0 58%);
-  filter: drop-shadow(0 0 10px rgba(245, 197, 66, 0.44));
+  filter: drop-shadow(0 0 10px rgb(var(--hud-gold-rgb) / 0.44));
   animation: mine-loader-bit-dig 0.72s ease-in-out infinite;
 }
 
@@ -744,7 +719,7 @@
 }
 
 .mine-scene-notice-copy strong {
-  color: #f5c542;
+  color: var(--hud-gold);
   font-size: 1rem;
 }
 
@@ -759,7 +734,7 @@
   color: #061018;
   font-weight: 900;
   cursor: pointer;
-  background: #54e0c7;
+  background: var(--hud-accent);
   border: 0;
   border-radius: 10px;
 }
@@ -790,11 +765,11 @@
   z-index: 9;
   max-width: min(320px, calc(100vw - 32px));
   padding: 10px 14px;
-  border: 1px solid rgba(245, 197, 66, 0.8);
+  border: 1px solid rgb(var(--hud-gold-rgb) / 0.8);
   border-radius: 999px;
   background: rgba(18, 20, 28, 0.92);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.42);
-  color: #f5c542;
+  color: var(--hud-gold);
   font-size: 0.95rem;
   font-weight: 900;
   line-height: 1.2;
@@ -804,31 +779,13 @@
   animation: mine-pickaxe-gate-pop 1800ms ease-out both;
 }
 
-@keyframes mine-lost-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 rgba(245, 197, 66, 0);
-  }
-  50% {
-    transform: scale(1.06);
-    box-shadow: 0 0 18px rgba(245, 197, 66, 0.42);
-  }
-}
-
-.mine-lost-locator {
-  animation-name: mine-lost-pulse;
-  animation-iteration-count: infinite;
-  animation-timing-function: ease-in-out;
-}
-
 @keyframes mine-base-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 rgba(84, 224, 199, 0);
+    box-shadow: 0 0 0 rgb(var(--hud-accent-rgb) / 0);
   }
   50% {
-    box-shadow: 0 0 22px rgba(84, 224, 199, 0.42);
+    box-shadow: 0 0 22px rgb(var(--hud-accent-rgb) / 0.42);
   }
 }
 
@@ -839,9 +796,9 @@
   width: 58px;
   height: 58px;
   border-radius: 999px;
-  border: 2px solid #54e0c7;
-  background: rgba(17, 21, 31, 0.9);
-  color: #54e0c7;
+  border: 2px solid var(--hud-accent);
+  background: rgb(var(--hud-surface-rgb) / 0.9);
+  color: var(--hud-accent);
   transform: translateY(-50%);
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -870,23 +827,23 @@ button[data-bag-full-flash="true"] {
 @keyframes mine-bag-full-flash {
   0% {
     box-shadow:
-      0 0 0 0 rgba(255, 107, 107, 0.78),
-      0 0 0 rgba(255, 107, 107, 0);
+      0 0 0 0 rgb(var(--hud-danger-soft-rgb) / 0.78),
+      0 0 0 rgb(var(--hud-danger-soft-rgb) / 0);
     transform: scale(1);
   }
 
   42% {
-    border-color: #ff6b6b;
+    border-color: var(--hud-danger-soft);
     box-shadow:
-      0 0 0 6px rgba(255, 107, 107, 0.32),
-      0 0 20px rgba(255, 107, 107, 0.35);
+      0 0 0 6px rgb(var(--hud-danger-soft-rgb) / 0.32),
+      0 0 20px rgb(var(--hud-danger-soft-rgb) / 0.35);
     transform: scale(1.06);
   }
 
   100% {
     box-shadow:
-      0 0 0 12px rgba(255, 107, 107, 0),
-      0 0 0 rgba(255, 107, 107, 0);
+      0 0 0 12px rgb(var(--hud-danger-soft-rgb) / 0),
+      0 0 0 rgb(var(--hud-danger-soft-rgb) / 0);
     transform: scale(1);
   }
 }
@@ -900,7 +857,11 @@ button[data-bag-full-flash="true"] {
   justify-content: center;
   padding: 14px;
   background:
-    radial-gradient(circle at 50% 42%, rgba(84, 224, 199, 0.1), transparent 34%),
+    radial-gradient(
+      circle at 50% 42%,
+      rgb(var(--hud-accent-rgb) / 0.1),
+      transparent 34%
+    ),
     rgba(5, 7, 12, 0.42);
   pointer-events: auto;
 }
@@ -917,7 +878,7 @@ button[data-bag-full-flash="true"] {
   position: relative;
   width: min(500px, calc(100vw - 28px));
   max-height: min(640px, calc(100dvh - 108px));
-  color: #e6e8ee;
+  color: var(--hud-text);
   filter: drop-shadow(0 22px 48px rgba(0, 0, 0, 0.62));
 }
 
@@ -944,7 +905,7 @@ button[data-bag-full-flash="true"] {
   z-index: 2;
   width: 26px;
   height: 10px;
-  border: 1px solid rgba(245, 197, 66, 0.72);
+  border: 1px solid rgb(var(--hud-gold-rgb) / 0.72);
   border-radius: 3px;
   background: linear-gradient(180deg, #4f3d22, #191814);
   box-shadow: 0 1px 0 rgba(255, 237, 170, 0.24) inset;
@@ -997,13 +958,13 @@ button[data-bag-full-flash="true"] {
   flex: 0 0 auto;
   padding: 16px 16px 12px;
   background:
-    linear-gradient(135deg, rgba(84, 224, 199, 0.1), transparent 34%),
+    linear-gradient(135deg, rgb(var(--hud-accent-rgb) / 0.1), transparent 34%),
     radial-gradient(
       circle at 18% 18%,
-      rgba(245, 197, 66, 0.12),
+      rgb(var(--hud-gold-rgb) / 0.12),
       transparent 24%
     ),
-    rgba(17, 21, 31, 0.9);
+    rgb(var(--hud-surface-rgb) / 0.9);
 }
 
 .mine-bag-title-row {
@@ -1015,7 +976,7 @@ button[data-bag-full-flash="true"] {
 
 .mine-bag-title {
   margin: 0;
-  color: #f5c542;
+  color: var(--hud-gold);
   font-size: 1rem;
   letter-spacing: 0;
 }
@@ -1034,7 +995,7 @@ button[data-bag-full-flash="true"] {
   border: 1px solid rgba(72, 86, 124, 0.9);
   border-radius: 8px;
   background: #20283a;
-  color: #e6e8ee;
+  color: var(--hud-text);
   font-size: 1rem;
   font-weight: 900;
   cursor: pointer;
@@ -1074,7 +1035,7 @@ button[data-bag-full-flash="true"] {
 
 .mine-bag-pocket strong {
   margin-top: 3px;
-  color: #e6e8ee;
+  color: var(--hud-text);
   font-size: 0.78rem;
 }
 
@@ -1084,9 +1045,14 @@ button[data-bag-full-flash="true"] {
   height: 14px;
   flex: 0 0 auto;
   border-top: 1px solid rgba(0, 0, 0, 0.54);
-  border-bottom: 1px solid rgba(245, 197, 66, 0.2);
+  border-bottom: 1px solid rgb(var(--hud-gold-rgb) / 0.2);
   background:
-    linear-gradient(90deg, transparent, rgba(245, 197, 66, 0.32), transparent),
+    linear-gradient(
+      90deg,
+      transparent,
+      rgb(var(--hud-gold-rgb) / 0.32),
+      transparent
+    ),
     linear-gradient(180deg, #16110f, #05070c);
 }
 
@@ -1097,7 +1063,7 @@ button[data-bag-full-flash="true"] {
   width: 50px;
   height: 7px;
   border-radius: 999px;
-  background: rgba(84, 224, 199, 0.18);
+  background: rgb(var(--hud-accent-rgb) / 0.18);
   content: "";
 }
 
@@ -1119,9 +1085,9 @@ button[data-bag-full-flash="true"] {
   background:
     linear-gradient(
       90deg,
-      rgba(245, 197, 66, 0.09),
+      rgb(var(--hud-gold-rgb) / 0.09),
       transparent 12% 88%,
-      rgba(245, 197, 66, 0.08)
+      rgb(var(--hud-gold-rgb) / 0.08)
     ),
     rgba(13, 17, 27, 0.98);
 }
@@ -1135,7 +1101,7 @@ button[data-bag-full-flash="true"] {
 .mine-bag-drop-button,
 .mine-bag-clear-button {
   min-height: 36px;
-  border: 1px solid rgba(84, 224, 199, 0.62);
+  border: 1px solid rgb(var(--hud-accent-rgb) / 0.62);
   border-radius: 8px;
   background: rgba(18, 42, 45, 0.92);
   color: #c8fff6;
@@ -1154,14 +1120,14 @@ button[data-bag-full-flash="true"] {
   flex: 0 0 auto;
   padding: 0 10px;
   border-color: rgba(170, 178, 199, 0.48);
-  background: rgba(17, 21, 31, 0.92);
+  background: rgb(var(--hud-surface-rgb) / 0.92);
   color: #d4dae8;
 }
 
 .mine-bag-drop-button:disabled,
 .mine-bag-clear-button:disabled {
   border-color: rgba(72, 86, 124, 0.34);
-  background: rgba(17, 21, 31, 0.58);
+  background: rgb(var(--hud-surface-rgb) / 0.58);
   color: #69738b;
   cursor: not-allowed;
 }
@@ -1209,8 +1175,8 @@ button[data-bag-full-flash="true"] {
 
 .mine-bag-cell-filled[data-selected="true"] {
   box-shadow:
-    0 0 0 2px rgba(245, 197, 66, 0.92),
-    0 0 18px rgba(245, 197, 66, 0.32);
+    0 0 0 2px rgb(var(--hud-gold-rgb) / 0.92),
+    0 0 18px rgb(var(--hud-gold-rgb) / 0.32);
 }
 
 .mine-bag-cell-button {
@@ -1284,7 +1250,7 @@ button[data-bag-full-flash="true"] {
 }
 
 .mine-bag-cell-button:focus-visible {
-  outline: 2px solid #f5c542;
+  outline: 2px solid var(--hud-gold);
   outline-offset: -4px;
 }
 
@@ -1318,9 +1284,9 @@ button[data-bag-full-flash="true"] {
   top: calc(52% + 42px);
   z-index: 10;
   width: min(240px, calc(100vw - 32px));
-  border: 1px solid #26304a;
+  border: 1px solid var(--hud-border);
   border-radius: 12px;
-  background: rgba(17, 21, 31, 0.96);
+  background: rgb(var(--hud-surface-rgb) / 0.96);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.46);
   padding: 12px;
   pointer-events: auto;
@@ -1367,10 +1333,10 @@ button[data-bag-full-flash="true"] {
   width: 86px;
   height: 86px;
   border-radius: 999px;
-  border: 2px solid rgba(84, 224, 199, 0.86);
+  border: 2px solid rgb(var(--hud-accent-rgb) / 0.86);
   background: radial-gradient(
     circle,
-    rgba(84, 224, 199, 0.24),
+    rgb(var(--hud-accent-rgb) / 0.24),
     rgba(224, 138, 255, 0.12) 46%,
     rgba(224, 138, 255, 0) 70%
   );
@@ -1387,7 +1353,7 @@ button[data-bag-full-flash="true"] {
   height: 7px;
   margin: -3.5px;
   border-radius: 999px;
-  background: #f5c542;
+  background: var(--hud-gold);
   transform-origin: center;
   animation: mine-base-teleport-particle 0.62s ease-out forwards;
 }
@@ -1432,7 +1398,6 @@ button[data-bag-full-flash="true"] {
   /* The stamp alert then appears statically; its reaper timer removes it. */
   .mine-stamp-alert,
   .mine-juice,
-  .mine-lost-locator,
   .mine-base-indicator,
   .mine-base-teleport-burst,
   .mine-base-teleport-burst span,
@@ -1455,9 +1420,9 @@ button[data-bag-full-flash="true"] {
   min-width: 44px;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid #54e0c7;
+  border: 1px solid var(--hud-accent);
   border-radius: 999px;
-  background: rgba(14, 20, 28, 0.92);
+  background: rgb(var(--hud-sheet-rgb) / 0.92);
   color: #8ef3df;
   font-weight: 900;
   font-size: 0.82rem;
@@ -1476,9 +1441,9 @@ button[data-bag-full-flash="true"] {
   min-width: 44px;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid #54e0c7;
+  border: 1px solid var(--hud-accent);
   border-radius: 999px;
-  background: rgba(14, 20, 28, 0.92);
+  background: rgb(var(--hud-sheet-rgb) / 0.92);
   color: #8ef3df;
   font-weight: 900;
   font-size: 0.82rem;
@@ -1655,7 +1620,7 @@ button[data-bag-full-flash="true"] {
 
 .bunker-fp-raid-abandon-no {
   border: 1px solid rgba(226, 232, 240, 0.4);
-  background: rgba(14, 20, 28, 0.85);
+  background: rgb(var(--hud-sheet-rgb) / 0.85);
   color: #e2e8f0;
 }
 
@@ -1749,15 +1714,15 @@ button[data-bag-full-flash="true"] {
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid rgba(139, 147, 167, 0.4);
-  background: rgba(14, 20, 28, 0.78);
+  background: rgb(var(--hud-sheet-rgb) / 0.78);
   color: #aeb8ce;
   font-size: 0.68rem;
   font-weight: 700;
 }
 
 .bunker-fp-chip-vibes {
-  color: #f5c542;
-  border-color: rgba(245, 197, 66, 0.45);
+  color: var(--hud-gold);
+  border-color: rgb(var(--hud-gold-rgb) / 0.45);
 }
 
 .bunker-fp-bag {
@@ -1767,10 +1732,10 @@ button[data-bag-full-flash="true"] {
   left: calc(12px + env(safe-area-inset-left));
   min-height: 44px;
   padding: 0 14px;
-  border: 1px solid rgba(245, 197, 66, 0.75);
+  border: 1px solid rgb(var(--hud-gold-rgb) / 0.75);
   border-radius: 999px;
-  background: rgba(14, 20, 28, 0.92);
-  color: #f5c542;
+  background: rgb(var(--hud-sheet-rgb) / 0.92);
+  color: var(--hud-gold);
   font-weight: 900;
   font-size: 0.82rem;
   pointer-events: auto;
@@ -1786,7 +1751,7 @@ button[data-bag-full-flash="true"] {
   padding: 10px 18px;
   border-radius: 999px;
   background: rgba(11, 14, 20, 0.78);
-  color: #e6e8ee;
+  color: var(--hud-text);
   font-weight: 900;
   font-size: 0.82rem;
   letter-spacing: 0.08em;
@@ -1820,9 +1785,9 @@ button[data-bag-full-flash="true"] {
   width: 128px;
   height: 128px;
   margin: -64px 0 0 -64px;
-  border: 2px solid rgba(84, 224, 199, 0.45);
+  border: 2px solid rgb(var(--hud-accent-rgb) / 0.45);
   border-radius: 50%;
-  background: rgba(17, 21, 31, 0.25);
+  background: rgb(var(--hud-surface-rgb) / 0.25);
   pointer-events: none;
 }
 
@@ -1838,8 +1803,8 @@ button[data-bag-full-flash="true"] {
   height: 48px;
   margin: -24px 0 0 -24px;
   border-radius: 50%;
-  background: rgba(84, 224, 199, 0.55);
-  box-shadow: 0 0 14px rgba(84, 224, 199, 0.4);
+  background: rgb(var(--hud-accent-rgb) / 0.55);
+  box-shadow: 0 0 14px rgb(var(--hud-accent-rgb) / 0.4);
 }
 
 /* First-person crosshair: a 2px cross that stays readable over any
@@ -1861,7 +1826,7 @@ button[data-bag-full-flash="true"] {
 .bunker-fp-crosshair::after {
   content: "";
   position: absolute;
-  background: #e6e8ee;
+  background: var(--hud-text);
 }
 
 .bunker-fp-crosshair::before {
@@ -1893,7 +1858,7 @@ button[data-bag-full-flash="true"] {
   padding: 5px 12px;
   border-radius: 999px;
   background: rgba(11, 14, 20, 0.78);
-  color: #e6e8ee;
+  color: var(--hud-text);
   font-weight: 800;
   font-size: 0.72rem;
   white-space: nowrap;
@@ -1946,7 +1911,7 @@ button[data-bag-full-flash="true"] {
   gap: 10px;
   max-width: min(360px, calc(100% - 24px));
   padding: 10px 14px;
-  border: 1px solid #54e0c7;
+  border: 1px solid var(--hud-accent);
   border-radius: 12px;
   background: rgba(10, 18, 22, 0.92);
   color: #d9fef4;
@@ -1963,7 +1928,7 @@ button.bunker-fp-tutorial {
 
 button.bunker-fp-tutorial strong {
   flex: 0 0 auto;
-  color: #54e0c7;
+  color: var(--hud-accent);
 }
 
 .bunker-fp-tutorial p {
@@ -1982,9 +1947,9 @@ button.bunker-fp-tutorial strong {
   min-width: 28px;
   min-height: 24px;
   padding: 2px 8px;
-  border: 1px solid rgba(84, 224, 199, 0.4);
+  border: 1px solid rgb(var(--hud-accent-rgb) / 0.4);
   border-radius: 999px;
-  background: rgba(17, 21, 31, 0.72);
+  background: rgb(var(--hud-surface-rgb) / 0.72);
   color: #8ef3df;
   font-weight: 800;
   font-size: 0.64rem;
@@ -2006,9 +1971,9 @@ button.bunker-fp-tutorial strong {
   gap: 2px;
   max-width: calc(100% - 12px);
   padding: 4px;
-  border: 1px solid rgba(84, 224, 199, 0.35);
+  border: 1px solid rgb(var(--hud-accent-rgb) / 0.35);
   border-radius: 12px;
-  background: rgba(14, 20, 28, 0.88);
+  background: rgb(var(--hud-sheet-rgb) / 0.88);
   pointer-events: auto;
 }
 
@@ -2023,10 +1988,10 @@ button.bunker-fp-tutorial strong {
   min-width: 40px;
   min-height: 52px;
   padding: 3px 2px;
-  border: 1px solid rgba(230, 232, 238, 0.18);
+  border: 1px solid rgb(var(--hud-text-rgb) / 0.18);
   border-radius: 8px;
-  background: rgba(17, 21, 31, 0.72);
-  color: #e6e8ee;
+  background: rgb(var(--hud-surface-rgb) / 0.72);
+  color: var(--hud-text);
   font-weight: 800;
   cursor: pointer;
 }
@@ -2057,8 +2022,8 @@ button.bunker-fp-tutorial strong {
 }
 
 .bunker-fp-slot[aria-pressed="true"] {
-  border-color: #54e0c7;
-  background: rgba(84, 224, 199, 0.16);
+  border-color: var(--hud-accent);
+  background: rgb(var(--hud-accent-rgb) / 0.16);
   color: #8ef3df;
 }
 
@@ -2088,7 +2053,7 @@ button.bunker-fp-tutorial strong {
   align-self: stretch;
   width: 1px;
   margin: 2px 1px;
-  background: rgba(230, 232, 238, 0.25);
+  background: rgb(var(--hud-text-rgb) / 0.25);
 }
 
 /* Pry-refusal chip: a brief note above the hotbar (damaged parts must
@@ -2102,8 +2067,8 @@ button.bunker-fp-tutorial strong {
   padding: 6px 12px;
   border: 1px solid #f87171;
   border-radius: 999px;
-  background: rgba(14, 20, 28, 0.92);
-  color: #e6e8ee;
+  background: rgb(var(--hud-sheet-rgb) / 0.92);
+  color: var(--hud-text);
   font-size: 0.72rem;
   white-space: nowrap;
   pointer-events: none;

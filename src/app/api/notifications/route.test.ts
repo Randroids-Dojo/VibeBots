@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-29-0.1.290-every-rock-breaks",
+      releaseNoticeId: "2026-07-30-0.1.293-one-icon-set",
       releaseSummary:
-        "Every rock in the mine can be broken: Boulders used to be dead ends that answered a swing with a thud and nothing else. They are stone like any other rock now, and the mine tells you what it wants when a block will not open.",
+        "The mine's icons are one set now: The HUD was built out of emoji, which is why it looked like a pile of stickers: every icon came from a different artist, at a different weight, and none of them could change colour with the control they sat on.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-29-0.1.290-every-rock-breaks",
+      releaseNoticeId: "2026-07-30-0.1.293-one-icon-set",
       attempted: 2,
       sent: 1,
       expired: 1,

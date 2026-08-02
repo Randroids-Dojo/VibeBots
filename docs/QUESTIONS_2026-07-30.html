@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Questions: 2026-07-30 HUD redesign session</title>
+</head>
+<body>
+
+<header>
+  <h1>Questions from the 2026-07-30 autonomous session</h1>
+  <p>Raised while shipping HUD redesign slices H1 and H2 (see <a href="research/mine-hud-redesign-2026-07.html">docs/research/mine-hud-redesign-2026-07.html</a>). Ordered by how much the answer changed.</p>
+  <p><strong>All answered live on 2026-07-30.</strong> Each entry now carries its <em>Decision</em>. Six went with the recommended default; item 3 (the red CI gate) did not. Nothing here is still open.</p>
+</header>
+
+<section id="blocking">
+  <h2>Needs your call before the next slices</h2>
+
+  <article id="q-branch">
+    <h3>1. One branch versus one slice per PR</h3>
+    <p><strong>The conflict.</strong> The session instructions pin all work to <code>claude/hud-redesign-research-612nhx</code> and forbid pushing to any other branch. <code>AGENTS.md</code> Rule 5 and the working agreement want one branch per PR-sized slice and forbid mixing unrelated changes. Those cannot both hold once there is more than one slice.</p>
+    <p><strong>What I did.</strong> Kept H1 and H2 as separate, individually revertible commits on the one branch, and refused to bundle genuinely unrelated work (the <code>next</code> bump below) into it.</p>
+    <p><strong>What I need.</strong> Either permission to open a branch per slice, or confirmation that stacking the HUD slices on one branch and one PR is what you want. If it is one PR, H3 onward will make it a large diff, and I would rather land H1 and H2 first.</p>
+    <p><strong>Recommended default:</strong> merge H1 and H2 as one PR now, then let me branch per slice for H3 onward.</p>
+      <p><strong>Decision (2026-07-30):</strong> Ship H1 and H2 as one PR now, then branch per slice for H3 onward. The single-branch pin is lifted for subsequent slices.</p>
+  </article>
+
+  <article id="q-next">
+    <h3>2. The <code>next</code> 16.2.12 upgrade is queued behind this work</h3>
+    <p><strong>The finding.</strong> The Dependency Upgrade Gate fired: <code>npm view next dist-tags.latest</code> returns <code>16.2.12</code>, the ledger pins <code>16.2.11</code>. Per the implementation plan the upgrade IS the next slice.</p>
+    <p><strong>What I did.</strong> Did not bundle it. <code>docs/DEPENDENCY_LEDGER.html</code> requires one upgrade per PR, and the branch pin above means bundling was the only way to ship it inside this session's PR. The prior 16.2.11 bump was a security-only patch needing no migration, so 16.2.12 is likely the same shape, but I have not read its changelog.</p>
+    <p><strong>What I need.</strong> Confirmation that deferring is right, or a green light to take the bump on its own branch.</p>
+      <p><strong>Decision (2026-07-30):</strong> Take the bump on its own branch and its own PR, after the HUD PR. Not bundled.</p>
+  </article>
+</section>
+
+<section id="findings">
+  <h2>Findings you should see, no answer strictly required</h2>
+
+  <article id="q-ci">
+    <h3>3. The scheduled Full E2E gate has been red for at least six consecutive days</h3>
+    <p><strong>The finding.</strong> Every completed scheduled CI run from 2026-07-24 through 2026-07-29 concluded <code>failure</code>. The newest (<code>30442652068</code>, head <code>4e830d4d</code>) failed 12 of 32 shards.</p>
+    <p><strong>The triage.</strong> Not a regression. Two scheduled runs on the identical commit <code>41963452</code> failed <em>different</em> shard sets (<code>{3,5,6,7,8,9,10,20,22}</code> on 07-28 versus <code>{3,6,8,9,11,21}</code> on 07-27). A deterministic regression fails the same shards every time; different sets on the same tree is nondeterminism. Shard 3 resolves to the holodeck pinch-zoom spec, already named in the known-flake list in <code>docs/CI_WORKFLOW.html</code>, and the pattern matches the software-rendering residual that document attributes to <code>F-132</code>.</p>
+    <p><strong>Why it still matters.</strong> A gate that is red every single day carries no signal. Nobody can tell a real Full E2E regression from the standing noise without redoing this shard-set comparison by hand, and Rule 5 step 3 asks every future slice to triage it before picking work. Twelve of thirty-two shards is also well beyond the "a couple of specs" the CI doc describes, so the flake set has likely grown since that text was written.</p>
+    <p><strong>Recommendation.</strong> Make <code>F-132</code> a real slice rather than background context: either fix or quarantine the flaky specs so the scheduled gate goes green and stays a signal. I did not start it because it is unrelated to the HUD work and could not have its own branch.</p>
+      <p><strong>Decision (2026-07-30):</strong> Leave it and keep re-triaging per slice. Overridden from the recommended default: the flake work is not worth displacing feature progress right now. The triage cost stays with every future slice, and the shard-set comparison method recorded above is how to do it quickly.</p>
+  </article>
+
+  <article id="q-f217">
+    <h3>4. F-217 did not reproduce, and the fix is one tool call</h3>
+    <p><strong>The finding.</strong> <code>F-217</code> records that remote sessions cannot install because the VibeKit github dependency 403s. It reproduced here on the first <code>pnpm install</code>. Adding <code>randroids-dojo/vibekit</code> to the session's repository scope cleared it immediately, and install, typecheck, the full unit suite, the build, and Playwright all ran afterwards.</p>
+    <p><strong>Recommendation.</strong> Fold this into <code>F-217</code> as the workaround so the next remote session does not rediscover it: the dependency needs the VibeKit repo in session scope, not a credential change.</p>
+      <p><strong>Decision (2026-07-30):</strong> Recorded. Folded into F-217 as a progress update with the exact unblock and its two caveats.</p>
+  </article>
+
+  <article id="q-verify">
+    <h3>5. A masked pipeline hid a failing install, exactly as the verifier rule warns</h3>
+    <p><strong>The finding.</strong> My first <code>pnpm install --frozen-lockfile 2&gt;&amp;1 | tail -25</code> reported success because the pipeline's exit status came from <code>tail</code>, not <code>pnpm</code>. The install had actually failed with the 403 above. <code>docs/WORKING_AGREEMENT.html</code> names this trap for verification gates; it bites setup commands the same way.</p>
+    <p><strong>What I did.</strong> Re-ran every gate in this session writing to a file and echoing its own exit status, never through a formatting pipe.</p>
+    <p><strong>Recommendation.</strong> Widen the wording in the working agreement from "verification gate" to any command whose success is being relied on, install and build included.</p>
+      <p><strong>Decision (2026-07-30):</strong> Recorded. The working agreement now covers any command whose success is relied on, not only named verification gates.</p>
+  </article>
+
+  <article id="q-relnotes">
+    <h3>6. <code>docs/RELEASE_NOTES.html</code> has drifted out of use</h3>
+    <p><strong>The finding.</strong> Its newest entry is <code>0.1.258</code>; the package is now at <code>0.1.291</code>. Thirty-two releases have shipped without an entry, while <code>src/lib/app-release-notes.ts</code> and the GDD build log have been kept current.</p>
+    <p><strong>What I did.</strong> Followed the actual practice: updated the release-notes module, its test, and the build log, and left the HTML ledger alone rather than inventing a re-entry point mid-slice.</p>
+    <p><strong>What I need.</strong> Either retire that file, or say it should be backfilled and kept current, in which case that is its own slice.</p>
+      <p><strong>Decision (2026-07-30):</strong> Retire it. Implemented as a freeze in place rather than a delete: append-only history in the progress log and GDD build logs links to the file, and those entries cannot be edited, so deleting it would strand dead links in immutable history. The file now carries a retirement banner and points at the live sources; README and the coverage ledger point at src/lib/app-release-notes.ts. Say the word if you want it actually deleted and the dead links accepted.</p>
+  </article>
+</section>
+
+<section id="design">
+  <h2>Design questions for the remaining HUD slices</h2>
+
+  <article id="q-copy">
+    <h3>7. Ladder copy is pinned by e2e, which blocks the clearer wording</h3>
+    <p><strong>The finding.</strong> The research recommended concrete shortfall copy ("2 ladders short"). Two specs assert the literal word "needed" in the ladder readout, so H2 kept <code>/N needed</code>. REQ-024 says sim numbers ride data attributes precisely so tests never pin chip copy; these two specs pin it anyway.</p>
+    <p><strong>Recommendation.</strong> H6 moves both specs onto <code>data-return-route</code> and <code>data-ladder-short</code>, then takes the clearer copy. Confirm you want the copy change and I will do both together.</p>
+      <p><strong>Decision (2026-07-30):</strong> Move both specs onto data attributes and take the clearer copy. Done in this PR rather than deferred to H6, since it is the same readout.</p>
+  </article>
+
+  <article id="q-h3">
+    <h3>8. H3 needs a decision I could not make from the code</h3>
+    <p><strong>The finding.</strong> The five fixed hotbar slots are already spoken for by plank left, plank right, dynamite, and recovery, leaving one slot for the tools group (beacon, warp, scrap, abandon). That is a four-item group behind a single slot, which is more hiding than the research assumed when you chose the fixed-set option.</p>
+    <p><strong>Options.</strong> Six slots instead of five, at some thumb-reach cost; or accept a four-item tools menu; or promote whichever tool is contextually live into a sixth slot that appears only then, which reintroduces reflow.</p>
+    <p><strong>Recommended default:</strong> accept the four-item tools menu for H3 and let a playtest decide, since it is the only option that keeps slot positions fixed, which is the property you picked the fixed set for.</p>
+      <p><strong>Decision (2026-07-30):</strong> Five slots with a four-item tools menu. Fixed slot positions win; a playtest can move it.</p>
+  </article>
+</section>
+
+</body>
+</html>

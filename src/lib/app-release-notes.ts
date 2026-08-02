@@ -1,9 +1,76 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-29-0.1.290-every-rock-breaks";
+export const RELEASE_NOTICE_ID = "2026-07-30-0.1.293-one-icon-set";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.293",
+      date: "2026-07-30",
+      title: "The mine's icons are one set now",
+      intro:
+        "The HUD was built out of emoji, which is why it looked like a pile of stickers: every icon came from a different artist, at a different weight, and none of them could change colour with the control they sat on.",
+      changes: [
+        {
+          build,
+          text: "Every icon in the mine is drawn in one line style now, and takes the colour of whatever it sits on. A dimmed tool, an armed tool, and a warning all tint their icon to match instead of showing the same flat emoji.",
+        },
+        {
+          build,
+          text: "The settings button and the tools slot used to be the same gear. Settings is sliders, tools is a wrench.",
+        },
+        {
+          build,
+          text: "Opening the tools or recovery slot no longer pushes its menu off the side of the screen on a phone.",
+        },
+      ],
+    },
+    {
+      version: "0.1.292",
+      date: "2026-07-30",
+      title: "One row of tools, one button for what you can do",
+      intro:
+        "The mine had controls in five corners of the screen and a bottom row that changed shape as your inventory did. The tools are one fixed row now, what you can do right here is one button, and depth reads as a map down the side of the screen.",
+      changes: [
+        {
+          build,
+          text: "Your consumables sit in five fixed slots along the bottom. A slot never moves and never disappears: something you cannot use right now dims in place instead of vanishing, so the slot under your thumb is always the same slot.",
+        },
+        {
+          build,
+          text: "Jump, Enter bunker, and Warp home were three buttons in three places that were almost never useful at the same time. They are one button in the bottom right that shows whichever one applies where you are standing. It also moved out of the middle of the screen, where it used to fight the drag-to-move control.",
+        },
+        {
+          build,
+          text: "Depth is a ribbon down the left edge instead of a line of text: one band per rock layer, showing how far into the current layer you are, with markers for base, your elevator, planted beacons, dropped cargo, and your deepest dig. Tap it for the exact depth.",
+        },
+        {
+          build,
+          text: "Action messages moved to the bottom of the screen, just above the tools, instead of the top left corner you had to look away to read. Your vibes now show at the surface and in shops, where you can actually spend them.",
+        },
+      ],
+    },
+    {
+      version: "0.1.291",
+      date: "2026-07-30",
+      title: "The charge bar now shows your trip home",
+      intro:
+        "Your charge, your ladders, and whether there is a way back were three separate readouts in three corners of the screen. They are one bar now, and it marks how much charge the climb home actually costs.",
+      changes: [
+        {
+          build,
+          text: "The charge bar has a notch on it. Everything to the right of the notch is charge you can spend digging; the notch itself is the trip home. The bar turns amber as you approach it and red once your charge drops past it.",
+        },
+        {
+          build,
+          text: "Your ladder count moved onto that same bar, so running short of ladders or losing your route home now reads in the same place as your charge instead of the opposite corner of the screen.",
+        },
+        {
+          build,
+          text: "With the separate ladder chip gone, the bottom row of controls fits on one line again instead of spilling the last button onto a second row.",
+        },
+      ],
+    },
     {
       version: "0.1.290",
       date: "2026-07-29",

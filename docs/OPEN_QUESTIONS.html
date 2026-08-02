@@ -423,6 +423,56 @@
 <aside id="resolved">
   <h2>Resolved</h2>
 
+  <section data-q="Q-036" data-status="resolved">
+    <h3>Q-036: How many hotbar slots does H3 get?</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-30 HUD design review settled on a fixed hotbar so slot positions never move. Working through H3, the five slots are already claimed by plank left, plank right, dynamite, and recovery, leaving one slot to cover beacon, warp, scrap, and abandon. That is a four-item menu behind one slot, more hiding than the fixed-set decision assumed.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Keep five slots and accept a four-item tools menu.</li>
+          <li>Go to six slots, costing some thumb reach on small phones.</li>
+          <li>Promote the contextually live tool into a sixth slot that appears only then, which reintroduces the reflow the fixed set exists to prevent.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. It is the only option that preserves fixed slot positions, which is the property the fixed set was chosen for. Let a playtest move it.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User confirmed A on 2026-07-30. Five slots, four-item tools menu. H3 builds to this, and the one-time new-tool badge is a requirement rather than a nice-to-have because the tools group is larger than the research assumed. Detail in <a href="QUESTIONS_2026-07-30.html#q-h3">docs/QUESTIONS_2026-07-30.html</a>.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-035" data-status="resolved">
+    <h3>Q-035: Should the scheduled Full E2E flake set become a slice?</h3>
+    <dl>
+      <dt>Context</dt><dd>Every completed scheduled run from 2026-07-24 to 2026-07-29 concluded <code>failure</code>; the newest failed 12 of 32 shards. Triage on 2026-07-30 confirmed flake, not regression: two runs on the identical commit <code>41963452</code> failed different shard sets. A gate that is red daily carries no signal, and Rule 5 step 3 asks every future slice to re-triage it by hand.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Take <code>F-132</code> as a real slice: fix or quarantine the flaky specs so the scheduled gate goes green and stays a signal.</li>
+          <li>Leave it, and keep re-triaging per slice.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Twelve of thirty-two shards is well past the "couple of specs" the CI doc describes, so the flake set has grown and the gate has stopped doing its job.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User chose B on 2026-07-30, overriding the recommended default: leave the gate red and keep re-triaging per slice, rather than displacing feature work with renderer-speed work. The accepted cost is that every future slice pays the triage tax and a genuine Full E2E regression can hide inside the standing red. The cheap triage method is the shard-set comparison recorded in <a href="QUESTIONS_2026-07-30.html#q-ci">docs/QUESTIONS_2026-07-30.html</a>: compare failing shard sets across two runs on the same commit, since a real regression fails the same shards every time.</dd>
+    </dl>
+  </section>
+
+  <section data-q="Q-034" data-status="resolved">
+    <h3>Q-034: One branch, or one branch per slice, for the HUD redesign?</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-07-30 session was pinned to a single branch, which collides with Rule 5's one-slice-one-branch contract once there is more than one slice. H1 and H2 landed as separate commits on the one branch, and the pending <code>next</code> 16.2.12 bump was deliberately not bundled because the dependency ledger requires one upgrade per PR.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Ship H1 and H2 as one PR now, then branch per slice for H3 onward.</li>
+          <li>Keep every HUD slice on the one branch and open a single large PR at the end.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. H1 and H2 are a coherent, reviewable unit; stacking H3 through H7 on top without review is what slice discipline exists to prevent.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User confirmed A on 2026-07-30. H1 and H2 ship as one PR; the single-branch pin is lifted so H3 onward, and the deferred <code>next</code> 16.2.12 bump, each get their own branch and PR. Detail in <a href="QUESTIONS_2026-07-30.html#q-branch">docs/QUESTIONS_2026-07-30.html</a>.</dd>
+    </dl>
+  </section>
+
+
   <section data-q="Q-025" data-status="resolved">
     <h3>Q-025: Where may a thin roof panel sit in a dug-out column?</h3>
     <dl>

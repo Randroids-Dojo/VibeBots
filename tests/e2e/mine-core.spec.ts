@@ -15,6 +15,7 @@ import {
   exportDiff,
   MINE_VERSION,
   type MineAction,
+  openScrapMode,
   pressMineKey,
   pressMineKeyUntilStatus,
   returnEnergyCost,
@@ -84,16 +85,20 @@ test(
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-depth", "0");
     await expect(status).toHaveAttribute("data-horizontal-distance", "0");
-    await expect(status).toContainText("Depth 0");
-    await expect(status).toContainText("Base 0");
-    await expect(status).toContainText("Topsoil");
+    // H5: depth, stratum, and base are the left-edge ribbon now, not a
+    // text chip. The exact row rides a data attribute (and a tap), which
+    // is what REQ-024 asks of sim numbers in the first place.
+    const ribbon = page.locator("[data-depth-ribbon='true']");
+    await expect(ribbon).toBeVisible();
+    await expect(ribbon).toHaveAttribute("data-depth-row", "0");
+    await expect(ribbon).toHaveAttribute("data-depth-stratum", "Topsoil");
+    await expect(ribbon.locator("[data-ribbon-marker='miner']")).toBeVisible();
     // The wallet is always on the HUD now (exposed for tests; empty when
     // storage is offline, a number otherwise).
     expect(await status.getAttribute("data-wallet")).not.toBeNull();
 
     await pressMineKey(page, "ArrowRight");
     await expect(status).toHaveAttribute("data-horizontal-distance", "1");
-    await expect(status).toContainText("Base +1");
     await page.waitForTimeout(650);
     await pressMineKey(page, "ArrowLeft");
     await expect(status).toHaveAttribute("data-horizontal-distance", "0");
@@ -101,7 +106,7 @@ test(
     // Blocks soak multiple swings now (REQ-013); dig through row 1.
     await digTo(page, 1);
     await expect(status).toHaveAttribute("data-depth", "1");
-    await expect(status).toContainText("Depth 1");
+    await expect(ribbon).toHaveAttribute("data-depth-row", "1");
     // The block's swing total preserves the old economy: a dirt or ore
     // block costs 1.0 in total (a rare cache costs 1.5).
     const energy = Number(await status.getAttribute("data-energy"));
@@ -171,32 +176,45 @@ test(
     await expect(placePlankLeft).toBeDisabled();
     await expect(placePlankRight).toBeDisabled();
     const plankBox = await placePlankLeft.boundingBox();
+    const plankRightBox = await placePlankRight.boundingBox();
+    // The context action is the one primary verb and outsizes a hotbar
+    // slot, so the thumb finds it without looking.
     expect(jumpBox?.width).toBeGreaterThan(plankBox?.width ?? 0);
     expect(jumpBox?.height).toBeGreaterThan(plankBox?.height ?? 0);
     const viewport = page.viewportSize();
+    // H3 layout: hotbar along the bottom left, context action in the
+    // bottom right thumb arc. Both sit low; the old Jump button floated at
+    // mid-height on the right edge, inside the thumbstick's drag area.
     expect(jumpBox?.x ?? 0).toBeGreaterThan((viewport?.width ?? 0) * 0.65);
-    expect(jumpBox?.y ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.32);
-    expect((jumpBox?.y ?? 0) + (jumpBox?.height ?? 0)).toBeLessThan(
-      (plankBox?.y ?? 0) - 12,
+    expect(jumpBox?.y ?? 0).toBeGreaterThan((viewport?.height ?? 0) * 0.6);
+    expect(plankBox?.x ?? 0).toBeLessThan((viewport?.width ?? 0) * 0.2);
+    // Fixed slots never wrap: every slot shares one row, which is what the
+    // old wrapping cluster failed to do once inventory grew.
+    expect(Math.abs((plankBox?.y ?? 0) - (plankRightBox?.y ?? 0))).toBeLessThan(
+      2,
     );
-    const bottomCenterHit = await page.evaluate(() => {
-      const target = document.elementFromPoint(
-        window.innerWidth / 2,
-        window.innerHeight - 32,
-      );
-      return {
-        label: target?.getAttribute("aria-label") ?? null,
-        mineShell: target
-          ?.closest("[data-mine-shell='true']")
-          ?.getAttribute("data-mine-shell"),
-      };
-    });
-    expect(bottomCenterHit.label).not.toBe("Jump jets");
-    expect(bottomCenterHit.label).not.toBe("Dig controls");
-    expect(bottomCenterHit.mineShell).toBe("true");
+    // The drag-to-move surface stays reachable directly above the bar.
+    const aboveBarHit = await page.evaluate(
+      (probeY) => {
+        const target = document.elementFromPoint(window.innerWidth / 2, probeY);
+        return {
+          label: target?.getAttribute("aria-label") ?? null,
+          mineShell: target
+            ?.closest("[data-mine-shell='true']")
+            ?.getAttribute("data-mine-shell"),
+        };
+      },
+      (plankBox?.y ?? 0) - 24,
+    );
+    expect(aboveBarHit.label).not.toBe("Dig controls");
+    expect(aboveBarHit.mineShell).toBe("true");
+    // Scrap moved into the tools slot, one tap away rather than a
+    // permanent button competing for thumb space.
+    await page.getByRole("button", { name: "Tools" }).click();
     await expect(
-      page.getByRole("button", { name: "Scrap placed supports" }),
+      page.getByRole("menuitemcheckbox", { name: "Scrap placed supports" }),
     ).toBeVisible();
+    await page.getByRole("button", { name: "Tools" }).click();
     await expect(status).toHaveAttribute("data-ladders", /\d+/);
   },
 );
@@ -618,14 +636,20 @@ test(
     const status = page.getByLabel("Mine status");
     await expect(status).toHaveAttribute("data-battery-low", "true");
     await expect(status).toHaveAttribute("data-ladder-short", "true");
+    await expect(
+      status.locator("[data-readiness-gauge='true']"),
+    ).toHaveAttribute("data-readiness-level", "danger");
     await expect(status).toHaveAttribute("data-return-route", "short");
     await expect(status).toHaveAttribute("data-return-capped", "false");
     await expect(status.locator("[data-battery-chip='true']")).toContainText(
       "Low",
     );
-    await expect(page.locator("[data-ladder-chip='true']")).toContainText(
-      "needed",
-    );
+    // REQ-024: the shortfall rides a data attribute so this spec does not
+    // pin the readout's wording. The gauge still has to render it.
+    expect(
+      Number(await status.getAttribute("data-ladder-shortfall")),
+    ).toBeGreaterThan(0);
+    await expect(page.locator("[data-ladder-chip='true']")).toBeVisible();
 
     const edgeWarning = page.locator("[data-battery-edge-warning='true']");
     await expect(edgeWarning).toBeVisible();
@@ -693,9 +717,7 @@ test(
     await expect(status).toHaveAttribute("data-return-route", "clear");
     await expect(status).toHaveAttribute("data-return-steps", "4");
     await expect(status).toHaveAttribute("data-return-capped", "false");
-    await expect(page.locator("[data-ladder-chip='true']")).not.toContainText(
-      "needed",
-    );
+    await expect(status).toHaveAttribute("data-ladder-shortfall", "0");
   },
 );
 
@@ -1009,11 +1031,14 @@ test(
     await dismissReleaseNotes(page);
     const canvas = page.locator("canvas");
     await expect(canvas).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Scrap placed supports" }),
-    ).toBeEnabled();
-    await page.getByRole("button", { name: "Scrap placed supports" }).click();
+    await openScrapMode(page);
     const salvage = page.getByRole("region", { name: "Scrap mode" });
+    await expect(salvage).toBeVisible();
+    // H4 shared mode sheet: every mode closes on Escape (the working
+    // agreement's keyboard dismissal path for a new window pattern).
+    await page.keyboard.press("Escape");
+    await expect(salvage).toHaveCount(0);
+    await openScrapMode(page);
     await expect(salvage).toBeVisible();
     await expectRegionHorizontalBounds(page, "Scrap mode");
     const before = await canvas.screenshot();
@@ -1092,7 +1117,7 @@ test(
     await expect(
       page.getByRole("region", { name: "Bunker upkeep" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Scrap placed supports" }).click();
+    await openScrapMode(page);
     await expect(
       page.getByRole("region", { name: "Bunker upkeep" }),
     ).toHaveCount(0);
@@ -1140,11 +1165,7 @@ test(
       page.getByRole("button", { name: "Salvage ladder" }),
     ).toHaveCount(0);
 
-    const scrapSupports = page.getByRole("button", {
-      name: "Scrap placed supports",
-    });
-    await expect(scrapSupports).toBeEnabled();
-    await scrapSupports.click();
+    await openScrapMode(page);
     await expect(
       page.getByRole("region", { name: "Scrap mode" }),
     ).toBeVisible();

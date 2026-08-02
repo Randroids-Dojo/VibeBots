@@ -3,6 +3,7 @@ import { ciCase } from "./support/ci-case";
 import {
   APP_VERSION_PATTERN,
   dismissReleaseNotes,
+  openSettingsFor,
 } from "./support/mine-helpers";
 
 /**
@@ -42,8 +43,8 @@ test.describe("performance telemetry", () => {
       await page.waitForTimeout(2_200);
       expect(batches).toHaveLength(0);
 
-      // Flip the toggle on from the settings menu.
-      await page.getByRole("button", { name: "Open settings" }).click();
+      // Flip the toggle on from the settings menu, under Advanced.
+      await openSettingsFor(page, "performance-telemetry");
       const toggle = page.locator("[data-perf-telemetry-toggle]");
       await expect(toggle).toHaveAttribute("aria-pressed", "false");
       await toggle.click();

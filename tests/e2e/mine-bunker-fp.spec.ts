@@ -16,6 +16,7 @@ import {
   exportDiff,
   holdFpDigUntil,
   MINE_VERSION,
+  openSettingsFor,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -248,12 +249,16 @@ test(
       })
       .not.toBeNull();
     // The 2D mine chrome yields the whole screen to the fp HUD: the
-    // consumable belt (with its ladder chip and plank buttons), the zoom
-    // cluster, and the settings gear all unmount while fp mode is on.
+    // consumable belt (with its plank buttons), the zoom cluster, and the
+    // settings gear all unmount while fp mode is on. The status section
+    // stays mounted because it carries the data attributes this spec
+    // reads, so it hides rather than unmounting, and the ladder readout
+    // hides with it now that it lives on the readiness gauge.
     await expect(
       page.getByRole("region", { name: "Dig controls" }),
     ).toHaveCount(0);
-    await expect(page.locator("[data-ladder-chip]")).toHaveCount(0);
+    await expect(status).not.toBeVisible();
+    await expect(page.locator("[data-ladder-chip]")).not.toBeVisible();
     await expect(
       page.getByRole("region", { name: "Zoom controls" }),
     ).toHaveCount(0);
@@ -2270,7 +2275,7 @@ test(
     await expect(status).toHaveAttribute("data-fp-mode", "0");
     await awaitMineSceneReady(page);
     const gear = page.getByRole("button", { name: "Open settings" });
-    await gear.click();
+    await openSettingsFor(page, "replay-tutorial");
     const replay = page.getByTestId("replay-bunker-tutorial");
     await expect(replay).toBeVisible();
     await replay.click();

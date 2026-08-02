@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-221" data-f="F-221" data-priority="blocks-release">
+    <h3>F-221: The hotbar covers the TV deck's down arrow</h3>
+    <dl>
+      <dt>Context</dt><dd>Found while verifying the options-menu slice on 2026-08-01. <code>tests/e2e/mine-firetv-controls.spec.ts</code> <q>TV deck renders and single clicks dig one cell at a time</q> times out: Playwright resolves the deck's <code>[data-tv-direction='down']</code> button, then reports that the hotbar's Dynamite button, inside <code>section[aria-label="Dig controls"]</code>, intercepts the pointer events. On a TV session the deck and the hotbar are both anchored to the bottom of the screen and overlap, so the primary way to dig on a TV is unclickable. The hotbar arrived with the H3 slice on <code>claude/hud-redesign-research-612nhx</code>, which is what introduced the collision; the deck predates it.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. It is out of scope for the options-menu slice that found it, and it needs a layout decision rather than a patch: on a TV, either the deck owns the bottom and the hotbar moves up, or the deck sits above the hotbar in the <code>HUD_LAYER</code> scale, or a TV session renders one of the two rather than both.</dd>
+      <dt>Unblock condition</dt><dd>Decide which control owns the bottom of a TV screen, land the layout, and get that spec green without widening its timeout. Rule 10 applies: assert the deck button actually receives the click rather than only that it is visible. Worth checking the other four bottom-anchored controls against the deck's footprint at the same time, since the overlap is geometric rather than specific to Dynamite.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-01 during <a href="https://github.com/Randroids-Dojo/VibeBots/pull/309">#309</a>.</dd>
+    </dl>
+  </section>
+
   <section id="F-220" data-f="F-220" data-priority="blocks-release">
     <h3>F-220: Stop a read advancing the replay counter, and confirm banking in production</h3>
     <dl>
@@ -86,6 +96,7 @@
       <dt>Blocker (if any)</dt><dd>Access policy, not code: only the environment owner can widen a session's GitHub scope or provision VibeKit another way.</dd>
       <dt>Unblock condition</dt><dd>Any one of: grant remote sessions read access to <code>Randroids-Dojo/VibeKit</code> (add it to the session or its environment so the injected credentials cover the tarball fetch), publish VibeKit to a registry the egress policy already allows, or vendor the pinned tarball. Then prove <code>pnpm install --frozen-lockfile</code>, <code>pnpm typecheck</code>, and the unit suite complete in a fresh remote session, land the deferred Next.js 16.2.11 bump through the normal ledger procedure, and give VibeKit a Detect-new that works without <code>gh</code> from a scope-limited session.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-07-22 by the followup-identity repair slice. Dot <code>VibeBots-f-217-restore-c6ac6142</code>.</dd>
+      <dt data-f-ref="F-217">Progress update (2026-07-30)</dt><dd>Unblock condition met, by the first of the three listed routes, and it costs one tool call rather than an environment change. The HUD redesign session reproduced the 403 exactly as described on its first <code>pnpm install --frozen-lockfile</code>. Adding <code>randroids-dojo/vibekit</code> to the session's repository scope (the <code>add_repo</code> tool, <code>access: "read"</code>) cleared it immediately: the next install exited 0, and <code>pnpm typecheck</code>, <code>pnpm test</code> (1949 passing), <code>pnpm build</code>, <code>pnpm verify</code> (all nine gates), and Playwright all ran in that session. So remote sessions do not need a credential change or a vendored tarball; they need the VibeKit repo added to session scope before the first install, and any agent hitting this can self-serve. Two caveats for whoever closes this: the fix is per session, so it must be repeated each time rather than being a durable environment property, and the Playwright browsers in that container were build 1194 against a config expecting 1223, which is a separate sandbox mismatch worked around with <code>executablePath</code>. Remaining before close: decide whether to make the scope grant part of the environment definition so no session has to rediscover it.</dd>
     </dl>
   </section>
 

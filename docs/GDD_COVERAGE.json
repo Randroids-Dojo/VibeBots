@@ -1,7 +1,7 @@
 {
   "_comment_1": "ATOMIC GRANULARITY ONLY. One row per requirement, not per chapter. A 14-day project should produce on the order of 100 rows. If your row count is implausibly low for project age, the loop will self-terminate before the product is good. This is the Flatline failure mode.",
   "_comment_2": "Allowed status values: not_started | partial | done. Every row should carry implementationRefs and testRefs once status >= partial. followupRefs link to F-NNN entries in FOLLOWUPS.html.",
-  "updatedAt": "2026-07-14",
+  "updatedAt": "2026-07-30",
   "rows": [
     {
       "id": "REQ-001",
@@ -539,12 +539,28 @@
         "src/components/mine-panel.tsx",
         "src/app/mine/page.tsx",
         "src/app/globals.css",
-        "src/components/dismissible-dialog-frame.tsx"
+        "src/components/dismissible-dialog-frame.tsx",
+        "src/components/mine-hud-tokens.ts",
+        "src/components/mine-readiness.ts",
+        "src/components/mine-context-action.ts",
+        "src/components/mine-depth-scale.ts",
+        "src/components/mine-depth-ribbon.tsx",
+        "src/components/mine-bottom-sheet.tsx",
+        "src/components/mine-hud-icons.tsx",
+        "src/components/mine-settings-menu.tsx",
+        "src/components/mine-settings-menu-model.ts"
       ],
       "testRefs": [
         "tests/e2e/mine-core.spec.ts",
         "tests/e2e/mine-ui.spec.ts",
-        "tests/e2e/mine-firetv-controls.spec.ts"
+        "tests/e2e/mine-firetv-controls.spec.ts",
+        "src/components/mine-hud-tokens.test.ts",
+        "src/components/mine-readiness.test.ts",
+        "src/components/mine-context-action.test.ts",
+        "src/components/mine-depth-scale.test.ts",
+        "src/components/mine-hud-icons.test.ts",
+        "src/components/mine-settings-menu-model.test.ts",
+        "tests/e2e/mine-navigation.spec.ts"
       ],
       "followupRefs": []
     },
@@ -965,7 +981,8 @@
         "public/icon-192.png",
         "public/icon-512.png",
         "public/apple-touch-icon.png",
-        "docs/RELEASE_NOTES.html"
+        "docs/RELEASE_NOTES.html",
+        "src/lib/app-release-notes.ts"
       ],
       "testRefs": [
         "src/app/api/notifications/route.test.ts",

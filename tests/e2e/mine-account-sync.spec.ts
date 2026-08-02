@@ -8,7 +8,7 @@ import {
   dismissReleaseNotes,
   exportDiff,
   installGamepadBackControl,
-  openSettings,
+  openSettingsFor,
   pressGamepadBack,
   STARTING_CONSUMABLES,
 } from "./support/mine-helpers";
@@ -256,13 +256,13 @@ test(
     await page.mouse.click(8, 8);
     await expect(account).not.toBeVisible();
 
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "account");
     await settings.getByRole("button", { name: "Account" }).click();
     await expect(account).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(account).not.toBeVisible();
 
-    const settingsAgain = await openSettings(page);
+    const settingsAgain = await openSettingsFor(page, "account");
     await settingsAgain.getByRole("button", { name: "Account" }).click();
     await expect(account).toBeVisible();
     await pressGamepadBack(page);
@@ -764,7 +764,7 @@ test(
 
     await page.goto("/mine");
     await dismissReleaseNotes(page);
-    const settings = await openSettings(page);
+    const settings = await openSettingsFor(page, "account");
     await settings.getByRole("button", { name: "Account" }).click();
 
     const account = page.getByRole("dialog", { name: "Account" });
@@ -780,7 +780,7 @@ test(
     await expect.poll(() => worldRequests).toBeGreaterThanOrEqual(2);
     await expect.poll(() => gearRequests).toBeGreaterThanOrEqual(2);
 
-    const reopenedSettings = await openSettings(page);
+    const reopenedSettings = await openSettingsFor(page, "account");
     await reopenedSettings.getByRole("button", { name: "Account" }).click();
     const reopenedAccount = page.getByRole("dialog", { name: "Account" });
     await expect(reopenedAccount).toBeVisible();

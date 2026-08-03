@@ -1118,7 +1118,7 @@ function MineScene({
   const gl = useThree((state) => state.gl);
   const scene = useThree((state) => state.scene);
   const camera = useThree((state) => state.camera);
-  const { fallPlayback, fallWindow, clearFallPlayback } =
+  const { fallPlayback, fallWindow, clearFallPlayback, advanceFallAnchor } =
     useMineDeathPlaybackBridge(lastResult, tick);
   const renderedCellCountRef = useRef(0);
   const renderedCrackSegmentCountRef = useRef(0);
@@ -1126,7 +1126,10 @@ function MineScene({
   const renderedGasWispCountRef = useRef(0);
 
   const displayCol = fallWindow?.col ?? mine.miner.col;
-  const minerRow = fallWindow?.toRow ?? mine.miner.row;
+  // The anchor walks down with the playback rather than sitting on the
+  // death row, so a fall longer than the window is tall streams the shaft
+  // past the bot instead of culling everything above `toRow - above`.
+  const minerRow = fallWindow?.anchorRow ?? mine.miner.row;
   const renderDistance = (col: number, row: number) =>
     Math.max(Math.abs(col - displayCol), Math.max(0, row - minerRow));
   const cameraZoom = clampMineCameraZoom(zoom, mine.gear);
@@ -1375,6 +1378,7 @@ function MineScene({
         t,
         motionSample.current,
       );
+      advanceFallAnchor(Math.round(-visualTargetY));
       if (motionProgress(activeFall.track, t) >= 1 && !activeFall.impacted) {
         activeFall.impacted = true;
         // Signal the panel that the impact frame has rendered; the trip

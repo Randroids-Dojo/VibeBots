@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Upgrade Next.js to 16.3.0</title>
+<meta name="dot-title" content="Upgrade Next.js to 16.3.0">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-26T18:17:01.646120-05:00">
+</head>
+<body>
+<article>
+<h1>Upgrade Next.js to 16.3.0</h1>
+<section id="description">
+Dependency Upgrade Gate first fired on 2026-07-26 against npm latest 16.2.12 over the repository pin 16.2.11. Retargeted on 2026-08-03: the pin is still 16.2.11 and npm latest is now 16.3.0, so this skips 16.2.12 entirely. This is a minor rather than a patch, so it needs more than the security-only treatment 16.2.11 got: review the official upgrade guide and run the codemods, check route handler and caching semantics changes, and verify that transpilePackages (VibeKit) and the dynamic ssr:false canvas import still behave after the bump. Bump exact versions and the lockfile, then run typecheck, the full unit suite, a production build, and targeted preview smoke. Keep it in its own slice and do not bundle it into an unrelated PR. Record the outcome in docs/DEPENDENCY_LEDGER.html under the next article.
+</section>
+</article>
+</body>
+</html>

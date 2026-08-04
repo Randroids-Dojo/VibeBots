@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="windows-line-endings" data-date="2026-08-04">
+    <h3>The local gates stop breaking on a Windows checkout</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/windows-line-endings</code>, from <code>origin/main</code> <code>e63a4d090cb109fe1df9db263a0e66de0d1c3f6a</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>The repository had no <code>.gitattributes</code>, so a Windows clone converted every tracked file to CRLF and broke local verification three separate ways: all nine <code>scripts/*.sh</code> died under <code>bash</code> with <code>$'\r': command not found</code>, taking <code>pnpm verify</code> and its four <code>check:*</code> gates with them; Biome reported roughly 507 CR-only formatting errors against its default <code>lineEnding: "lf"</code>; and three suites failed to parse under Vitest, exactly the three importing a <code>scripts/*.mjs</code> that carries a shebang. One line, <code>* text=auto eol=lf</code>, pins LF in the working tree on every platform and matches both what the repository stores and what Biome formats to. Separately, <code>pnpm check:followups</code> has been failing on <code>main</code> since <a href="https://github.com/Randroids-Dojo/VibeBots/pull/311">#311</a> merged, because F-223 carries <code>data-priority="polish"</code> but sits under <code>blocks-release</code>. That is repaired through the checker's own documented mechanism rather than by moving the entry.</dd>
+      <dt>Verification</dt><dd><code>pnpm check:followups</code> now passes (213 primaries, 9 recorded post-cutoff, 79 pointers) where it previously failed with two errors, and <code>scripts/check-followup-ledger.selftest.sh</code> still passes, so the recorded-list change did not weaken the validator. Dash, whitespace, sim-purity, AGENTS-link and attribution checks pass. The three CRLF breakages themselves are NOT re-verified here: this branch was authored on Linux, where they never reproduced, and confirming the fix requires a Windows host. <a href="FOLLOWUPS.html#F-224">F-224</a> holds that verification open rather than letting this slice claim it.</dd>
+      <dt>Assumptions</dt><dd>Every tracked file in this repository is text; there are no committed binaries that <code>text=auto</code> would corrupt, and <code>text=auto</code> defers to Git's own binary detection regardless. The Vitest parse failures are attributed to CRLF by correlation, not proven mechanism: Node imports those same files without complaint, so the fault is in the transform layer, and removing CRLF removes the trigger rather than fixing a Vitest bug. F-223 stays physically where it was committed, because primaries are never relocated; the pointer layer plus the recorded post-cutoff list is the sanctioned way to record a placement that history got wrong, and the mismatch keeps being reported on every run instead of being silenced. Rule 13 tip review: the full rotation was read, no tip touches tooling or line endings and none changed. Rule 14 stamp review: no stamp, this ships no player-facing feature.</dd>
+      <dt>GDD coverage</dt><dd>No row change. This is repository tooling and changes no player rule, tip, stamp, version, or release note.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-224">F-224</a> raised to prove the gates actually pass on a re-normalized Windows checkout, and to decide whether CI should gain a Windows job, since the reason this survived the life of the repository is that every gate runs on Linux or macOS. The F-223 placement decision is recorded in place on that entry.</dd>
+    </dl>
+  </article>
+
   <article data-slice="fall-window-streams-with-the-fall" data-date="2026-08-02">
     <h3>The shaft no longer blanks above the bot during a long fall</h3>
     <dl>

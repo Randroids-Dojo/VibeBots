@@ -51,7 +51,7 @@ const GRANDFATHERED = new Set(
 // pointer-covered, and the list only grows through an explicit ledger
 // decision recorded in FOLLOWUPS.
 const KNOWN_POST_CUTOFF = new Set(
-  "F-161 F-163 F-197 F-209 F-212 F-214 F-215 F-216".split(/\s+/),
+  "F-161 F-163 F-197 F-209 F-212 F-214 F-215 F-216 F-223".split(/\s+/),
 );
 
 // Current-truth corrections that must stay present and accurate: each entry

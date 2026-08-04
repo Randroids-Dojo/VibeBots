@@ -1,0 +1,5 @@
+# Keep every text file LF in the working tree on every platform.
+# Biome formats to LF, the repository stores LF, and the bash scripts and
+# shebang-carrying scripts/*.mjs modules break when a checkout converts them
+# to CRLF. See docs/FOLLOWUPS.html#F-224.
+* text=auto eol=lf

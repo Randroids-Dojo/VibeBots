@@ -2784,6 +2784,27 @@ test(
 
     // Start the raid: the start control gives way to the raid banner and
     // the player stays inside (fp mode never drops).
+    await page.evaluate(() => {
+      document.body.dataset.observedRaidVerdicts = "";
+      const captureVerdict = () => {
+        const verdict = document
+          .querySelector('[data-testid="bunker-fp-raid-result"]')
+          ?.textContent?.trim();
+        if (!verdict) return;
+        const observed = document.body.dataset.observedRaidVerdicts ?? "";
+        if (!observed.split("|").includes(verdict)) {
+          document.body.dataset.observedRaidVerdicts = observed
+            ? `${observed}|${verdict}`
+            : verdict;
+        }
+      };
+      new MutationObserver(captureVerdict).observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+      captureVerdict();
+    });
     await page.getByTestId("bunker-fp-raid-start-button").click();
     await expect(page.getByTestId("bunker-fp-raid-panel")).toBeVisible({
       timeout: 15_000,
@@ -2853,11 +2874,18 @@ test(
       .poll(() => resolveBodies.length, { timeout: 120_000 })
       .toBeGreaterThan(0);
 
+    // The result is deliberately brief, so observe the DOM throughout the
+    // raid and require the visible loss verdict before checking settled state.
+    await expect
+      .poll(
+        () => page.locator("body").getAttribute("data-observed-raid-verdicts"),
+        { timeout: 20_000 },
+      )
+      .toContain("Bunker breached!");
+
     // Once settled the view clears the raid. The settled view carries the
     // cooldown deadline, so the Start control is replaced by the countdown,
-    // not a button that would 409. The transient verdict is intentionally not
-    // a settlement gate because renderer scheduling can clear its brief hold
-    // before the Playwright-side resolve observer runs.
+    // not a button that would 409.
     await expect(page.getByTestId("bunker-fp-raid-cooldown")).toBeVisible({
       timeout: 20_000,
     });

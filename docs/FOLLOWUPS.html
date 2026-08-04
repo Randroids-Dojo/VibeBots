@@ -44,6 +44,16 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-223" data-f="F-223" data-priority="polish">
+    <h3>F-223: Skip the browser matrix for documentation-only diffs</h3>
+    <dl>
+      <dt>Context</dt><dd>Noticed on 2026-08-03 while landing <a href="https://github.com/Randroids-Dojo/VibeBots/pull/311">#311</a>, a three-file change under <code>.dots/</code> with no source, config, or dependency edits. <code>.github/workflows/ci.yml</code> triggers on a bare <code>pull_request:</code> with no <code>paths</code> or <code>paths-ignore</code> filter, and no job carries a changed-files condition, so all 17 jobs (25 checks after matrix expansion) ran anyway: a full Next.js production build, two Critical E2E shards, ten Functional Shadows, two Runtime Shadows plus the comparison, a Vercel preview deploy for Preview Smoke, and CodeQL. Three pushes on that PR meant roughly three passes over the matrix to validate HTML that no application code imports.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical, but the obvious fix is a trap. A workflow-level <code>paths-ignore</code> makes skipped jobs report as never-run rather than passed, so any of them that are required status checks leave the PR permanently unsatisfiable. This repo already merges with <code>--admin</code> because the AutoReview ruleset carries an unsatisfiable <code>code_scanning</code> rule, so a change that makes branch protection harder to satisfy would compound an existing problem rather than sit beside it.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a changed-files detection job, then gate the browser matrix, build, and preview smoke on it with job-level <code>if:</code> conditions, keeping every required check reporting a green no-op on the skipped path so branch protection stays satisfiable. Decide explicitly which paths count as documentation-only; <code>.dots/</code> and <code>docs/</code> are the obvious members, and any path that feeds the build or the test harness is not. Acceptance: a docs-only PR reports every required check green without running the browser matrix, a PR touching <code>src/</code> still runs the full gate, and a PR touching both runs the full gate. Prove the first two with real PRs rather than by reading the workflow.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-03 during <a href="https://github.com/Randroids-Dojo/VibeBots/pull/311">#311</a>. Dot <code>VibeBots-f-223-skip-ec944b00</code>.</dd>
+    </dl>
+  </section>
+
   <section id="F-222" data-f="F-222" data-priority="blocks-release">
     <h3>F-222: The death playback should own its own lifetime</h3>
     <dl>

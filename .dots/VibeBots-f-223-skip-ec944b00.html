@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-223 Skip the browser matrix for documentation-only diffs</title>
+<meta name="dot-title" content="F-223 Skip the browser matrix for documentation-only diffs">
+<meta name="dot-status" content="open">
+<meta name="dot-priority" content="2">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-08-03T21:09:57.978611-05:00">
+</head>
+<body>
+<article>
+<h1>F-223 Skip the browser matrix for documentation-only diffs</h1>
+<section id="description">
+CI triggers on a bare pull_request with no paths filter and no changed-files gating, so a docs-only diff runs all 17 jobs (25 checks) including the full build, both Critical E2E shards, ten Functional Shadows, both Runtime Shadows, a Vercel preview deploy, and CodeQL. Found on 2026-08-03 during PR #311, a three-file .dots change. Do not fix with workflow-level paths-ignore: skipped required checks report as never-run rather than passed, which would leave PRs permanently unsatisfiable on a repo that already needs --admin merges for an unsatisfiable code_scanning rule. Add changed-files detection and job-level if conditions instead, keeping every required check reporting a green no-op. Acceptance: a docs-only PR is fully green without the browser matrix, a src PR still runs the full gate, and a mixed PR runs the full gate, each proven with a real PR.
+</section>
+</article>
+</body>
+</html>

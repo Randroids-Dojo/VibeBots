@@ -148,6 +148,19 @@
     </dl>
   </article>
 
+  <article data-slice="close-real-render-dot" data-date="2026-08-04">
+    <h3>The shipped renderer corrections stop showing as open work</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/close-real-render-dot</code>.</dd>
+      <dt>PR</dt><dd>pending.</dd>
+      <dt>Changed</dt><dd>Bookkeeping only, no product or script change. PR <a href="https://github.com/Randroids-Dojo/VibeBots/pull/312">#312</a> shipped the five renderer runner and coverage corrections on 2026-08-04, but its backlog item was never closed, so <code>.dots/VibeBots-f-132-stabilize-943ff4ba/VibeBots-fix-real-render-fed00c76.html</code> still read <code>dot-status: active</code> on <code>main</code> with the work already in the tree. That is the step 18 closeout of the loop, missed. The Dot is closed in place against #312 with the five findings named and verified, and F-132 gains a dated entry separating what shipped from what did not. Found while chasing the closed PR #300: a rebase of #300 was in flight on another machine when #312 merged the same commits, so the rebase was redundant and was discarded rather than pushed as a second PR.</dd>
+      <dt>Verification</dt><dd>Each of the five findings was read back out of <code>main</code> at <code>a18f1255</code> rather than taken from the PR description: <code>acquireRenderLock</code> and <code>removeStaleRenderLock</code> in <code>scripts/ci-render-lib.mjs</code>, <code>--tier</code> returning <code>render</code> at <code>ci-render-lib.mjs:45</code>, the <code>heartbeat.json</code> write gated behind <code>options.scheduled</code> at <code>ci-render.mjs:293</code>, the exact-main clone paragraph in <code>docs/CI_WORKFLOW.html</code>, and the <q>Bunker breached!</q> assertion at <code>mine-bunker-fp.spec.ts:2884</code>. <code>bash scripts/check-dashes.sh</code>, <code>node scripts/check-followup-ledger.mjs</code>, and <code>git diff --check</code> all exit 0. No code changed, so no type-check or test run is claimed for this diff.</dd>
+      <dt>Assumptions</dt><dd>The Dot is closed in place under its parent folder rather than moved to <code>.dots/archive/</code>, matching how closed children already sit inside <code>VibeBots-first-person-3d-30115c4e</code> and <code>VibeBots-deliver-the-staged-788ffdc4</code>. The <code>dot-html</code> CLI is not installed on this host, so the record was edited to the exact shape the CLI writes (status, <code>dot-closed-at</code>, <code>dot-close-reason</code>) rather than falling back to the Markdown <code>dot</code> variant, which AGENTS.md forbids. The evidence half of the item is deliberately NOT closed with it: the Dot covered the corrections, and the physical Mac lane run that would prove them stays open under F-132. Rule 13 tip review: full rotation read, no tip touches the render lane, none changed. Rule 14 stamp review: no stamp, nothing player-facing ships here.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-132">F-132</a> gains a 2026-08-04 entry recording that the corrections shipped but the evidence did not, with the seven questions the next Mac lane run has to answer and why hosted CI cannot answer them. Scheduled Full E2E triage for this slice: run <code>30805797850</code> on <code>ff305b26</code> is red, 14 of 32 shards, triaged as no unclassified regression. The bulk is the F-132 software-renderer family, and the remainder is <code>mine-firetv-controls.spec.ts:45</code>, the hotbar-intercepts-the-TV-deck followup already logged from #309.</dd>
+    </dl>
+  </article>
+
   <article data-slice="windows-line-endings" data-date="2026-08-04">
     <h3>The local gates stop breaking on a Windows checkout</h3>
     <dl>

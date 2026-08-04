@@ -207,42 +207,48 @@ async function main() {
 
   mkdirSync(renderRoot, { recursive: true });
   const releaseLock = acquireRenderLock(path.join(renderRoot, "runner.lock"));
+  // Setup runs inside the result-building try so a failure to resolve, clean,
+  // or fetch still publishes a bounded failure record. A run that produces no
+  // evidence at all is indistinguishable from a run that never started.
+  const startedAt = new Date();
+  const stamp = startedAt.toISOString().replaceAll(":", "-");
+  const dateKey = localDateKey(startedAt, TIME_ZONE);
+  const source = options.scheduled ? "scheduled" : "manual";
+  let fullSha = options.sha;
+  let missedWindows = [];
+  let resultDirectory = path.join(resultsRoot, "unresolved", stamp);
   try {
-    assertClean(sourceRoot, "Source checkout");
-    run("git", ["fetch", "--prune", "origin", "main"]);
-    const fullSha = output("git", ["rev-parse", `${options.sha}^{commit}`]);
-    if (options.scheduled) {
-      const ancestry = run(
-        "git",
-        ["merge-base", "--is-ancestor", fullSha, "origin/main"],
-        { allowFailure: true, capture: true },
-      );
-      if (ancestry.status !== 0) {
-        throw new Error(
-          "Scheduled render SHA must be contained in origin/main",
-        );
-      }
-    }
-
-    const startedAt = new Date();
-    const dateKey = localDateKey(startedAt, TIME_ZONE);
-    const priorHeartbeat = jsonFile(heartbeatPath, {});
-    const previousScheduledDate = scheduledHeartbeatDateKey(priorHeartbeat);
-    const missedWindows = options.scheduled
-      ? missedDateKeys(previousScheduledDate, dateKey)
-      : [];
-    const resultDirectory = path.join(
-      resultsRoot,
-      fullSha,
-      startedAt.toISOString().replaceAll(":", "-"),
-    );
-    mkdirSync(resultDirectory, { recursive: true });
-
     let result;
     try {
+      assertClean(sourceRoot, "Source checkout");
+      run("git", ["fetch", "--prune", "origin", "main"]);
+      fullSha = output("git", ["rev-parse", `${options.sha}^{commit}`]);
+      if (options.scheduled) {
+        const ancestry = run(
+          "git",
+          ["merge-base", "--is-ancestor", fullSha, "origin/main"],
+          { allowFailure: true, capture: true },
+        );
+        if (ancestry.status !== 0) {
+          throw new Error(
+            "Scheduled render SHA must be contained in origin/main",
+          );
+        }
+      }
+
+      const priorHeartbeat = jsonFile(heartbeatPath, {});
+      const previousScheduledDate = scheduledHeartbeatDateKey(priorHeartbeat);
+      missedWindows = options.scheduled
+        ? missedDateKeys(previousScheduledDate, dateKey)
+        : [];
+      resultDirectory = path.join(resultsRoot, fullSha, stamp);
+
       prepareCheckout(fullSha);
-      run("pnpm", ["install", "--frozen-lockfile"], { cwd: checkout });
       const baseEnv = renderEnvironment(process.env);
+      run("pnpm", ["install", "--frozen-lockfile"], {
+        cwd: checkout,
+        env: baseEnv,
+      });
       run("pnpm", ["build"], { cwd: checkout, env: baseEnv });
       run("pnpm", ["exec", "playwright", "install", "chromium"], {
         cwd: checkout,
@@ -255,7 +261,7 @@ async function main() {
       result = {
         schemaVersion: 1,
         commitSha: fullSha,
-        source: options.scheduled ? "scheduled" : "manual",
+        source,
         status: summarizeTierResults(tiers),
         startedAt: startedAt.toISOString(),
         completedAt: new Date().toISOString(),
@@ -270,7 +276,7 @@ async function main() {
       result = {
         schemaVersion: 1,
         commitSha: fullSha,
-        source: options.scheduled ? "scheduled" : "manual",
+        source,
         status: "failure",
         startedAt: startedAt.toISOString(),
         completedAt: new Date().toISOString(),
@@ -281,6 +287,7 @@ async function main() {
       };
     }
 
+    mkdirSync(resultDirectory, { recursive: true });
     const resultPath = path.join(resultDirectory, "result.json");
     writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
     if (options.scheduled) {

@@ -163,7 +163,10 @@ describe("ci render lock", () => {
     }
   });
 
-  it("tolerates another contender removing a stale lock first", () => {
+  // The in-process contender race (lock removed between openSync failing and
+  // the owner read) needs a second real process to drive, because named fs
+  // imports cannot be spied on. This covers the ENOENT swallow it relies on.
+  it("swallows ENOENT when removing a lock path that is already gone", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "ci-render-lock-"));
     const lockPath = path.join(directory, "runner.lock");
     try {

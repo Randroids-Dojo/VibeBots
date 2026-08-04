@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Stabilize late Clerk handoff functional case</title>
+<meta name="dot-title" content="Stabilize late Clerk handoff functional case">
+<meta name="dot-status" content="closed">
+<meta name="dot-priority" content="1">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-07-26T20:09:38.049010-05:00">
+<meta name="dot-closed-at" content="2026-07-26T20:32:25.203018-05:00">
+<meta name="dot-close-reason" content="Completed in PR #303. Exact-main CI run 30229694479 passed, and E2E-MINE-ACCOUNT-SYNC-0006 passed on attempt 1 in the retained functional record with the bounded 15-second observation window.">
+</head>
+<body>
+<article>
+<h1>Stabilize late Clerk handoff functional case</h1>
+<section id="description">
+E2E-MINE-ACCOUNT-SYNC-0006 currently records one first-attempt failure on the newest mainline functional summaries and fails 10 of 10 local first attempts with the 5-second poll. Preserve the product 750ms bounded retry, widen only the test observation budget enough for the production path, prove at least 10 local first-attempt passes with retries disabled, then restart the five-clean-mainline-observation count before Stage 3 promotion.
+</section>
+</article>
+</body>
+</html>

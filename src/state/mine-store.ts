@@ -27,6 +27,7 @@ import {
   cellAt,
   createMine,
   DEFAULT_GEAR,
+  ELEVATOR_UNLOCK_DEPTH,
   elevatorColumn,
   exportDiff,
   installElevatorRailInDiff,
@@ -123,6 +124,8 @@ function elevatorConflictNote(code: string | null): string {
       return "the mine changed under you; refreshed to the latest";
     case "elevator-rail-at-bottom":
       return "the rail already reaches the mine bottom";
+    case "elevator-depth-locked":
+      return `reach depth ${ELEVATOR_UNLOCK_DEPTH} to unlock the elevator`;
     case "elevator-column-required":
       return "choose a surface column for the elevator shaft";
     case "elevator-mine-world-missing":
@@ -520,6 +523,29 @@ export function tripChangedWorld(moves: MineAction[]): boolean {
   return !moves.every(
     (m) => m === "left" || m === "right" || m.startsWith("portal-warp:"),
   );
+}
+
+/**
+ * {@link tripChangedWorld}, minus a trailing surface boarding. Stepping onto
+ * the elevator at row 0 logs a "down" that alters nothing (the shaft opening
+ * is already rail), but counting it as a world change made the surface
+ * auto-bank fire the instant a player boarded from the top: the cash-out
+ * reset the trip and yanked the bot back off the car, so the elevator could
+ * never ride down from the surface. The trailing "down" is only forgiven
+ * while the miner is actually boarded at the surface; a "down" that dug
+ * leaves the miner below row 0 and still counts.
+ */
+export function tripChangedWorldBeyondSurfaceBoarding(
+  moves: MineAction[],
+  mine: Pick<MineState, "elevatorPhase"> & {
+    miner: Pick<MineState["miner"], "row">;
+  },
+): boolean {
+  const boardedAtSurface =
+    mine.elevatorPhase === "boarded" &&
+    mine.miner.row === 0 &&
+    moves[moves.length - 1] === "down";
+  return tripChangedWorld(boardedAtSurface ? moves.slice(0, -1) : moves);
 }
 
 function pendingBunkerPayload(

@@ -17,6 +17,8 @@ import {
 import {
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
+  ELEVATOR_STARTER_RAIL_ROWS,
+  ELEVATOR_UNLOCK_DEPTH,
   elevatorColumn,
   elevatorRailPrice,
   elevatorSpeedRows,
@@ -279,6 +281,12 @@ export function StallMenu({
   const upgradeFunds = balance === null ? null : balance + banked;
   const elevatorMaxed = gear.elevator >= MINE_BOTTOM_ROW - 1;
   const choosingExistingShaft = elevatorPlacementRequired && gear.elevator > 0;
+  // The elevator is teased, not hidden: a fresh player sees what the stall
+  // will become and the exact depth that opens it. Owned rail never re-locks.
+  const elevatorLocked =
+    gear.elevator <= 0 &&
+    !choosingExistingShaft &&
+    deepestDepth < ELEVATOR_UNLOCK_DEPTH;
   const offline = balance === null;
   const beacons = findBeacons(mine);
   const portals = findPortalBeacons(mine).filter((portal) => portal.active);
@@ -590,7 +598,28 @@ export function StallMenu({
           </p>
         </div>
       )}
-      {stall.id === "elevator" && (
+      {stall.id === "elevator" && elevatorLocked && (
+        <div>
+          <SheetRow
+            icon={"\u{1F6D7}"}
+            name="the shaft doors are still boarded up"
+            sub={`a free-riding elevator down your mine; starter shaft: ${ELEVATOR_STARTER_RAIL_ROWS} rows for ${elevatorRailPrice(0)} vibes`}
+            action={
+              <span
+                data-testid="elevator-locked"
+                style={{ fontSize: "0.8rem", opacity: 0.6 }}
+              >
+                depth {ELEVATOR_UNLOCK_DEPTH}
+              </span>
+            }
+          />
+          <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+            Reach depth {ELEVATOR_UNLOCK_DEPTH} to earn your shaft permit.
+            Deepest banked so far: {deepestDepth}.
+          </p>
+        </div>
+      )}
+      {stall.id === "elevator" && !elevatorLocked && (
         <div>
           <SheetRow
             icon={"\u{1F6D7}"}
@@ -608,7 +637,7 @@ export function StallMenu({
                   ? "rail reaches the mine bottom"
                   : gear.elevator > 0
                     ? "one premium row per purchase"
-                    : `first rail costs ${elevatorRailPrice(0)} vibes`
+                    : `starter shaft: ${ELEVATOR_STARTER_RAIL_ROWS} rows for ${elevatorRailPrice(0)} vibes`
             }
             action={
               <button
@@ -699,7 +728,9 @@ export function StallMenu({
           <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
             {choosingExistingShaft
               ? "Choose any surface column. The old shaft stays open as a tunnel."
-              : "Buy the first rail at any surface column. That spot stays yours."}
+              : gear.elevator > 0
+                ? "Each rail extends the shaft one row deeper."
+                : `Place the starter shaft at any surface column. That spot stays yours and comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`}
           </p>
           <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
             speed level {gear.elevatorSpeed ?? 1} moves{" "}

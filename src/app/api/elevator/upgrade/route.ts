@@ -31,6 +31,8 @@ import {
 } from "@/server/save-sync-push";
 import { playerLevelProgress } from "@/sim/bunker";
 import {
+  ELEVATOR_STARTER_RAIL_ROWS,
+  ELEVATOR_UNLOCK_DEPTH,
   elevatorRailPrice,
   installElevatorRailInDiff,
   MINE_BOTTOM_ROW,
@@ -550,6 +552,25 @@ export async function POST(request: Request): Promise<Response> {
       ...inventoryFromRow(updated[0]),
     });
   }
+  // The elevator is a progression reward, not a day-one purchase: the first
+  // rail stays locked until a banked trip has reached the unlock depth
+  // (deepest_depth only advances through the bank route, so it is durable
+  // proof, not a live-trip claim). Owned rail is never re-locked; extends and
+  // the legacy placement branch above skip this gate.
+  const deepestDepth = profile?.deepest_depth ?? 0;
+  if (depth === 0 && deepestDepth < ELEVATOR_UNLOCK_DEPTH) {
+    emitOutcome("rejected", "elevator-depth-locked");
+    return Response.json(
+      {
+        code: "elevator-depth-locked",
+        error: `reach depth ${ELEVATOR_UNLOCK_DEPTH} to unlock the elevator`,
+        requiredDepth: ELEVATOR_UNLOCK_DEPTH,
+        deepestDepth,
+        ...(currentState ?? {}),
+      },
+      { status: 409 },
+    );
+  }
   if (depth === 0 && requestedColumn === undefined) {
     return rejectOutcome(
       "elevator-column-required",
@@ -606,7 +627,13 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const price = elevatorRailPrice(depth);
-  const nextDepth = depth + 1;
+  // The first purchase installs a working starter shaft, not a single row:
+  // one row of rail is not an elevator anyone would ride. Extends stay one
+  // premium row at a time.
+  const nextDepth =
+    depth === 0
+      ? Math.min(ELEVATOR_STARTER_RAIL_ROWS, MINE_BOTTOM_ROW - 1)
+      : depth + 1;
   const purchasedRow = installElevatorRailInDiff(
     oldDiff,
     column,

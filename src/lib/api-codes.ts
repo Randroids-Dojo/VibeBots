@@ -58,6 +58,12 @@ export const ELEVATOR_REASON_CODES = [
   /** The first rail needs a chosen surface column before it can anchor (400). */
   "elevator-column-required",
   /**
+   * The buyer has not yet banked a trip deep enough to unlock the elevator
+   * (ELEVATOR_UNLOCK_DEPTH). First purchases only; owned rail is never
+   * re-locked (409).
+   */
+  "elevator-depth-locked",
+  /**
    * The client's rail depth or shaft column no longer matches the server:
    * a stale or already-applied buy, or a concurrent winner advanced the rail
    * (409). Covers the expected-depth guard and the placed-column mismatch.

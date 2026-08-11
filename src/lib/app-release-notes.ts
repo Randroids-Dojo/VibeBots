@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-07-30-0.1.293-one-icon-set";
+export const RELEASE_NOTICE_ID = "2026-08-11-0.1.294-elevator-earned";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.294",
+      date: "2026-08-11",
+      title: "The elevator is something you earn now, and it rides down",
+      intro:
+        "The elevator used to sit in the shop from minute one, selling a single rail row nobody needed yet. Now it is a goal: the stall stays boarded up until you have dug deep enough to want it, and the first purchase hands you a working shaft.",
+      changes: [
+        {
+          build,
+          text: "The Elevator stall is locked until a banked trip has reached depth 24, the same run that earns the Old Granite stamp. The stall shows exactly what is waiting and the depth that opens it.",
+        },
+        {
+          build,
+          text: "Your first purchase installs a ten-row starter shaft for the same 25 vibes the old single rail cost. Extending it stays one premium row at a time.",
+        },
+        {
+          build,
+          text: "Boarding the elevator at the surface no longer snaps you back off the car. Step in at the top, pick the down arrow, and ride to the bottom of your rail.",
+        },
+      ],
+    },
     {
       version: "0.1.293",
       date: "2026-07-30",

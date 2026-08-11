@@ -74,7 +74,9 @@ function profile(
     emeralds: 100,
     track_xp: 0,
     defense_xp: 0,
-    deepest_depth: 10,
+    // At the unlock depth by default so first-buy tests exercise the buy
+    // itself; the depth-lock cases override this to a shallow depth.
+    deepest_depth: 30,
     support_kit_granted_at: "now",
     elevator_support_refund_at: null,
     elevator_column_migrated_at: "now",
@@ -268,13 +270,61 @@ describe("POST /api/elevator/upgrade", () => {
     });
   });
 
-  it("anchors the first rail, charges 25 vibes, and refunds its support", async () => {
+  it("locks the first rail until a banked trip reaches the unlock depth", async () => {
+    mockedProfile.mockResolvedValue(profile(0, null, { deepest_depth: 23 }));
+    const sql = mockSql();
+
+    const response = await POST(request(37, 0));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "elevator-depth-locked",
+      error: "reach depth 24 to unlock the elevator",
+      requiredDepth: 24,
+      deepestDepth: 23,
+      elevator: 0,
+      elevatorColumn: null,
+    });
+    expect(
+      sql.mock.calls.find(([strings]) =>
+        strings.join(" ").includes("UPDATE players"),
+      ),
+    ).toBeUndefined();
+    expect(mockedOutcome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: "rejected",
+        reason: "elevator-depth-locked",
+      }),
+    );
+  });
+
+  it("never re-locks owned rail below the unlock depth", async () => {
+    // A pre-gate owner (or a fresh device after a save wipe of deepest_depth)
+    // keeps extending; the lock only guards the first purchase.
+    mockedProfile.mockResolvedValue(profile(4, 37, { deepest_depth: 0 }));
+    mockSql({
+      updated: {
+        emeralds: 70,
+        elevator_depth: 5,
+        elevator_col: 37,
+        ladder_count: 8,
+        plank_count: 4,
+      },
+    });
+
+    const response = await POST(request(undefined, 4));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ elevator: 5 });
+  });
+
+  it("anchors the starter shaft, charges 25 vibes, and refunds its supports", async () => {
     const diff: WorldDiff = [[37, 1, { kind: "empty", ladder: true }]];
     const sql = mockSql({
       diff,
       updated: {
         emeralds: 75,
-        elevator_depth: 1,
+        elevator_depth: 10,
         elevator_col: 37,
         ladder_count: 9,
         plank_count: 4,
@@ -285,7 +335,7 @@ describe("POST /api/elevator/upgrade", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      elevator: 1,
+      elevator: 10,
       elevatorColumn: 37,
       tripIndex: 3,
       balance: 75,
@@ -297,7 +347,7 @@ describe("POST /api/elevator/upgrade", () => {
       strings.join(" ").includes("UPDATE players"),
     );
     expect(update?.slice(1)).toEqual(
-      expect.arrayContaining([25, 1, 37, 1, 37]),
+      expect.arrayContaining([25, 10, 37, 1, 37]),
     );
     expect(update?.[0].join(" ")).toContain("UPDATE mine_worlds");
     expect(update?.[0].join(" ")).toContain("trip_count = trip_count + 1");
@@ -316,8 +366,8 @@ describe("POST /api/elevator/upgrade", () => {
       "elevator.upgrade",
       expect.objectContaining({
         fromDepth: 0,
-        toDepth: 1,
-        row: 1,
+        toDepth: 10,
+        row: 10,
         // A bounded placement state replaces the exact shaft column (F-121).
         placement: "placed",
         price: 25,
@@ -977,7 +1027,7 @@ describe("POST /api/elevator/upgrade", () => {
       diff,
       updated: {
         emeralds: 75,
-        elevator_depth: 1,
+        elevator_depth: 10,
         elevator_col: 37,
         ladder_count: 9,
         plank_count: 4,
@@ -990,10 +1040,10 @@ describe("POST /api/elevator/upgrade", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      elevator: 1,
+      elevator: 10,
       elevatorColumn: 37,
       ladders: 9,
-      gear: expect.objectContaining({ lantern: 3, elevator: 1 }),
+      gear: expect.objectContaining({ lantern: 3, elevator: 10 }),
       consumables: expect.objectContaining({ rope: 6, ladder: 9 }),
     });
     const update = sql.mock.calls.find(([strings]) =>

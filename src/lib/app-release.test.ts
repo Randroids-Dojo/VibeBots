@@ -24,16 +24,27 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest icon-set note complete", () => {
+  it("keeps the latest elevator-earned note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-30-0.1.293-one-icon-set");
+    expect(release.noticeId).toBe("2026-08-11-0.1.294-elevator-earned");
     expect(latestNote).toMatchObject({
+      version: "0.1.294",
+      title: "The elevator is something you earn now, and it rides down",
+    });
+    expect(latestNote?.changes).toHaveLength(3);
+  });
+
+  it("keeps the archived icon-set note complete", () => {
+    const release = getAppRelease();
+    const iconNote = release.notes.find((note) => note.version === "0.1.293");
+
+    expect(iconNote).toMatchObject({
       version: "0.1.293",
       title: "The mine's icons are one set now",
     });
-    expect(latestNote?.changes).toHaveLength(3);
+    expect(iconNote?.changes).toHaveLength(3);
   });
 
   it("keeps the archived control-layout note complete", () => {

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-07-30-0.1.293-one-icon-set",
+      releaseNoticeId: "2026-08-11-0.1.294-elevator-earned",
       releaseSummary:
-        "The mine's icons are one set now: The HUD was built out of emoji, which is why it looked like a pile of stickers: every icon came from a different artist, at a different weight, and none of them could change colour with the control they sat on.",
+        "The elevator is something you earn now, and it rides down: The elevator used to sit in the shop from minute one, selling a single rail row nobody needed yet. Now it is a goal: the stall stays boarded up until you have dug deep enough to want it, and the first purchase hands you a working shaft.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-07-30-0.1.293-one-icon-set",
+      releaseNoticeId: "2026-08-11-0.1.294-elevator-earned",
       attempted: 2,
       sent: 1,
       expired: 1,

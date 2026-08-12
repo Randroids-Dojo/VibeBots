@@ -32,7 +32,7 @@ test(
       "locked until a banked trip has reached depth 24",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "ten-row starter shaft",
+      "twenty-row starter shaft",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
       "ride to the bottom of your rail",

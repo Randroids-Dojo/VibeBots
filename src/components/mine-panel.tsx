@@ -65,6 +65,7 @@ import {
   dropOreAction,
   dynamitePreviewCells,
   dynamiteTier,
+  ELEVATOR_STARTER_PRICE,
   ELEVATOR_STARTER_RAIL_ROWS,
   ELEVATOR_UNLOCK_DEPTH,
   elevatorBoardingTarget,
@@ -4477,14 +4478,14 @@ export function MinePanel({
                   cashOut.state === "pending" ||
                   (!elevatorPlacementIsFree &&
                     (elevatorPurchaseFunds === null ||
-                      elevatorPurchaseFunds < elevatorRailPrice(0)))
+                      elevatorPurchaseFunds < ELEVATOR_STARTER_PRICE))
                 }
                 style={sheetActionStyle(
                   !elevatorPurchasePending &&
                     cashOut.state !== "pending" &&
                     (elevatorPlacementIsFree ||
                       (elevatorPurchaseFunds !== null &&
-                        elevatorPurchaseFunds >= elevatorRailPrice(0))),
+                        elevatorPurchaseFunds >= ELEVATOR_STARTER_PRICE)),
                   "confirm",
                 )}
               >
@@ -4494,7 +4495,7 @@ export function MinePanel({
                     : "Building..."
                   : elevatorPlacementIsFree
                     ? "Move here: Free"
-                    : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
+                    : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${ELEVATOR_STARTER_PRICE} vibes`}
               </button>
               <button
                 type="button"

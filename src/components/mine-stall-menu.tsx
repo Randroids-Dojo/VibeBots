@@ -17,6 +17,7 @@ import {
 import {
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
+  ELEVATOR_STARTER_PRICE,
   ELEVATOR_STARTER_RAIL_ROWS,
   ELEVATOR_UNLOCK_DEPTH,
   elevatorColumn,
@@ -61,7 +62,7 @@ export const STALL_ICONS: Record<StallDef["id"], string> = {
 
 /** The starter-shaft sales line, shared by the locked tease and the unlocked
  * first-purchase row so the two surfaces cannot drift apart. */
-const STARTER_SHAFT_BLURB = `starter shaft: ${ELEVATOR_STARTER_RAIL_ROWS} rows for ${elevatorRailPrice(0)} vibes`;
+const STARTER_SHAFT_BLURB = `starter shaft: ${ELEVATOR_STARTER_RAIL_ROWS} rows for ${ELEVATOR_STARTER_PRICE} vibes`;
 
 const ITEM_ICONS: Record<string, string> = {
   dynamite: "\u{1F9E8}",

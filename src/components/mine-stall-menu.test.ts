@@ -86,7 +86,7 @@ describe("StallMenu elevator purchases", () => {
     expect(markup).toContain("Reach depth 24 to earn your shaft permit.");
     expect(markup).toContain("Deepest banked so far: 23.");
     // The tease still sells the goal: what the shaft is and what it costs.
-    expect(markup).toContain("starter shaft: 10 rows for 25 vibes");
+    expect(markup).toContain("starter shaft: 20 rows for 100 vibes");
     // No purchase or placement control renders while locked.
     expect(markup).not.toContain(">Choose spot</button>");
     expect(markup).not.toContain("Buy one elevator rail");
@@ -104,7 +104,7 @@ describe("StallMenu elevator purchases", () => {
     expect(markup).not.toContain('data-testid="elevator-locked"');
     expect(markup).toContain('aria-label="Choose elevator shaft location"');
     expect(markup).toContain(">Choose spot</button>");
-    expect(markup).toContain("starter shaft: 10 rows for 25 vibes");
+    expect(markup).toContain("starter shaft: 20 rows for 100 vibes");
   });
 
   it("never re-locks owned rail below the unlock depth", () => {

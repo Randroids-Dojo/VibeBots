@@ -17,7 +17,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Your first purchase installs a ten-row starter shaft for the same 25 vibes the old single rail cost. Extending it stays one premium row at a time.",
+          text: "Your first purchase installs a twenty-row starter shaft for 100 vibes, a bundle deal against buying rail row by row. Extending it past that stays one premium row at a time.",
         },
         {
           build,

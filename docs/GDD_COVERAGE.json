@@ -628,7 +628,7 @@
     },
     {
       "id": "REQ-028",
-      "requirement": "Elevator: locked and teased until a banked trip reaches depth 24, then the first premium purchase anchors one persistent 10-row starter shaft at any chosen surface column (later purchases add one depth-scaled row); entering any owned rail row, including the surface opening, calls the car for visible arrival and boarding, then endpoint-valid Up or Down arrows start free logged travel that auto-chains to the selected endpoint and banks at the surface.",
+      "requirement": "Elevator: locked and teased until a banked trip reaches depth 24, then the first premium purchase anchors one persistent 20-row starter shaft at any chosen surface column (later purchases add one depth-scaled row); entering any owned rail row, including the surface opening, calls the car for visible arrival and boarding, then endpoint-valid Up or Down arrows start free logged travel that auto-chains to the selected endpoint and banks at the surface.",
       "gddRef": "docs/gdd/06-mining.html#transport",
       "status": "done",
       "implementationRefs": [

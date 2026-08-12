@@ -37,7 +37,7 @@ describe("app release notes", () => {
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "The Elevator stall is locked until a banked trip has reached depth 24, the same run that earns the Old Granite stamp. The stall shows exactly what is waiting and the depth that opens it.",
-      "Your first purchase installs a ten-row starter shaft for the same 25 vibes the old single rail cost. Extending it stays one premium row at a time.",
+      "Your first purchase installs a twenty-row starter shaft for 100 vibes, a bundle deal against buying rail row by row. Extending it past that stays one premium row at a time.",
       "Boarding the elevator at the surface no longer snaps you back off the car. Step in at the top, pick the down arrow, and ride to the bottom of your rail.",
     ]);
   });
@@ -49,6 +49,8 @@ describe("app release notes", () => {
     expect(iconNote).toMatchObject({
       version: "0.1.293",
       title: "The mine's icons are one set now",
+      intro:
+        "The HUD was built out of emoji, which is why it looked like a pile of stickers: every icon came from a different artist, at a different weight, and none of them could change colour with the control they sat on.",
     });
     expect(iconNote?.changes.map((change) => change.text)).toEqual([
       "Every icon in the mine is drawn in one line style now, and takes the colour of whatever it sits on. A dimmed tool, an armed tool, and a warning all tint their icon to match instead of showing the same flat emoji.",

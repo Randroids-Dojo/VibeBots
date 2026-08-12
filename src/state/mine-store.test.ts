@@ -256,7 +256,7 @@ describe("mine store upgrade flow", () => {
     });
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({
-        elevator: 10,
+        elevator: 20,
         elevatorColumn: 17,
         tripIndex: 3,
         balance: 5,
@@ -272,17 +272,17 @@ describe("mine store upgrade flow", () => {
       requestId: expect.any(String),
     });
     expect(store().gear).toMatchObject({
-      elevator: 10,
+      elevator: 20,
       elevatorColumn: 17,
     });
     expect(store().mine.gear).toMatchObject({
-      elevator: 10,
+      elevator: 20,
       elevatorColumn: 17,
     });
-    expect(cellAt(store().mine, 17, 10)?.kind).toBe("empty");
+    expect(cellAt(store().mine, 17, 20)?.kind).toBe("empty");
     expect(store().balance).toBe(5);
     expect(store().tripIndex).toBe(3);
-    expect(store().shopNote).toBe("starter shaft installed, 10 rows deep");
+    expect(store().shopNote).toBe("starter shaft installed, 20 rows deep");
     const savedTrip = JSON.parse(
       vi.mocked(localStorage.setItem).mock.calls.at(-1)?.[1] ?? "{}",
     );

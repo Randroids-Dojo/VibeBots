@@ -99,7 +99,15 @@ export const ELEVATOR_UNLOCK_DEPTH = 24;
  * was never a usable elevator; the unlock moment hands over a working
  * shaft (the original design shipped rail in 12-row segments).
  */
-export const ELEVATOR_STARTER_RAIL_ROWS = 10;
+export const ELEVATOR_STARTER_RAIL_ROWS = 20;
+
+/**
+ * Price of the starter shaft (the first purchase). A real investment
+ * rather than the old single-rail 25, but still a bundle discount against
+ * the per-row sum, so the unlock moment stays a reward. Extends past the
+ * starter depth price per row via elevatorRailPrice.
+ */
+export const ELEVATOR_STARTER_PRICE = 100;
 
 /** Max robot battery charge by battery-cell level. */
 export const BATTERY_CHARGE = [

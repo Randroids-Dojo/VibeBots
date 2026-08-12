@@ -316,13 +316,13 @@ describe("POST /api/elevator/upgrade", () => {
     await expect(response.json()).resolves.toMatchObject({ elevator: 5 });
   });
 
-  it("anchors the starter shaft, charges 25 vibes, and refunds its supports", async () => {
+  it("anchors the starter shaft, charges 100 vibes, and refunds its supports", async () => {
     const diff: WorldDiff = [[37, 1, { kind: "empty", ladder: true }]];
     const sql = mockSql({
       diff,
       updated: {
         emeralds: 75,
-        elevator_depth: 10,
+        elevator_depth: 20,
         elevator_col: 37,
         ladder_count: 9,
         plank_count: 4,
@@ -333,7 +333,7 @@ describe("POST /api/elevator/upgrade", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      elevator: 10,
+      elevator: 20,
       elevatorColumn: 37,
       tripIndex: 3,
       balance: 75,
@@ -345,7 +345,7 @@ describe("POST /api/elevator/upgrade", () => {
       strings.join(" ").includes("UPDATE players"),
     );
     expect(update?.slice(1)).toEqual(
-      expect.arrayContaining([25, 10, 37, 1, 37]),
+      expect.arrayContaining([100, 20, 37, 1, 37]),
     );
     expect(update?.[0].join(" ")).toContain("UPDATE mine_worlds");
     expect(update?.[0].join(" ")).toContain("trip_count = trip_count + 1");
@@ -364,11 +364,11 @@ describe("POST /api/elevator/upgrade", () => {
       "elevator.upgrade",
       expect.objectContaining({
         fromDepth: 0,
-        toDepth: 10,
-        row: 10,
+        toDepth: 20,
+        row: 20,
         // A bounded placement state replaces the exact shaft column (F-121).
         placement: "placed",
-        price: 25,
+        price: 100,
       }),
     );
     // The exact player-chosen shaft column is never retained in telemetry.
@@ -1025,7 +1025,7 @@ describe("POST /api/elevator/upgrade", () => {
       diff,
       updated: {
         emeralds: 75,
-        elevator_depth: 10,
+        elevator_depth: 20,
         elevator_col: 37,
         ladder_count: 9,
         plank_count: 4,
@@ -1038,10 +1038,10 @@ describe("POST /api/elevator/upgrade", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      elevator: 10,
+      elevator: 20,
       elevatorColumn: 37,
       ladders: 9,
-      gear: expect.objectContaining({ lantern: 3, elevator: 10 }),
+      gear: expect.objectContaining({ lantern: 3, elevator: 20 }),
       consumables: expect.objectContaining({ rope: 6, ladder: 9 }),
     });
     const update = sql.mock.calls.find(([strings]) =>

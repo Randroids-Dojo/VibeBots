@@ -31,6 +31,7 @@ import {
 } from "@/server/save-sync-push";
 import { playerLevelProgress } from "@/sim/bunker";
 import {
+  ELEVATOR_STARTER_PRICE,
   ELEVATOR_STARTER_RAIL_ROWS,
   ELEVATOR_UNLOCK_DEPTH,
   elevatorRailPrice,
@@ -621,10 +622,10 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const price = elevatorRailPrice(depth);
-  // The first purchase installs a working starter shaft, not a single row:
-  // one row of rail is not an elevator anyone would ride. Extends stay one
-  // premium row at a time.
+  // The first purchase installs a working starter shaft at a bundle price,
+  // not a single row: one row of rail is not an elevator anyone would ride.
+  // Extends stay one premium row at a time.
+  const price = depth === 0 ? ELEVATOR_STARTER_PRICE : elevatorRailPrice(depth);
   const nextDepth = depth === 0 ? ELEVATOR_STARTER_RAIL_ROWS : depth + 1;
   const purchasedRow = installElevatorRailInDiff(
     oldDiff,

@@ -286,6 +286,12 @@ export function StallMenu({
   const upgradeFunds = balance === null ? null : balance + banked;
   const elevatorMaxed = gear.elevator >= MINE_BOTTOM_ROW - 1;
   const choosingExistingShaft = elevatorPlacementRequired && gear.elevator > 0;
+  // What the next elevator purchase costs: the starter bundle before any
+  // rail is owned, one depth-scaled row after.
+  const nextElevatorPrice =
+    gear.elevator > 0
+      ? elevatorRailPrice(gear.elevator)
+      : ELEVATOR_STARTER_PRICE;
   // The elevator is teased, not hidden: a fresh player sees what the stall
   // will become and the exact depth that opens it. Owned rail never re-locks.
   const elevatorLocked =
@@ -671,7 +677,7 @@ export function StallMenu({
                     (!choosingExistingShaft &&
                       (elevatorMaxed ||
                         upgradeFunds === null ||
-                        upgradeFunds < elevatorRailPrice(gear.elevator)))
+                        upgradeFunds < nextElevatorPrice))
                   }
                   style={sheetButtonStyle(
                     !elevatorPurchasePending &&
@@ -679,7 +685,7 @@ export function StallMenu({
                       (choosingExistingShaft ||
                         (!elevatorMaxed &&
                           upgradeFunds !== null &&
-                          upgradeFunds >= elevatorRailPrice(gear.elevator))),
+                          upgradeFunds >= nextElevatorPrice)),
                   )}
                 >
                   {elevatorPurchasePending

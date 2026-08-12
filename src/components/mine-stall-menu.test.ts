@@ -107,6 +107,38 @@ describe("StallMenu elevator purchases", () => {
     expect(markup).toContain("starter shaft: 20 rows for 100 vibes");
   });
 
+  it("gates the starter purchase on the bundle price, not one rail", () => {
+    // 99 vibes affords the old 25-vibe single rail but not the 100-vibe
+    // starter bundle: the control must read as disabled.
+    const short = renderToStaticMarkup(
+      createElement(
+        StallMenu,
+        elevatorStallProps({
+          gear: { ...DEFAULT_GEAR, elevator: 0, elevatorColumn: null },
+          deepestDepth: 24,
+          balance: 99,
+        }),
+      ),
+    );
+    expect(short).toMatch(
+      /aria-label="Choose elevator shaft location"[^>]*disabled=""/,
+    );
+
+    const funded = renderToStaticMarkup(
+      createElement(
+        StallMenu,
+        elevatorStallProps({
+          gear: { ...DEFAULT_GEAR, elevator: 0, elevatorColumn: null },
+          deepestDepth: 24,
+          balance: 100,
+        }),
+      ),
+    );
+    expect(funded).not.toMatch(
+      /aria-label="Choose elevator shaft location"[^>]*disabled=""/,
+    );
+  });
+
   it("never re-locks owned rail below the unlock depth", () => {
     // elevatorStallProps owns one rail row with deepestDepth 0: the lock
     // only guards the first purchase, so the buy control stays live.

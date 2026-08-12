@@ -648,7 +648,9 @@ export function StallMenu({
                     elevatorPurchasePending
                       ? choosingExistingShaft
                         ? "Placing existing elevator shaft"
-                        : "Buying one elevator rail"
+                        : gear.elevator > 0
+                          ? "Buying one elevator rail"
+                          : "Installing the starter elevator shaft"
                       : choosingExistingShaft
                         ? "Choose free elevator shaft location"
                         : elevatorMaxed

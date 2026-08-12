@@ -559,16 +559,11 @@ export async function POST(request: Request): Promise<Response> {
   // the legacy placement branch above skip this gate.
   const deepestDepth = profile?.deepest_depth ?? 0;
   if (depth === 0 && deepestDepth < ELEVATOR_UNLOCK_DEPTH) {
-    emitOutcome("rejected", "elevator-depth-locked");
-    return Response.json(
-      {
-        code: "elevator-depth-locked",
-        error: `reach depth ${ELEVATOR_UNLOCK_DEPTH} to unlock the elevator`,
-        requiredDepth: ELEVATOR_UNLOCK_DEPTH,
-        deepestDepth,
-        ...(currentState ?? {}),
-      },
-      { status: 409 },
+    return rejectOutcome(
+      "elevator-depth-locked",
+      `reach depth ${ELEVATOR_UNLOCK_DEPTH} to unlock the elevator`,
+      409,
+      currentState,
     );
   }
   if (depth === 0 && requestedColumn === undefined) {
@@ -630,10 +625,7 @@ export async function POST(request: Request): Promise<Response> {
   // The first purchase installs a working starter shaft, not a single row:
   // one row of rail is not an elevator anyone would ride. Extends stay one
   // premium row at a time.
-  const nextDepth =
-    depth === 0
-      ? Math.min(ELEVATOR_STARTER_RAIL_ROWS, MINE_BOTTOM_ROW - 1)
-      : depth + 1;
+  const nextDepth = depth === 0 ? ELEVATOR_STARTER_RAIL_ROWS : depth + 1;
   const purchasedRow = installElevatorRailInDiff(
     oldDiff,
     column,
@@ -774,7 +766,7 @@ export async function POST(request: Request): Promise<Response> {
       refundedPlanks,
       balanceAfter: updated[0].emeralds,
       playerLevel: playerLevelProgress(profile?.defense_xp ?? 0).level,
-      deepestDepth: profile?.deepest_depth ?? 0,
+      deepestDepth,
     });
   } catch {
     // Balance events support tuning, but should not fail a charged rail buy.

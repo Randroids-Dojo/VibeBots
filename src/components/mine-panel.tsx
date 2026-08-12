@@ -66,6 +66,7 @@ import {
   dynamitePreviewCells,
   dynamiteTier,
   ELEVATOR_STARTER_RAIL_ROWS,
+  ELEVATOR_UNLOCK_DEPTH,
   elevatorBoardingTarget,
   elevatorColumn,
   elevatorRailPrice,
@@ -399,7 +400,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
   "Tip: Sealed yourself in? Reset bunker in the Upkeep menu clears the build and refunds undamaged parts.",
-  "Tip: Reach depth 24 to unlock the Elevator. The starter shaft comes with 10 rows of rail.",
+  `Tip: Reach depth ${ELEVATOR_UNLOCK_DEPTH} to unlock the Elevator. The starter shaft comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`,
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -1301,7 +1302,11 @@ export function MinePanel({
   // world change, or the auto-bank would kick the miner off the car the
   // moment they enter the elevator from the top.
   const carvedThisTrip = useMineStore((s) =>
-    tripChangedWorldBeyondSurfaceBoarding(s.moves, s.mine),
+    tripChangedWorldBeyondSurfaceBoarding(
+      s.moves,
+      s.mine.elevatorPhase,
+      s.mine.miner.row,
+    ),
   );
   const pendingBunker = useMineStore((s) => s.pendingBunker);
   const cashOut = useMineStore((s) => s.cashOut);

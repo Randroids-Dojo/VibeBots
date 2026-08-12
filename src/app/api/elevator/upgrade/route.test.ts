@@ -280,8 +280,6 @@ describe("POST /api/elevator/upgrade", () => {
     await expect(response.json()).resolves.toMatchObject({
       code: "elevator-depth-locked",
       error: "reach depth 24 to unlock the elevator",
-      requiredDepth: 24,
-      deepestDepth: 23,
       elevator: 0,
       elevatorColumn: null,
     });

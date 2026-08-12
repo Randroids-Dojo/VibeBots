@@ -165,41 +165,40 @@ describe("carved world survives a restart", () => {
     // as carving made the surface auto-bank fire the moment the player
     // entered from the top: the cash-out reset the trip and kicked the bot
     // back off the car, so a ride down from the surface never started.
-    const boardedAtSurface = {
-      elevatorPhase: "boarded",
-      miner: { row: 0 },
-    } as const;
     expect(
-      tripChangedWorldBeyondSurfaceBoarding(["left", "down"], boardedAtSurface),
+      tripChangedWorldBeyondSurfaceBoarding(["left", "down"], "boarded", 0),
     ).toBe(false);
-    // Earlier real carving in the same trip still banks.
+    // Boarding, stepping off, and boarding again is still only boardings:
+    // every "down" in an otherwise pure-movement log that ends boarded at
+    // row 0 was a boarding, because a digging "down" leaves the surface.
     expect(
       tripChangedWorldBeyondSurfaceBoarding(
         ["down", "left", "down"],
-        boardedAtSurface,
+        "boarded",
+        0,
+      ),
+    ).toBe(false);
+    // Real carving in the same trip still banks: getting back to row 0
+    // after a digging "down" needs an unforgiven move like "up".
+    expect(
+      tripChangedWorldBeyondSurfaceBoarding(
+        ["down", "up", "left", "down"],
+        "boarded",
+        0,
       ),
     ).toBe(true);
     // A ride-up arrival at the surface is not a boarding and still banks.
     expect(
-      tripChangedWorldBeyondSurfaceBoarding(["down", "ride-up"], {
-        elevatorPhase: "boarded",
-        miner: { row: 0 },
-      }),
+      tripChangedWorldBeyondSurfaceBoarding(["down", "ride-up"], "boarded", 0),
     ).toBe(true);
     // A trailing "down" that dug (not boarded, or not at the surface)
     // counts like any other carve.
-    expect(
-      tripChangedWorldBeyondSurfaceBoarding(["down"], {
-        elevatorPhase: "idle",
-        miner: { row: 1 },
-      }),
-    ).toBe(true);
-    expect(
-      tripChangedWorldBeyondSurfaceBoarding(["down"], {
-        elevatorPhase: "boarded",
-        miner: { row: 5 },
-      }),
-    ).toBe(true);
+    expect(tripChangedWorldBeyondSurfaceBoarding(["down"], "idle", 1)).toBe(
+      true,
+    );
+    expect(tripChangedWorldBeyondSurfaceBoarding(["down"], "boarded", 5)).toBe(
+      true,
+    );
   });
 
   it("does not treat a pure surface walk as worth banking", async () => {

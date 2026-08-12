@@ -526,26 +526,35 @@ export function tripChangedWorld(moves: MineAction[]): boolean {
 }
 
 /**
- * {@link tripChangedWorld}, minus a trailing surface boarding. Stepping onto
+ * {@link tripChangedWorld}, minus surface elevator boardings. Stepping onto
  * the elevator at row 0 logs a "down" that alters nothing (the shaft opening
  * is already rail), but counting it as a world change made the surface
  * auto-bank fire the instant a player boarded from the top: the cash-out
  * reset the trip and yanked the bot back off the car, so the elevator could
- * never ride down from the surface. The trailing "down" is only forgiven
- * while the miner is actually boarded at the surface; a "down" that dug
- * leaves the miner below row 0 and still counts.
+ * never ride down from the surface.
+ *
+ * Forgiving "down" is sound only in the boarded-at-surface state, and there
+ * it is sound for the whole log, not just the trailing move: a "down" that
+ * dug leaves the surface, and only an up, jump, or ride move (none of them
+ * forgiven) could bring the miner back to row 0, so in an otherwise
+ * pure-movement log every "down" was a boarding. That also covers boarding,
+ * stepping off, and boarding again in one trip.
  */
 export function tripChangedWorldBeyondSurfaceBoarding(
   moves: MineAction[],
-  mine: Pick<MineState, "elevatorPhase"> & {
-    miner: Pick<MineState["miner"], "row">;
-  },
+  elevatorPhase: MineState["elevatorPhase"],
+  minerRow: number,
 ): boolean {
-  const boardedAtSurface =
-    mine.elevatorPhase === "boarded" &&
-    mine.miner.row === 0 &&
-    moves[moves.length - 1] === "down";
-  return tripChangedWorld(boardedAtSurface ? moves.slice(0, -1) : moves);
+  if (elevatorPhase !== "boarded" || minerRow !== 0) {
+    return tripChangedWorld(moves);
+  }
+  return !moves.every(
+    (m) =>
+      m === "left" ||
+      m === "right" ||
+      m === "down" ||
+      m.startsWith("portal-warp:"),
+  );
 }
 
 function pendingBunkerPayload(
@@ -2260,6 +2269,12 @@ export const useMineStore = create<MineSessionState>((set, get) => {
         refundedLadders + refundedPlanks > 0
           ? `; recovered ${refundedLadders} ladders and ${refundedPlanks} planks`
           : "";
+      // The headline moment deserves its own line: a first purchase installed
+      // the whole starter shaft, not an extension of existing rail.
+      const extendNote =
+        gear.elevator <= 0
+          ? `starter shaft installed, ${elevator} rows deep`
+          : `rail extended to ${elevator} deep`;
       // Adopt the authoritative consumables (F-121). The full inventory already
       // folds in the support refund and any concurrent change, so it replaces
       // local stock wholesale. Older servers omit it; fall back to the local
@@ -2309,7 +2324,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           railResyncFailed: false,
           shopNote: relocationConfirmed
             ? `shaft moved to column ${nextElevatorColumn}${refundNote}`
-            : `rail extended to ${elevator} deep${refundNote}`,
+            : `${extendNote}${refundNote}`,
           tick: tick + 1,
         });
       } else {
@@ -2323,7 +2338,7 @@ export const useMineStore = create<MineSessionState>((set, get) => {
           railResyncFailed: false,
           shopNote: relocationConfirmed
             ? `shaft moved to column ${nextElevatorColumn}${refundNote}; rides start next trip`
-            : `rail extended to ${elevator} deep${refundNote}; rides start next trip`,
+            : `${extendNote}${refundNote}; rides start next trip`,
           tick: tick + 1,
         });
         persistCurrentTrip();

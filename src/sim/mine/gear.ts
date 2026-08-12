@@ -86,6 +86,29 @@ export function elevatorRailPrice(currentDepth: number): number {
   return 25 + Math.floor(depth / 10) * 5;
 }
 
+/**
+ * Deepest banked depth that unlocks buying the first rail. Matches the
+ * Old Granite stamp (depth 24): the elevator is teased as a goal until the
+ * player has proven the commute it compresses. Existing owners are never
+ * re-locked.
+ */
+export const ELEVATOR_UNLOCK_DEPTH = 24;
+
+/**
+ * Rows the starter shaft installs on the first purchase. One row of rail
+ * was never a usable elevator; the unlock moment hands over a working
+ * shaft (the original design shipped rail in 12-row segments).
+ */
+export const ELEVATOR_STARTER_RAIL_ROWS = 20;
+
+/**
+ * Price of the starter shaft (the first purchase). A real investment
+ * rather than the old single-rail 25, but still a bundle discount against
+ * the per-row sum, so the unlock moment stays a reward. Extends past the
+ * starter depth price per row via elevatorRailPrice.
+ */
+export const ELEVATOR_STARTER_PRICE = 100;
+
 /** Max robot battery charge by battery-cell level. */
 export const BATTERY_CHARGE = [
   60, 90, 130, 180, 240, 315, 405, 520, 660, 820,

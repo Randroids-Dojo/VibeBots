@@ -444,7 +444,7 @@ test(
 );
 
 test(
-  "the elevator places a chosen shaft and sells one premium rail row",
+  "the elevator places a chosen starter shaft and sells one premium rail row",
   ciCase("E2E-MINE-WARP-ELEVATOR-0004", "@render"),
   async ({ page }) => {
     await routeStarterMineWorld(page, 9291, (mine) => {
@@ -453,13 +453,16 @@ test(
       }
     });
     let serverGear = { ...DEFAULT_GEAR };
-    let serverBalance = 60;
+    let serverBalance = 150;
     await page.route("**/api/gear", async (route) => {
       await route.fulfill({
         json: {
           gear: serverGear,
           consumables: STARTING_CONSUMABLES,
           balance: serverBalance,
+          // Past the unlock depth: this case exercises the purchase flow,
+          // not the locked tease.
+          deepestDepth: 30,
         },
       });
     });
@@ -485,12 +488,14 @@ test(
       const first = purchaseBodies.length === 1;
       if (first) await firstPurchaseGate;
       else await secondPurchaseGate;
+      // The first purchase installs the twenty-row starter shaft; extends add
+      // one row at the depth-scaled price, mirroring the live route.
       serverGear = {
         ...serverGear,
-        elevator: first ? 1 : 2,
+        elevator: first ? 20 : 21,
         elevatorColumn: first ? body.column : serverGear.elevatorColumn,
       };
-      serverBalance = first ? 35 : 10;
+      serverBalance = first ? 50 : 15;
       await route.fulfill({
         json: {
           elevator: serverGear.elevator,
@@ -506,7 +511,9 @@ test(
 
     const elevator = await openStall(page, "Elevator", "ArrowLeft");
     await expect(elevator).toContainText("choose your shaft column");
-    await expect(elevator).toContainText("first rail costs 25 vibes");
+    await expect(elevator).toContainText(
+      "starter shaft: 20 rows for 100 vibes",
+    );
     await elevator
       .getByRole("button", { name: "Choose elevator shaft location" })
       .click();
@@ -518,7 +525,7 @@ test(
     await pressMineKey(page, "ArrowRight");
     await expect(placement).toContainText("Shaft column -4");
     const build = placement.getByRole("button", {
-      name: "Build here: 25 vibes",
+      name: "Build here: 100 vibes",
     });
     await expect(build).toBeEnabled();
     await expect(placement).toBeFocused();
@@ -532,7 +539,7 @@ test(
     releaseFirstPurchase();
 
     await expect(status).toHaveAttribute("data-elevator-col", "-4");
-    await expect(status).toHaveAttribute("data-elevator-depth", "1");
+    await expect(status).toHaveAttribute("data-elevator-depth", "20");
     await expect(status).toHaveAttribute("data-elevator-placement", "false");
     await expect(
       page.getByRole("button", { name: "Open settings" }),
@@ -541,10 +548,10 @@ test(
 
     await pressMineKey(page, "ArrowLeft");
     const reopened = await openStall(page, "Elevator");
-    await expect(reopened).toContainText("rail at column -4 reaches 1 deep");
+    await expect(reopened).toContainText("rail at column -4 reaches 20 deep");
     await expect(reopened).toContainText("one premium row per purchase");
     const extend = reopened.getByRole("button", {
-      name: "Buy one elevator rail for 25 vibes",
+      name: "Buy one elevator rail for 35 vibes",
     });
     await extend.click();
     const buying = reopened.getByRole("button", {
@@ -554,18 +561,18 @@ test(
     await buying.click({ force: true });
     expect(purchaseBodies).toEqual([
       { column: -4, expectedDepth: 0 },
-      { expectedDepth: 1 },
+      { expectedDepth: 20 },
     ]);
     releaseSecondPurchase();
-    await expect(status).toHaveAttribute("data-elevator-depth", "2");
+    await expect(status).toHaveAttribute("data-elevator-depth", "21");
     expect(purchaseBodies).toEqual([
       { column: -4, expectedDepth: 0 },
-      { expectedDepth: 1 },
+      { expectedDepth: 20 },
     ]);
 
     await page.reload();
     await expect(status).toHaveAttribute("data-elevator-col", "-4");
-    await expect(status).toHaveAttribute("data-elevator-depth", "2");
+    await expect(status).toHaveAttribute("data-elevator-depth", "21");
     await awaitMineSceneReady(page);
     await expect(status).toHaveAttribute("data-scene-painted", "true", {
       timeout: 20_000,
@@ -586,7 +593,9 @@ test(
       timeout: 10_000,
     });
     await page.getByRole("button", { name: "Go to bottom" }).click();
-    await expect(status).toHaveAttribute("data-depth", "2");
+    await expect(status).toHaveAttribute("data-depth", "21", {
+      timeout: 10_000,
+    });
     await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
       timeout: 10_000,
     });

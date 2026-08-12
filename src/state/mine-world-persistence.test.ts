@@ -11,7 +11,11 @@ import {
   STARTING_CONSUMABLES,
   type WorldDiff,
 } from "@/sim/mine";
-import { tripChangedWorld, useMineStore } from "./mine-store";
+import {
+  tripChangedWorld,
+  tripChangedWorldBeyondSurfaceBoarding,
+  useMineStore,
+} from "./mine-store";
 import { localTripKey } from "./mine-trip-persistence";
 
 /**
@@ -154,6 +158,47 @@ describe("carved world survives a restart", () => {
     expect(tripChangedWorld(["activate-portal:winter"])).toBe(true);
     // Warping between lit beacons only moves the miner, so it is exempt.
     expect(tripChangedWorld(["portal-warp:winter", "left"])).toBe(false);
+  });
+
+  it("does not treat boarding the elevator at the surface as worth banking", async () => {
+    // Boarding at row 0 logs a "down" that alters nothing, but counting it
+    // as carving made the surface auto-bank fire the moment the player
+    // entered from the top: the cash-out reset the trip and kicked the bot
+    // back off the car, so a ride down from the surface never started.
+    expect(
+      tripChangedWorldBeyondSurfaceBoarding(["left", "down"], "boarded", 0),
+    ).toBe(false);
+    // Boarding, stepping off, and boarding again is still only boardings:
+    // every "down" in an otherwise pure-movement log that ends boarded at
+    // row 0 was a boarding, because a digging "down" leaves the surface.
+    expect(
+      tripChangedWorldBeyondSurfaceBoarding(
+        ["down", "left", "down"],
+        "boarded",
+        0,
+      ),
+    ).toBe(false);
+    // Real carving in the same trip still banks: getting back to row 0
+    // after a digging "down" needs an unforgiven move like "up".
+    expect(
+      tripChangedWorldBeyondSurfaceBoarding(
+        ["down", "up", "left", "down"],
+        "boarded",
+        0,
+      ),
+    ).toBe(true);
+    // A ride-up arrival at the surface is not a boarding and still banks.
+    expect(
+      tripChangedWorldBeyondSurfaceBoarding(["down", "ride-up"], "boarded", 0),
+    ).toBe(true);
+    // A trailing "down" that dug (not boarded, or not at the surface)
+    // counts like any other carve.
+    expect(tripChangedWorldBeyondSurfaceBoarding(["down"], "idle", 1)).toBe(
+      true,
+    );
+    expect(tripChangedWorldBeyondSurfaceBoarding(["down"], "boarded", 5)).toBe(
+      true,
+    );
   });
 
   it("does not treat a pure surface walk as worth banking", async () => {

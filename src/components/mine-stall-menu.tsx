@@ -17,6 +17,9 @@ import {
 import {
   BEACON_LABEL_MAX_LENGTH,
   CONSUMABLE_PRICES,
+  ELEVATOR_STARTER_PRICE,
+  ELEVATOR_STARTER_RAIL_ROWS,
+  ELEVATOR_UNLOCK_DEPTH,
   elevatorColumn,
   elevatorRailPrice,
   elevatorSpeedRows,
@@ -56,6 +59,10 @@ export const STALL_ICONS: Record<StallDef["id"], string> = {
   elevator: "\u{1F6D7}",
   warp: "\u{1F300}",
 };
+
+/** The starter-shaft sales line, shared by the locked tease and the unlocked
+ * first-purchase row so the two surfaces cannot drift apart. */
+const STARTER_SHAFT_BLURB = `starter shaft: ${ELEVATOR_STARTER_RAIL_ROWS} rows for ${ELEVATOR_STARTER_PRICE} vibes`;
 
 const ITEM_ICONS: Record<string, string> = {
   dynamite: "\u{1F9E8}",
@@ -279,6 +286,16 @@ export function StallMenu({
   const upgradeFunds = balance === null ? null : balance + banked;
   const elevatorMaxed = gear.elevator >= MINE_BOTTOM_ROW - 1;
   const choosingExistingShaft = elevatorPlacementRequired && gear.elevator > 0;
+  // What the next elevator purchase costs: the starter bundle before any
+  // rail is owned, one depth-scaled row after.
+  const nextElevatorPrice =
+    gear.elevator > 0
+      ? elevatorRailPrice(gear.elevator)
+      : ELEVATOR_STARTER_PRICE;
+  // The elevator is teased, not hidden: a fresh player sees what the stall
+  // will become and the exact depth that opens it. Owned rail never re-locks.
+  const elevatorLocked =
+    gear.elevator <= 0 && deepestDepth < ELEVATOR_UNLOCK_DEPTH;
   const offline = balance === null;
   const beacons = findBeacons(mine);
   const portals = findPortalBeacons(mine).filter((portal) => portal.active);
@@ -590,123 +607,148 @@ export function StallMenu({
           </p>
         </div>
       )}
-      {stall.id === "elevator" && (
-        <div>
-          <SheetRow
-            icon={"\u{1F6D7}"}
-            name={
-              choosingExistingShaft
-                ? `place your existing ${gear.elevator}-row shaft`
-                : gear.elevator > 0
-                  ? `rail at column ${elevatorColumn(gear)} reaches ${gear.elevator} deep`
-                  : "choose your shaft column"
-            }
-            sub={
-              choosingExistingShaft
-                ? "one free location choice; bought depth stays"
-                : elevatorMaxed
-                  ? "rail reaches the mine bottom"
+      {stall.id === "elevator" &&
+        (elevatorLocked ? (
+          <div>
+            <SheetRow
+              icon={"\u{1F6D7}"}
+              name="the shaft doors are still boarded up"
+              sub={`a free-riding elevator down your mine; ${STARTER_SHAFT_BLURB}`}
+              action={
+                <span
+                  data-testid="elevator-locked"
+                  style={{ fontSize: "0.8rem", opacity: 0.6 }}
+                >
+                  depth {ELEVATOR_UNLOCK_DEPTH}
+                </span>
+              }
+            />
+            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+              Reach depth {ELEVATOR_UNLOCK_DEPTH} to earn your shaft permit.
+              Deepest banked so far: {deepestDepth}.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <SheetRow
+              icon={"\u{1F6D7}"}
+              name={
+                choosingExistingShaft
+                  ? `place your existing ${gear.elevator}-row shaft`
                   : gear.elevator > 0
-                    ? "one premium row per purchase"
-                    : `first rail costs ${elevatorRailPrice(0)} vibes`
-            }
-            action={
-              <button
-                type="button"
-                aria-label={
-                  elevatorPurchasePending
-                    ? choosingExistingShaft
-                      ? "Placing existing elevator shaft"
-                      : "Buying one elevator rail"
-                    : choosingExistingShaft
-                      ? "Choose free elevator shaft location"
-                      : elevatorMaxed
-                        ? "Elevator rail is at maximum depth"
+                    ? `rail at column ${elevatorColumn(gear)} reaches ${gear.elevator} deep`
+                    : "choose your shaft column"
+              }
+              sub={
+                choosingExistingShaft
+                  ? "one free location choice; bought depth stays"
+                  : elevatorMaxed
+                    ? "rail reaches the mine bottom"
+                    : gear.elevator > 0
+                      ? "one premium row per purchase"
+                      : STARTER_SHAFT_BLURB
+              }
+              action={
+                <button
+                  type="button"
+                  aria-label={
+                    elevatorPurchasePending
+                      ? choosingExistingShaft
+                        ? "Placing existing elevator shaft"
                         : gear.elevator > 0
-                          ? `Buy one elevator rail for ${elevatorRailPrice(gear.elevator)} vibes`
-                          : "Choose elevator shaft location"
-                }
-                onClick={
-                  gear.elevator > 0 && !choosingExistingShaft
-                    ? onBuyElevator
-                    : onChooseElevatorShaft
-                }
-                disabled={
-                  elevatorPurchasePending ||
-                  railResyncFailed ||
-                  (!choosingExistingShaft &&
-                    (elevatorMaxed ||
-                      upgradeFunds === null ||
-                      upgradeFunds < elevatorRailPrice(gear.elevator)))
-                }
-                style={sheetButtonStyle(
-                  !elevatorPurchasePending &&
-                    !railResyncFailed &&
-                    (choosingExistingShaft ||
-                      (!elevatorMaxed &&
-                        upgradeFunds !== null &&
-                        upgradeFunds >= elevatorRailPrice(gear.elevator))),
-                )}
-              >
-                {elevatorPurchasePending
-                  ? choosingExistingShaft
-                    ? "Placing..."
-                    : "Buying..."
-                  : choosingExistingShaft
-                    ? "Choose spot"
-                    : elevatorMaxed
-                      ? "Max"
-                      : gear.elevator > 0
-                        ? `${autoBanking ? "Bank + " : ""}${elevatorRailPrice(gear.elevator)} vibes`
-                        : "Choose spot"}
-              </button>
-            }
-          />
-          {railResyncFailed && (
-            <div
-              data-testid="rail-resync-recovery"
-              role="alert"
-              style={{
-                margin: "8px 0 0",
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid rgba(245, 158, 11, 0.5)",
-                background: "rgba(245, 158, 11, 0.12)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
-                Your rail moved on another device and the refresh failed. Retry
-                to reload the latest rail before buying.
-              </span>
-              <button
-                type="button"
-                data-testid="rail-resync-retry"
-                aria-label="Retry refreshing the rail"
-                onClick={onRetryRailResync}
-                disabled={railRetryPending}
+                          ? "Buying one elevator rail"
+                          : "Installing the starter elevator shaft"
+                      : choosingExistingShaft
+                        ? "Choose free elevator shaft location"
+                        : elevatorMaxed
+                          ? "Elevator rail is at maximum depth"
+                          : gear.elevator > 0
+                            ? `Buy one elevator rail for ${elevatorRailPrice(gear.elevator)} vibes`
+                            : "Choose elevator shaft location"
+                  }
+                  onClick={
+                    gear.elevator > 0 && !choosingExistingShaft
+                      ? onBuyElevator
+                      : onChooseElevatorShaft
+                  }
+                  disabled={
+                    elevatorPurchasePending ||
+                    railResyncFailed ||
+                    (!choosingExistingShaft &&
+                      (elevatorMaxed ||
+                        upgradeFunds === null ||
+                        upgradeFunds < nextElevatorPrice))
+                  }
+                  style={sheetButtonStyle(
+                    !elevatorPurchasePending &&
+                      !railResyncFailed &&
+                      (choosingExistingShaft ||
+                        (!elevatorMaxed &&
+                          upgradeFunds !== null &&
+                          upgradeFunds >= nextElevatorPrice)),
+                  )}
+                >
+                  {elevatorPurchasePending
+                    ? choosingExistingShaft
+                      ? "Placing..."
+                      : "Buying..."
+                    : choosingExistingShaft
+                      ? "Choose spot"
+                      : elevatorMaxed
+                        ? "Max"
+                        : gear.elevator > 0
+                          ? `${autoBanking ? "Bank + " : ""}${elevatorRailPrice(gear.elevator)} vibes`
+                          : "Choose spot"}
+                </button>
+              }
+            />
+            {railResyncFailed && (
+              <div
+                data-testid="rail-resync-recovery"
+                role="alert"
                 style={{
-                  ...sheetButtonStyle(!railRetryPending),
-                  alignSelf: "flex-start",
+                  margin: "8px 0 0",
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(245, 158, 11, 0.5)",
+                  background: "rgba(245, 158, 11, 0.12)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
                 }}
               >
-                {railRetryPending ? "Refreshing..." : "Retry refresh"}
-              </button>
-            </div>
-          )}
-          <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            {choosingExistingShaft
-              ? "Choose any surface column. The old shaft stays open as a tunnel."
-              : "Buy the first rail at any surface column. That spot stays yours."}
-          </p>
-          <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            speed level {gear.elevatorSpeed ?? 1} moves{" "}
-            {elevatorSpeedRows(gear)} rows per automatic step
-          </p>
-        </div>
-      )}
+                <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
+                  Your rail moved on another device and the refresh failed.
+                  Retry to reload the latest rail before buying.
+                </span>
+                <button
+                  type="button"
+                  data-testid="rail-resync-retry"
+                  aria-label="Retry refreshing the rail"
+                  onClick={onRetryRailResync}
+                  disabled={railRetryPending}
+                  style={{
+                    ...sheetButtonStyle(!railRetryPending),
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  {railRetryPending ? "Refreshing..." : "Retry refresh"}
+                </button>
+              </div>
+            )}
+            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+              {choosingExistingShaft
+                ? "Choose any surface column. The old shaft stays open as a tunnel."
+                : gear.elevator > 0
+                  ? "Each rail extends the shaft one row deeper."
+                  : `Place the starter shaft at any surface column. That spot stays yours and comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`}
+            </p>
+            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
+              speed level {gear.elevatorSpeed ?? 1} moves{" "}
+              {elevatorSpeedRows(gear)} rows per automatic step
+            </p>
+          </div>
+        ))}
       {stall.id === "warp" && (
         <div>
           <SheetRow

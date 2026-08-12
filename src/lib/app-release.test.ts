@@ -24,16 +24,39 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest icon-set note complete", () => {
+  it("keeps the latest elevator-earned note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-07-30-0.1.293-one-icon-set");
+    expect(release.noticeId).toBe("2026-08-11-0.1.294-elevator-earned");
     expect(latestNote).toMatchObject({
+      version: "0.1.294",
+      title: "The elevator is something you earn now, and it rides down",
+      intro:
+        "The elevator used to sit in the shop from minute one, selling a single rail row nobody needed yet. Now it is a goal: the stall stays boarded up until you have dug deep enough to want it, and the first purchase hands you a working shaft.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Elevator stall is locked until a banked trip has reached depth 24, the same run that earns the Old Granite stamp. The stall shows exactly what is waiting and the depth that opens it.",
+      "Your first purchase installs a twenty-row starter shaft for 100 vibes, a bundle deal against buying rail row by row. Extending it past that stays one premium row at a time.",
+      "Boarding the elevator at the surface no longer snaps you back off the car. Step in at the top, pick the down arrow, and ride to the bottom of your rail.",
+    ]);
+  });
+
+  it("keeps the archived icon-set note complete", () => {
+    const release = getAppRelease();
+    const iconNote = release.notes.find((note) => note.version === "0.1.293");
+
+    expect(iconNote).toMatchObject({
       version: "0.1.293",
       title: "The mine's icons are one set now",
+      intro:
+        "The HUD was built out of emoji, which is why it looked like a pile of stickers: every icon came from a different artist, at a different weight, and none of them could change colour with the control they sat on.",
     });
-    expect(latestNote?.changes).toHaveLength(3);
+    expect(iconNote?.changes.map((change) => change.text)).toEqual([
+      "Every icon in the mine is drawn in one line style now, and takes the colour of whatever it sits on. A dimmed tool, an armed tool, and a warning all tint their icon to match instead of showing the same flat emoji.",
+      "The settings button and the tools slot used to be the same gear. Settings is sliders, tools is a wrench.",
+      "Opening the tools or recovery slot no longer pushes its menu off the side of the screen on a phone.",
+    ]);
   });
 
   it("keeps the archived control-layout note complete", () => {

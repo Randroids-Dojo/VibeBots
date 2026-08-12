@@ -36,6 +36,7 @@
 </section>
 
 <main id="open">
+
   <h2>Open</h2>
 
   <section data-q="Q-033" data-status="open">
@@ -422,6 +423,23 @@
 
 <aside id="resolved">
   <h2>Resolved</h2>
+
+  <section data-q="Q-037" data-status="resolved">
+    <h3>Q-037: Elevator unlock depth and starter-shaft pricing</h3>
+    <dl>
+      <dt>Context</dt><dd>The 2026-08-11 user direction made the elevator "disabled by default and teased as a thing to strive for ... after some meaningful achievement (maybe reaching a certain depth)" and asked for "a meaningful number of elevator track pieces with the initial elevator purchase", but named no exact depth, row count, or price.</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>Unlock at banked depth 24 (the Old Granite stamp run); the starter shaft installs 10 rows for the unchanged 25 vibes.</li>
+          <li>Unlock shallower (depth 12, Clay Beds) so the elevator arrives before the commute ever hurts.</li>
+          <li>Price the starter bundle nearer its per-row sum (10 rows would be 250 vibes) so the grant is a discount, not a near-gift.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A. Depth 24 is deep enough that the climb home is a felt cost and it maps to an existing stamp the tease can name; keeping the familiar 25-vibe price makes the unlock moment a reward (the gate itself is the cost), and the original pre-rework design shipped 12-row segments for 40 vibes, so 10-for-25 is in that lineage. Balance telemetry on <code>elevator.upgrade</code> events can retune either number later.</dd>
+      <dt>Status</dt><dd>resolved</dd>
+      <dt>Resolution</dt><dd>User-directed on the 2026-08-12 PR review of the slice: <q>make the starter 20 rails. still give access at level 24. Charge more vibes though.</q> Shipped in package 0.1.294 as unlock at banked depth 24, starter shaft of 20 rows for 100 vibes (about a fifth of the roughly 550-vibe per-row sum, in line with nearby upgrade prices), extends unchanged at one depth-scaled row. The exact 100-vibe figure remains retunable from <code>elevator.upgrade</code> balance telemetry.</dd>
+    </dl>
+  </section>
 
   <section data-q="Q-036" data-status="resolved">
     <h3>Q-036: How many hotbar slots does H3 get?</h3>

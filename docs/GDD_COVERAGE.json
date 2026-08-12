@@ -628,7 +628,7 @@
     },
     {
       "id": "REQ-028",
-      "requirement": "Elevator: the first premium rail anchors one persistent shaft at any chosen surface column; entering any owned rail row calls the car for visible arrival and boarding, then endpoint-valid Up or Down arrows start free logged travel that auto-chains to the selected endpoint and banks at the surface.",
+      "requirement": "Elevator: locked and teased until a banked trip reaches depth 24, then the first premium purchase anchors one persistent 20-row starter shaft at any chosen surface column (later purchases add one depth-scaled row); entering any owned rail row, including the surface opening, calls the car for visible arrival and boarding, then endpoint-valid Up or Down arrows start free logged travel that auto-chains to the selected endpoint and banks at the surface.",
       "gddRef": "docs/gdd/06-mining.html#transport",
       "status": "done",
       "implementationRefs": [
@@ -645,7 +645,10 @@
         "src/sim/mine/gear.ts",
         "src/sim/mine/world.ts",
         "src/sim/mine/replay.ts",
-        "src/server/player.ts"
+        "src/server/player.ts",
+        "src/lib/api-codes.ts",
+        "src/components/mine-auto-bank.ts",
+        "src/components/mine-stall-menu.tsx"
       ],
       "testRefs": [
         "src/sim/mine.test.ts",
@@ -656,7 +659,9 @@
         "src/app/api/mine/world/route.test.ts",
         "src/components/mine-sfx.test.ts",
         "src/components/mine-stall-menu.test.ts",
-        "tests/e2e/mine-warp-elevator.spec.ts"
+        "tests/e2e/mine-warp-elevator.spec.ts",
+        "src/state/mine-world-persistence.test.ts",
+        "src/lib/app-release.test.ts"
       ],
       "followupRefs": [
         "F-121",

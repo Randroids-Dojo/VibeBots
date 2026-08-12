@@ -72,6 +72,84 @@ describe("StallMenu elevator purchases", () => {
     expect(markup).not.toMatch(/disabled=""[^>]*>Choose spot<\/button>/);
   });
 
+  it("teases a locked elevator until the unlock depth is banked", () => {
+    const props = elevatorStallProps({
+      gear: { ...DEFAULT_GEAR, elevator: 0, elevatorColumn: null },
+      deepestDepth: 23,
+      balance: 1000,
+    });
+
+    const markup = renderToStaticMarkup(createElement(StallMenu, props));
+
+    expect(markup).toContain('data-testid="elevator-locked"');
+    expect(markup).toContain("depth 24");
+    expect(markup).toContain("Reach depth 24 to earn your shaft permit.");
+    expect(markup).toContain("Deepest banked so far: 23.");
+    // The tease still sells the goal: what the shaft is and what it costs.
+    expect(markup).toContain("starter shaft: 20 rows for 100 vibes");
+    // No purchase or placement control renders while locked.
+    expect(markup).not.toContain(">Choose spot</button>");
+    expect(markup).not.toContain("Buy one elevator rail");
+  });
+
+  it("offers the starter shaft once the unlock depth is banked", () => {
+    const props = elevatorStallProps({
+      gear: { ...DEFAULT_GEAR, elevator: 0, elevatorColumn: null },
+      deepestDepth: 24,
+      balance: 1000,
+    });
+
+    const markup = renderToStaticMarkup(createElement(StallMenu, props));
+
+    expect(markup).not.toContain('data-testid="elevator-locked"');
+    expect(markup).toContain('aria-label="Choose elevator shaft location"');
+    expect(markup).toContain(">Choose spot</button>");
+    expect(markup).toContain("starter shaft: 20 rows for 100 vibes");
+  });
+
+  it("gates the starter purchase on the bundle price, not one rail", () => {
+    // 99 vibes affords the old 25-vibe single rail but not the 100-vibe
+    // starter bundle: the control must read as disabled.
+    const short = renderToStaticMarkup(
+      createElement(
+        StallMenu,
+        elevatorStallProps({
+          gear: { ...DEFAULT_GEAR, elevator: 0, elevatorColumn: null },
+          deepestDepth: 24,
+          balance: 99,
+        }),
+      ),
+    );
+    expect(short).toMatch(
+      /aria-label="Choose elevator shaft location"[^>]*disabled=""/,
+    );
+
+    const funded = renderToStaticMarkup(
+      createElement(
+        StallMenu,
+        elevatorStallProps({
+          gear: { ...DEFAULT_GEAR, elevator: 0, elevatorColumn: null },
+          deepestDepth: 24,
+          balance: 100,
+        }),
+      ),
+    );
+    expect(funded).not.toMatch(
+      /aria-label="Choose elevator shaft location"[^>]*disabled=""/,
+    );
+  });
+
+  it("never re-locks owned rail below the unlock depth", () => {
+    // elevatorStallProps owns one rail row with deepestDepth 0: the lock
+    // only guards the first purchase, so the buy control stays live.
+    const markup = renderToStaticMarkup(
+      createElement(StallMenu, elevatorStallProps({ balance: 100 })),
+    );
+
+    expect(markup).not.toContain('data-testid="elevator-locked"');
+    expect(markup).toContain('aria-label="Buy one elevator rail for 25 vibes"');
+  });
+
   it("blocks the rail buy and offers a retry when a resync failed", () => {
     const props = elevatorStallProps({ railResyncFailed: true });
 

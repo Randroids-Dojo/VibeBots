@@ -65,6 +65,9 @@ import {
   dropOreAction,
   dynamitePreviewCells,
   dynamiteTier,
+  ELEVATOR_STARTER_PRICE,
+  ELEVATOR_STARTER_RAIL_ROWS,
+  ELEVATOR_UNLOCK_DEPTH,
   elevatorBoardingTarget,
   elevatorColumn,
   elevatorRailPrice,
@@ -95,7 +98,7 @@ import { PART_CATALOG } from "@/sim/parts";
 import { useBunkerStore } from "@/state/bunker-store";
 import {
   SAVE_SYNC_CHANNEL,
-  tripChangedWorld,
+  tripChangedWorldBeyondSurfaceBoarding,
   useMineStore,
 } from "@/state/mine-store";
 import type { FpEditIntent } from "./bunker-fp-grid";
@@ -398,6 +401,7 @@ const MINE_SURFACE_TIPS = [
   "Tip: In first person on touch, walking into a one-block step hops it automatically.",
   "Tip: The bag chip in the top corner of the bunker view opens your cargo bag. Walking and digging pause while it is open.",
   "Tip: Sealed yourself in? Reset bunker in the Upkeep menu clears the build and refunds undamaged parts.",
+  `Tip: Reach depth ${ELEVATOR_UNLOCK_DEPTH} to unlock the Elevator. The starter shaft comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`,
   "Tip: Enter your shaft, wait for the car, then choose the top or bottom arrow.",
   "Tip: Row 1,000 needs rail, Warpcoil, Recall Rope, cargo, and battery upgrades.",
   "Tip: Use the Stamp Book for depth, tool, haul, and portal goals.",
@@ -1295,8 +1299,16 @@ export function MinePanel({
   const movesLength = useMineStore((s) => s.moves.length);
   // Whether this trip altered the world. `moves` is pushed in place, so
   // the selector reads it fresh on each store tick and returns a plain
-  // boolean for zustand to compare.
-  const carvedThisTrip = useMineStore((s) => tripChangedWorld(s.moves));
+  // boolean for zustand to compare. A trailing surface boarding is not a
+  // world change, or the auto-bank would kick the miner off the car the
+  // moment they enter the elevator from the top.
+  const carvedThisTrip = useMineStore((s) =>
+    tripChangedWorldBeyondSurfaceBoarding(
+      s.moves,
+      s.mine.elevatorPhase,
+      s.mine.miner.row,
+    ),
+  );
   const pendingBunker = useMineStore((s) => s.pendingBunker);
   const cashOut = useMineStore((s) => s.cashOut);
   const submitCashOut = useMineStore((s) => s.submitCashOut);
@@ -4466,14 +4478,14 @@ export function MinePanel({
                   cashOut.state === "pending" ||
                   (!elevatorPlacementIsFree &&
                     (elevatorPurchaseFunds === null ||
-                      elevatorPurchaseFunds < elevatorRailPrice(0)))
+                      elevatorPurchaseFunds < ELEVATOR_STARTER_PRICE))
                 }
                 style={sheetActionStyle(
                   !elevatorPurchasePending &&
                     cashOut.state !== "pending" &&
                     (elevatorPlacementIsFree ||
                       (elevatorPurchaseFunds !== null &&
-                        elevatorPurchaseFunds >= elevatorRailPrice(0))),
+                        elevatorPurchaseFunds >= ELEVATOR_STARTER_PRICE)),
                   "confirm",
                 )}
               >
@@ -4483,7 +4495,7 @@ export function MinePanel({
                     : "Building..."
                   : elevatorPlacementIsFree
                     ? "Move here: Free"
-                    : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${elevatorRailPrice(0)} vibes`}
+                    : `${miner.bankedCredits > 0 ? "Bank + " : ""}Build here: ${ELEVATOR_STARTER_PRICE} vibes`}
               </button>
               <button
                 type="button"
@@ -4499,7 +4511,7 @@ export function MinePanel({
           <span style={{ display: "block", fontWeight: 800 }}>
             {elevatorPlacementIsFree
               ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
-              : `Shaft column ${miner.col}. Walk to any surface spot, then build.`}
+              : `Shaft column ${miner.col}. Walk to any surface spot, then build. The starter shaft comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`}
           </span>
           {elevatorPlacementError && (
             <span

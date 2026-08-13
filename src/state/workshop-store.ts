@@ -12,6 +12,7 @@ import {
   type BotBehavior,
   type BotDesign,
   type Connection,
+  DEFAULT_GEAR_RATIO,
   MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   type Orientation,
@@ -384,6 +385,8 @@ export interface WorkshopState {
   setBehavior: (patch: Partial<BotBehavior>) => void;
   /** Declare (or clear) the design's weight class (F-228). Undoable. */
   setWeightClass: (classId: string | undefined) => void;
+  /** Set the drive gear ratio on every drive axle (F-229). Undoable. */
+  setGearRatio: (ratio: number) => void;
   loadDesign: (design: BotDesign) => void;
   select: (iid: string | null) => void;
   undo: () => void;
@@ -626,6 +629,26 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       ...patch,
     };
     set({ ...withDesign(pushHistory(history, { ...design, behavior })) });
+  },
+
+  setGearRatio: (ratio) => {
+    const { history, design } = get();
+    // Applies to every drive axle at once: real bots gear an axle, not one
+    // wheel, and per-wheel ratios would just be a way to build a bot that
+    // drives in circles. Spinner axles are skipped (validity forbids them).
+    const connections = design.connections.map((conn) => {
+      const parent = PART_CATALOG[
+        design.parts.find((p) => p.iid === conn.parentIid)?.partId ?? ""
+      ]?.connectors.find((c) => c.id === conn.parentConnector);
+      if (!parent || parent.kind !== "axle" || parent.motor === "spin") {
+        return conn;
+      }
+      const next = { ...conn };
+      if (ratio === DEFAULT_GEAR_RATIO) delete next.gearRatio;
+      else next.gearRatio = ratio;
+      return next;
+    });
+    set({ ...withDesign(pushHistory(history, { ...design, connections })) });
   },
 
   setWeightClass: (classId) => {

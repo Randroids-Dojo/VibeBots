@@ -87,6 +87,7 @@ const ITEM_FOR_CODE: Record<DesignIssueCode, InspectionItemId> = {
   overlap: "clearance",
   power: "power",
   "weight-class": "weight",
+  "gear-ratio": "connections",
 };
 
 const ITEM_ORDER: ReadonlyArray<{

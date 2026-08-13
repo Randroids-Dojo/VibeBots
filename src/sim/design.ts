@@ -31,6 +31,40 @@ export const orientationSchema = z
   .optional();
 export type Orientation = 0 | 90 | 180 | 270;
 
+/**
+ * Drive gearing (F-229). Above 1 trades top speed for torque, below 1 the
+ * reverse. 1 is the identity: a connection without a ratio and one with
+ * exactly 1 produce a byte-identical fight, which is what lets this ship
+ * without invalidating any stored replay.
+ */
+export const MIN_GEAR_RATIO = 0.5;
+export const MAX_GEAR_RATIO = 2.5;
+export const DEFAULT_GEAR_RATIO = 1;
+
+/**
+ * Extra power drawn per drive axle per unit of reduction above 1.
+ *
+ * Without this, gearing up is a near strict upgrade: benching the starter
+ * bot across the stock roster moved it from a 17% win rate at ratio 1 to
+ * 67% at ratio 2.5, because the drivetrain is torque limited and the
+ * commanded top speed rarely binds. Torque has to cost something, and the
+ * core's power budget is the cost that already exists. Gearing DOWN for
+ * speed is free: a taller-geared shaft asks less of the motor.
+ */
+export const GEAR_POWER_PER_RATIO = 12;
+
+/** Extra power a connection's gearing costs. Zero at or below ratio 1. */
+export function gearPowerDraw(gearRatio: number | undefined): number {
+  const ratio = gearRatio ?? DEFAULT_GEAR_RATIO;
+  if (ratio <= DEFAULT_GEAR_RATIO) return 0;
+  // Rounded to a tenth: catalog draws are whole numbers, and an unrounded
+  // product leaks float noise (14.400000000000002) into both the power
+  // budget and the number shown on the button.
+  return (
+    Math.round((ratio - DEFAULT_GEAR_RATIO) * GEAR_POWER_PER_RATIO * 10) / 10
+  );
+}
+
 export const connectionSchema = z.object({
   parentIid: z.string().min(1),
   parentConnector: z.string().min(1),
@@ -38,6 +72,8 @@ export const connectionSchema = z.object({
   childConnector: z.string().min(1),
   /** Yaw quarter-turns of the child around the attachment (F-006). */
   orientation: orientationSchema,
+  /** Drive gear ratio on an axle connection (F-229). */
+  gearRatio: z.number().min(MIN_GEAR_RATIO).max(MAX_GEAR_RATIO).optional(),
 });
 export type Connection = z.infer<typeof connectionSchema>;
 
@@ -112,7 +148,8 @@ export type DesignIssueCode =
   | "disconnected"
   | "overlap"
   | "power"
-  | "weight-class";
+  | "weight-class"
+  | "gear-ratio";
 
 export interface DesignIssue {
   code: DesignIssueCode;
@@ -222,6 +259,18 @@ export function validateDesign(
         "oriented-axle",
         `axle connections cannot be oriented (${conn.parentIid}:${conn.parentConnector})`,
       );
+    }
+    // Gearing is a drive-motor property. A rigid mount has no motor, and a
+    // spinner runs at a fixed velocity by contract, so a ratio on either
+    // would silently do nothing.
+    if (conn.gearRatio !== undefined) {
+      const spin = parentConn.motor === "spin" || childConn.motor === "spin";
+      if (parentConn.kind !== "axle" || spin) {
+        fail(
+          "gear-ratio",
+          `gear ratio only applies to drive axles (${conn.parentIid}:${conn.parentConnector})`,
+        );
+      }
     }
     for (const key of [
       `${conn.parentIid}:${conn.parentConnector}`,
@@ -347,6 +396,11 @@ export function validateDesign(
     totalMass += partMass(def);
     powerDraw += def.powerDraw;
     powerSupply += def.powerSupply;
+  }
+  // Reduction gearing costs power, so torque competes with the weapon for
+  // the core's budget instead of being free.
+  for (const conn of design.connections) {
+    powerDraw += gearPowerDraw(conn.gearRatio);
   }
   if (powerDraw > powerSupply) {
     fail(

@@ -1421,6 +1421,49 @@ test(
   },
 );
 
+test(
+  "drive gearing trades power for torque on the whole axle set",
+  ciCase("E2E-WORKSHOP-0035", "@functional"),
+  async ({ page }) => {
+    await page.goto("/workshop");
+    await expect(page.getByLabel("Part carousel")).toBeVisible();
+    await page.getByRole("tab", { name: "Tune" }).click();
+
+    const gearing = page.getByLabel("Drive gearing");
+    await expect(gearing).toBeVisible();
+
+    // The starter bot has no wheels yet, so there is nothing to gear.
+    await expect(gearing.getByTestId("gearing-summary")).toContainText(
+      "Add drive wheels",
+    );
+
+    // Load a blueprint so the bot actually has drive axles.
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page.getByRole("button", { name: /Cube Rammer/ }).click();
+    await page.getByRole("tab", { name: "Tune" }).click();
+
+    // Direct drive by default, and the reduction options price themselves.
+    await expect(gearing.getByTestId("gearing-summary")).toContainText(
+      "Ratio 1.0",
+    );
+    const crawler = gearing.locator(
+      '[data-testid="gear-option"][data-ratio="2.2"]',
+    );
+    await expect(crawler).toContainText("+14.4W");
+
+    await crawler.click();
+    await expect(crawler).toHaveAttribute("aria-pressed", "true");
+    await expect(gearing.getByTestId("gearing-summary")).toContainText(
+      "Ratio 2.2",
+    );
+
+    // The inspection still passes: this build can afford the torque.
+    await expect(
+      page.getByLabel("Tech inspection").getByTestId("inspection-verdict"),
+    ).toHaveText("Passed");
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   BENCH_ROSTER,
   type BenchComparison,
@@ -8,8 +8,8 @@ import {
   compareBench,
   runBench,
 } from "@/sim/bench";
-import { DT } from "@/sim/constants";
 import { type BotDesign, validateDesign } from "@/sim/design";
+import { panelStyle, pillStyle, STATUS, secondsFromTicks } from "./workshop-ui";
 
 /**
  * The bench: fight the current design against the whole stock roster
@@ -25,18 +25,14 @@ function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function seconds(ticks: number): string {
-  return `${(ticks * DT).toFixed(1)}s`;
-}
-
 function signed(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
 const OUTCOME_COLOR: Record<string, string> = {
-  win: "#54e0c7",
-  loss: "#ff6b6b",
-  draw: "#ffd166",
+  win: STATUS.good,
+  loss: STATUS.bad,
+  draw: STATUS.warn,
 };
 
 function Comparison({ comparison }: { comparison: BenchComparison }) {
@@ -87,7 +83,7 @@ export function BenchPanel({
   panelStyle,
 }: {
   design: BotDesign;
-  panelStyle?: React.CSSProperties;
+  panelStyle: React.CSSProperties;
 }) {
   const [report, setReport] = useState<BenchReport | null>(null);
   const [comparison, setComparison] = useState<BenchComparison | null>(null);
@@ -101,8 +97,10 @@ export function BenchPanel({
   const baseline = useRef<BenchReport | null>(null);
   const running = progress !== null;
 
-  const validation = validateDesign(design);
-  const runnable = validation.ok;
+  // Memoized: a bench run re-renders this panel once per match through
+  // setProgress, and validateDesign walks every connector plus an O(n^2)
+  // clearance pass.
+  const runnable = useMemo(() => validateDesign(design).ok, [design]);
 
   const run = useCallback(async () => {
     setError(null);
@@ -142,15 +140,11 @@ export function BenchPanel({
         data-testid="run-bench"
         onClick={run}
         disabled={running || !runnable}
-        style={{
-          background: runnable ? "#2f7d6b" : "#26304a",
-          color: "#e6e8ee",
-          border: "1px solid #344061",
-          borderRadius: 8,
-          padding: "8px 16px",
-          cursor: running || !runnable ? "default" : "pointer",
-          opacity: runnable ? 1 : 0.6,
-        }}
+        style={pillStyle({
+          primary: runnable,
+          disabled: running || !runnable,
+          large: true,
+        })}
       >
         {running
           ? `Fighting ${progress.done}/${progress.total}...`
@@ -160,12 +154,16 @@ export function BenchPanel({
       </button>
 
       {!runnable && (
-        <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "#ffd166" }}>
+        <p
+          style={{ margin: "8px 0 0", fontSize: "0.72rem", color: STATUS.warn }}
+        >
           The bench needs an arena-legal bot. Fix the build first.
         </p>
       )}
       {error && (
-        <p style={{ margin: "8px 0 0", fontSize: "0.72rem", color: "#ff6b6b" }}>
+        <p
+          style={{ margin: "8px 0 0", fontSize: "0.72rem", color: STATUS.bad }}
+        >
           {error}
         </p>
       )}
@@ -187,7 +185,7 @@ export function BenchPanel({
             Median time to kill:{" "}
             {report.medianTimeToKill === null
               ? "no clean kills"
-              : seconds(report.medianTimeToKill)}
+              : secondsFromTicks(report.medianTimeToKill)}
             . Damage {report.averageDamageDealt} dealt,{" "}
             {report.averageDamageTaken} taken per fight.
           </p>
@@ -242,7 +240,7 @@ export function BenchPanel({
                   <span style={{ opacity: 0.6 }}>
                     {" "}
                     {match.reason === "disable"
-                      ? seconds(match.ticks)
+                      ? secondsFromTicks(match.ticks)
                       : `margin ${Math.round(match.scoreMargin)}`}
                   </span>
                 </span>

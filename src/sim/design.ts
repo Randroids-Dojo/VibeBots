@@ -1,7 +1,13 @@
 import { z } from "zod";
-import { computeLayout } from "./layout";
-import { PART_CATALOG, type PartDef, partMass } from "./parts";
-import { weightClassById } from "./weight-classes";
+import { computeLayout, isQuarterTurned } from "./layout";
+import {
+  type Connector,
+  PART_CATALOG,
+  type PartDef,
+  partMass,
+  shapeHalfExtents,
+} from "./parts";
+import { weightClassProblem } from "./weight-classes";
 
 /**
  * A bot design is a connector graph: part instances plus connections that
@@ -52,6 +58,21 @@ export const DEFAULT_GEAR_RATIO = 1;
  * speed is free: a taller-geared shaft asks less of the motor.
  */
 export const GEAR_POWER_PER_RATIO = 12;
+
+/**
+ * The reductions a bot can actually be built with. These are balance
+ * figures, not presentation: the power cost was tuned against benched win
+ * rates at these ratios, so they belong beside the rule rather than in a
+ * panel. The schema still accepts the whole MIN..MAX range, so a design
+ * authored outside the workshop is not rejected for using a value between
+ * presets; see F-238 for whether it should be.
+ */
+export const GEAR_RATIO_PRESETS: readonly number[] = [
+  0.7,
+  DEFAULT_GEAR_RATIO,
+  1.6,
+  2.2,
+];
 
 /** Extra power a connection's gearing costs. Zero at or below ratio 1. */
 export function gearPowerDraw(gearRatio: number | undefined): number {
@@ -167,6 +188,57 @@ function resolvePart(
   return catalog[instance.partId];
 }
 
+/**
+ * Resolves both ends of a connection to their connector definitions.
+ * Returns null when either end does not exist (the connection is already
+ * invalid for a different reason).
+ */
+export function connectionEnds(
+  design: BotDesign,
+  conn: Connection,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): { parent: Connector; child: Connector } | null {
+  const parentPartId = design.parts.find(
+    (part) => part.iid === conn.parentIid,
+  )?.partId;
+  const childPartId = design.parts.find(
+    (part) => part.iid === conn.childIid,
+  )?.partId;
+  const parent = catalog[parentPartId ?? ""]?.connectors.find(
+    (entry) => entry.id === conn.parentConnector,
+  );
+  const child = catalog[childPartId ?? ""]?.connectors.find(
+    (entry) => entry.id === conn.childConnector,
+  );
+  return parent && child ? { parent, child } : null;
+}
+
+/**
+ * Whether a connection can carry a gear ratio (F-229). Gearing is a
+ * drive-motor property: a rigid mount has no motor, and a spinner runs at a
+ * fixed velocity by contract, so a ratio on either would silently do
+ * nothing. BOTH ends must be checked, because a spinner-hubbed part can be
+ * mounted straight onto a drive axle.
+ *
+ * Exported so the workshop asks this question instead of answering it: the
+ * store's setter and the gearing panel's readout both call this, which is
+ * what stops the UI writing a ratio the validator then rejects.
+ */
+export function isGearableConnector(parent: Connector, child: Connector) {
+  return (
+    parent.kind === "axle" && parent.motor !== "spin" && child.motor !== "spin"
+  );
+}
+
+export function isGearableConnection(
+  design: BotDesign,
+  conn: Connection,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): boolean {
+  const ends = connectionEnds(design, conn, catalog);
+  return ends !== null && isGearableConnector(ends.parent, ends.child);
+}
+
 export function partMergeLevel(
   instance: Pick<PartInstance, "mergeLevel">,
 ): number {
@@ -263,14 +335,14 @@ export function validateDesign(
     // Gearing is a drive-motor property. A rigid mount has no motor, and a
     // spinner runs at a fixed velocity by contract, so a ratio on either
     // would silently do nothing.
-    if (conn.gearRatio !== undefined) {
-      const spin = parentConn.motor === "spin" || childConn.motor === "spin";
-      if (parentConn.kind !== "axle" || spin) {
-        fail(
-          "gear-ratio",
-          `gear ratio only applies to drive axles (${conn.parentIid}:${conn.parentConnector})`,
-        );
-      }
+    if (
+      conn.gearRatio !== undefined &&
+      !isGearableConnector(parentConn, childConn)
+    ) {
+      fail(
+        "gear-ratio",
+        `gear ratio only applies to drive axles (${conn.parentIid}:${conn.parentConnector})`,
+      );
     }
     for (const key of [
       `${conn.parentIid}:${conn.parentConnector}`,
@@ -331,34 +403,9 @@ export function validateDesign(
       const def = resolvePart(part, catalog);
       const placement = placements.get(part.iid);
       if (!def || !placement) continue;
-      const s = def.shape;
-      let hx: number;
-      let hy: number;
-      let hz: number;
-      if (s.type === "cuboid") {
-        hx = s.hx;
-        hy = s.hy;
-        hz = s.hz;
-      } else if (s.type === "ball") {
-        hx = hy = hz = s.radius;
-      } else {
-        const along = s.halfHeight;
-        const across = s.radius;
-        if (s.axis === "x") {
-          hx = along;
-          hy = hz = across;
-        } else if (s.axis === "z") {
-          hz = along;
-          hx = hy = across;
-        } else {
-          hy = along;
-          hx = hz = across;
-        }
-      }
+      const { hx, hy, hz } = shapeHalfExtents(def.shape);
       // Quarter-turn yaw swaps the x/z extents for 90 and 270.
-      const halfTurned =
-        Math.abs(placement.rotation.y) > 0.6 &&
-        Math.abs(placement.rotation.y) < 0.8;
+      const halfTurned = isQuarterTurned(placement.rotation);
       const ex = halfTurned ? hz : hx;
       const ez = halfTurned ? hx : hz;
       const p = placement.position;
@@ -412,17 +459,8 @@ export function validateDesign(
   // Weight class (F-228). An undeclared design is unclassed and passes, so
   // every design that was legal before this rule existed is still legal.
   // An unknown class id is a bad declaration, not a free pass.
-  if (design.weightClass !== undefined) {
-    const declared = weightClassById(design.weightClass);
-    if (declared === null) {
-      fail("weight-class", `unknown weight class "${design.weightClass}"`);
-    } else if (totalMass > declared.maxMass) {
-      fail(
-        "weight-class",
-        `over ${declared.name}: ${totalMass.toFixed(2)} exceeds ${declared.maxMass.toFixed(2)}`,
-      );
-    }
-  }
+  const weightProblem = weightClassProblem(totalMass, design.weightClass);
+  if (weightProblem !== null) fail("weight-class", weightProblem);
 
   if (errors.length > 0) return { ok: false, errors, issues };
   return {

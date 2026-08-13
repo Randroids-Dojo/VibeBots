@@ -71,9 +71,11 @@ export interface MatchTelemetry {
   /** How many slots of `impacts` hold a real event. */
   logged: number;
   destructions: DestructionEvent[];
-  /** True once impacts hit the cap: the totals stay exact, the log does not. */
-  truncated: boolean;
-  /** Impacts observed, including any that did not fit the log. */
+  /**
+   * Impacts observed, including any that did not fit the log. Whether the
+   * log truncated is `impactCount > logged`, so it is derived rather than
+   * stored: one fewer field to keep consistent with the counters.
+   */
   impactCount: number;
   /**
    * Per-bot, per-part running totals. These are accumulated on every impact
@@ -89,7 +91,6 @@ export function createTelemetry(): MatchTelemetry {
     impacts: [],
     logged: 0,
     destructions: [],
-    truncated: false,
     impactCount: 0,
     tallies: [new Map(), new Map()],
   };
@@ -136,10 +137,7 @@ export function recordImpact(
     (victim.takenFrom.get(attackerIid) ?? 0) + damage,
   );
 
-  if (telemetry.logged >= MAX_TELEMETRY_IMPACTS) {
-    telemetry.truncated = true;
-    return;
-  }
+  if (telemetry.logged >= MAX_TELEMETRY_IMPACTS) return;
   const slot = telemetry.impacts[telemetry.logged];
   if (slot) {
     slot.tick = tick;
@@ -163,6 +161,11 @@ export function recordImpact(
     });
   }
   telemetry.logged += 1;
+}
+
+/** True once impacts stopped fitting the log. Derived, never stored. */
+export function isTruncated(telemetry: MatchTelemetry): boolean {
+  return telemetry.impactCount > telemetry.logged;
 }
 
 /** The impacts actually held in the log, without the unused pool tail. */
@@ -220,6 +223,8 @@ export interface TeardownPart extends TeardownPartInput {
   destroyedAtTick: number | null;
   /** Instance id of the enemy part that dealt it the most damage. */
   killedBy: string | null;
+  /** Display name for killedBy, resolved here so consumers need no lookup. */
+  killedByName: string | null;
 }
 
 export interface TeardownBot extends TeardownBotInput {
@@ -265,6 +270,7 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
         hitsDealt: 0,
         destroyedAtTick: null,
         killedBy: null,
+        killedByName: null,
       }),
     ),
     damageDealt: 0,
@@ -304,6 +310,8 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
     }
   }
 
+  const nameOf = (bot: 0 | 1, iid: string) => byIid[bot].get(iid)?.name ?? iid;
+
   for (const [index, bot] of bots.entries()) {
     for (const part of bot.parts) {
       if (part.destroyedAtTick === null) continue;
@@ -323,10 +331,12 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
         }
       }
       part.killedBy = bestIid;
+      // The attacker is on the other bot, which is where its name lives.
+      part.killedByName =
+        bestIid === null ? null : nameOf((1 - index) as 0 | 1, bestIid);
     }
   }
 
-  const nameOf = (bot: 0 | 1, iid: string) => byIid[bot].get(iid)?.name ?? iid;
   // Highlights can only come from the log, so they are a sample of a
   // truncated match. `truncated` on the report says when that is the case.
   const hardestHits = loggedImpacts(input.telemetry)
@@ -347,7 +357,7 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
     bots,
     ticks: input.ticks,
     totalImpacts: input.telemetry.impactCount,
-    truncated: input.telemetry.truncated,
+    truncated: isTruncated(input.telemetry),
     hardestHits,
   };
 }

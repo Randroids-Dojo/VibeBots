@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { computeBalance } from "@/lib/bot-balance";
+import { isTippy, tipOverDegrees } from "@/lib/bot-balance";
+import { computeBalance } from "@/sim/balance";
 import type { BotDesign } from "@/sim/design";
 import { useWorkshopStore } from "@/state/workshop-store";
+import { pillStyle, STATUS } from "./workshop-ui";
 
 /**
  * The balance numbers a builder actually decides on: where the mass sits,
@@ -13,8 +15,6 @@ import { useWorkshopStore } from "@/state/workshop-store";
  * same toggle.
  */
 
-/** Below this the bot goes over on any decent shove. */
-const TIPPY_DEGREES = 30;
 /** Off-centre by more than this reads as a real bias, not float noise. */
 const OFFSET_EPSILON = 0.02;
 
@@ -27,14 +27,14 @@ export function BalanceReadout({
   panelStyle,
 }: {
   design: BotDesign;
-  panelStyle?: React.CSSProperties;
+  panelStyle: React.CSSProperties;
 }) {
   const balanceVisible = useWorkshopStore((s) => s.balanceVisible);
   const toggleBalance = useWorkshopStore((s) => s.toggleBalance);
   const balance = useMemo(() => computeBalance(design), [design]);
 
-  const lean = Math.round(balance.tipOverDegrees);
-  const tippy = lean < TIPPY_DEGREES;
+  const lean = Math.round(tipOverDegrees(balance));
+  const tippy = isTippy(balance);
   const forward = -balance.centerOfMass.z;
   const sideways = balance.centerOfMass.x;
 
@@ -54,15 +54,7 @@ export function BalanceReadout({
           data-testid="toggle-balance"
           aria-pressed={balanceVisible}
           onClick={toggleBalance}
-          style={{
-            background: balanceVisible ? "#2f7d6b" : "#26304a",
-            color: "#e6e8ee",
-            border: "1px solid #344061",
-            borderRadius: 8,
-            padding: "4px 10px",
-            fontSize: "0.72rem",
-            cursor: "pointer",
-          }}
+          style={pillStyle({ selected: balanceVisible })}
         >
           {balanceVisible ? "Hide on bench" : "Show on bench"}
         </button>
@@ -73,7 +65,11 @@ export function BalanceReadout({
         style={{
           margin: 0,
           fontSize: "0.8rem",
-          color: balance.balanced ? (tippy ? "#ffd166" : "#54e0c7") : "#ff6b6b",
+          color: balance.balanced
+            ? tippy
+              ? STATUS.warn
+              : STATUS.good
+            : STATUS.bad,
         }}
       >
         {balance.balanced
@@ -100,7 +96,9 @@ export function BalanceReadout({
       </p>
 
       {tippy && balance.balanced && (
-        <p style={{ margin: "4px 0 0", fontSize: "0.72rem", color: "#ffd166" }}>
+        <p
+          style={{ margin: "4px 0 0", fontSize: "0.72rem", color: STATUS.warn }}
+        >
           Top-heavy. Move mass down or widen what touches the floor.
         </p>
       )}

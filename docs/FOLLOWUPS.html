@@ -904,6 +904,26 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-239" data-f="F-239" data-priority="nice-to-have">
+    <h3>F-239: The server never states the post-match teardown</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-13 by the cleanup review of the tinkerer-depth program. <code>resolveMatch</code> gained a <code>telemetry</code> option and a <code>teardown</code> field (F-225), and <code>runBench</code> uses it, but <code>/api/match/resolve</code> calls <code>resolveMatch(designs, timeLimitTicks)</code> with no options, so the official result always carries <code>teardown: null</code>. The teardown the player reads is therefore entirely client-authored: the arena canvas records its own match and the workshop renders that. The result hash covers the world snapshot plus combat state but not the impact log, so nothing reconciles the two. Under the Q-003 hybrid-authority contract, post-match damage attribution is currently the one match fact the server never states.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. It is a cost and product decision, not a cleanup: recording telemetry on every official match adds per-match server work, and the honest alternatives (serve the server's teardown, or stop offering the field on the route) differ in what the player is shown after a verified fight.</dd>
+      <dt>Unblock condition</dt><dd>Ready once that call is made. Either pass <code>{ telemetry: true }</code> from the route and have the workshop prefer the server's teardown when verification succeeds, or drop the field from the route response so the API stops implying it. Acceptance: whichever is chosen, a verified match shows a teardown whose provenance is unambiguous, and the choice is recorded here.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-13 during the tinkerer-depth cleanup pass.</dd>
+    </dl>
+  </section>
+
+  <section id="F-238" data-f="F-238" data-priority="nice-to-have">
+    <h3>F-238: Decide whether gear ratios are a range or a fixed set</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-13 by the cleanup review. <code>connectionSchema</code> validates <code>gearRatio</code> against a continuous range (<code>MIN_GEAR_RATIO</code> 0.5 to <code>MAX_GEAR_RATIO</code> 2.5), while the workshop only ever offers the four presets in <code>GEAR_RATIO_PRESETS</code> (0.7, 1, 1.6, 2.2). So the buildable set and the acceptable set are different rules, and the server is the looser one: a design authored by hand and posted to <code>/api/match/resolve</code> with <code>gearRatio: 2.5</code> validates and fights with more reduction than any bot a player can construct in the workshop. The presets were moved into <code>src/sim/design.ts</code> in the cleanup so both rules are at least visible in one file, but they still disagree.</dd>
+      <dt>Blocker (if any)</dt><dd>None, and it is deliberately not fixed in the cleanup pass because tightening the schema to preset membership is a behaviour change, not a simplification. Nothing has shipped with gearing yet, so there is no migration cost to deciding either way now.</dd>
+      <dt>Unblock condition</dt><dd>Ready: decide whether arbitrary ratios in range are intended (a future workshop slider, or player-authored designs being welcome) or whether the presets are the rule. If the presets are the rule, validate membership in <code>GEAR_RATIO_PRESETS</code> instead of the range, matching how weight classes are enforced server-side rather than trusted from the client. Acceptance: a design carrying an off-preset ratio is either accepted deliberately or rejected with a named issue, and a test pins the choice.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-13 during the tinkerer-depth cleanup pass.</dd>
+    </dl>
+  </section>
+
   <section id="F-237" data-f="F-237" data-priority="nice-to-have">
     <h3>F-237: The drivetrain is torque limited, so reduction gearing is close to a free win</h3>
     <dl>

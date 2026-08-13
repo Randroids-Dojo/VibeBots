@@ -4,11 +4,13 @@ import { useMemo } from "react";
 import {
   type BotDesign,
   DEFAULT_GEAR_RATIO,
+  GEAR_RATIO_PRESETS,
   gearPowerDraw,
+  isGearableConnection,
   validateDesign,
 } from "@/sim/design";
-import { PART_CATALOG } from "@/sim/parts";
 import { useWorkshopStore } from "@/state/workshop-store";
+import { pillStyle } from "./workshop-ui";
 
 /**
  * Drive gearing (F-229). A part's whole electrical story used to be one
@@ -18,32 +20,27 @@ import { useWorkshopStore } from "@/state/workshop-store";
  * competes with the weapon instead of being free.
  */
 
-interface GearOption {
-  ratio: number;
-  label: string;
-  note: string;
-}
+/**
+ * Display copy for each buildable ratio. The ratios themselves are balance
+ * data and live in the sim (GEAR_RATIO_PRESETS); this only names them.
+ */
+const GEAR_COPY: Record<string, { label: string; note: string }> = {
+  "0.7": { label: "Speed", note: "Faster shaft, less bite" },
+  "1": { label: "Stock", note: "Direct drive" },
+  "1.6": { label: "Torque", note: "Slower, shoves harder" },
+  "2.2": { label: "Crawler", note: "Maximum push, costly" },
+};
 
-const GEAR_OPTIONS: readonly GearOption[] = [
-  { ratio: 0.7, label: "Speed", note: "Faster shaft, less bite" },
-  { ratio: DEFAULT_GEAR_RATIO, label: "Stock", note: "Direct drive" },
-  { ratio: 1.6, label: "Torque", note: "Slower, shoves harder" },
-  { ratio: 2.2, label: "Crawler", note: "Maximum push, costly" },
-];
-
-/** The ratio currently on the drive axles, or null when they disagree. */
+/**
+ * The ratio currently on the drive axles, or null when they disagree or
+ * there are none. Asks the sim which connections are gearable rather than
+ * re-deriving it, so the readout can never disagree with what the setter
+ * writes or what validation accepts.
+ */
 function currentRatio(design: BotDesign): number | null {
   const ratios: number[] = [];
   for (const conn of design.connections) {
-    const parentPartId = design.parts.find(
-      (part) => part.iid === conn.parentIid,
-    )?.partId;
-    const connector = PART_CATALOG[parentPartId ?? ""]?.connectors.find(
-      (entry) => entry.id === conn.parentConnector,
-    );
-    if (!connector || connector.kind !== "axle" || connector.motor === "spin") {
-      continue;
-    }
+    if (!isGearableConnection(design, conn)) continue;
     ratios.push(conn.gearRatio ?? DEFAULT_GEAR_RATIO);
   }
   if (ratios.length === 0) return null;
@@ -55,7 +52,7 @@ export function GearingPanel({
   panelStyle,
 }: {
   design: BotDesign;
-  panelStyle?: React.CSSProperties;
+  panelStyle: React.CSSProperties;
 }) {
   const setGearRatio = useWorkshopStore((s) => s.setGearRatio);
   const active = useMemo(() => currentRatio(design), [design]);
@@ -72,7 +69,8 @@ export function GearingPanel({
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {GEAR_OPTIONS.map((option) => {
+        {GEAR_RATIO_PRESETS.map((ratio) => {
+          const option = { ratio, ...GEAR_COPY[String(ratio)] };
           const selected = active === option.ratio;
           const cost = gearPowerDraw(option.ratio);
           return (
@@ -85,16 +83,7 @@ export function GearingPanel({
               title={option.note}
               disabled={!hasDrive}
               onClick={() => setGearRatio(option.ratio)}
-              style={{
-                background: selected ? "#2f7d6b" : "#26304a",
-                color: "#e6e8ee",
-                border: `1px solid ${selected ? "#54e0c7" : "#344061"}`,
-                borderRadius: 8,
-                padding: "5px 10px",
-                fontSize: "0.72rem",
-                cursor: hasDrive ? "pointer" : "default",
-                opacity: hasDrive ? 1 : 0.5,
-              }}
+              style={pillStyle({ selected, disabled: !hasDrive })}
             >
               {option.label}
               <span style={{ opacity: 0.6 }}>

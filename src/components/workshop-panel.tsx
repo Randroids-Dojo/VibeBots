@@ -21,6 +21,7 @@ import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
 import { TechInspection } from "@/components/tech-inspection";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
+import { panelStyle, pillStyle } from "@/components/workshop-ui";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
@@ -72,13 +73,6 @@ type WorkshopInventory =
   | { state: "loading" }
   | { state: "sandbox" }
   | { state: "ready"; counts: Map<string, number> };
-
-const panelStyle: React.CSSProperties = {
-  background: "rgba(17, 21, 31, 0.92)",
-  border: "1px solid #26304a",
-  borderRadius: 10,
-  padding: 14,
-};
 
 // One inspector pip per merge level, keyed by a stable id (never a bare
 // array index). Length matches MAX_PART_MERGE_LEVEL.
@@ -582,14 +576,7 @@ export function WorkshopPanel() {
                 aria-expanded={teardownOpen}
                 aria-controls="match-teardown-sheet"
                 onClick={() => setTeardownOpen((open) => !open)}
-                style={{
-                  background: "#26304a",
-                  color: "#e6e8ee",
-                  border: "1px solid #344061",
-                  borderRadius: 8,
-                  padding: "8px 16px",
-                  cursor: "pointer",
-                }}
+                style={pillStyle({ large: true })}
               >
                 {teardownOpen ? "Hide teardown" : "Teardown"}
               </button>

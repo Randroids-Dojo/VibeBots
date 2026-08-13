@@ -99,6 +99,30 @@ export function partVolume(shape: PartShape): number {
   }
 }
 
+/**
+ * Axis-aligned half extents of a shape in its own local frame, before any
+ * quarter-turn. Shared so the legality check (part overlap) and the
+ * workshop's footprint read the shape contract from one place; two copies
+ * would let a new shape type make them disagree about the same bot.
+ */
+export function shapeHalfExtents(shape: PartShape): {
+  hx: number;
+  hy: number;
+  hz: number;
+} {
+  if (shape.type === "cuboid") {
+    return { hx: shape.hx, hy: shape.hy, hz: shape.hz };
+  }
+  if (shape.type === "ball") {
+    return { hx: shape.radius, hy: shape.radius, hz: shape.radius };
+  }
+  const along = shape.halfHeight;
+  const across = shape.radius;
+  if (shape.axis === "x") return { hx: along, hy: across, hz: across };
+  if (shape.axis === "z") return { hx: across, hy: across, hz: along };
+  return { hx: across, hy: along, hz: across };
+}
+
 export function partMass(part: PartDef): number {
   return partVolume(part.shape) * part.density;
 }

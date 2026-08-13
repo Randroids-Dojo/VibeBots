@@ -13,6 +13,7 @@ import {
   buildTeardown,
   createTelemetry,
   type ImpactEvent,
+  isTruncated,
   MAX_TELEMETRY_IMPACTS,
   type MatchTelemetry,
   recordImpact,
@@ -114,7 +115,7 @@ describe("telemetry recording", () => {
     }
     expect(telemetry.logged).toBe(MAX_TELEMETRY_IMPACTS);
     expect(telemetry.impactCount).toBe(MAX_TELEMETRY_IMPACTS + 25);
-    expect(telemetry.truncated).toBe(true);
+    expect(isTruncated(telemetry)).toBe(true);
   });
 
   it("keeps exact damage totals after the log truncates", () => {
@@ -125,7 +126,7 @@ describe("telemetry recording", () => {
     for (let i = 0; i < total; i++) {
       log(telemetry, { tick: i, damage: 2 });
     }
-    expect(telemetry.truncated).toBe(true);
+    expect(isTruncated(telemetry)).toBe(true);
 
     const teardown = buildTeardown(input({ telemetry }));
     const attacker = teardown.bots[0].parts.find((p) => p.iid === "spike");

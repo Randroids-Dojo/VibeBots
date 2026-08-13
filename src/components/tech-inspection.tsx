@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { BotDesign } from "@/sim/design";
 import { inspectDesign } from "@/sim/inspection";
 import { WEIGHT_CLASSES } from "@/sim/weight-classes";
+import { pillStyle, STATUS } from "./workshop-ui";
 
 /**
  * The pre-fight tech inspection. Validity used to be a paragraph of error
@@ -22,7 +23,7 @@ export function TechInspection({
   onSelectClass,
 }: {
   design: BotDesign;
-  panelStyle?: React.CSSProperties;
+  panelStyle: React.CSSProperties;
   onSelectClass: (classId: string | undefined) => void;
 }) {
   const inspection = useMemo(() => inspectDesign(design), [design]);
@@ -43,7 +44,7 @@ export function TechInspection({
           style={{
             fontSize: "0.78rem",
             fontWeight: 600,
-            color: inspection.passed ? "#54e0c7" : "#ff6b6b",
+            color: inspection.passed ? STATUS.good : STATUS.bad,
           }}
         >
           {inspection.passed ? "Passed" : "Failed"}
@@ -68,7 +69,7 @@ export function TechInspection({
             <span
               aria-hidden="true"
               style={{
-                color: item.passed ? "#54e0c7" : "#ff6b6b",
+                color: item.passed ? STATUS.good : STATUS.bad,
                 fontWeight: 700,
                 width: 12,
               }}
@@ -105,16 +106,7 @@ export function TechInspection({
             data-testid="weight-class-option"
             aria-pressed={design.weightClass === undefined}
             onClick={() => onSelectClass(undefined)}
-            style={{
-              background:
-                design.weightClass === undefined ? "#2f7d6b" : "#26304a",
-              color: "#e6e8ee",
-              border: "1px solid #344061",
-              borderRadius: 8,
-              padding: "4px 10px",
-              fontSize: "0.72rem",
-              cursor: "pointer",
-            }}
+            style={pillStyle({ selected: design.weightClass === undefined })}
           >
             Unclassed
           </button>
@@ -131,13 +123,9 @@ export function TechInspection({
                 title={entry.blurb}
                 onClick={() => onSelectClass(entry.id)}
                 style={{
-                  background: selected ? "#2f7d6b" : "#26304a",
+                  ...pillStyle({ selected }),
+                  // Dim a class this build is already too heavy for.
                   color: wouldFit ? "#e6e8ee" : "#9aa3b8",
-                  border: `1px solid ${selected ? "#54e0c7" : "#344061"}`,
-                  borderRadius: 8,
-                  padding: "4px 10px",
-                  fontSize: "0.72rem",
-                  cursor: "pointer",
                 }}
               >
                 {entry.name}

@@ -10,6 +10,7 @@ import {
   type WeightClass,
   weightClassById,
   weightClassForMass,
+  weightClassProblem,
 } from "./weight-classes";
 
 /**
@@ -120,18 +121,14 @@ export function inspectDesign(
     ? weightClassById(design.weightClass)
     : null;
   const fitsClass = weightClassForMass(mass);
-  // validateDesign owns the weight rule and normally reports it. It can
-  // return early on a structural fault before reaching that check, though,
-  // so fill the gap here rather than duplicating a message it already made.
-  if (
-    declaredClass &&
-    mass > declaredClass.maxMass &&
-    !issues.some((issue) => issue.code === "weight-class")
-  ) {
-    issues.push({
-      code: "weight-class",
-      message: `over ${declaredClass.name}: ${mass.toFixed(2)} exceeds ${declaredClass.maxMass.toFixed(2)}`,
-    });
+  // validateDesign owns the weight rule and normally reports it, but it can
+  // return early on a structural fault before reaching that check. Re-ask
+  // the same shared rule rather than restating it, so the wording cannot
+  // drift and the unknown-class-id case is not silently skipped.
+  if (!issues.some((issue) => issue.code === "weight-class")) {
+    const problem = weightClassProblem(mass, design.weightClass);
+    if (problem !== null)
+      issues.push({ code: "weight-class", message: problem });
   }
 
   const byItem = new Map<InspectionItemId, string[]>();

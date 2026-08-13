@@ -161,6 +161,23 @@ describe("inspectDesign", () => {
     expect(itemFor(overweight, "weight")?.detail).toContain("Antweight");
   });
 
+  it("still fails Weight for a bad class id behind a structural fault", () => {
+    // validateDesign returns early on the missing core, so the weight rule
+    // never ran there. The inspection re-asks the shared rule, which covers
+    // the unknown-id case; a mass-only re-check would show Weight green.
+    const broken: BotDesign = {
+      name: "Coreless and misdeclared",
+      parts: [{ iid: "plate", partId: "frame-plate" }],
+      connections: [],
+      weightClass: "cruiserweight",
+    };
+    const inspection = inspectDesign(broken);
+    expect(inspection.passed).toBe(false);
+    expect(itemFor(broken, "core")?.passed).toBe(false);
+    expect(itemFor(broken, "weight")?.passed).toBe(false);
+    expect(itemFor(broken, "weight")?.detail).toContain("cruiserweight");
+  });
+
   it("names the class an unclassed build would make", () => {
     const detail = itemFor(TEST_BOT_DESIGN, "weight")?.detail ?? "";
     expect(detail).toContain("unclassed");

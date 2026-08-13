@@ -7,8 +7,9 @@ import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 import {
   type AssembledBot,
   assembleBot,
+  SPIN_MOTOR_FACTOR,
+  SPIN_MOTOR_VELOCITY,
   setDriveVelocity,
-  setSpinVelocity,
 } from "./assembly";
 import {
   type BotDesign,
@@ -398,13 +399,6 @@ function intactAttachedIids(
     );
 }
 
-function mobilityRatio(bot: CombatBot): number {
-  if (bot.mobilityIids.size === 0) return 1;
-  return (
-    intactAttachedIids(bot, bot.mobilityIids).length / bot.mobilityIids.size
-  );
-}
-
 /** Health ratio of one part, 0 when it is gone or unknown. */
 function healthRatioOf(bot: CombatBot, iid: string): number {
   const state = bot.parts.get(iid);
@@ -413,18 +407,42 @@ function healthRatioOf(bot: CombatBot, iid: string): number {
 }
 
 /**
- * How well the drive still works: the mean effectiveness of the mobility
- * parts still attached. Losing a wheel outright is already handled by the
- * immobilize rule; this covers the long slide before that.
+ * Drive condition, filled in place. Both figures come from one pass over
+ * the mobility parts because runControllers needs both every tick:
+ * `ratio` is how many wheels are left (the damage-aware throttle floor) and
+ * `wear` is the mean effectiveness of the ones that remain (F-232).
+ *
+ * Written into a module-level scratch object rather than returned fresh:
+ * this runs inside the arena's useFrame, where the frame-loop rule forbids
+ * steady-state allocation. Traversal follows design part order, so the
+ * float summation order is identical to a per-part loop.
  */
-function driveEffectiveness(bot: CombatBot): number {
-  const usable = intactAttachedIids(bot, bot.mobilityIids);
-  if (usable.length === 0) return 1;
+interface DriveCondition {
+  ratio: number;
+  wear: number;
+}
+const driveScratch: DriveCondition = { ratio: 1, wear: 1 };
+
+function readDriveCondition(bot: CombatBot): DriveCondition {
+  if (bot.mobilityIids.size === 0) {
+    driveScratch.ratio = 1;
+    driveScratch.wear = 1;
+    return driveScratch;
+  }
+  let usable = 0;
   let total = 0;
-  for (const iid of usable) {
+  const parts = bot.design.parts;
+  for (let i = 0; i < parts.length; i++) {
+    const iid = parts[i].iid;
+    if (!bot.mobilityIids.has(iid)) continue;
+    if (bot.parts.get(iid)?.destroyed) continue;
+    if (!attachedToCore(bot, iid)) continue;
+    usable += 1;
     total += partEffectiveness(healthRatioOf(bot, iid));
   }
-  return total / usable.length;
+  driveScratch.ratio = usable / bot.mobilityIids.size;
+  driveScratch.wear = usable === 0 ? 1 : total / usable;
+  return driveScratch;
 }
 
 function hasUsableWeapon(bot: CombatBot): boolean {
@@ -589,6 +607,26 @@ function chooseTarget(
 }
 
 /**
+ * Spins each weapon at its own current effectiveness, so a chewed-up blade
+ * winds down instead of staying lethal until the frame it breaks. A
+ * disabled bot stops its spinners entirely. Loops in place rather than
+ * taking a callback: this runs every tick inside the arena's useFrame.
+ */
+function applySpinWear(bot: CombatBot): void {
+  const spins = bot.assembled.spinJoints;
+  for (let i = 0; i < spins.length; i++) {
+    const spin = spins[i];
+    const effectiveness = bot.disabled
+      ? 0
+      : partEffectiveness(healthRatioOf(bot, spin.childIid));
+    spin.joint.configureMotorVelocity(
+      SPIN_MOTOR_VELOCITY * effectiveness,
+      SPIN_MOTOR_FACTOR,
+    );
+  }
+}
+
+/**
  * The controller: deterministic target scoring plus differential drive.
  * Each bot selects the opponent part that best converts its current build
  * into damage: weakened weapons, exposed mobility, bridge structures, and
@@ -600,7 +638,7 @@ function runControllers(match: MatchState): void {
     const index = rawIndex as 0 | 1;
     if (bot.disabled) {
       setDriveVelocity(bot.assembled, 0);
-      setSpinVelocity(bot.assembled, () => 0);
+      applySpinWear(bot);
       return;
     }
     const enemy = match.bots[1 - index];
@@ -614,14 +652,12 @@ function runControllers(match: MatchState): void {
     const targetDistance = groundDistance(me, targetPos);
     const botHasWeapon = hasUsableWeapon(bot);
     const enemyHasWeapon = hasUsableWeapon(enemy);
-    const mobility = mobilityRatio(bot);
-
     // Worn drive parts turn slower (F-232), and a damaged spinner winds
     // down instead of staying at full rim speed until it breaks.
-    const wear = driveEffectiveness(bot);
-    setSpinVelocity(bot.assembled, (childIid) =>
-      partEffectiveness(healthRatioOf(bot, childIid)),
-    );
+    const drive = readDriveCondition(bot);
+    const mobility = drive.ratio;
+    const wear = drive.wear;
+    applySpinWear(bot);
 
     const behavior = bot.design.behavior ?? NEUTRAL_BEHAVIOR;
     // Neutral 0.5 reproduces the classic constants exactly; the factors
@@ -699,7 +735,10 @@ function runControllers(match: MatchState): void {
 }
 
 function processDeaths(match: MatchState): void {
-  for (const [botIndex, bot] of match.bots.entries()) {
+  // Indexed rather than .entries(): this runs every tick and Map/array
+  // entry iteration allocates a tuple per element (frame-loop rule).
+  for (let botIndex = 0; botIndex < match.bots.length; botIndex++) {
+    const bot = match.bots[botIndex];
     // Design part order keeps death processing deterministic.
     let anyDeath = false;
     for (const instance of bot.design.parts) {

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bot-balance" data-date="2026-08-12">
+    <h3>The bench shows where the mass sits and how far the bot can lean</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/bot-balance</code>, stacked on <code>feat/bench-testing</code> (PR #317).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Third slice of the tinkerer-depth program (<a href="FOLLOWUPS.html#F-227">F-227</a>). The workshop showed part count, mass, and power, but not the numbers that decide whether a build works. New <code>src/lib/bot-balance.ts</code> computes the mass-weighted centre of mass, the ground footprint, the stability margin, and the lean angle from the same <code>computeLayout</code> placements assembly uses, so what it measures is what fights. It lives in <code>lib</code> rather than <code>src/sim</code> deliberately: the tip-over angle needs <code>Math.atan2</code>, which the sim purity gate bans because transcendentals differ across engines. Ground contact is modelled per shape (a horizontal cylinder rolling on its rim contributes a segment along its axis, a ball a point, anything else its footprint rectangle) and the footprint threshold is <code>SUPPORT_REACH</code> 0.25 rather than a strict touching test, for the reason recorded in the followup. Surfaced two ways: a Balance panel in the Tune tab with the exact figures as DOM text (Rule 10), and an opt-in bench overlay drawing the centre-of-mass marker, a plumb line, and the footprint outline, coloured by whether the mass sits over the footprint. Store gains <code>balanceVisible</code> and <code>toggleBalance</code>, defaulting off because this is a diagnostic view. No sim change: <code>SIM_VERSION</code> stays 5.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green. <code>pnpm vitest run src/lib src/sim</code> green (45 files, 760 tests) including 13 new balance tests. <code>pnpm build</code> green, then e2e <code>E2E-WORKSHOP-0033</code> passed locally against the production build in 7.8s, asserting the angle text format, the <code>aria-pressed</code> toggle state, and a real canvas pixel change when the overlay is enabled (Rule 10 wants moving pixels, not a flag). Sanity-checked against the stock cores before writing assertions: wedge 45.0 degrees, cube 40.4, tower 28.9, which is exactly the archetype ordering the three cores exist to express, and the nose-heavy saw bot carries the most forward centre of mass.</dd>
+      <dt>Assumptions</dt><dd><code>SUPPORT_REACH</code> is 0.25m: parts low enough to carry or catch the bot form the footprint. A strict contact test was tried first and rejected because it reports every two-wheeled bot as having zero fore-aft support. Tip-over is reported as the lean before the centre of mass crosses the footprint edge, which ignores dynamic effects (braking torque, weapon gyroscopics); it is a static readout and is labelled as a lean angle rather than a guarantee.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry. No coverage row changed status: this reads the existing layout rather than changing construction. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-227">F-227</a>. A real bug was found and fixed by the tests rather than shipped: the monotone-chain convex hull fell back to returning its raw input when the hull came out degenerate, so three collinear contact points reported a three-point footprint instead of the two-endpoint segment, which would have told a player that a bot balanced on one axle had real fore-aft support.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bench-testing" data-date="2026-08-12">
     <h3>Builds can be measured now, not just guessed at</h3>
     <dl>

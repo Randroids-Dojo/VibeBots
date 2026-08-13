@@ -9,11 +9,14 @@ import {
 } from "@react-three/fiber";
 import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
+  BufferAttribute,
+  BufferGeometry,
   type Group,
   type MeshStandardMaterial,
   type PerspectiveCamera,
   Vector3,
 } from "three";
+import { type BalanceReport, computeBalance } from "@/lib/bot-balance";
 import {
   CATEGORY_SURFACE,
   createWebGPU,
@@ -415,6 +418,90 @@ function IdleSlotMarker({
  * tier-plus-backend gates every other canvas uses. The fallback keeps
  * the current cost with a richer light rig only.
  */
+/**
+ * Balance overlay (F-227): a marker at the centre of mass, a plumb line
+ * down to the floor, and the outline of the footprint the bot stands on.
+ * The plumb line landing inside the outline is the whole readout: mass over
+ * the footprint means it stays upright.
+ *
+ * Geometry is rebuilt only when the design changes (React cadence, not
+ * frame cadence) and the previous buffers are disposed explicitly, since a
+ * per-design geometry is not a shared singleton.
+ */
+function BalanceOverlay({
+  balance,
+  groundY,
+}: {
+  balance: BalanceReport;
+  groundY: number;
+}) {
+  const outline = useMemo(() => {
+    if (balance.support.length < 2) return null;
+    const geometry = new BufferGeometry();
+    const points = new Float32Array(balance.support.length * 3);
+    for (const [index, point] of balance.support.entries()) {
+      points[index * 3] = point.x;
+      points[index * 3 + 1] = 0;
+      points[index * 3 + 2] = point.z;
+    }
+    geometry.setAttribute("position", new BufferAttribute(points, 3));
+    return geometry;
+  }, [balance.support]);
+
+  const plumb = useMemo(() => {
+    const geometry = new BufferGeometry();
+    geometry.setAttribute(
+      "position",
+      new BufferAttribute(
+        new Float32Array([
+          balance.centerOfMass.x,
+          balance.centerOfMass.y,
+          balance.centerOfMass.z,
+          balance.centerOfMass.x,
+          groundY,
+          balance.centerOfMass.z,
+        ]),
+        3,
+      ),
+    );
+    return geometry;
+  }, [balance.centerOfMass, groundY]);
+
+  useEffect(() => () => outline?.dispose(), [outline]);
+  useEffect(() => () => plumb.dispose(), [plumb]);
+
+  const color = balance.balanced ? "#54e0c7" : "#ff6b6b";
+  return (
+    <group>
+      <mesh
+        position={[
+          balance.centerOfMass.x,
+          balance.centerOfMass.y,
+          balance.centerOfMass.z,
+        ]}
+      >
+        <sphereGeometry args={[0.05, 16, 12]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.9}
+        />
+      </mesh>
+      {/* lineSegments, not line: the JSX intrinsic "line" resolves to the
+          SVG element, so R3F props do not typecheck on it. The plumb is a
+          single two-vertex segment either way. */}
+      <lineSegments geometry={plumb}>
+        <lineBasicMaterial color={color} transparent opacity={0.65} />
+      </lineSegments>
+      {outline && (
+        <lineLoop geometry={outline} position={[0, groundY + 0.04, 0]}>
+          <lineBasicMaterial color={color} transparent opacity={0.85} />
+        </lineLoop>
+      )}
+    </group>
+  );
+}
+
 function WorkshopScene() {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
@@ -427,7 +514,12 @@ function WorkshopScene() {
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
   const buildActive = useWorkshopStore((s) => s.buildActive);
   const browseDimmed = useWorkshopStore((s) => s.browseDimmed);
+  const balanceVisible = useWorkshopStore((s) => s.balanceVisible);
   const layout = computeLayout(design);
+  const balance = useMemo(
+    () => (balanceVisible ? computeBalance(design) : null),
+    [balanceVisible, design],
+  );
   // Drop the grounding disc and grid below the design's lowest part so a
   // downward stack (frame plates hung off the core's bottom) never clips
   // through the floor. A single-core bot keeps the default height.
@@ -739,6 +831,7 @@ function WorkshopScene() {
         args={[8, 16, "#26304a", "#1a2133"]}
         position={[0, groundY + 0.03, 0]}
       />
+      {balance && <BalanceOverlay balance={balance} groundY={groundY} />}
       {heroDef && (
         <HeroPart
           def={heroDef}

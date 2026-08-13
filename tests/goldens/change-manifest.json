@@ -7,9 +7,7 @@
       {
         "vectorId": "GOLDEN-COMBAT-0001",
         "kind": "combat",
-        "changedFields": [
-          "$"
-        ],
+        "changedFields": ["$"],
         "oldSnapshotHash": null,
         "newSnapshotHash": "8a99c01b32684138",
         "oldOutcomes": null,
@@ -66,9 +64,7 @@
       {
         "vectorId": "GOLDEN-ECONOMY-0001",
         "kind": "economy",
-        "changedFields": [
-          "$"
-        ],
+        "changedFields": ["$"],
         "oldSnapshotHash": null,
         "newSnapshotHash": "e6e5965e88525bf7",
         "oldOutcomes": null,
@@ -92,9 +88,7 @@
       {
         "vectorId": "GOLDEN-MINING-0001",
         "kind": "mining",
-        "changedFields": [
-          "$"
-        ],
+        "changedFields": ["$"],
         "oldSnapshotHash": null,
         "newSnapshotHash": "25d47d8c38e18ae2",
         "oldOutcomes": null,
@@ -128,9 +122,7 @@
       {
         "vectorId": "GOLDEN-REPLAY-0001",
         "kind": "replay",
-        "changedFields": [
-          "$"
-        ],
+        "changedFields": ["$"],
         "oldSnapshotHash": null,
         "newSnapshotHash": "8f7169cb1f7eb33a",
         "oldOutcomes": null,
@@ -169,9 +161,7 @@
       {
         "vectorId": "GOLDEN-WORLD-0001",
         "kind": "world",
-        "changedFields": [
-          "$"
-        ],
+        "changedFields": ["$"],
         "oldSnapshotHash": null,
         "newSnapshotHash": "f0c31ac2f5e7bd1c",
         "oldOutcomes": null,
@@ -196,9 +186,7 @@
       {
         "vectorId": "GOLDEN-WORLD-0001",
         "kind": "world",
-        "changedFields": [
-          "$.outcomes.simVersion"
-        ],
+        "changedFields": ["$.outcomes.simVersion"],
         "oldSnapshotHash": "f0c31ac2f5e7bd1c",
         "newSnapshotHash": "f0c31ac2f5e7bd1c",
         "oldOutcomes": {
@@ -227,9 +215,7 @@
       {
         "vectorId": "GOLDEN-COMBAT-0002",
         "kind": "combat",
-        "changedFields": [
-          "$"
-        ],
+        "changedFields": ["$"],
         "oldSnapshotHash": null,
         "newSnapshotHash": "b7925f8c7d3d0db3",
         "oldOutcomes": null,

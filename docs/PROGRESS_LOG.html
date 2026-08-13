@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="weight-classes" data-date="2026-08-12">
+    <h3>Mass became a budget, and validity became an inspection</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/weight-classes</code>, stacked on <code>feat/bot-balance</code> (PR #318).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Fourth slice of the tinkerer-depth program (<a href="FOLLOWUPS.html#F-228">F-228</a>). <code>validateDesign</code> already computed total mass but nothing pushed back on it, so mass was a readout instead of a constraint. New <code>src/sim/weight-classes.ts</code> defines four classes sized against the shipped catalog (Antweight 0.6, Beetleweight 0.9, Hobbyweight 1.4, Featherweight 2.2); <code>BotDesign</code> gained an optional <code>weightClass</code> enforced inside <code>validateDesign</code>, so the server rejects an over-weight bot at match resolve rather than trusting the client. Undeclared designs stay unclassed and unconstrained, so every design that validated before still validates. Separately, validity stopped being a paragraph of error strings: <code>validateDesign</code> now records a <code>DesignIssueCode</code> beside every message and the new <code>inspectDesign</code> groups those into seven named checks (Parts, Core, Frame, Connections, Clearance, Power, Weight). Grouping by code rather than by matching error text is the reason the checklist cannot drift from the validator. Surfaced as a Tech inspection panel with per-rule pass or fail and a weight-class picker; <code>setWeightClass</code> is undoable and deletes the key when cleared. No sim behavior changed: <code>SIM_VERSION</code> stays 5 and no golden vector moved.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green. <code>pnpm vitest run src/sim src/lib src/state</code> green (54 files, 1003 tests) including 14 new inspection tests. <code>pnpm test:goldens</code> green with no vector moved; <code>pnpm check:purity</code> green. <code>pnpm build</code> green, then e2e <code>E2E-WORKSHOP-0034</code> passed locally against the production build in 3.2s, asserting all seven checks are listed and green for the starter bot, the verdict text, and the class picker <code>aria-pressed</code> state.</dd>
+      <dt>Assumptions</dt><dd>Class ceilings are tuned to the current catalog rather than to real combat-robot weights, since the sim mass units are arbitrary; a test asserts every stock design still fits some class, which is the property that actually matters. Declaring a class is opt-in because making it mandatory would invalidate every saved design.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry. REQ-002 stays partial. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14): a class win is a plausible future stamp but wants the online ladder first, not a local validity rule.</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-228">F-228</a>. Self-review caught a duplication bug before it shipped: both <code>validateDesign</code> and <code>inspectDesign</code> appended the weight issue, so an over-weight design reported it twice; the inspection now only fills the gap when validation returned early on a structural fault.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bot-balance" data-date="2026-08-12">
     <h3>The bench shows where the mass sits and how far the bot can lean</h3>
     <dl>

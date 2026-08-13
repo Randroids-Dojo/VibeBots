@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { computeLayout } from "./layout";
 import { PART_CATALOG, type PartDef, partMass } from "./parts";
+import { weightClassById } from "./weight-classes";
 
 /**
  * A bot design is a connector graph: part instances plus connections that
@@ -73,6 +74,13 @@ export const botDesignSchema = z.object({
     .max(MAX_DESIGN_PARTS * 2),
   connections: z.array(connectionSchema).max(MAX_DESIGN_PARTS * 2),
   behavior: botBehaviorSchema.optional(),
+  /**
+   * Declared weight class id (F-228). Optional: an undeclared design is
+   * unclassed and unconstrained, so every design that validated before
+   * still validates. Enforced here rather than only in the workshop so the
+   * server rejects an over-weight bot at match resolve too.
+   */
+  weightClass: z.string().min(1).optional(),
 });
 export type BotDesign = z.infer<typeof botDesignSchema>;
 
@@ -83,9 +91,37 @@ export interface DesignStats {
   powerSupply: number;
 }
 
+/**
+ * Machine-readable reason a design is illegal. The tech inspection groups
+ * issues by code, so it reports "Connections: failed" with the offending
+ * messages under it instead of one flat wall of strings, and it never has
+ * to reimplement (and drift from) the checks above.
+ */
+export type DesignIssueCode =
+  | "duplicate-iid"
+  | "unknown-part"
+  | "too-many-parts"
+  | "core-count"
+  | "core-is-child"
+  | "unknown-instance"
+  | "missing-connector"
+  | "kind-mismatch"
+  | "oriented-axle"
+  | "connector-reused"
+  | "multiple-parents"
+  | "disconnected"
+  | "overlap"
+  | "power"
+  | "weight-class";
+
+export interface DesignIssue {
+  code: DesignIssueCode;
+  message: string;
+}
+
 export type ValidationResult =
   | { ok: true; stats: DesignStats }
-  | { ok: false; errors: string[] };
+  | { ok: false; errors: string[]; issues: DesignIssue[] };
 
 function resolvePart(
   instance: PartInstance,
@@ -116,18 +152,25 @@ export function validateDesign(
   design: BotDesign,
   catalog: Record<string, PartDef> = PART_CATALOG,
 ): ValidationResult {
+  const issues: DesignIssue[] = [];
   const errors: string[] = [];
+  const fail = (code: DesignIssueCode, message: string) => {
+    issues.push({ code, message });
+    errors.push(message);
+  };
 
   const byIid = new Map<string, PartInstance>();
   for (const part of design.parts) {
-    if (byIid.has(part.iid)) errors.push(`duplicate instance id "${part.iid}"`);
+    if (byIid.has(part.iid))
+      fail("duplicate-iid", `duplicate instance id "${part.iid}"`);
     byIid.set(part.iid, part);
     if (!resolvePart(part, catalog))
-      errors.push(`unknown part "${part.partId}" (${part.iid})`);
+      fail("unknown-part", `unknown part "${part.partId}" (${part.iid})`);
   }
 
   if (design.parts.length > MAX_DESIGN_PARTS) {
-    errors.push(
+    fail(
+      "too-many-parts",
       `too many parts: ${design.parts.length} (limit ${MAX_DESIGN_PARTS})`,
     );
   }
@@ -136,9 +179,12 @@ export function validateDesign(
     (p) => resolvePart(p, catalog)?.category === "core",
   );
   if (cores.length !== 1)
-    errors.push(`a design needs exactly one core part, found ${cores.length}`);
+    fail(
+      "core-count",
+      `a design needs exactly one core part, found ${cores.length}`,
+    );
 
-  if (errors.length > 0) return { ok: false, errors };
+  if (errors.length > 0) return { ok: false, errors, issues };
 
   const usedConnectors = new Set<string>();
   const parentOf = new Map<string, string>();
@@ -146,7 +192,8 @@ export function validateDesign(
     const parent = byIid.get(conn.parentIid);
     const child = byIid.get(conn.childIid);
     if (!parent || !child) {
-      errors.push(
+      fail(
+        "unknown-instance",
         `connection references unknown instance "${!parent ? conn.parentIid : conn.childIid}"`,
       );
       continue;
@@ -158,18 +205,21 @@ export function validateDesign(
       (c) => c.id === conn.childConnector,
     );
     if (!parentConn || !childConn) {
-      errors.push(
+      fail(
+        "missing-connector",
         `connection ${conn.parentIid}:${conn.parentConnector} -> ${conn.childIid}:${conn.childConnector} names a missing connector`,
       );
       continue;
     }
     if (parentConn.kind !== childConn.kind) {
-      errors.push(
+      fail(
+        "kind-mismatch",
         `connector kind mismatch: ${conn.parentIid}:${conn.parentConnector} is ${parentConn.kind}, ${conn.childIid}:${conn.childConnector} is ${childConn.kind}`,
       );
     }
     if ((conn.orientation ?? 0) !== 0 && parentConn.kind === "axle") {
-      errors.push(
+      fail(
+        "oriented-axle",
         `axle connections cannot be oriented (${conn.parentIid}:${conn.parentConnector})`,
       );
     }
@@ -178,17 +228,21 @@ export function validateDesign(
       `${conn.childIid}:${conn.childConnector}`,
     ]) {
       if (usedConnectors.has(key))
-        errors.push(`connector ${key} used more than once`);
+        fail("connector-reused", `connector ${key} used more than once`);
       usedConnectors.add(key);
     }
     if (parentOf.has(conn.childIid)) {
-      errors.push(`instance "${conn.childIid}" has more than one parent`);
+      fail(
+        "multiple-parents",
+        `instance "${conn.childIid}" has more than one parent`,
+      );
     }
     parentOf.set(conn.childIid, conn.parentIid);
   }
 
   const rootIid = cores[0].iid;
-  if (parentOf.has(rootIid)) errors.push("the core part cannot be a child");
+  if (parentOf.has(rootIid))
+    fail("core-is-child", "the core part cannot be a child");
 
   const reachable = new Set<string>([rootIid]);
   const childrenOf = new Map<string, string[]>();
@@ -210,7 +264,10 @@ export function validateDesign(
   }
   for (const part of design.parts) {
     if (!reachable.has(part.iid)) {
-      errors.push(`instance "${part.iid}" is not connected to the core`);
+      fail(
+        "disconnected",
+        `instance "${part.iid}" is not connected to the core`,
+      );
     }
   }
 
@@ -275,7 +332,7 @@ export function validateDesign(
           a.min[2] < b.max[2] - EPS &&
           b.min[2] < a.max[2] - EPS;
         if (overlaps) {
-          errors.push(`parts overlap: "${a.iid}" and "${b.iid}"`);
+          fail("overlap", `parts overlap: "${a.iid}" and "${b.iid}"`);
         }
       }
     }
@@ -292,12 +349,28 @@ export function validateDesign(
     powerSupply += def.powerSupply;
   }
   if (powerDraw > powerSupply) {
-    errors.push(
+    fail(
+      "power",
       `power overdraw: parts draw ${powerDraw}, supply is ${powerSupply}`,
     );
   }
 
-  if (errors.length > 0) return { ok: false, errors };
+  // Weight class (F-228). An undeclared design is unclassed and passes, so
+  // every design that was legal before this rule existed is still legal.
+  // An unknown class id is a bad declaration, not a free pass.
+  if (design.weightClass !== undefined) {
+    const declared = weightClassById(design.weightClass);
+    if (declared === null) {
+      fail("weight-class", `unknown weight class "${design.weightClass}"`);
+    } else if (totalMass > declared.maxMass) {
+      fail(
+        "weight-class",
+        `over ${declared.name}: ${totalMass.toFixed(2)} exceeds ${declared.maxMass.toFixed(2)}`,
+      );
+    }
+  }
+
+  if (errors.length > 0) return { ok: false, errors, issues };
   return {
     ok: true,
     stats: {

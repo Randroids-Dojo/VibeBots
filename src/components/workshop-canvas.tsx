@@ -16,7 +16,6 @@ import {
   type PerspectiveCamera,
   Vector3,
 } from "three";
-import { type BalanceReport, computeBalance } from "@/lib/bot-balance";
 import {
   CATEGORY_SURFACE,
   createWebGPU,
@@ -24,6 +23,7 @@ import {
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import { type BalanceReport, computeBalance } from "@/lib/bot-balance";
 import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
 import { type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, type Placement } from "@/sim/layout";

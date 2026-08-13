@@ -13,12 +13,12 @@ import {
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { BalanceReadout } from "@/components/balance-readout";
 import { BenchPanel } from "@/components/bench-panel";
-import { TechInspection } from "@/components/tech-inspection";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { MatchTeardownSheet } from "@/components/match-teardown";
 import { StampBookPopup } from "@/components/mine-stamp-book-popup";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
+import { TechInspection } from "@/components/tech-inspection";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";

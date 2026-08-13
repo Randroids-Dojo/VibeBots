@@ -1305,6 +1305,43 @@ test(
   },
 );
 
+test(
+  "the bench fights the stock roster and reports a measurable result",
+  ciCase("E2E-WORKSHOP-0032", "@functional"),
+  async ({ page }) => {
+    await page.goto("/workshop");
+    await expect(page.getByLabel("Part carousel")).toBeVisible();
+
+    await page.getByRole("tab", { name: "Tune" }).click();
+    const bench = page.getByLabel("Bench");
+    await expect(bench).toBeVisible();
+
+    // A whole roster pass is several full 60-second matches resolved
+    // headlessly, so give it room; it is still far faster than watching one.
+    await bench.getByTestId("run-bench").click();
+    const report = bench.getByTestId("bench-report");
+    await expect(report).toBeVisible({ timeout: 90_000 });
+
+    // The headline number is a real percentage, not a placeholder.
+    await expect(bench.getByTestId("bench-win-rate")).toHaveText(
+      /^\d+% win rate$/,
+    );
+    // One row per stock opponent, each carrying a decided outcome.
+    const rows = bench.getByTestId("bench-match-row");
+    await expect(rows).toHaveCount(6);
+    for (const row of await rows.all()) {
+      await expect(row).toHaveText(/win|loss|draw/);
+    }
+
+    // Re-running the same build reports the A/B against the previous run.
+    // The build did not change, so nothing should have flipped.
+    await bench.getByTestId("run-bench").click();
+    const comparison = bench.getByTestId("bench-comparison");
+    await expect(comparison).toBeVisible({ timeout: 90_000 });
+    await expect(comparison).toContainText("No outcome changed");
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

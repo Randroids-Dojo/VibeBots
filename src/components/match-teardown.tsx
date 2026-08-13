@@ -90,9 +90,12 @@ function PartRow({ part }: { part: TeardownPart }) {
 
 export function MatchTeardownSheet({
   teardown,
+  official = false,
   onClose,
 }: {
   teardown: MatchTeardown;
+  /** True when this came from the server's authoritative rerun (F-239). */
+  official?: boolean;
   onClose: () => void;
 }) {
   return (
@@ -121,7 +124,21 @@ export function MatchTeardownSheet({
           marginBottom: 8,
         }}
       >
-        <h2 style={{ margin: 0, fontSize: "0.95rem" }}>Teardown</h2>
+        <h2 style={{ margin: 0, fontSize: "0.95rem" }}>
+          Teardown
+          <span
+            data-testid="teardown-source"
+            style={{
+              marginLeft: 8,
+              fontSize: "0.68rem",
+              fontWeight: 400,
+              opacity: 0.75,
+              color: official ? STATUS.good : undefined,
+            }}
+          >
+            {official ? "official" : "local run"}
+          </span>
+        </h2>
         <button type="button" onClick={onClose} style={pillStyle()}>
           Close
         </button>

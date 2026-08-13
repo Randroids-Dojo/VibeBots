@@ -43,8 +43,6 @@ export type Orientation = 0 | 90 | 180 | 270;
  * exactly 1 produce a byte-identical fight, which is what lets this ship
  * without invalidating any stored replay.
  */
-export const MIN_GEAR_RATIO = 0.5;
-export const MAX_GEAR_RATIO = 2.5;
 export const DEFAULT_GEAR_RATIO = 1;
 
 /**
@@ -52,20 +50,32 @@ export const DEFAULT_GEAR_RATIO = 1;
  *
  * Without this, gearing up is a near strict upgrade: benching the starter
  * bot across the stock roster moved it from a 17% win rate at ratio 1 to
- * 67% at ratio 2.5, because the drivetrain is torque limited and the
- * commanded top speed rarely binds. Torque has to cost something, and the
- * core's power budget is the cost that already exists. Gearing DOWN for
+ * 67% at maximum reduction, because the drivetrain is torque limited and
+ * the commanded top speed rarely binds. Torque has to cost something, and
+ * the core's power budget is the cost that already exists. Gearing DOWN for
  * speed is free: a taller-geared shaft asks less of the motor.
+ *
+ * Calibrated so a weapon-carrying bot cannot also run maximum reduction:
+ * the saw bot has 30 power spare, and two axles at the top preset cost more
+ * than that. Was 12 against an earlier 2.5 ceiling; when F-238 made the
+ * presets the rule and capped them at 2.2, 12 stopped pricing the saw bot
+ * out and the whole point of the cost quietly lapsed. Re-derive this
+ * alongside the presets, not independently of them.
  */
-export const GEAR_POWER_PER_RATIO = 12;
+export const GEAR_POWER_PER_RATIO = 13;
 
 /**
- * The reductions a bot can actually be built with. These are balance
+ * The reductions a bot can be built with (F-238). These are balance
  * figures, not presentation: the power cost was tuned against benched win
  * rates at these ratios, so they belong beside the rule rather than in a
- * panel. The schema still accepts the whole MIN..MAX range, so a design
- * authored outside the workshop is not rejected for using a value between
- * presets; see F-238 for whether it should be.
+ * panel.
+ *
+ * This fixed set IS the rule, enforced by the schema below rather than a
+ * range. A continuous range meant the server accepted reductions no player
+ * could build in the workshop, so a hand-authored design could fight with
+ * more torque than any legitimate bot. Weight classes are enforced the same
+ * way, for the same reason: the client is not trusted to keep to its own
+ * options.
  */
 export const GEAR_RATIO_PRESETS: readonly number[] = [
   0.7,
@@ -73,6 +83,11 @@ export const GEAR_RATIO_PRESETS: readonly number[] = [
   1.6,
   2.2,
 ];
+
+/** Whether a value is one of the buildable reductions. */
+export function isGearRatioPreset(ratio: number): boolean {
+  return GEAR_RATIO_PRESETS.includes(ratio);
+}
 
 /** Extra power a connection's gearing costs. Zero at or below ratio 1. */
 export function gearPowerDraw(gearRatio: number | undefined): number {
@@ -93,8 +108,17 @@ export const connectionSchema = z.object({
   childConnector: z.string().min(1),
   /** Yaw quarter-turns of the child around the attachment (F-006). */
   orientation: orientationSchema,
-  /** Drive gear ratio on an axle connection (F-229). */
-  gearRatio: z.number().min(MIN_GEAR_RATIO).max(MAX_GEAR_RATIO).optional(),
+  /**
+   * Drive gear ratio on an axle connection (F-229). Must be one of the
+   * buildable reductions, so client and server agree on what exists
+   * (F-238); which connections may carry one is validateDesign's rule.
+   */
+  gearRatio: z
+    .number()
+    .refine(isGearRatioPreset, {
+      message: `gear ratio must be one of ${GEAR_RATIO_PRESETS.join(", ")}`,
+    })
+    .optional(),
 });
 export type Connection = z.infer<typeof connectionSchema>;
 

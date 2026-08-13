@@ -9,9 +9,9 @@ import {
   CPU_BRAWLER_DESIGN,
   CPU_WHIRLIGIG_DESIGN,
   DEFAULT_GEAR_RATIO,
+  GEAR_RATIO_PRESETS,
   gearPowerDraw,
   isGearableConnection,
-  MAX_GEAR_RATIO,
   TEST_BOT_DESIGN,
   validateDesign,
 } from "./design";
@@ -117,7 +117,7 @@ describe("gear ratio validation", () => {
     );
   });
 
-  it("rejects a ratio outside the buildable range", () => {
+  it("rejects a ratio that is not a buildable preset", () => {
     const withRatio = (gearRatio: number) => ({
       ...TEST_BOT_DESIGN,
       connections: [
@@ -125,40 +125,18 @@ describe("gear ratio validation", () => {
         ...TEST_BOT_DESIGN.connections.slice(1),
       ],
     });
-    // The range lives on the zod schema, so parse rather than validate.
-    expect(botDesignSchema.safeParse(withRatio(99)).success).toBe(false);
-    expect(botDesignSchema.safeParse(withRatio(0.1)).success).toBe(false);
-    expect(botDesignSchema.safeParse(withRatio(MAX_GEAR_RATIO)).success).toBe(
-      true,
-    );
+    // The buildable set is the rule (F-238), so the server accepts exactly
+    // what the workshop offers and nothing between or beyond it.
+    for (const preset of GEAR_RATIO_PRESETS) {
+      expect(botDesignSchema.safeParse(withRatio(preset)).success).toBe(true);
+    }
+    for (const offPreset of [0.1, 0.9, 1.3, 2.5, 99]) {
+      expect(
+        botDesignSchema.safeParse(withRatio(offPreset)).success,
+        `ratio ${offPreset}`,
+      ).toBe(false);
+    }
   });
-});
-
-describe("gear ratio determinism", () => {
-  it("ratio 1 reproduces the ungeared fight exactly", async () => {
-    // This is the contract that lets gearing ship without bumping
-    // SIM_VERSION or invalidating a single stored replay.
-    const run = async (design: BotDesign) => {
-      const world = await createArenaWorld();
-      const match = createMatch(world, [design, CPU_BRAWLER_DESIGN]);
-      for (let i = 0; i < 600 && !match.status.over; i++) stepMatch(match);
-      const result = {
-        hash: matchResultHash(match),
-        state: combatStateString(match),
-      };
-      freeMatch(match);
-      world.free();
-      return result;
-    };
-
-    const stock = await run(geared(undefined));
-    const explicitOne = await run({
-      ...geared(DEFAULT_GEAR_RATIO),
-      name: TEST_BOT_DESIGN.name,
-    });
-    expect(explicitOne.hash).toBe(stock.hash);
-    expect(explicitOne.state).toBe(stock.state);
-  }, 60000);
 });
 
 describe("isGearableConnection", () => {
@@ -216,6 +194,9 @@ describe("isGearableConnection", () => {
   });
 });
 
+/** The heaviest reduction a player can actually build. */
+const MAX_PRESET = GEAR_RATIO_PRESETS[GEAR_RATIO_PRESETS.length - 1];
+
 describe("gearing costs power", () => {
   it("is free at or below ratio 1 and rises with reduction", () => {
     expect(gearPowerDraw(undefined)).toBe(0);
@@ -224,16 +205,18 @@ describe("gearing costs power", () => {
     expect(gearPowerDraw(2)).toBeGreaterThan(gearPowerDraw(1.5));
   });
 
-  it("makes torque compete with the weapon for the core budget", () => {
+  it("prices maximum reduction out of a weapon-carrying build", () => {
     // The saw bot already spends most of the cube core's supply on its
-    // blade, so it cannot also run maximum reduction. That competition is
-    // the point: without it, benching showed gearing up as a near strict
-    // upgrade (17% to 67% win rate across the stock roster).
+    // blade, so it cannot also run the top preset. That competition is the
+    // point: without it, benching showed gearing up as a near strict
+    // upgrade (17% to 67% win rate across the stock roster). This test is
+    // what catches GEAR_POWER_PER_RATIO drifting out of step with the
+    // preset ceiling.
     const maxGeared: BotDesign = {
       ...CPU_WHIRLIGIG_DESIGN,
       connections: CPU_WHIRLIGIG_DESIGN.connections.map((conn) =>
         conn.parentConnector.startsWith("axle")
-          ? { ...conn, gearRatio: MAX_GEAR_RATIO }
+          ? { ...conn, gearRatio: MAX_PRESET }
           : conn,
       ),
     };
@@ -242,12 +225,12 @@ describe("gearing costs power", () => {
     if (result.ok) return;
     expect(result.issues.some((issue) => issue.code === "power")).toBe(true);
 
-    // A modest reduction still fits, so the choice is a budget, not a ban.
+    // A middle preset still fits, so the choice is a budget, not a ban.
     const mildlyGeared: BotDesign = {
       ...CPU_WHIRLIGIG_DESIGN,
       connections: CPU_WHIRLIGIG_DESIGN.connections.map((conn) =>
         conn.parentConnector.startsWith("axle")
-          ? { ...conn, gearRatio: 1.2 }
+          ? { ...conn, gearRatio: 1.6 }
           : conn,
       ),
     };
@@ -285,6 +268,34 @@ function recordingDrive(ratios: number[]) {
   } as unknown as Parameters<typeof setDriveVelocity>[0];
   return { bot, commands };
 }
+
+describe("gear ratio determinism", () => {
+  it("ratio 1 reproduces the ungeared fight exactly", async () => {
+    // This is the contract that let gearing ship without bumping
+    // SIM_VERSION or invalidating a single stored replay: an explicit
+    // ratio of 1 must be arithmetically identical to no ratio at all.
+    const run = async (design: BotDesign) => {
+      const world = await createArenaWorld();
+      const match = createMatch(world, [design, CPU_BRAWLER_DESIGN]);
+      for (let i = 0; i < 600 && !match.status.over; i++) stepMatch(match);
+      const result = {
+        hash: matchResultHash(match),
+        state: combatStateString(match),
+      };
+      freeMatch(match);
+      world.free();
+      return result;
+    };
+
+    const stock = await run(geared(undefined));
+    const explicitOne = await run({
+      ...geared(DEFAULT_GEAR_RATIO),
+      name: TEST_BOT_DESIGN.name,
+    });
+    expect(explicitOne.hash).toBe(stock.hash);
+    expect(explicitOne.state).toBe(stock.state);
+  }, 60000);
+});
 
 describe("drive gearing math", () => {
   it("is the identity at ratio 1", () => {

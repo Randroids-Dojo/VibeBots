@@ -9,7 +9,7 @@ import {
   runBench,
 } from "@/sim/bench";
 import { type BotDesign, validateDesign } from "@/sim/design";
-import { panelStyle, pillStyle, STATUS, secondsFromTicks } from "./workshop-ui";
+import { pillStyle, STATUS, secondsFromTicks } from "./workshop-ui";
 
 /**
  * The bench: fight the current design against the whole stock roster

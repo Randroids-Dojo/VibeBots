@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="gear-presets-and-official-teardown" data-date="2026-08-13">
+    <h3>The server now accepts only buildable gearing, and states the teardown</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/damage-degradation</code> (tip of the stacked program, PRs #316 to #321).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Closes the two decisions the cleanup pass deliberately deferred. <a href="FOLLOWUPS.html#F-238">F-238</a>: the gear presets are now the rule. <code>MIN_GEAR_RATIO</code> and <code>MAX_GEAR_RATIO</code> are deleted and <code>connectionSchema</code> validates membership in <code>GEAR_RATIO_PRESETS</code>, so the server accepts exactly what the workshop offers instead of a wider range a hand-authored design could exploit; this matches how weight classes are enforced. <a href="FOLLOWUPS.html#F-239">F-239</a>: <code>/api/match/resolve</code> reruns with telemetry and returns the teardown, so post-match damage attribution is stated by the authority rather than being purely client-authored. The workshop adopts the official teardown only when the hashes agree (on a mismatch the sheets describe different fights, and hiding that would be worse than showing the local one), and the sheet now labels its provenance.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green. <code>pnpm vitest run src/sim src/lib src/state src/app</code> green (82 files, 1296 tests), including two new route-handler tests (the official teardown's shape, and a 400 for an off-preset ratio) and a rewritten schema test covering every preset plus five off-preset values. <code>pnpm test:goldens</code> green with no vector moved. <code>pnpm check:purity</code> green. <code>pnpm build</code> green, then the four workshop e2e cases passed locally in 22.7s.</dd>
+      <dt>Assumptions</dt><dd>Presets rather than a continuous range is the deliberate choice, on the same principle as weight classes: the server should accept what a player can actually build. Nothing had shipped with gearing, so there was no migration cost either way. The official teardown is adopted only on hash agreement rather than always, because a mismatch is exactly the case where the difference matters.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry for the preset rule. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-238">F-238</a> and <a href="FOLLOWUPS.html#F-239">F-239</a>. One consequence is worth flagging because a test caught it rather than review: capping the presets at 2.2 silently broke the property <code>GEAR_POWER_PER_RATIO</code> existed to create. At 12 it was calibrated so two axles at maximum reduction cost more than a weapon bot's spare power (2 x 1.5 x 12 = 36 against the saw bot's 30 spare); at the 2.2 ceiling that becomes 28.8, which fits, so maximum torque plus a big weapon became affordable and the cost stopped meaning anything. Re-derived to 13 and the constant now documents the dependency. <a href="FOLLOWUPS.html#F-237">F-237</a> also gained a measurement refresh: re-benched on the current sim, the four presets give 50%, 33%, 50%, and 83% win rates, so reduction is still strongest at run time and that followup stands.</dd>
+    </dl>
+  </article>
+
   <article data-slice="tinkerer-depth-cleanup" data-date="2026-08-13">
     <h3>Cleanup pass over the six tinkerer-depth slices</h3>
     <dl>

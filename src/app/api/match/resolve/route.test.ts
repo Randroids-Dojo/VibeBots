@@ -4,7 +4,11 @@ import { storageConfigured } from "@/server/db";
 import { recordMatchResult } from "@/server/match-records";
 import { validatePlayerDesignInventory } from "@/server/part-inventory";
 import { SIM_VERSION } from "@/sim/constants";
-import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "@/sim/design";
+import {
+  CPU_BRAWLER_DESIGN,
+  CPU_WHIRLIGIG_DESIGN,
+  TEST_BOT_DESIGN,
+} from "@/sim/design";
 import { resolveMatch } from "@/sim/resolve";
 import { POST } from "./route";
 
@@ -83,6 +87,47 @@ describe("POST /api/match/resolve", () => {
     }
     expect(body.tick).toBe(local.tick);
     expect(body.rewards[0].credits).toBe(local.rewards[0].credits);
+  });
+
+  it("states the official teardown, not just the winner (F-239)", async () => {
+    const res = await post({
+      designs: [CPU_WHIRLIGIG_DESIGN, TEST_BOT_DESIGN],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 900,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Post-match damage attribution is a match fact, so the authoritative
+    // rerun must report it rather than leaving the player's teardown
+    // entirely client-authored.
+    expect(body.teardown).not.toBeNull();
+    expect(body.teardown.bots).toHaveLength(2);
+    expect(body.teardown.totalImpacts).toBeGreaterThan(0);
+    for (const [index, bot] of body.teardown.bots.entries()) {
+      expect(bot.parts.map((part: { iid: string }) => part.iid)).toEqual(
+        [CPU_WHIRLIGIG_DESIGN, TEST_BOT_DESIGN][index].parts.map((p) => p.iid),
+      );
+    }
+  });
+
+  it("rejects a gear ratio that is not a buildable preset (F-238)", async () => {
+    // The server accepts exactly what the workshop can build, so a
+    // hand-authored design cannot fight with unavailable reduction.
+    const cheating = {
+      ...TEST_BOT_DESIGN,
+      connections: TEST_BOT_DESIGN.connections.map((conn) =>
+        conn.parentConnector.startsWith("axle")
+          ? { ...conn, gearRatio: 3.5 }
+          : conn,
+      ),
+    };
+    const res = await post({
+      designs: [CPU_BRAWLER_DESIGN, cheating],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 600,
+    });
+    expect(res.status).toBe(400);
   });
 
   it("rejects stale sim versions", async () => {

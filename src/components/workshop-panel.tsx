@@ -37,6 +37,7 @@ import {
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { REPLICA_OPPONENTS } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
+import type { MatchTeardown } from "@/sim/telemetry";
 import { enqueueStampAlertsFromResponse } from "@/state/stamp-alert-store";
 import {
   CAROUSEL_PART_IDS,
@@ -66,6 +67,8 @@ type Verification =
       agrees: boolean;
       hash: string;
       record: MatchRecordChip | null;
+      /** The official teardown, when the server agreed on the fight. */
+      teardown: MatchTeardown | null;
     }
   | { state: "error" };
 
@@ -358,11 +361,16 @@ export function WorkshopPanel() {
       }
       const official = await res.json();
       enqueueStampAlertsFromResponse(official);
+      const agrees = official.hash === endInfo.hash;
       setVerification({
         state: "done",
-        agrees: official.hash === endInfo.hash,
+        agrees,
         hash: official.hash,
         record: official.record ?? null,
+        // Only adopt the server's teardown when the two runs agree on the
+        // fight. On a mismatch the sheets describe different matches, and
+        // showing the official one under a local banner would hide that.
+        teardown: agrees ? (official.teardown ?? null) : null,
       });
     } catch {
       setVerification({ state: "error" });
@@ -518,6 +526,15 @@ export function WorkshopPanel() {
     return () => clearTimeout(timer);
   }, [browsePartId, browseAvailable]);
 
+  // The server reruns the same fight and is the authority (Q-003), so once
+  // verification agrees, show its teardown instead of the local one.
+  const shownTeardown =
+    verification.state === "done" && verification.teardown
+      ? { teardown: verification.teardown, official: true }
+      : endInfo?.teardown
+        ? { teardown: endInfo.teardown, official: false }
+        : null;
+
   if (matchup) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100dvh" }}>
@@ -569,7 +586,7 @@ export function WorkshopPanel() {
                 ? "Asking the server..."
                 : "Verify result on server"}
             </button>
-            {endInfo.teardown && (
+            {shownTeardown && (
               <button
                 type="button"
                 data-testid="open-teardown"
@@ -610,9 +627,10 @@ export function WorkshopPanel() {
             )}
           </div>
         )}
-        {teardownOpen && endInfo?.teardown && (
+        {teardownOpen && shownTeardown && (
           <MatchTeardownSheet
-            teardown={endInfo.teardown}
+            teardown={shownTeardown.teardown}
+            official={shownTeardown.official}
             onClose={() => setTeardownOpen(false)}
           />
         )}

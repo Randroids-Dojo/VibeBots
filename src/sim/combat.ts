@@ -4,7 +4,12 @@ import type {
   World,
 } from "@dimforge/rapier3d-deterministic-compat";
 import RAPIER from "@dimforge/rapier3d-deterministic-compat";
-import { type AssembledBot, assembleBot, setDriveVelocity } from "./assembly";
+import {
+  type AssembledBot,
+  assembleBot,
+  setDriveVelocity,
+  setSpinVelocity,
+} from "./assembly";
 import {
   type BotDesign,
   NEUTRAL_BEHAVIOR,
@@ -48,6 +53,25 @@ export const WEAPON_DAMAGE_MULTIPLIER = 6;
  */
 export const MAX_EVENT_DAMAGE = 45;
 export const DRIVE_SPEED = 12;
+/**
+ * Damage degradation (F-232). A part used to work at full strength until
+ * the tick it hit zero and vanished, which erased the most legible failure
+ * mode a mechanic knows: the part that still works, but works worse. A
+ * part's effectiveness now falls linearly with its health down to this
+ * floor, so a chewed-up wheel drags its side and a battered spinner winds
+ * down instead of staying lethal until the frame it breaks.
+ *
+ * The floor is not zero: a part at 1 hp still turns, it is just bad. A
+ * zero floor would make the last sliver of health worthless and turn every
+ * damaged bot into a sitting target.
+ */
+export const MIN_PART_EFFECTIVENESS = 0.35;
+
+/** Linear falloff from 1 at full health to the floor at zero. Pure. */
+export function partEffectiveness(healthRatio: number): number {
+  const ratio = clamp(healthRatio, 0, 1);
+  return MIN_PART_EFFECTIVENESS + (1 - MIN_PART_EFFECTIVENESS) * ratio;
+}
 /** Timeout totals closer than this are an honest draw, not float noise. */
 export const SCORE_DRAW_EPSILON = 1;
 
@@ -381,6 +405,28 @@ function mobilityRatio(bot: CombatBot): number {
   );
 }
 
+/** Health ratio of one part, 0 when it is gone or unknown. */
+function healthRatioOf(bot: CombatBot, iid: string): number {
+  const state = bot.parts.get(iid);
+  if (!state || state.destroyed || state.maxHealth <= 0) return 0;
+  return clamp(state.health / state.maxHealth, 0, 1);
+}
+
+/**
+ * How well the drive still works: the mean effectiveness of the mobility
+ * parts still attached. Losing a wheel outright is already handled by the
+ * immobilize rule; this covers the long slide before that.
+ */
+function driveEffectiveness(bot: CombatBot): number {
+  const usable = intactAttachedIids(bot, bot.mobilityIids);
+  if (usable.length === 0) return 1;
+  let total = 0;
+  for (const iid of usable) {
+    total += partEffectiveness(healthRatioOf(bot, iid));
+  }
+  return total / usable.length;
+}
+
 function hasUsableWeapon(bot: CombatBot): boolean {
   return intactAttachedIids(bot, bot.weaponIids).length > 0;
 }
@@ -554,6 +600,7 @@ function runControllers(match: MatchState): void {
     const index = rawIndex as 0 | 1;
     if (bot.disabled) {
       setDriveVelocity(bot.assembled, 0);
+      setSpinVelocity(bot.assembled, () => 0);
       return;
     }
     const enemy = match.bots[1 - index];
@@ -568,6 +615,13 @@ function runControllers(match: MatchState): void {
     const botHasWeapon = hasUsableWeapon(bot);
     const enemyHasWeapon = hasUsableWeapon(enemy);
     const mobility = mobilityRatio(bot);
+
+    // Worn drive parts turn slower (F-232), and a damaged spinner winds
+    // down instead of staying at full rim speed until it breaks.
+    const wear = driveEffectiveness(bot);
+    setSpinVelocity(bot.assembled, (childIid) =>
+      partEffectiveness(healthRatioOf(bot, childIid)),
+    );
 
     const behavior = bot.design.behavior ?? NEUTRAL_BEHAVIOR;
     // Neutral 0.5 reproduces the classic constants exactly; the factors
@@ -624,7 +678,11 @@ function runControllers(match: MatchState): void {
         : clamp(STEER_GAIN * cross, -MAX_STEER, MAX_STEER);
 
     if (bot.brain.backoffUntilTick !== 0) {
-      setDriveVelocity(bot.assembled, DRIVE_SPEED * BACKOFF_SPEED_FACTOR, 0);
+      setDriveVelocity(
+        bot.assembled,
+        DRIVE_SPEED * BACKOFF_SPEED_FACTOR * wear,
+        0,
+      );
       return;
     }
 
@@ -634,7 +692,7 @@ function runControllers(match: MatchState): void {
       (0.72 + mobility * 0.28) * (0.8 + behavior.aggression * 0.4);
     setDriveVelocity(
       bot.assembled,
-      -DRIVE_SPEED * clamp(turnThrottle * damageThrottle, 0.35, 1),
+      -DRIVE_SPEED * clamp(turnThrottle * damageThrottle, 0.35, 1) * wear,
       steer,
     );
   });
@@ -672,6 +730,14 @@ function processDeaths(match: MatchState): void {
           (motor) => motor.joint === joint,
         );
         if (axleIndex >= 0) bot.assembled.axleJoints.splice(axleIndex, 1);
+        // Spin joints must be dropped too. This was harmless while spinners
+        // were configured once at assembly and never touched again, but
+        // degradation (F-232) drives them every tick, so a stale entry is a
+        // call into a joint the world has already freed.
+        const spinIndex = bot.assembled.spinJoints.findIndex(
+          (motor) => motor.joint === joint,
+        );
+        if (spinIndex >= 0) bot.assembled.spinJoints.splice(spinIndex, 1);
       }
     }
     if (!anyDeath || bot.disabled) continue;

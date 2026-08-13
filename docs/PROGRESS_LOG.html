@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="damage-degradation" data-date="2026-08-12">
+    <h3>Damaged parts work worse instead of working perfectly then vanishing</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/damage-degradation</code>, stacked on <code>feat/gear-ratio</code> (PR #320).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Sixth slice of the tinkerer-depth program (<a href="FOLLOWUPS.html#F-232">F-232</a>), and the one the combat GDD has listed as not yet covered since the damage model shipped. Parts were binary: full strength until zero health, then gone, which erased the most legible failure mode a mechanic knows. <code>partEffectiveness</code> now falls linearly from 1 at full health to <code>MIN_PART_EFFECTIVENESS</code> 0.35 at zero; drive velocity scales by the mean effectiveness of the mobility parts still attached, and the new <code>setSpinVelocity</code> drives each spinner axle at the blade effectiveness every tick, so a battered saw winds down. Disabled bots stop their spinners as well as their drive. This changes physics, so <code>SIM_VERSION</code> goes 5 to 6 and the goldens were regenerated with a recorded reason.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green. <code>pnpm vitest run src/sim</code> green (32 files, 502 tests) including 7 new degradation tests; <code>src/lib</code> and <code>src/state</code> green (24 files, 521 tests). <code>pnpm test:goldens</code> green after regeneration (13 tests, up from 12 with the new vector). <code>pnpm check:purity</code> green. Bench measurement across the stock roster: the starter Rammer moved from 17% win rate, 91.95 average damage and zero decisive wins to 33%, 108.61 and its first win by disable, so fights got more decisive rather than just different.</dd>
+      <dt>Assumptions</dt><dd>The effectiveness floor is 0.35 rather than 0, because a part at one hit point should still function badly instead of not at all; a zero floor would make the last sliver of health worthless and turn any damaged bot into a sitting target. Degradation applies to drive and spinner motors only; structural and passive weapon parts still work by mass and geometry, which do not degrade.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/03-combat-damage-and-disable.html</code> gained a build log entry and its not-yet-covered list loses the degradation line. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-232">F-232</a>. Two findings worth recording. First, regenerating the goldens surfaced exactly the gap the version gate exists to catch: the only combat vector was Rammer versus Brawler, which has no spinner and never damages a wheel, so it could not observe this change and reported that SIM_VERSION had moved while the vector did not. <code>GOLDEN-COMBAT-0002</code> (saw versus drums) was added so the new behaviour is actually pinned. Second, running the bench crashed the WASM side: <code>processDeaths</code> removed a destroyed part joint from <code>axleJoints</code> but never from <code>spinJoints</code>, which was harmless while spinners were configured once at assembly and became a use-after-free the moment this slice drove them every tick. Fixed with a regression test that destroys a blade mid-match and asserts the world frees cleanly.</dd>
+    </dl>
+  </article>
+
   <article data-slice="drive-gearing" data-date="2026-08-12">
     <h3>Motors trade torque against speed, and the bench priced the trade</h3>
     <dl>

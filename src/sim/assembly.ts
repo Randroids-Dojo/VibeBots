@@ -48,8 +48,12 @@ export interface AssembledBot {
   joints: ImpulseJoint[];
   /** Motorized axle connections with their side, for differential drive. */
   axleJoints: AxleMotor[];
-  /** Constant-velocity spinner axles, driven from assembly, never steered. */
-  spinJoints: RevoluteImpulseJoint[];
+  /**
+   * Spinner axles with the part they drive, so combat can spin a damaged
+   * weapon down (F-232) instead of a mangled blade running at full rim
+   * speed until the instant it breaks.
+   */
+  spinJoints: Array<{ joint: RevoluteImpulseJoint; childIid: string }>;
   /** The joint attaching each non-root instance to its parent (detach point). */
   jointToParent: Map<string, ImpulseJoint>;
 }
@@ -127,7 +131,7 @@ export function assembleBot(
   const colliders = new Map<string, Collider>();
   const joints: ImpulseJoint[] = [];
   const axleJoints: AxleMotor[] = [];
-  const spinJoints: RevoluteImpulseJoint[] = [];
+  const spinJoints: AssembledBot["spinJoints"] = [];
   const jointToParent = new Map<string, ImpulseJoint>();
   // Shared with the workshop preview: what you build is what fights.
   const placements = computeLayout(design, catalog, origin);
@@ -193,7 +197,10 @@ export function assembleBot(
           SPIN_MOTOR_VELOCITY,
           SPIN_MOTOR_FACTOR,
         );
-        spinJoints.push(joint as RevoluteImpulseJoint);
+        spinJoints.push({
+          joint: joint as RevoluteImpulseJoint,
+          childIid: conn.childIid,
+        });
       } else {
         axleJoints.push({
           joint: joint as RevoluteImpulseJoint,
@@ -259,6 +266,24 @@ export function gearedMotorCommand(
     velocity: (velocity * (1 - side * steer)) / ratio,
     factor: factor * ratio,
   };
+}
+
+/**
+ * Spins a weapon at a fraction of its rated velocity. Combat calls this
+ * every tick with the blade's current effectiveness, so a chewed-up
+ * spinner visibly and mechanically winds down rather than staying lethal
+ * until the frame it is destroyed.
+ */
+export function setSpinVelocity(
+  bot: AssembledBot,
+  effectivenessOf: (childIid: string) => number,
+): void {
+  for (const spin of bot.spinJoints) {
+    spin.joint.configureMotorVelocity(
+      SPIN_MOTOR_VELOCITY * effectivenessOf(spin.childIid),
+      SPIN_MOTOR_FACTOR,
+    );
+  }
 }
 
 export function setDriveVelocity(

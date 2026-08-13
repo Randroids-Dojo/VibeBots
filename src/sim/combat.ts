@@ -651,11 +651,12 @@ function processDeaths(match: MatchState): void {
       state.health = 0;
       anyDeath = true;
       if (match.telemetry) {
-        recordDestruction(match.telemetry, {
-          tick: match.tick,
-          bot: botIndex as 0 | 1,
-          iid: instance.iid,
-        });
+        recordDestruction(
+          match.telemetry,
+          match.tick,
+          botIndex as 0 | 1,
+          instance.iid,
+        );
       }
       if (instance.iid === bot.assembled.rootIid) {
         bot.disabled = true;
@@ -786,16 +787,17 @@ export function stepMatch(match: MatchState): void {
       if (applied > 0) {
         match.bots[other.bot].damageDealt += applied;
         if (match.telemetry) {
-          recordImpact(match.telemetry, {
-            tick: match.tick,
-            attackerBot: other.bot,
-            attackerIid: other.iid,
-            victimBot: owner.bot,
-            victimIid: owner.iid,
+          recordImpact(
+            match.telemetry,
+            match.tick,
+            other.bot,
+            other.iid,
+            owner.bot,
+            owner.iid,
             force,
-            damage: applied,
-            weapon: other.isWeapon,
-          });
+            applied,
+            other.isWeapon,
+          );
         }
       }
     }

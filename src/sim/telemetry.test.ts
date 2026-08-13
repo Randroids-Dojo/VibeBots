@@ -13,6 +13,7 @@ import {
   buildTeardown,
   createTelemetry,
   type ImpactEvent,
+  type MatchTelemetry,
   MAX_TELEMETRY_IMPACTS,
   recordImpact,
   TEARDOWN_HIGHLIGHT_COUNT,
@@ -31,6 +32,22 @@ function impact(over: Partial<ImpactEvent> = {}): ImpactEvent {
     weapon: true,
     ...over,
   };
+}
+
+/** Records through the primitive-argument API the frame path uses. */
+function log(telemetry: MatchTelemetry, over: Partial<ImpactEvent> = {}): void {
+  const event = impact(over);
+  recordImpact(
+    telemetry,
+    event.tick,
+    event.attackerBot,
+    event.attackerIid,
+    event.victimBot,
+    event.victimIid,
+    event.force,
+    event.damage,
+    event.weapon,
+  );
 }
 
 function input(over: Partial<TeardownInput> = {}): TeardownInput {
@@ -93,19 +110,71 @@ describe("telemetry recording", () => {
   it("caps the impact log but keeps the count honest", () => {
     const telemetry = createTelemetry();
     for (let i = 0; i < MAX_TELEMETRY_IMPACTS + 25; i++) {
-      recordImpact(telemetry, impact({ tick: i }));
+      log(telemetry, { tick: i });
     }
-    expect(telemetry.impacts).toHaveLength(MAX_TELEMETRY_IMPACTS);
+    expect(telemetry.logged).toBe(MAX_TELEMETRY_IMPACTS);
     expect(telemetry.impactCount).toBe(MAX_TELEMETRY_IMPACTS + 25);
     expect(telemetry.truncated).toBe(true);
+  });
+
+  it("keeps exact damage totals after the log truncates", () => {
+    // The teardown must never under-report a long fight: the log is a
+    // bounded sample, the tallies are the truth.
+    const telemetry = createTelemetry();
+    const total = MAX_TELEMETRY_IMPACTS + 500;
+    for (let i = 0; i < total; i++) {
+      log(telemetry, { tick: i, damage: 2 });
+    }
+    expect(telemetry.truncated).toBe(true);
+
+    const teardown = buildTeardown(input({ telemetry }));
+    const attacker = teardown.bots[0].parts.find((p) => p.iid === "spike");
+    const victim = teardown.bots[1].parts.find((p) => p.iid === "core");
+    expect(attacker?.damageDealt).toBe(total * 2);
+    expect(attacker?.hitsDealt).toBe(total);
+    expect(victim?.damageTaken).toBe(total * 2);
+    expect(victim?.hitsTaken).toBe(total);
+    expect(teardown.bots[1].damageTaken).toBe(total * 2);
+    expect(teardown.totalImpacts).toBe(total);
+    expect(teardown.truncated).toBe(true);
+  });
+
+  it("still names the killing blow in a truncated match", () => {
+    const telemetry = createTelemetry();
+    // The real killer lands first, then the log fills past its cap with
+    // chip damage. The big hit is outside the retained window, so only the
+    // running tally can still name it. It has to outweigh the whole chip
+    // total, not just one chip.
+    log(telemetry, { attackerIid: "spike", damage: 9000 });
+    for (let i = 0; i < MAX_TELEMETRY_IMPACTS + 10; i++) {
+      log(telemetry, { attackerIid: "core", damage: 1, tick: i });
+    }
+    telemetry.destructions.push({ tick: 99, bot: 1, iid: "core" });
+    const teardown = buildTeardown(input({ telemetry }));
+    expect(teardown.bots[1].parts.find((p) => p.iid === "core")?.killedBy).toBe(
+      "spike",
+    );
+  });
+
+  it("reuses log slots instead of allocating per impact", () => {
+    // stepMatch runs inside the arena's useFrame, so the record path must
+    // not build a new object every hit (frame-loop rule).
+    const telemetry = createTelemetry();
+    log(telemetry, { damage: 1 });
+    const firstSlot = telemetry.impacts[0];
+    log(telemetry, { damage: 2 });
+    telemetry.logged = 0;
+    log(telemetry, { damage: 3 });
+    expect(telemetry.impacts[0]).toBe(firstSlot);
+    expect(telemetry.impacts[0].damage).toBe(3);
   });
 });
 
 describe("buildTeardown", () => {
   it("attributes damage to both the striking and the struck part", () => {
     const telemetry = createTelemetry();
-    recordImpact(telemetry, impact({ damage: 12 }));
-    recordImpact(telemetry, impact({ damage: 8 }));
+    log(telemetry, { damage: 12 });
+    log(telemetry, { damage: 8 });
     const teardown = buildTeardown(input({ telemetry }));
 
     const attacker = teardown.bots[0].parts.find((p) => p.iid === "spike");
@@ -121,8 +190,8 @@ describe("buildTeardown", () => {
 
   it("names the part that did the most damage to a destroyed part", () => {
     const telemetry = createTelemetry();
-    recordImpact(telemetry, impact({ attackerIid: "core", damage: 4 }));
-    recordImpact(telemetry, impact({ attackerIid: "spike", damage: 30 }));
+    log(telemetry, { attackerIid: "core", damage: 4 });
+    log(telemetry, { attackerIid: "spike", damage: 30 });
     telemetry.destructions.push({ tick: 42, bot: 1, iid: "core" });
     const teardown = buildTeardown(input({ telemetry }));
 
@@ -135,7 +204,7 @@ describe("buildTeardown", () => {
 
   it("leaves killedBy null for parts that survived", () => {
     const telemetry = createTelemetry();
-    recordImpact(telemetry, impact({ victimIid: "wheel", damage: 60 }));
+    log(telemetry, { victimIid: "wheel", damage: 60 });
     const teardown = buildTeardown(input({ telemetry }));
 
     const survivor = teardown.bots[1].parts.find((p) => p.iid === "wheel");
@@ -148,7 +217,7 @@ describe("buildTeardown", () => {
   it("ranks the hardest hits by damage and names both parts", () => {
     const telemetry = createTelemetry();
     for (const damage of [1, 9, 3, 40, 7, 22, 15]) {
-      recordImpact(telemetry, impact({ damage }));
+      log(telemetry, { damage });
     }
     const teardown = buildTeardown(input({ telemetry }));
 
@@ -162,8 +231,8 @@ describe("buildTeardown", () => {
 
   it("is order-stable when damage ties", () => {
     const telemetry = createTelemetry();
-    recordImpact(telemetry, impact({ damage: 5, tick: 3, victimIid: "wheel" }));
-    recordImpact(telemetry, impact({ damage: 5, tick: 1, victimIid: "core" }));
+    log(telemetry, { damage: 5, tick: 3, victimIid: "wheel" });
+    log(telemetry, { damage: 5, tick: 1, victimIid: "core" });
     const first = buildTeardown(input({ telemetry }));
     const second = buildTeardown(input({ telemetry }));
     expect(first.hardestHits.map((h) => h.victimIid)).toEqual(

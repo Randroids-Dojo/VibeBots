@@ -533,6 +533,13 @@ export function WorkshopPanel() {
             setVerification({ state: "idle" });
             setTeardownOpen(false);
           }}
+          onMatchStart={() => {
+            // The exhibition loop runs the fight back. A verdict and a
+            // teardown from the previous run must not hang over the new one.
+            setEndInfo(null);
+            setVerification({ state: "idle" });
+            setTeardownOpen(false);
+          }}
         />
         {endInfo && (
           <div
@@ -567,6 +574,8 @@ export function WorkshopPanel() {
               <button
                 type="button"
                 data-testid="open-teardown"
+                aria-expanded={teardownOpen}
+                aria-controls="match-teardown-sheet"
                 onClick={() => setTeardownOpen((open) => !open)}
                 style={{
                   background: "#26304a",

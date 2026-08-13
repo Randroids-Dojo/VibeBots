@@ -111,6 +111,7 @@ export function MatchTeardownSheet({
 
   return (
     <section
+      id="match-teardown-sheet"
       data-testid="match-teardown"
       aria-label="Match teardown"
       style={{

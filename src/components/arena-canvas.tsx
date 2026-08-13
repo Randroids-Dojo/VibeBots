@@ -260,12 +260,15 @@ function ArenaScene({
   stageRef,
   onHud,
   onMatchEnd,
+  onMatchStart,
   onCountdown,
 }: {
   designs: [BotDesign, BotDesign];
   stageRef: RefObject<HTMLDivElement | null>;
   onHud: (hud: HudState) => void;
   onMatchEnd?: (info: MatchEndInfo) => void;
+  /** Fired when the exhibition loop boots the next fight. */
+  onMatchStart?: () => void;
   onCountdown: (label: string | null) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
@@ -610,6 +613,10 @@ function ArenaScene({
         endLingerRef.current = 0;
         runRef.current = null;
         run.dispose();
+        // The previous result stops describing anything the moment the next
+        // fight boots. Without this the teardown sheet for the last match
+        // stays open over a live one.
+        onMatchStart?.();
         const generation = generationRef.current;
         exhibitionCycleRef.current =
           (exhibitionCycleRef.current + 1) % EXHIBITION_MATCHUPS.length;
@@ -786,9 +793,12 @@ function ArenaScene({
 export default function ArenaCanvas({
   designs = EXHIBITION_DESIGNS,
   onMatchEnd,
+  onMatchStart,
 }: {
   designs?: [BotDesign, BotDesign];
   onMatchEnd?: (info: MatchEndInfo) => void;
+  /** Fired when the exhibition loop boots the next fight. */
+  onMatchStart?: () => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<HudState | null>(null);
@@ -815,6 +825,7 @@ export default function ArenaCanvas({
           stageRef={stageRef}
           onHud={setHud}
           onMatchEnd={onMatchEnd}
+          onMatchStart={onMatchStart}
           onCountdown={setCountdown}
         />
         <PerfProbeBridge source="arena" />

@@ -40,36 +40,147 @@ export interface DestructionEvent {
  */
 export const MAX_TELEMETRY_IMPACTS = 4096;
 
+/** Running damage totals for one part, complete even if the log truncates. */
+export interface PartTally {
+  damageDealt: number;
+  damageTaken: number;
+  hitsDealt: number;
+  hitsTaken: number;
+  /** Attacker instance id -> damage that attacker took off this part. */
+  takenFrom: Map<string, number>;
+}
+
+function emptyTally(): PartTally {
+  return {
+    damageDealt: 0,
+    damageTaken: 0,
+    hitsDealt: 0,
+    hitsTaken: 0,
+    takenFrom: new Map(),
+  };
+}
+
 export interface MatchTelemetry {
+  /**
+   * The detail log, bounded by MAX_TELEMETRY_IMPACTS. Slots are reused: a
+   * recorded impact writes into an existing object rather than allocating,
+   * because stepMatch runs inside the arena's useFrame and the frame-loop
+   * rule forbids steady-state garbage there. `logged` is the live length.
+   */
   impacts: ImpactEvent[];
+  /** How many slots of `impacts` hold a real event. */
+  logged: number;
   destructions: DestructionEvent[];
-  /** True once impacts hit the cap: totals stay honest, the log does not. */
+  /** True once impacts hit the cap: the totals stay exact, the log does not. */
   truncated: boolean;
-  /** Impacts observed, including any dropped after the cap. */
+  /** Impacts observed, including any that did not fit the log. */
   impactCount: number;
+  /**
+   * Per-bot, per-part running totals. These are accumulated on every impact
+   * regardless of the log cap, so a truncated match still reports exact
+   * damage. Deriving the totals from the log instead would silently
+   * under-report a long fight.
+   */
+  tallies: [Map<string, PartTally>, Map<string, PartTally>];
 }
 
 export function createTelemetry(): MatchTelemetry {
-  return { impacts: [], destructions: [], truncated: false, impactCount: 0 };
+  return {
+    impacts: [],
+    logged: 0,
+    destructions: [],
+    truncated: false,
+    impactCount: 0,
+    tallies: [new Map(), new Map()],
+  };
 }
 
+function tallyFor(
+  telemetry: MatchTelemetry,
+  bot: 0 | 1,
+  iid: string,
+): PartTally {
+  const perBot = telemetry.tallies[bot];
+  const existing = perBot.get(iid);
+  if (existing) return existing;
+  const created = emptyTally();
+  perBot.set(iid, created);
+  return created;
+}
+
+/**
+ * Records one impact. Takes primitives rather than an event object so the
+ * caller never builds a literal on the frame path; the log slot is reused.
+ */
 export function recordImpact(
   telemetry: MatchTelemetry,
-  event: ImpactEvent,
+  tick: number,
+  attackerBot: 0 | 1,
+  attackerIid: string,
+  victimBot: 0 | 1,
+  victimIid: string,
+  force: number,
+  damage: number,
+  weapon: boolean,
 ): void {
   telemetry.impactCount += 1;
-  if (telemetry.impacts.length >= MAX_TELEMETRY_IMPACTS) {
+
+  const attacker = tallyFor(telemetry, attackerBot, attackerIid);
+  attacker.damageDealt += damage;
+  attacker.hitsDealt += 1;
+  const victim = tallyFor(telemetry, victimBot, victimIid);
+  victim.damageTaken += damage;
+  victim.hitsTaken += 1;
+  victim.takenFrom.set(
+    attackerIid,
+    (victim.takenFrom.get(attackerIid) ?? 0) + damage,
+  );
+
+  if (telemetry.logged >= MAX_TELEMETRY_IMPACTS) {
     telemetry.truncated = true;
     return;
   }
-  telemetry.impacts.push(event);
+  const slot = telemetry.impacts[telemetry.logged];
+  if (slot) {
+    slot.tick = tick;
+    slot.attackerBot = attackerBot;
+    slot.attackerIid = attackerIid;
+    slot.victimBot = victimBot;
+    slot.victimIid = victimIid;
+    slot.force = force;
+    slot.damage = damage;
+    slot.weapon = weapon;
+  } else {
+    telemetry.impacts.push({
+      tick,
+      attackerBot,
+      attackerIid,
+      victimBot,
+      victimIid,
+      force,
+      damage,
+      weapon,
+    });
+  }
+  telemetry.logged += 1;
 }
 
+/** The impacts actually held in the log, without the unused pool tail. */
+export function loggedImpacts(telemetry: MatchTelemetry): ImpactEvent[] {
+  return telemetry.impacts.slice(0, telemetry.logged);
+}
+
+/**
+ * Records a part destruction. Bounded by the design's part count, so this
+ * one keeps its plain push: a match can only ever fire a few dozen.
+ */
 export function recordDestruction(
   telemetry: MatchTelemetry,
-  event: DestructionEvent,
+  tick: number,
+  bot: 0 | 1,
+  iid: string,
 ): void {
-  telemetry.destructions.push(event);
+  telemetry.destructions.push({ tick, bot, iid });
 }
 
 /** Plain per-part end state, extracted from a match by combat.ts. */
@@ -165,28 +276,20 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
   const byIid = bots.map(
     (bot) => new Map(bot.parts.map((part) => [part.iid, part])),
   );
-  // Per victim part: which attacker part has taken the most off it.
-  const attribution = bots.map(() => new Map<string, Map<string, number>>());
 
-  for (const impact of input.telemetry.impacts) {
-    const attacker = byIid[impact.attackerBot].get(impact.attackerIid);
-    const victim = byIid[impact.victimBot].get(impact.victimIid);
-    if (attacker) {
-      attacker.damageDealt += impact.damage;
-      attacker.hitsDealt += 1;
-      bots[impact.attackerBot].damageDealt += impact.damage;
-    }
-    if (victim) {
-      victim.damageTaken += impact.damage;
-      victim.hitsTaken += 1;
-      bots[impact.victimBot].damageTaken += impact.damage;
-      const perVictim = attribution[impact.victimBot];
-      const sources = perVictim.get(impact.victimIid) ?? new Map();
-      sources.set(
-        impact.attackerIid,
-        (sources.get(impact.attackerIid) ?? 0) + impact.damage,
-      );
-      perVictim.set(impact.victimIid, sources);
+  // Totals come from the running tallies, never from the log. The log is
+  // capped, so folding it would silently under-report a long fight while
+  // still showing an impact count that says otherwise.
+  for (const [index, bot] of bots.entries()) {
+    for (const part of bot.parts) {
+      const tally = input.telemetry.tallies[index].get(part.iid);
+      if (!tally) continue;
+      part.damageDealt = tally.damageDealt;
+      part.damageTaken = tally.damageTaken;
+      part.hitsDealt = tally.hitsDealt;
+      part.hitsTaken = tally.hitsTaken;
+      bot.damageDealt += tally.damageDealt;
+      bot.damageTaken += tally.damageTaken;
     }
   }
 
@@ -204,7 +307,9 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
   for (const [index, bot] of bots.entries()) {
     for (const part of bot.parts) {
       if (part.destroyedAtTick === null) continue;
-      const sources = attribution[index].get(part.iid);
+      // Attribution also comes from the tally, so the killing blow is named
+      // correctly even in a match whose log truncated.
+      const sources = input.telemetry.tallies[index].get(part.iid)?.takenFrom;
       if (!sources) continue;
       let bestIid: string | null = null;
       let bestDamage = -1;
@@ -222,7 +327,9 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
   }
 
   const nameOf = (bot: 0 | 1, iid: string) => byIid[bot].get(iid)?.name ?? iid;
-  const hardestHits = [...input.telemetry.impacts]
+  // Highlights can only come from the log, so they are a sample of a
+  // truncated match. `truncated` on the report says when that is the case.
+  const hardestHits = loggedImpacts(input.telemetry)
     .sort((a, b) => {
       const delta = b.damage - a.damage;
       if (delta !== 0) return delta;

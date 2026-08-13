@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
+import { MatchTeardownSheet } from "@/components/match-teardown";
 import { StampBookPopup } from "@/components/mine-stamp-book-popup";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
@@ -110,6 +111,7 @@ export function WorkshopPanel() {
   );
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
   const [endInfo, setEndInfo] = useState<MatchEndInfo | null>(null);
+  const [teardownOpen, setTeardownOpen] = useState(false);
   const [rivalState, setRivalState] = useState<
     "idle" | "pending" | "none" | "error"
   >("idle");
@@ -529,6 +531,7 @@ export function WorkshopPanel() {
             // previous run must not describe the new one.
             setEndInfo(info);
             setVerification({ state: "idle" });
+            setTeardownOpen(false);
           }}
         />
         {endInfo && (
@@ -560,6 +563,23 @@ export function WorkshopPanel() {
                 ? "Asking the server..."
                 : "Verify result on server"}
             </button>
+            {endInfo.teardown && (
+              <button
+                type="button"
+                data-testid="open-teardown"
+                onClick={() => setTeardownOpen((open) => !open)}
+                style={{
+                  background: "#26304a",
+                  color: "#e6e8ee",
+                  border: "1px solid #344061",
+                  borderRadius: 8,
+                  padding: "8px 16px",
+                  cursor: "pointer",
+                }}
+              >
+                {teardownOpen ? "Hide teardown" : "Teardown"}
+              </button>
+            )}
             {verification.state === "done" && (
               <p
                 style={{
@@ -589,12 +609,19 @@ export function WorkshopPanel() {
             )}
           </div>
         )}
+        {teardownOpen && endInfo?.teardown && (
+          <MatchTeardownSheet
+            teardown={endInfo.teardown}
+            onClose={() => setTeardownOpen(false)}
+          />
+        )}
         <button
           type="button"
           onClick={() => {
             setMatchup(null);
             setEndInfo(null);
             setVerification({ state: "idle" });
+            setTeardownOpen(false);
           }}
           style={{
             position: "absolute",

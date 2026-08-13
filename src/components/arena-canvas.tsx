@@ -44,6 +44,7 @@ import {
   freeMatch,
   type MatchState,
   stepMatch,
+  teardownInputFrom,
 } from "@/sim/combat";
 import { DT } from "@/sim/constants";
 import {
@@ -55,6 +56,7 @@ import {
 } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import { matchResultHash } from "@/sim/resolve";
+import { buildTeardown, type MatchTeardown } from "@/sim/telemetry";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
@@ -127,7 +129,10 @@ interface ArenaRun {
 
 async function bootMatch(designs: [BotDesign, BotDesign]): Promise<ArenaRun> {
   const world = await createArenaWorld();
-  const match = createMatch(world, designs);
+  // Recorded so the fight can be taken apart afterwards. Impacts arrive at
+  // contact cadence, not frame cadence, and the log is capped, so this is
+  // not steady-state frame-loop allocation.
+  const match = createMatch(world, designs, { telemetry: true });
   return {
     match,
     dispose: () => {
@@ -246,6 +251,8 @@ function includeBotPartBounds(
 export interface MatchEndInfo {
   hash: string;
   tick: number;
+  /** The inspection sheet for the fight that just ended. */
+  teardown: MatchTeardown | null;
 }
 
 function ArenaScene({
@@ -584,7 +591,12 @@ function ArenaScene({
         lastHudTickRef.current = hudTick;
         if (bannerEdge) {
           bannerShownRef.current = true;
-          onMatchEnd?.({ hash: matchResultHash(match), tick: match.tick });
+          const teardownInput = teardownInputFrom(match);
+          onMatchEnd?.({
+            hash: matchResultHash(match),
+            tick: match.tick,
+            teardown: teardownInput ? buildTeardown(teardownInput) : null,
+          });
         }
         onHud(readHud(match));
       }

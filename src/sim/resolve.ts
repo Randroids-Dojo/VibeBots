@@ -5,11 +5,13 @@ import {
   freeMatch,
   type MatchStatus,
   stepMatch,
+  teardownInputFrom,
 } from "./combat";
 import { SIM_VERSION } from "./constants";
 import type { BotDesign } from "./design";
 import { fnv1a64 } from "./hash";
 import { computeRewards, type MatchRewards, outcomeFor } from "./rewards";
+import { buildTeardown, type MatchTeardown } from "./telemetry";
 
 /**
  * Runs a complete match to its end and fingerprints the result. This is
@@ -25,6 +27,13 @@ export interface ResolvedMatch {
   /** FNV-1a 64 over the final world snapshot plus the combat state. */
   hash: string;
   rewards: [MatchRewards, MatchRewards];
+  /** The inspection sheet, when the caller asked for telemetry. */
+  teardown: MatchTeardown | null;
+}
+
+export interface ResolveMatchOptions {
+  /** Record impacts and return the post-match teardown sheet. */
+  telemetry?: boolean;
 }
 
 /** One hash for "the same fight": final snapshot plus combat state. */
@@ -40,11 +49,15 @@ export function matchResultHash(
 export async function resolveMatch(
   designs: [BotDesign, BotDesign],
   timeLimitTicks?: number,
+  options: ResolveMatchOptions = {},
 ): Promise<ResolvedMatch> {
   const world = await createArenaWorld();
   let match: ReturnType<typeof createMatch> | null = null;
   try {
-    match = createMatch(world, designs, { timeLimitTicks });
+    match = createMatch(world, designs, {
+      timeLimitTicks,
+      telemetry: options.telemetry,
+    });
     while (!match.status.over) {
       stepMatch(match);
     }
@@ -55,12 +68,14 @@ export async function resolveMatch(
       computeRewards(outcomeFor(status.winner, 0), status.scores[0]),
       computeRewards(outcomeFor(status.winner, 1), status.scores[1]),
     ];
+    const teardownInput = teardownInputFrom(match);
     return {
       simVersion: SIM_VERSION,
       tick: match.tick,
       status,
       hash,
       rewards,
+      teardown: teardownInput ? buildTeardown(teardownInput) : null,
     };
   } finally {
     if (match) freeMatch(match);

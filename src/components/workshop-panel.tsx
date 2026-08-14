@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
+import { BalanceReadout } from "@/components/balance-readout";
 import { BenchPanel } from "@/components/bench-panel";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { MatchTeardownSheet } from "@/components/match-teardown";
@@ -1132,6 +1133,8 @@ export function WorkshopPanel() {
                   </ul>
                 )}
               </section>
+
+              <BalanceReadout panelStyle={panelStyle} design={design} />
 
               <section style={panelStyle} aria-label="Temperament">
                 <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>

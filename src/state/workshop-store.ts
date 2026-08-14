@@ -353,6 +353,13 @@ export interface WorkshopState {
    * drag is over an empty slot or not dragging.
    */
   mergePreviewLevel: number | null;
+  /**
+   * Balance overlay (F-227): draws the centre of mass and the footprint the
+   * bot stands on. Off by default so the bench stays clean; it is a
+   * diagnostic view, not the default way to look at a bot.
+   */
+  balanceVisible: boolean;
+  toggleBalance: () => void;
   addPart: (partId: string) => void;
   browseBy: (dir: number) => void;
   /** Set the carousel's part pool; snaps the shown part back in when needed. */
@@ -397,6 +404,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   browseDimmed: false,
   browseStatsOpen: false,
   mergePreviewLevel: null,
+  balanceVisible: false,
   mirrorEnabled: false,
 
   toggleMirror: () => set((s) => ({ mirrorEnabled: !s.mirrorEnabled })),
@@ -458,6 +466,8 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
 
   toggleBrowseStats: () =>
     set((s) => ({ browseStatsOpen: !s.browseStatsOpen, selectedIid: null })),
+
+  toggleBalance: () => set((s) => ({ balanceVisible: !s.balanceVisible })),
 
   // Swap the chassis (I). Connector layouts differ per core, so this resets
   // to a fresh bot rooted at the chosen core, keeping the bot's name and

@@ -1342,6 +1342,39 @@ test(
   },
 );
 
+test(
+  "the balance readout reports a tip-over angle and draws on the bench",
+  ciCase("E2E-WORKSHOP-0033", "@render"),
+  async ({ page }) => {
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    await page.getByRole("tab", { name: "Tune" }).click();
+    const balance = page.getByLabel("Balance");
+    await expect(balance).toBeVisible();
+
+    // A real angle, not a placeholder.
+    await expect(balance.getByTestId("balance-tipover")).toHaveText(
+      /^Leans \d+ degrees before it goes over$/,
+    );
+
+    // The overlay is off by default and exposes its state accessibly.
+    const toggle = balance.getByTestId("toggle-balance");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    // Rule 10: prove the pixels change, not just that a control says it is on.
+    const before = await canvas.screenshot();
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () => (await canvas.screenshot()).equals(before), {
+        timeout: 10_000,
+      })
+      .toBe(false);
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

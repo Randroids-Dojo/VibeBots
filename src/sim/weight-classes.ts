@@ -51,13 +51,28 @@ export const WEIGHT_CLASSES: readonly WeightClass[] = [
   },
 ];
 
-/** Ceiling by class id, for the validity rule. */
-export const WEIGHT_CLASS_LIMITS: Record<string, number> = Object.fromEntries(
-  WEIGHT_CLASSES.map((entry) => [entry.id, entry.maxMass]),
-);
-
 export function weightClassById(id: string): WeightClass | null {
   return WEIGHT_CLASSES.find((entry) => entry.id === id) ?? null;
+}
+
+/**
+ * The weight-class complaint for a design, or null when there is none.
+ *
+ * Lives with the classes rather than in the validator so the rule and its
+ * wording have one home: inspectDesign has to re-run this when
+ * validateDesign returns early on a structural fault, and a second copy of
+ * the format string would drift. Covers the unknown-id case too, which a
+ * mass-only re-check would silently pass.
+ */
+export function weightClassProblem(
+  mass: number,
+  classId: string | undefined,
+): string | null {
+  if (classId === undefined) return null;
+  const declared = weightClassById(classId);
+  if (declared === null) return `unknown weight class "${classId}"`;
+  if (mass <= declared.maxMass) return null;
+  return `over ${declared.name}: ${mass.toFixed(2)} exceeds ${declared.maxMass.toFixed(2)}`;
 }
 
 /** The lightest class this mass legally fits, or null if it exceeds them all. */

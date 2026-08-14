@@ -48,8 +48,12 @@ export interface AssembledBot {
   joints: ImpulseJoint[];
   /** Motorized axle connections with their side, for differential drive. */
   axleJoints: AxleMotor[];
-  /** Constant-velocity spinner axles, driven from assembly, never steered. */
-  spinJoints: RevoluteImpulseJoint[];
+  /**
+   * Spinner axles with the part they drive, so combat can spin a damaged
+   * weapon down (F-232) instead of a mangled blade running at full rim
+   * speed until the instant it breaks.
+   */
+  spinJoints: Array<{ joint: RevoluteImpulseJoint; childIid: string }>;
   /** The joint attaching each non-root instance to its parent (detach point). */
   jointToParent: Map<string, ImpulseJoint>;
 }
@@ -127,7 +131,7 @@ export function assembleBot(
   const colliders = new Map<string, Collider>();
   const joints: ImpulseJoint[] = [];
   const axleJoints: AxleMotor[] = [];
-  const spinJoints: RevoluteImpulseJoint[] = [];
+  const spinJoints: AssembledBot["spinJoints"] = [];
   const jointToParent = new Map<string, ImpulseJoint>();
   // Shared with the workshop preview: what you build is what fights.
   const placements = computeLayout(design, catalog, origin);
@@ -193,7 +197,10 @@ export function assembleBot(
           SPIN_MOTOR_VELOCITY,
           SPIN_MOTOR_FACTOR,
         );
-        spinJoints.push(joint as RevoluteImpulseJoint);
+        spinJoints.push({
+          joint: joint as RevoluteImpulseJoint,
+          childIid: conn.childIid,
+        });
       } else {
         axleJoints.push({
           joint: joint as RevoluteImpulseJoint,
@@ -241,26 +248,6 @@ export const SPIN_MOTOR_FACTOR = 120;
  * (rad/s), modulated by its side and the steer term. steer > 0 turns the
  * bot toward its local +x (left axles speed up, right axles slow down).
  */
-/**
- * The gearing math, split out so it can be tested exactly rather than
- * inferred from a chaotic driving trial. A reduction divides shaft speed
- * and multiplies available torque; here that is the commanded velocity and
- * the motor factor. At ratio 1 both terms are returned unchanged, which is
- * the identity contract that keeps stored replays valid.
- */
-export function gearedMotorCommand(
-  velocity: number,
-  steer: number,
-  side: number,
-  factor: number,
-  ratio: number,
-): { velocity: number; factor: number } {
-  return {
-    velocity: (velocity * (1 - side * steer)) / ratio,
-    factor: factor * ratio,
-  };
-}
-
 export function setDriveVelocity(
   bot: AssembledBot,
   velocity: number,
@@ -268,13 +255,16 @@ export function setDriveVelocity(
   factor = 50,
 ): void {
   for (const motor of bot.axleJoints) {
-    const command = gearedMotorCommand(
-      velocity,
-      steer,
-      motor.side,
-      factor,
-      motor.ratio,
+    // Gearing divides commanded shaft speed and multiplies motor authority,
+    // which is the torque-for-speed trade a reduction makes. At ratio 1 both
+    // terms are unchanged, so the arithmetic is bit-identical to the
+    // ungeared path and stored replays stay valid. Written inline rather
+    // than through a helper returning {velocity, factor}: this runs once per
+    // axle per tick inside the arena's useFrame, where the frame-loop rule
+    // forbids per-frame object literals.
+    motor.joint.configureMotorVelocity(
+      (velocity * (1 - motor.side * steer)) / motor.ratio,
+      factor * motor.ratio,
     );
-    motor.joint.configureMotorVelocity(command.velocity, command.factor);
   }
 }

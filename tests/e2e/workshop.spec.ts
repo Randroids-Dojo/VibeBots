@@ -1449,7 +1449,7 @@ test(
     const crawler = gearing.locator(
       '[data-testid="gear-option"][data-ratio="2.2"]',
     );
-    await expect(crawler).toContainText("+14.4W");
+    await expect(crawler).toContainText("+15.6W");
 
     await crawler.click();
     await expect(crawler).toHaveAttribute("aria-pressed", "true");

@@ -13,6 +13,8 @@ import {
   buildTeardown,
   createTelemetry,
   type ImpactEvent,
+  isTruncated,
+  loggedImpacts,
   MAX_TELEMETRY_IMPACTS,
   type MatchTelemetry,
   recordImpact,
@@ -50,9 +52,21 @@ function log(telemetry: MatchTelemetry, over: Partial<ImpactEvent> = {}): void {
   );
 }
 
+/**
+ * Telemetry seeded with the same parts the fixture designs carry, which is
+ * what createMatch does for a real match.
+ */
+const FIXTURE_PART_IIDS: readonly [readonly string[], readonly string[]] = [
+  ["core", "spike"],
+  ["core", "wheel"],
+];
+function fixtureTelemetry(): MatchTelemetry {
+  return createTelemetry(FIXTURE_PART_IIDS);
+}
+
 function input(over: Partial<TeardownInput> = {}): TeardownInput {
   return {
-    telemetry: createTelemetry(),
+    telemetry: fixtureTelemetry(),
     ticks: 100,
     bots: [
       {
@@ -108,24 +122,24 @@ function input(over: Partial<TeardownInput> = {}): TeardownInput {
 
 describe("telemetry recording", () => {
   it("caps the impact log but keeps the count honest", () => {
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     for (let i = 0; i < MAX_TELEMETRY_IMPACTS + 25; i++) {
       log(telemetry, { tick: i });
     }
     expect(telemetry.logged).toBe(MAX_TELEMETRY_IMPACTS);
     expect(telemetry.impactCount).toBe(MAX_TELEMETRY_IMPACTS + 25);
-    expect(telemetry.truncated).toBe(true);
+    expect(isTruncated(telemetry)).toBe(true);
   });
 
   it("keeps exact damage totals after the log truncates", () => {
     // The teardown must never under-report a long fight: the log is a
     // bounded sample, the tallies are the truth.
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     const total = MAX_TELEMETRY_IMPACTS + 500;
     for (let i = 0; i < total; i++) {
       log(telemetry, { tick: i, damage: 2 });
     }
-    expect(telemetry.truncated).toBe(true);
+    expect(isTruncated(telemetry)).toBe(true);
 
     const teardown = buildTeardown(input({ telemetry }));
     const attacker = teardown.bots[0].parts.find((p) => p.iid === "spike");
@@ -140,15 +154,23 @@ describe("telemetry recording", () => {
   });
 
   it("still names the killing blow in a truncated match", () => {
-    const telemetry = createTelemetry();
-    // The real killer lands first, then the log fills past its cap with
-    // chip damage. The big hit is outside the retained window, so only the
-    // running tally can still name it. It has to outweigh the whole chip
+    const telemetry = fixtureTelemetry();
+    // Fill the retained log FIRST with chip damage, then land the decisive
+    // hit. That puts the deciding impact outside the window entirely, so
+    // the test fails if attribution ever folds the log instead of the
+    // running tally. (Recording it first would leave it retained, and the
+    // test would pass either way.) It also has to outweigh the whole chip
     // total, not just one chip.
-    log(telemetry, { attackerIid: "spike", damage: 9000 });
-    for (let i = 0; i < MAX_TELEMETRY_IMPACTS + 10; i++) {
+    for (let i = 0; i < MAX_TELEMETRY_IMPACTS; i++) {
       log(telemetry, { attackerIid: "core", damage: 1, tick: i });
     }
+    expect(telemetry.logged).toBe(MAX_TELEMETRY_IMPACTS);
+    log(telemetry, { attackerIid: "spike", damage: 9000 });
+    expect(isTruncated(telemetry)).toBe(true);
+    // The deciding hit is genuinely absent from the retained log.
+    expect(
+      loggedImpacts(telemetry).some((hit) => hit.attackerIid === "spike"),
+    ).toBe(false);
     telemetry.destructions.push({ tick: 99, bot: 1, iid: "core" });
     const teardown = buildTeardown(input({ telemetry }));
     expect(teardown.bots[1].parts.find((p) => p.iid === "core")?.killedBy).toBe(
@@ -156,10 +178,41 @@ describe("telemetry recording", () => {
     );
   });
 
+  it("allocates nothing while recording, tallies included", () => {
+    // recordImpact runs inside stepMatch, which the arena drives from
+    // useFrame. Every tally and attribution slot is seeded up front, so
+    // recording must not grow any collection (frame-loop rule).
+    const telemetry = createTelemetry([
+      ["core", "spike"],
+      ["core", "wheel"],
+    ]);
+    const sizes = () => [
+      telemetry.tallies[0].size,
+      telemetry.tallies[1].size,
+      ...[...telemetry.tallies[0].values()].map((t) => t.takenFrom.size),
+      ...[...telemetry.tallies[1].values()].map((t) => t.takenFrom.size),
+    ];
+    const before = sizes();
+    for (let i = 0; i < 200; i++) {
+      log(telemetry, { damage: 3, tick: i });
+      log(telemetry, {
+        attackerBot: 1,
+        attackerIid: "wheel",
+        victimBot: 0,
+        victimIid: "spike",
+        damage: 2,
+        tick: i,
+      });
+    }
+    expect(sizes()).toEqual(before);
+    // The pool grew only to the number of impacts actually logged.
+    expect(telemetry.impacts.length).toBe(telemetry.logged);
+  });
+
   it("reuses log slots instead of allocating per impact", () => {
     // stepMatch runs inside the arena's useFrame, so the record path must
     // not build a new object every hit (frame-loop rule).
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     log(telemetry, { damage: 1 });
     const firstSlot = telemetry.impacts[0];
     log(telemetry, { damage: 2 });
@@ -172,7 +225,7 @@ describe("telemetry recording", () => {
 
 describe("buildTeardown", () => {
   it("attributes damage to both the striking and the struck part", () => {
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     log(telemetry, { damage: 12 });
     log(telemetry, { damage: 8 });
     const teardown = buildTeardown(input({ telemetry }));
@@ -189,7 +242,7 @@ describe("buildTeardown", () => {
   });
 
   it("names the part that did the most damage to a destroyed part", () => {
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     log(telemetry, { attackerIid: "core", damage: 4 });
     log(telemetry, { attackerIid: "spike", damage: 30 });
     telemetry.destructions.push({ tick: 42, bot: 1, iid: "core" });
@@ -203,7 +256,7 @@ describe("buildTeardown", () => {
   });
 
   it("leaves killedBy null for parts that survived", () => {
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     log(telemetry, { victimIid: "wheel", damage: 60 });
     const teardown = buildTeardown(input({ telemetry }));
 
@@ -215,7 +268,7 @@ describe("buildTeardown", () => {
   });
 
   it("ranks the hardest hits by damage and names both parts", () => {
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     for (const damage of [1, 9, 3, 40, 7, 22, 15]) {
       log(telemetry, { damage });
     }
@@ -230,7 +283,7 @@ describe("buildTeardown", () => {
   });
 
   it("is order-stable when damage ties", () => {
-    const telemetry = createTelemetry();
+    const telemetry = fixtureTelemetry();
     log(telemetry, { damage: 5, tick: 3, victimIid: "wheel" });
     log(telemetry, { damage: 5, tick: 1, victimIid: "core" });
     const first = buildTeardown(input({ telemetry }));

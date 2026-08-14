@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "id": "GOLDEN-COMBAT-0002",
+  "kind": "combat",
+  "seed": 0,
+  "stepCount": 900,
+  "simVersion": 6,
+  "designInputs": [
+    {
+      "name": "Whirligig",
+      "behavior": {
+        "aggression": 0.6,
+        "flankBias": 0.8,
+        "patience": 0.2
+      },
+      "parts": [
+        {
+          "iid": "core",
+          "partId": "core-cube"
+        },
+        {
+          "iid": "wheel-l",
+          "partId": "drive-wheel"
+        },
+        {
+          "iid": "wheel-r",
+          "partId": "drive-wheel"
+        },
+        {
+          "iid": "mount",
+          "partId": "spin-mount"
+        },
+        {
+          "iid": "blade",
+          "partId": "saw-blade"
+        }
+      ],
+      "connections": [
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-left",
+          "childIid": "wheel-l",
+          "childConnector": "hub"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-right",
+          "childIid": "wheel-r",
+          "childConnector": "hub"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "front",
+          "childIid": "mount",
+          "childConnector": "base"
+        },
+        {
+          "parentIid": "mount",
+          "parentConnector": "spindle",
+          "childIid": "blade",
+          "childConnector": "hub"
+        }
+      ]
+    },
+    {
+      "name": "Bulldozer",
+      "behavior": {
+        "aggression": 0.85,
+        "flankBias": 0.15,
+        "patience": 0.7
+      },
+      "parts": [
+        {
+          "iid": "core",
+          "partId": "core-cube"
+        },
+        {
+          "iid": "drum-l",
+          "partId": "roller-drum"
+        },
+        {
+          "iid": "drum-r",
+          "partId": "roller-drum"
+        },
+        {
+          "iid": "wedge",
+          "partId": "armor-wedge"
+        },
+        {
+          "iid": "plow",
+          "partId": "plow-blade"
+        }
+      ],
+      "connections": [
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-left",
+          "childIid": "drum-l",
+          "childConnector": "hub-left"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "axle-right",
+          "childIid": "drum-r",
+          "childConnector": "hub-right"
+        },
+        {
+          "parentIid": "core",
+          "parentConnector": "front",
+          "childIid": "wedge",
+          "childConnector": "mount"
+        },
+        {
+          "parentIid": "wedge",
+          "parentConnector": "face",
+          "childIid": "plow",
+          "childConnector": "mount"
+        }
+      ]
+    }
+  ],
+  "actionLog": [],
+  "expected": {
+    "snapshotHash": "b7925f8c7d3d0db3",
+    "outcomes": {
+      "rewards": [
+        {
+          "outcome": "win",
+          "credits": 200,
+          "trackXp": 100
+        },
+        {
+          "outcome": "loss",
+          "credits": 110,
+          "trackXp": 52
+        }
+      ],
+      "status": {
+        "over": true,
+        "winner": 0,
+        "reason": "timeout",
+        "scores": [
+          {
+            "damageDealt": 131.4547164916992,
+            "damageTaken": 85.88675994873047,
+            "partsRemaining": 5,
+            "partCount": 5,
+            "healthRemaining": 484.11324005126954,
+            "healthTotal": 570,
+            "pressureTicks": 327,
+            "mobileAtEnd": true,
+            "total": 273.5720800567091
+          },
+          {
+            "damageDealt": 85.88675994873047,
+            "damageTaken": 131.4547164916992,
+            "partsRemaining": 5,
+            "partCount": 5,
+            "healthRemaining": 718.5452835083008,
+            "healthTotal": 850,
+            "pressureTicks": 63,
+            "mobileAtEnd": true,
+            "total": 129.3361730238971
+          }
+        ]
+      },
+      "tick": 900
+    }
+  },
+  "manifestId": "goldens-20260813041042091"
+}

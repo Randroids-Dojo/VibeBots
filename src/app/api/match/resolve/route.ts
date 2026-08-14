@@ -94,9 +94,14 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
   }
+  // Telemetry on (F-239): post-match damage attribution is a match fact,
+  // so the authoritative rerun states it rather than leaving the player's
+  // teardown entirely client-authored. Recording is bounded and trivial
+  // next to the 3600 physics steps the rerun already pays for.
   const result = await resolveMatch(
     parsed.data.designs,
     parsed.data.timeLimitTicks,
+    { telemetry: true },
   );
   // Verified player fights become durable records (B4): the workshop
   // record chip and the battle stamps read from them. Exhibition and

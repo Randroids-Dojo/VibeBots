@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { useWorkshopStore } from "@/state/workshop-store";
 import { createArenaWorld } from "./arena";
-import { assembleBot, gearedMotorCommand, setDriveVelocity } from "./assembly";
+import { assembleBot, setDriveVelocity } from "./assembly";
 import { combatStateString, createMatch, freeMatch, stepMatch } from "./combat";
 import {
   type BotDesign,
@@ -8,8 +9,9 @@ import {
   CPU_BRAWLER_DESIGN,
   CPU_WHIRLIGIG_DESIGN,
   DEFAULT_GEAR_RATIO,
+  GEAR_RATIO_PRESETS,
   gearPowerDraw,
-  MAX_GEAR_RATIO,
+  isGearableConnection,
   TEST_BOT_DESIGN,
   validateDesign,
 } from "./design";
@@ -115,7 +117,7 @@ describe("gear ratio validation", () => {
     );
   });
 
-  it("rejects a ratio outside the buildable range", () => {
+  it("rejects a ratio that is not a buildable preset", () => {
     const withRatio = (gearRatio: number) => ({
       ...TEST_BOT_DESIGN,
       connections: [
@@ -123,19 +125,155 @@ describe("gear ratio validation", () => {
         ...TEST_BOT_DESIGN.connections.slice(1),
       ],
     });
-    // The range lives on the zod schema, so parse rather than validate.
-    expect(botDesignSchema.safeParse(withRatio(99)).success).toBe(false);
-    expect(botDesignSchema.safeParse(withRatio(0.1)).success).toBe(false);
-    expect(botDesignSchema.safeParse(withRatio(MAX_GEAR_RATIO)).success).toBe(
-      true,
-    );
+    // The buildable set is the rule (F-238), so the server accepts exactly
+    // what the workshop offers and nothing between or beyond it.
+    for (const preset of GEAR_RATIO_PRESETS) {
+      expect(botDesignSchema.safeParse(withRatio(preset)).success).toBe(true);
+    }
+    for (const offPreset of [0.1, 0.9, 1.3, 2.5, 99]) {
+      expect(
+        botDesignSchema.safeParse(withRatio(offPreset)).success,
+        `ratio ${offPreset}`,
+      ).toBe(false);
+    }
   });
 });
 
+describe("isGearableConnection", () => {
+  it("refuses a spinner hub mounted straight onto a drive axle", () => {
+    // A saw blade hub is an axle with motor "spin", and nothing stops it
+    // being bolted to the core's drive axle. The workshop used to test only
+    // the PARENT connector, so it would happily write a ratio onto this and
+    // then validation would reject the design the player just built.
+    const design: BotDesign = {
+      name: "Blade on the drive axle",
+      parts: [
+        { iid: "core", partId: "core-cube" },
+        { iid: "wheel-r", partId: "drive-wheel" },
+        { iid: "blade", partId: "saw-blade" },
+      ],
+      connections: [
+        {
+          parentIid: "core",
+          parentConnector: "axle-right",
+          childIid: "wheel-r",
+          childConnector: "hub",
+        },
+        {
+          parentIid: "core",
+          parentConnector: "axle-left",
+          childIid: "blade",
+          childConnector: "hub",
+        },
+      ],
+    };
+    const toWheel = design.connections[0];
+    const toBlade = design.connections[1];
+    expect(isGearableConnection(design, toWheel)).toBe(true);
+    expect(isGearableConnection(design, toBlade)).toBe(false);
+
+    // And the store's setter agrees with validation: gearing this design
+    // leaves the blade alone, so the result stays legal.
+    useWorkshopStore.getState().loadDesign(design);
+    useWorkshopStore.getState().setGearRatio(2);
+    const geared = useWorkshopStore.getState().design;
+    expect(
+      geared.connections.find((c) => c.childIid === "wheel-r")?.gearRatio,
+    ).toBe(2);
+    expect(
+      geared.connections.find((c) => c.childIid === "blade")?.gearRatio,
+    ).toBeUndefined();
+    // The setter must not manufacture a gear-ratio violation. (This
+    // layout is illegal for an unrelated geometry reason, a blade that
+    // large overlaps the core, so assert on the gearing rule specifically.)
+    const check = validateDesign(geared);
+    const gearIssues = check.ok
+      ? []
+      : check.issues.filter((issue) => issue.code === "gear-ratio");
+    expect(gearIssues).toEqual([]);
+  });
+});
+
+/** The heaviest reduction a player can actually build. */
+const MAX_PRESET = GEAR_RATIO_PRESETS[GEAR_RATIO_PRESETS.length - 1];
+
+describe("gearing costs power", () => {
+  it("is free at or below ratio 1 and rises with reduction", () => {
+    expect(gearPowerDraw(undefined)).toBe(0);
+    expect(gearPowerDraw(1)).toBe(0);
+    expect(gearPowerDraw(0.6)).toBe(0);
+    expect(gearPowerDraw(2)).toBeGreaterThan(gearPowerDraw(1.5));
+  });
+
+  it("prices maximum reduction out of a weapon-carrying build", () => {
+    // The saw bot already spends most of the cube core's supply on its
+    // blade, so it cannot also run the top preset. That competition is the
+    // point: without it, benching showed gearing up as a near strict
+    // upgrade (17% to 67% win rate across the stock roster). This test is
+    // what catches GEAR_POWER_PER_RATIO drifting out of step with the
+    // preset ceiling.
+    const maxGeared: BotDesign = {
+      ...CPU_WHIRLIGIG_DESIGN,
+      connections: CPU_WHIRLIGIG_DESIGN.connections.map((conn) =>
+        conn.parentConnector.startsWith("axle")
+          ? { ...conn, gearRatio: MAX_PRESET }
+          : conn,
+      ),
+    };
+    const result = validateDesign(maxGeared);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.issues.some((issue) => issue.code === "power")).toBe(true);
+
+    // A middle preset still fits, so the choice is a budget, not a ban.
+    const mildlyGeared: BotDesign = {
+      ...CPU_WHIRLIGIG_DESIGN,
+      connections: CPU_WHIRLIGIG_DESIGN.connections.map((conn) =>
+        conn.parentConnector.startsWith("axle")
+          ? { ...conn, gearRatio: 1.6 }
+          : conn,
+      ),
+    };
+    expect(validateDesign(mildlyGeared).ok).toBe(true);
+  });
+
+  it("leaves an ungeared design's power draw untouched", () => {
+    const before = validateDesign(TEST_BOT_DESIGN);
+    expect(before.ok).toBe(true);
+    if (!before.ok) return;
+    const after = validateDesign(geared(1));
+    expect(after.ok).toBe(true);
+    if (!after.ok) return;
+    expect(after.stats.powerDraw).toBe(before.stats.powerDraw);
+  });
+});
+
+/**
+ * A stand-in for the motorised axle: setDriveVelocity is the real path the
+ * sim drives, so the gearing math is asserted through it rather than
+ * through an extracted helper that only existed for the tests.
+ */
+function recordingDrive(ratios: number[]) {
+  const commands: Array<{ velocity: number; factor: number }> = [];
+  const bot = {
+    axleJoints: ratios.map((ratio, index) => ({
+      ratio,
+      side: index === 0 ? -1 : 1,
+      joint: {
+        configureMotorVelocity(velocity: number, factor: number) {
+          commands.push({ velocity, factor });
+        },
+      },
+    })),
+  } as unknown as Parameters<typeof setDriveVelocity>[0];
+  return { bot, commands };
+}
+
 describe("gear ratio determinism", () => {
   it("ratio 1 reproduces the ungeared fight exactly", async () => {
-    // This is the contract that lets gearing ship without bumping
-    // SIM_VERSION or invalidating a single stored replay.
+    // This is the contract that let gearing ship without bumping
+    // SIM_VERSION or invalidating a single stored replay: an explicit
+    // ratio of 1 must be arithmetically identical to no ratio at all.
     const run = async (design: BotDesign) => {
       const world = await createArenaWorld();
       const match = createMatch(world, [design, CPU_BRAWLER_DESIGN]);
@@ -159,66 +297,23 @@ describe("gear ratio determinism", () => {
   }, 60000);
 });
 
-describe("gearing costs power", () => {
-  it("is free at or below ratio 1 and rises with reduction", () => {
-    expect(gearPowerDraw(undefined)).toBe(0);
-    expect(gearPowerDraw(1)).toBe(0);
-    expect(gearPowerDraw(0.6)).toBe(0);
-    expect(gearPowerDraw(2)).toBeGreaterThan(gearPowerDraw(1.5));
-  });
-
-  it("makes torque compete with the weapon for the core budget", () => {
-    // The saw bot already spends most of the cube core's supply on its
-    // blade, so it cannot also run maximum reduction. That competition is
-    // the point: without it, benching showed gearing up as a near strict
-    // upgrade (17% to 67% win rate across the stock roster).
-    const maxGeared: BotDesign = {
-      ...CPU_WHIRLIGIG_DESIGN,
-      connections: CPU_WHIRLIGIG_DESIGN.connections.map((conn) =>
-        conn.parentConnector.startsWith("axle")
-          ? { ...conn, gearRatio: MAX_GEAR_RATIO }
-          : conn,
-      ),
-    };
-    const result = validateDesign(maxGeared);
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.issues.some((issue) => issue.code === "power")).toBe(true);
-
-    // A modest reduction still fits, so the choice is a budget, not a ban.
-    const mildlyGeared: BotDesign = {
-      ...CPU_WHIRLIGIG_DESIGN,
-      connections: CPU_WHIRLIGIG_DESIGN.connections.map((conn) =>
-        conn.parentConnector.startsWith("axle")
-          ? { ...conn, gearRatio: 1.2 }
-          : conn,
-      ),
-    };
-    expect(validateDesign(mildlyGeared).ok).toBe(true);
-  });
-
-  it("leaves an ungeared design's power draw untouched", () => {
-    const before = validateDesign(TEST_BOT_DESIGN);
-    expect(before.ok).toBe(true);
-    if (!before.ok) return;
-    const after = validateDesign(geared(1));
-    expect(after.ok).toBe(true);
-    if (!after.ok) return;
-    expect(after.stats.powerDraw).toBe(before.stats.powerDraw);
-  });
-});
-
-describe("gearedMotorCommand", () => {
+describe("drive gearing math", () => {
   it("is the identity at ratio 1", () => {
-    const plain = gearedMotorCommand(-12, 0, -1, 50, DEFAULT_GEAR_RATIO);
-    expect(plain.velocity).toBe(-12);
-    expect(plain.factor).toBe(50);
+    const { bot, commands } = recordingDrive([DEFAULT_GEAR_RATIO]);
+    setDriveVelocity(bot, -12, 0, 50);
+    expect(commands[0].velocity).toBe(-12);
+    expect(commands[0].factor).toBe(50);
   });
 
   it("trades commanded speed for motor torque", () => {
-    const stock = gearedMotorCommand(-12, 0, -1, 50, 1);
-    const torquey = gearedMotorCommand(-12, 0, -1, 50, 2);
-    const fast = gearedMotorCommand(-12, 0, -1, 50, 0.5);
+    const read = (ratio: number) => {
+      const { bot, commands } = recordingDrive([ratio]);
+      setDriveVelocity(bot, -12, 0, 50);
+      return commands[0];
+    };
+    const stock = read(1);
+    const torquey = read(2);
+    const fast = read(0.5);
 
     // Geared for torque: half the shaft speed, twice the motor authority.
     expect(Math.abs(torquey.velocity)).toBeLessThan(Math.abs(stock.velocity));
@@ -229,17 +324,17 @@ describe("gearedMotorCommand", () => {
   });
 
   it("keeps the differential steer split under gearing", () => {
-    // Steering must still turn the bot: the two sides stay asymmetric.
-    const left = gearedMotorCommand(-12, 0.4, -1, 50, 2);
-    const right = gearedMotorCommand(-12, 0.4, 1, 50, 2);
-    expect(left.velocity).not.toBe(right.velocity);
-    // Gearing scales both sides equally, so the ratio between them holds.
-    const stockLeft = gearedMotorCommand(-12, 0.4, -1, 50, 1);
-    const stockRight = gearedMotorCommand(-12, 0.4, 1, 50, 1);
-    expect(left.velocity / right.velocity).toBeCloseTo(
-      stockLeft.velocity / stockRight.velocity,
-      9,
-    );
+    // Steering must still turn the bot, and gearing scales both sides
+    // equally, so the ratio between them is unchanged.
+    const split = (ratio: number) => {
+      const { bot, commands } = recordingDrive([ratio, ratio]);
+      setDriveVelocity(bot, -12, 0.4, 50);
+      return commands[0].velocity / commands[1].velocity;
+    };
+    expect(split(2)).toBeCloseTo(split(1), 9);
+    const { bot, commands } = recordingDrive([2, 2]);
+    setDriveVelocity(bot, -12, 0.4, 50);
+    expect(commands[0].velocity).not.toBe(commands[1].velocity);
   });
 });
 

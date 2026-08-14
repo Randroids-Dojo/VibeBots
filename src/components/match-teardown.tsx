@@ -1,7 +1,7 @@
 "use client";
 
-import { DT } from "@/sim/constants";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
+import { pillStyle, STATUS, secondsFromTicks } from "./workshop-ui";
 
 /**
  * The post-match inspection sheet. The fight used to end with a banner and
@@ -11,28 +11,18 @@ import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
  * DOM text on purpose (Rule 10): exact numbers belong outside the canvas.
  */
 
-function seconds(ticks: number): string {
-  return `${(ticks * DT).toFixed(1)}s`;
-}
-
 function healthRatio(part: TeardownPart): number {
   return part.maxHealth > 0 ? part.health / part.maxHealth : 0;
 }
 
 const CATEGORY_COLOR: Record<TeardownPart["category"], string> = {
-  core: "#ffd166",
+  core: STATUS.warn,
   structure: "#8fa3c8",
   mobility: "#5ac8fa",
   weapon: "#ff7a7a",
 };
 
-function PartRow({
-  part,
-  nameOfEnemyPart,
-}: {
-  part: TeardownPart;
-  nameOfEnemyPart: (iid: string) => string;
-}) {
+function PartRow({ part }: { part: TeardownPart }) {
   const ratio = healthRatio(part);
   return (
     <li
@@ -76,10 +66,10 @@ function PartRow({
             height: "100%",
             borderRadius: 2,
             background: part.destroyed
-              ? "#ff6b6b"
+              ? STATUS.bad
               : ratio > 0.5
-                ? "#54e0c7"
-                : "#ffd166",
+                ? STATUS.good
+                : STATUS.warn,
           }}
         />
       </div>
@@ -90,9 +80,9 @@ function PartRow({
           ? `, dealt ${Math.round(part.damageDealt)} over ${part.hitsDealt}`
           : ""}
         {part.destroyedAtTick !== null
-          ? `, lost at ${seconds(part.destroyedAtTick)}`
+          ? `, lost at ${secondsFromTicks(part.destroyedAtTick)}`
           : ""}
-        {part.killedBy ? ` to their ${nameOfEnemyPart(part.killedBy)}` : ""}
+        {part.killedByName ? ` to their ${part.killedByName}` : ""}
       </div>
     </li>
   );
@@ -100,15 +90,14 @@ function PartRow({
 
 export function MatchTeardownSheet({
   teardown,
+  official = false,
   onClose,
 }: {
   teardown: MatchTeardown;
+  /** True when this came from the server's authoritative rerun (F-239). */
+  official?: boolean;
   onClose: () => void;
 }) {
-  const nameLookup = teardown.bots.map(
-    (bot) => new Map(bot.parts.map((part) => [part.iid, part.name])),
-  );
-
   return (
     <section
       id="match-teardown-sheet"
@@ -135,25 +124,29 @@ export function MatchTeardownSheet({
           marginBottom: 8,
         }}
       >
-        <h2 style={{ margin: 0, fontSize: "0.95rem" }}>Teardown</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            background: "#26304a",
-            color: "#e6e8ee",
-            border: "1px solid #344061",
-            borderRadius: 8,
-            padding: "4px 12px",
-            cursor: "pointer",
-          }}
-        >
+        <h2 style={{ margin: 0, fontSize: "0.95rem" }}>
+          Teardown
+          <span
+            data-testid="teardown-source"
+            style={{
+              marginLeft: 8,
+              fontSize: "0.68rem",
+              fontWeight: 400,
+              opacity: 0.75,
+              color: official ? STATUS.good : undefined,
+            }}
+          >
+            {official ? "official" : "local run"}
+          </span>
+        </h2>
+        <button type="button" onClick={onClose} style={pillStyle()}>
           Close
         </button>
       </header>
 
       <p style={{ margin: "0 0 10px", fontSize: "0.75rem", opacity: 0.8 }}>
-        {seconds(teardown.ticks)} of fighting, {teardown.totalImpacts} impacts
+        {secondsFromTicks(teardown.ticks)} of fighting, {teardown.totalImpacts}{" "}
+        impacts
         {teardown.truncated ? " (log truncated)" : ""}.
       </p>
 
@@ -174,18 +167,12 @@ export function MatchTeardownSheet({
               {Math.round(bot.damageTaken)}, lost {bot.partsLost} part
               {bot.partsLost === 1 ? "" : "s"}
               {bot.firstLossTick !== null
-                ? `, first at ${seconds(bot.firstLossTick)}`
+                ? `, first at ${secondsFromTicks(bot.firstLossTick)}`
                 : ""}
             </p>
             <ul style={{ margin: 0, padding: 0 }}>
               {bot.parts.map((part) => (
-                <PartRow
-                  key={part.iid}
-                  part={part}
-                  nameOfEnemyPart={(iid) =>
-                    nameLookup[1 - index].get(iid) ?? iid
-                  }
-                />
+                <PartRow key={part.iid} part={part} />
               ))}
             </ul>
           </div>
@@ -210,7 +197,8 @@ export function MatchTeardownSheet({
                 key={`${hit.tick}-${hit.victimIid}-${hit.attackerIid}`}
                 data-testid="teardown-hardest-hit"
               >
-                {seconds(hit.tick)}: {teardown.bots[hit.attackerBot].name}
+                {secondsFromTicks(hit.tick)}:{" "}
+                {teardown.bots[hit.attackerBot].name}
                 {"'s "}
                 {hit.attackerPartName} hit {hit.victimPartName} for{" "}
                 {Math.round(hit.damage)} ({Math.round(hit.force)} N

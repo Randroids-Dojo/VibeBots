@@ -13,6 +13,7 @@ import {
   type BotDesign,
   type Connection,
   DEFAULT_GEAR_RATIO,
+  isGearableConnection,
   MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   type Orientation,
@@ -637,12 +638,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     // wheel, and per-wheel ratios would just be a way to build a bot that
     // drives in circles. Spinner axles are skipped (validity forbids them).
     const connections = design.connections.map((conn) => {
-      const parent = PART_CATALOG[
-        design.parts.find((p) => p.iid === conn.parentIid)?.partId ?? ""
-      ]?.connectors.find((c) => c.id === conn.parentConnector);
-      if (!parent || parent.kind !== "axle" || parent.motor === "spin") {
-        return conn;
-      }
+      if (!isGearableConnection(design, conn)) return conn;
       const next = { ...conn };
       if (ratio === DEFAULT_GEAR_RATIO) delete next.gearRatio;
       else next.gearRatio = ratio;

@@ -29,6 +29,16 @@ export const YAW_QUATS: Record<Orientation, Quat> = {
   270: { x: 0, y: -HALF_SQRT2, z: 0, w: HALF_SQRT2 },
 };
 
+/**
+ * Whether a placement carries a 90 or 270 degree yaw, which swaps a part's
+ * x and z extents. Reads the y component of the quaternions in YAW_QUATS
+ * above, so it stays correct if that encoding ever changes; callers that
+ * inline the magic 0.6/0.8 bounds would not.
+ */
+export function isQuarterTurned(rotation: Quat): boolean {
+  return Math.abs(rotation.y) > 0.6 && Math.abs(rotation.y) < 0.8;
+}
+
 export function quatMultiply(a: Quat, b: Quat): Quat {
   return {
     x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,

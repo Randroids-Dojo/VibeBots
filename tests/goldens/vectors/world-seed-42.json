@@ -4,15 +4,15 @@
   "kind": "world",
   "seed": 42,
   "stepCount": 600,
-  "simVersion": 5,
+  "simVersion": 6,
   "actionLog": [],
   "expected": {
     "snapshotHash": "f0c31ac2f5e7bd1c",
     "outcomes": {
       "seed": 42,
-      "simVersion": 5,
+      "simVersion": 6,
       "steps": 600
     }
   },
-  "manifestId": "goldens-20260723183653897"
+  "manifestId": "goldens-20260813040931185"
 }

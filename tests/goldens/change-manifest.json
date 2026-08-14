@@ -177,5 +177,98 @@
         }
       }
     ]
+  },
+  {
+    "id": "goldens-20260813040931185",
+    "createdAt": "2026-08-13T04:09:31.185Z",
+    "reason": "Damage degradation (F-232): worn drive parts turn slower and damaged spinners wind down, so contact forces and match outcomes move. SIM_VERSION 5 to 6.",
+    "changes": [
+      {
+        "vectorId": "GOLDEN-WORLD-0001",
+        "kind": "world",
+        "changedFields": ["$.outcomes.simVersion"],
+        "oldSnapshotHash": "f0c31ac2f5e7bd1c",
+        "newSnapshotHash": "f0c31ac2f5e7bd1c",
+        "oldOutcomes": {
+          "seed": 42,
+          "simVersion": 5,
+          "steps": 600
+        },
+        "newOutcomes": {
+          "seed": 42,
+          "simVersion": 6,
+          "steps": 600
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": 5,
+          "to": 6
+        }
+      }
+    ]
+  },
+  {
+    "id": "goldens-20260813041042091",
+    "createdAt": "2026-08-13T04:10:42.091Z",
+    "reason": "Damage degradation (F-232): worn drive parts turn slower and damaged spinners wind down, so contact forces and outcomes move. Adds GOLDEN-COMBAT-0002 (saw versus drums) because the existing combat vector has no spinner and never damages a wheel, so it could not observe the change. SIM_VERSION 5 to 6.",
+    "changes": [
+      {
+        "vectorId": "GOLDEN-COMBAT-0002",
+        "kind": "combat",
+        "changedFields": ["$"],
+        "oldSnapshotHash": null,
+        "newSnapshotHash": "b7925f8c7d3d0db3",
+        "oldOutcomes": null,
+        "newOutcomes": {
+          "rewards": [
+            {
+              "outcome": "win",
+              "credits": 200,
+              "trackXp": 100
+            },
+            {
+              "outcome": "loss",
+              "credits": 110,
+              "trackXp": 52
+            }
+          ],
+          "status": {
+            "over": true,
+            "winner": 0,
+            "reason": "timeout",
+            "scores": [
+              {
+                "damageDealt": 131.4547164916992,
+                "damageTaken": 85.88675994873047,
+                "partsRemaining": 5,
+                "partCount": 5,
+                "healthRemaining": 484.11324005126954,
+                "healthTotal": 570,
+                "pressureTicks": 327,
+                "mobileAtEnd": true,
+                "total": 273.5720800567091
+              },
+              {
+                "damageDealt": 85.88675994873047,
+                "damageTaken": 131.4547164916992,
+                "partsRemaining": 5,
+                "partCount": 5,
+                "healthRemaining": 718.5452835083008,
+                "healthTotal": 850,
+                "pressureTicks": 63,
+                "mobileAtEnd": true,
+                "total": 129.3361730238971
+              }
+            ]
+          },
+          "tick": 900
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": null,
+          "to": 6
+        }
+      }
+    ]
   }
 ]

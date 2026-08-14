@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="drive-gearing" data-date="2026-08-12">
+    <h3>Motors trade torque against speed, and the bench priced the trade</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feat/gear-ratio</code>, stacked on <code>feat/weight-classes</code> (PR #319).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Fifth slice of the tinkerer-depth program (<a href="FOLLOWUPS.html#F-229">F-229</a>). A part's whole electrical story was one <code>powerDraw</code> number. <code>Connection</code> now carries an optional <code>gearRatio</code> (0.5 to 2.5), <code>AxleMotor</code> carries it into the sim, and the extracted pure <code>gearedMotorCommand</code> divides commanded shaft speed by the ratio and multiplies the motor factor by it. Validity restricts a ratio to drive axles, because a rigid mount has no motor and a spinner runs at a fixed velocity by contract. Reduction costs power (<code>GEAR_POWER_PER_RATIO</code>), so torque competes with the weapon for the core's budget rather than being free. Surfaced as a Drive gearing panel with four priced options that gear every drive axle at once. Ratio 1 is the exact identity, so <code>SIM_VERSION</code> stays 5 and no stored replay was invalidated.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green. <code>pnpm vitest run src/sim src/lib src/state</code> green (55 files, 1016 tests) including 13 new gearing tests. <code>pnpm test:goldens</code> green with no vector moved, which together with the explicit identity test is the evidence for not bumping <code>SIM_VERSION</code>. <code>pnpm check:purity</code> green. <code>pnpm build</code> green, then e2e <code>E2E-WORKSHOP-0035</code> passed locally in 5.1s.</dd>
+      <dt>Assumptions</dt><dd>Gearing applies to every drive axle at once rather than per wheel: real machines gear an axle, and per-wheel ratios would mostly be a way to build a bot that drives in circles. Ratio 1 deletes the key rather than storing it, so a design round-trips to exactly what it was. The power cost is charged only for reduction above 1; gearing down for speed is free, because a taller shaft asks less of the motor.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/02-parts-and-connectors.html</code> gained a build log entry. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-229">F-229</a>, and filed <a href="FOLLOWUPS.html#F-237">F-237</a> for the half of its acceptance that is NOT met. The bench from two slices earlier priced the change instead of leaving it to argument: benching the starter bot across the stock roster gave a 33% win rate and 74.67 average damage at ratio 0.6, 17% and 91.95 at stock, 33% and 106.98 at 1.5, and 67% and 133.2 at 2.5. Damage rises almost monotonically with reduction, because the default motor factor cannot hold the commanded speed, so the drivetrain is torque limited and the top-speed cap almost never binds. The intended speed-for-torque trade therefore does not yet appear in a straight-line run, and the tests say so explicitly rather than asserting a direction the sim does not currently produce. The power cost makes it a real trade at build time in the meantime; F-237 carries the run-time fix, which needs a motor-authority retune, a <code>SIM_VERSION</code> bump, and regenerated goldens, and should land beside the degradation work.</dd>
+    </dl>
+  </article>
+
   <article data-slice="weight-classes" data-date="2026-08-12">
     <h3>Mass became a budget, and validity became an inspection</h3>
     <dl>

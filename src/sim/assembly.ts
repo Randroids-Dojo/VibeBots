@@ -9,6 +9,7 @@ import RAPIER from "@dimforge/rapier3d-deterministic-compat";
 import {
   type BotDesign,
   type Connection,
+  DEFAULT_GEAR_RATIO,
   type Orientation,
   validateDesign,
 } from "./design";
@@ -32,6 +33,12 @@ export interface AxleMotor {
   joint: RevoluteImpulseJoint;
   /** Sign of the parent connector's local x: -1 left, +1 right. */
   side: number;
+  /**
+   * Drive gear ratio (F-229). Above 1 is geared for torque: the wheel turns
+   * slower but the motor holds against more load. 1 is the identity, so an
+   * ungeared design drives exactly as it did before gearing existed.
+   */
+  ratio: number;
 }
 
 export interface AssembledBot {
@@ -191,6 +198,7 @@ export function assembleBot(
         axleJoints.push({
           joint: joint as RevoluteImpulseJoint,
           side: parentAnchor.position.x < 0 ? -1 : 1,
+          ratio: conn.gearRatio ?? DEFAULT_GEAR_RATIO,
         });
       }
     } else {
@@ -233,6 +241,26 @@ export const SPIN_MOTOR_FACTOR = 120;
  * (rad/s), modulated by its side and the steer term. steer > 0 turns the
  * bot toward its local +x (left axles speed up, right axles slow down).
  */
+/**
+ * The gearing math, split out so it can be tested exactly rather than
+ * inferred from a chaotic driving trial. A reduction divides shaft speed
+ * and multiplies available torque; here that is the commanded velocity and
+ * the motor factor. At ratio 1 both terms are returned unchanged, which is
+ * the identity contract that keeps stored replays valid.
+ */
+export function gearedMotorCommand(
+  velocity: number,
+  steer: number,
+  side: number,
+  factor: number,
+  ratio: number,
+): { velocity: number; factor: number } {
+  return {
+    velocity: (velocity * (1 - side * steer)) / ratio,
+    factor: factor * ratio,
+  };
+}
+
 export function setDriveVelocity(
   bot: AssembledBot,
   velocity: number,
@@ -240,9 +268,13 @@ export function setDriveVelocity(
   factor = 50,
 ): void {
   for (const motor of bot.axleJoints) {
-    motor.joint.configureMotorVelocity(
-      velocity * (1 - motor.side * steer),
+    const command = gearedMotorCommand(
+      velocity,
+      steer,
+      motor.side,
       factor,
+      motor.ratio,
     );
+    motor.joint.configureMotorVelocity(command.velocity, command.factor);
   }
 }

@@ -11,6 +11,13 @@ import {
   partInstanceDurability,
 } from "./design";
 import { PART_CATALOG, type PartDef, type Vec3, vec3Distance } from "./parts";
+import {
+  createTelemetry,
+  type MatchTelemetry,
+  recordDestruction,
+  recordImpact,
+  type TeardownInput,
+} from "./telemetry";
 
 /**
  * Autonomous combat core: per-part damage from contact forces, part
@@ -153,6 +160,12 @@ export interface MatchState {
   tick: number;
   timeLimitTicks: number;
   status: MatchStatus;
+  /**
+   * Impact and destruction log when the caller opted in. Recording is
+   * observation only: an unrecorded match produces the identical hash, so
+   * the bench can run thousands of matches without paying for the log.
+   */
+  telemetry: MatchTelemetry | null;
 }
 
 function makeCombatBot(
@@ -250,6 +263,8 @@ function makeCombatBot(
 export interface MatchOptions {
   catalog?: Record<string, PartDef>;
   timeLimitTicks?: number;
+  /** Record the impact log that feeds the post-match teardown sheet. */
+  telemetry?: boolean;
 }
 
 export function createMatch(
@@ -284,6 +299,7 @@ export function createMatch(
     tick: 0,
     timeLimitTicks: options.timeLimitTicks ?? DEFAULT_TIME_LIMIT_TICKS,
     status: { over: false },
+    telemetry: options.telemetry ? createTelemetry() : null,
   };
 }
 
@@ -625,7 +641,7 @@ function runControllers(match: MatchState): void {
 }
 
 function processDeaths(match: MatchState): void {
-  for (const bot of match.bots) {
+  for (const [botIndex, bot] of match.bots.entries()) {
     // Design part order keeps death processing deterministic.
     let anyDeath = false;
     for (const instance of bot.design.parts) {
@@ -634,6 +650,14 @@ function processDeaths(match: MatchState): void {
       state.destroyed = true;
       state.health = 0;
       anyDeath = true;
+      if (match.telemetry) {
+        recordDestruction(
+          match.telemetry,
+          match.tick,
+          botIndex as 0 | 1,
+          instance.iid,
+        );
+      }
       if (instance.iid === bot.assembled.rootIid) {
         bot.disabled = true;
         continue;
@@ -762,6 +786,19 @@ export function stepMatch(match: MatchState): void {
       const applied = damagePart(match, owner.bot, owner.iid, amount);
       if (applied > 0) {
         match.bots[other.bot].damageDealt += applied;
+        if (match.telemetry) {
+          recordImpact(
+            match.telemetry,
+            match.tick,
+            other.bot,
+            other.iid,
+            owner.bot,
+            owner.iid,
+            force,
+            applied,
+            other.isWeapon,
+          );
+        }
       }
     }
   });
@@ -797,6 +834,32 @@ export function stepMatch(match: MatchState): void {
  */
 export function freeMatch(match: MatchState): void {
   match.eventQueue.free();
+}
+
+/**
+ * Extracts the plain data the teardown sheet is built from. Returns null
+ * when the match was not recorded, so callers cannot silently render an
+ * empty sheet as if the fight had no impacts.
+ */
+export function teardownInputFrom(match: MatchState): TeardownInput | null {
+  if (!match.telemetry) return null;
+  const bots = match.bots.map((bot) => ({
+    name: bot.design.name,
+    parts: bot.design.parts.map((instance) => {
+      const state = bot.parts.get(instance.iid);
+      const def = bot.partDefs.get(instance.iid);
+      return {
+        iid: instance.iid,
+        partId: instance.partId,
+        name: def?.name ?? instance.partId,
+        category: def?.category ?? "structure",
+        health: state?.health ?? 0,
+        maxHealth: state?.maxHealth ?? 0,
+        destroyed: state?.destroyed ?? false,
+      };
+    }),
+  })) as TeardownInput["bots"];
+  return { telemetry: match.telemetry, bots, ticks: match.tick };
 }
 
 /** Stable serialization of combat state, for hashing alongside snapshots. */

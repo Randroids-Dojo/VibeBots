@@ -904,6 +904,127 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-236" data-f="F-236" data-priority="nice-to-have">
+    <h3>F-236: Fork the bot that beat you</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. A player who loses to a build learns nothing from it: the opponent's part list is never shown and there is no way to copy it into the garage and take it apart. Learning by disassembly is how mechanics learn, and <code>match_records</code> already stores <code>used_part_ids</code>, so most of the data exists.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. Needs a product decision on whether a rival's full design is public after you fight it, or only its part list.</dd>
+      <dt>Unblock condition</dt><dd>Ready once the teardown sheet (<a href="#F-225">F-225</a>) ships, since the teardown is the natural place to hang <q>copy this build</q>. Serve the opponent design from the match record, add a garage import that clones it under a new name, and gate it to opponents the player has actually fought. Acceptance: fighting a stock or rival bot then forking it yields an editable design that validates, and the fork carries no inventory it did not earn.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-235" data-f="F-235" data-priority="nice-to-have">
+    <h3>F-235: Repairs and carried damage between fights</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. Every match starts from a pristine bot, so nothing the player does between fights is maintenance. Carrying damage forward and charging to fix it makes the player a mechanic, not only a designer. The bunker already ships this exact shape (<code>bunkerRepairPlan</code> / <code>applyBunkerRepairs</code>, <a href="#F-086">F-086</a>), so the pricing and server-validation pattern is proven.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical, but it is the most invasive item in the program: it needs per-design durable damage state, and it changes match fairness (a fresh challenger fights a worn defender).</dd>
+      <dt>Unblock condition</dt><dd>Ready once a product call is made on whether online matches use repaired-only bots. Then persist per-instance damage after a resolved match, price repair off the part's shop price like the bunker does, validate affordability server-side, and surface a repair bench in the Garage tab. Acceptance: damage survives a reload, repair costs and restores deterministically in unit tests, and an unaffordable repair is rejected before any write.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-234" data-f="F-234" data-priority="nice-to-have">
+    <h3>F-234: Behavior rules beyond the three temperament sliders</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. Design-owned temperament (aggression, flankBias, patience) biases the controller but cannot express a conditional: <q>if the blade is spun down, disengage</q>, <q>if flipped, prefer reverse drive</q>. A small ordered rule list is the programmable itch this audience has, and it stays fully autonomous, so it does not touch REQ-001.</dd>
+      <dt>Blocker (if any)</dt><dd>None. The constraint is determinism: rules must evaluate from sim state only, in a fixed order, with no wall-clock or <code>Math.random</code>.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add an ordered condition/action rule array to <code>BotDesign</code>, evaluate it in <code>runControllers</code> before the existing steering falls through, and default an empty list to today's exact behavior so old designs stay hash-identical. Bumps <code>SIM_VERSION</code> only if evaluation changes neutral output. Acceptance: a rule list changes an observable outcome in a unit test, an empty list reproduces the current golden vectors byte for byte, and the workshop can author rules without free text.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-233" data-f="F-233" data-priority="nice-to-have">
+    <h3>F-233: Replay scrubber with a contact-force overlay</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. Replays are already <code>{seed, design ids, simVersion}</code> re-simulated on demand, and the arena viewer already steps a match in real time, but there is no way to scrub, slow down, or see the forces. Watching the exact frame a mount folded is the payoff for the whole teardown line of work.</dd>
+      <dt>Blocker (if any)</dt><dd>None for scrub-forward. Scrubbing backward needs either periodic world snapshots or a re-run from tick zero, and the memory cost of snapshots has to be measured before choosing.</dd>
+      <dt>Unblock condition</dt><dd>Ready once the impact log (<a href="#F-225">F-225</a>) ships, since the overlay draws from it. Add a transport (play, pause, speed, tick scrub) over the arena stepping loop, and an opt-in debug layer drawing contact impulses and the live centre of mass. Must obey the frame-loop rule: no per-frame allocation in the overlay. Acceptance: a paused replay holds its tick, a speed change is visible as a measured position delta over time (Rule 10), and the overlay adds no steady-state garbage in <code>measure-heap-churn.mjs</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-232" data-f="F-232" data-priority="nice-to-have">
+    <h3>F-232: Damage degradation short of destruction</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. Parts are binary: full strength until zero health, then gone. That erases the most legible failure mode a mechanic knows, the part that still works but works worse. The combat GDD already lists this under <q>what this does NOT cover yet</q> (weakened motors, armour, damage types).</dd>
+      <dt>Blocker (if any)</dt><dd>None. It is a <code>SIM_VERSION</code> bump and it interacts with every stock matchup, so it should land after the bench (<a href="#F-226">F-226</a>) exists to measure the balance change rather than guess at it.</dd>
+      <dt>Unblock condition</dt><dd>Ready: derive a per-part effectiveness from its health ratio, apply it to drive motor velocity and spinner motor velocity, and surface the degraded state in the teardown and the HUD. Acceptance: a wheel at low health measurably slows its side in a unit test, the effect is monotonic in health, golden vectors are regenerated in the same slice with a recorded reason, and the bench shows the balance delta across the stock roster.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-231" data-f="F-231" data-priority="nice-to-have">
+    <h3>F-231: Connector strength so mounts tear off under load</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. Where a part is bolted currently has no consequence: a heavy spinner on a light frame plate is exactly as secure as on a hardened plate. Giving connectors a strength rating makes the mounting decision matter, which is the core mechanic intuition and is already half-built, since joints are the documented detach point (<code>jointToParent</code>).</dd>
+      <dt>Blocker (if any)</dt><dd>None. Needs care that a torn mount uses the same detach path as destruction, or debris will spawn with a violent depenetration impulse.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a strength figure to <code>Connector</code>, accumulate joint load per tick from the same contact-force events damage already reads, and detach through the existing destruction path when accumulated load exceeds strength. Bumps <code>SIM_VERSION</code>. Acceptance: an over-massed weapon on a weak mount detaches in a unit test while the same weapon on a strong mount holds, and no torn part gains velocity beyond the existing destruction case.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-230" data-f="F-230" data-priority="nice-to-have">
+    <h3>F-230: Part materials instead of abstract merge levels</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. Duplicate-part merging (Lv 1 to Lv 3) is an idle-game mechanic bolted onto a machine shop: it raises durability with no physical story and no tradeoff. Choosing stock (steel, aluminium, titanium, UHMW) expresses the same progression in the language this audience speaks, and because material changes density it feeds back into mass, top speed, and the power budget.</dd>
+      <dt>Blocker (if any)</dt><dd>Merge levels are shipped, player-visible, and backed by owned inventory, so this cannot simply replace them. Needs a migration decision: map existing merge levels onto materials, or run both.</dd>
+      <dt>Unblock condition</dt><dd>Ready once that migration call is made. Materials multiply density and durability and scale price; the collider shape must NOT change (part-visuals rule), so mass moves through density only. Bumps <code>SIM_VERSION</code>. Acceptance: the same part in two materials differs in mass and durability in a unit test, the design mass stat reflects it, existing saved designs keep validating, and the bench (<a href="#F-226">F-226</a>) quantifies the balance shift.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-229" data-f="F-229" data-priority="nice-to-have">
+    <h3>F-229: Gear ratio, so motors trade torque against top speed</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. A part's whole electrical story is one <code>powerDraw</code> number, which is a videogame stat rather than an engineering one. A per-axle gear ratio (torque up, top speed down) is a tradeoff mechanics already understand, costs one field on the connection, and makes wheel choice interesting for the first time.</dd>
+      <dt>Blocker (if any)</dt><dd>None. <code>setDriveVelocity</code> already takes a motor factor, so the plumbing exists.</dd>
+      <dt>Unblock condition</dt><dd>Ready: carry a ratio on axle connections, divide commanded velocity and multiply motor factor by it, and expose it in the workshop for axle mounts only. Bumps <code>SIM_VERSION</code>. Acceptance: a high-torque ratio measurably out-shoves a high-speed one and loses a straight-line race in unit tests, and the default ratio reproduces today's golden vectors byte for byte.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-228" data-f="F-228" data-priority="nice-to-have">
+    <h3>F-228: Weight classes and a pre-fight tech inspection</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. <code>validateDesign</code> already computes total mass and enforces a power budget, but mass is only a readout: nothing pushes back on it. Real weight classes give the budget something to press against, and framing validity as a tech inspection checklist (pass or fail per rule, in inspection language) turns an error list into the moment before a fight.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Purely additive over the existing validation result.</dd>
+      <dt>Unblock condition</dt><dd>Ready: define classes by mass ceiling, let a design declare one, add the ceiling as a validity rule, and render the whole result as a checklist rather than a paragraph of errors. Acceptance: an over-weight design fails its declared class with a named rule, the class is enforced server-side at match resolve as well as in the workshop, and every existing stock design still passes in some class.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-227" data-f="F-227" data-priority="nice-to-have">
+    <h3>F-227: Centre of mass, support polygon, and tip-over readout on the bench</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. The workshop shows part count, mass, and power, but not the numbers that actually decide whether a build works: where the mass sits, whether the wheels support it, and how far it can lean before it goes over. All three are computable from the placements <code>computeLayout</code> already produces, with no sim change at all.</dd>
+      <dt>Blocker (if any)</dt><dd>None. Pure geometry over existing data; the only cost is drawing it without allocating per frame.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add pure helpers for centre of mass, the ground-contact support polygon from mobility parts, and the tip-over angle, then render a CoM marker and the support outline on the bench with a DOM readout for the exact numbers (Rule 10 keeps text out of the canvas). Acceptance: unit tests pin the CoM of a known asymmetric build, a nose-heavy build reports a worse tip-over angle than a balanced one, and the marker moves when a part is placed.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-226" data-f="F-226" data-priority="nice-to-have">
+    <h3>F-226: Bench testing, so a build change can be measured instead of guessed</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass, and the highest-value item in it. The sim is pure TypeScript and deterministic, so it can run far faster than the real-time arena, but the only way to evaluate a change today is to watch one 60-second fight. A batch runner that fights a design against a roster and reports win rate, median time-to-kill, and most-lost part turns building from taste into measurement. Pairing two designs closes the loop: change one wheel, see the win rate move.</dd>
+      <dt>Blocker (if any)</dt><dd>None. The cost is wall-clock: a full match is 3600 ticks, so a large batch needs either a worker or a capped roster.</dd>
+      <dt>Unblock condition</dt><dd>Ready: add a headless batch runner over <code>resolveMatch</code> that aggregates outcomes across the stock roster, and a workshop surface that reports the aggregate plus an A/B against a saved design. Acceptance: a batch is deterministic across runs, an obviously stronger build reports a higher win rate than an obviously weaker one, and the run does not block the main thread long enough to freeze the bench.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+    </dl>
+  </section>
+
+  <section id="F-225" data-f="F-225" data-priority="nice-to-have">
+    <h3>F-225: Post-match teardown, so a loss explains itself</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-08-12 by the tinkerer-audience design pass. A fight ended with a banner naming the winner and nothing else. Per-part health, who hit what, when a part was lost, and which enemy part did it were all computed inside the sim and then thrown away, so a player could not act on a loss. This is the foundation the bench (<a href="#F-226">F-226</a>) and the replay overlay (<a href="#F-233">F-233</a>) both read from.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Ready: record impacts and destructions as pure observation inside <code>stepMatch</code>, fold them into a per-part sheet, and render it after a test fight. Acceptance: recorded and unrecorded matches produce identical hashes, the logged damage reconciles with the combat scoreboard, and the sheet names the part that landed the killing blow.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+      <dt>Resolved</dt><dd>2026-08-12: shipped. <code>src/sim/telemetry.ts</code> carries the rapier-free event types, the capped log (<code>MAX_TELEMETRY_IMPACTS</code> 4096, with <code>impactCount</code> staying honest past the cap), and the pure <code>buildTeardown</code> fold; <code>createMatch</code> takes an opt-in <code>telemetry</code> flag so the bench can still run unrecorded, and <code>teardownInputFrom</code> extracts the plain data the sheet needs. <code>MatchTeardownSheet</code> renders per-part damage bars, hits taken and dealt, the tick each part was lost, the enemy part that did the most damage to it, and the five hardest hits of the match. Determinism is proven two ways: the golden vectors did not move, and a unit test runs the same 600-tick fight recorded and unrecorded and asserts identical hashes, combat state strings, and end ticks. A second test reconciles the log against the scoreboard on a real 900-tick match. The live-match Playwright coverage is deliberately deferred to the bench slice: the stock test fight runs the full 3600 ticks and lands only 6 impacts, so an arena-driven e2e would be a 60-second test in an already timeout-stressed nightly, while the bench resolves a match headless in milliseconds and can hand the sheet a real teardown.</dd>
+    </dl>
+  </section>
+
   <section id="F-224" data-f="F-224" data-priority="nice-to-have">
     <h3>F-224: Prove the local gates actually pass on a Windows checkout</h3>
     <dl>

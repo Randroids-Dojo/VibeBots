@@ -44,6 +44,7 @@ import {
   freeMatch,
   type MatchState,
   stepMatch,
+  teardownInputFrom,
 } from "@/sim/combat";
 import { DT } from "@/sim/constants";
 import {
@@ -55,6 +56,7 @@ import {
 } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import { matchResultHash } from "@/sim/resolve";
+import { buildTeardown, type MatchTeardown } from "@/sim/telemetry";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
@@ -127,7 +129,10 @@ interface ArenaRun {
 
 async function bootMatch(designs: [BotDesign, BotDesign]): Promise<ArenaRun> {
   const world = await createArenaWorld();
-  const match = createMatch(world, designs);
+  // Recorded so the fight can be taken apart afterwards. Impacts arrive at
+  // contact cadence, not frame cadence, and the log is capped, so this is
+  // not steady-state frame-loop allocation.
+  const match = createMatch(world, designs, { telemetry: true });
   return {
     match,
     dispose: () => {
@@ -246,6 +251,8 @@ function includeBotPartBounds(
 export interface MatchEndInfo {
   hash: string;
   tick: number;
+  /** The inspection sheet for the fight that just ended. */
+  teardown: MatchTeardown | null;
 }
 
 function ArenaScene({
@@ -253,12 +260,15 @@ function ArenaScene({
   stageRef,
   onHud,
   onMatchEnd,
+  onMatchStart,
   onCountdown,
 }: {
   designs: [BotDesign, BotDesign];
   stageRef: RefObject<HTMLDivElement | null>;
   onHud: (hud: HudState) => void;
   onMatchEnd?: (info: MatchEndInfo) => void;
+  /** Fired when the exhibition loop boots the next fight. */
+  onMatchStart?: () => void;
   onCountdown: (label: string | null) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
@@ -584,7 +594,12 @@ function ArenaScene({
         lastHudTickRef.current = hudTick;
         if (bannerEdge) {
           bannerShownRef.current = true;
-          onMatchEnd?.({ hash: matchResultHash(match), tick: match.tick });
+          const teardownInput = teardownInputFrom(match);
+          onMatchEnd?.({
+            hash: matchResultHash(match),
+            tick: match.tick,
+            teardown: teardownInput ? buildTeardown(teardownInput) : null,
+          });
         }
         onHud(readHud(match));
       }
@@ -598,6 +613,10 @@ function ArenaScene({
         endLingerRef.current = 0;
         runRef.current = null;
         run.dispose();
+        // The previous result stops describing anything the moment the next
+        // fight boots. Without this the teardown sheet for the last match
+        // stays open over a live one.
+        onMatchStart?.();
         const generation = generationRef.current;
         exhibitionCycleRef.current =
           (exhibitionCycleRef.current + 1) % EXHIBITION_MATCHUPS.length;
@@ -774,9 +793,12 @@ function ArenaScene({
 export default function ArenaCanvas({
   designs = EXHIBITION_DESIGNS,
   onMatchEnd,
+  onMatchStart,
 }: {
   designs?: [BotDesign, BotDesign];
   onMatchEnd?: (info: MatchEndInfo) => void;
+  /** Fired when the exhibition loop boots the next fight. */
+  onMatchStart?: () => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const [hud, setHud] = useState<HudState | null>(null);
@@ -803,6 +825,7 @@ export default function ArenaCanvas({
           stageRef={stageRef}
           onHud={setHud}
           onMatchEnd={onMatchEnd}
+          onMatchStart={onMatchStart}
           onCountdown={setCountdown}
         />
         <PerfProbeBridge source="arena" />

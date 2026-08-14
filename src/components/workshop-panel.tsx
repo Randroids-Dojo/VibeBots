@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import type { MatchEndInfo } from "@/components/arena-canvas";
+import { BenchPanel } from "@/components/bench-panel";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { MatchTeardownSheet } from "@/components/match-teardown";
 import { StampBookPopup } from "@/components/mine-stamp-book-popup";
@@ -1181,6 +1182,8 @@ export function WorkshopPanel() {
                   it.
                 </p>
               </section>
+
+              <BenchPanel design={design} panelStyle={panelStyle} />
             </>
           )}
 

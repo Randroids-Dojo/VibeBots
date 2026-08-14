@@ -4,10 +4,12 @@
 <meta charset="utf-8">
 <title>Fix real-render review findings</title>
 <meta name="dot-title" content="Fix real-render review findings">
-<meta name="dot-status" content="active">
+<meta name="dot-status" content="closed">
 <meta name="dot-priority" content="1">
 <meta name="dot-issue-type" content="task">
 <meta name="dot-created-at" content="2026-07-26T16:36:27.537822-05:00">
+<meta name="dot-closed-at" content="2026-08-04T11:34:49.441000-05:00">
+<meta name="dot-close-reason" content="Shipped in PR #312 (squash 313196a4), which superseded the stalled PR #300 and merged the same four commits rebased onto current main. All five findings verified present on main a18f1255: acquireRenderLock and removeStaleRenderLock serialize the runner, --tier defaults to render, the heartbeat write is gated behind options.scheduled so a manual run can no longer hide a missed scheduled window, docs/CI_WORKFLOW.html documents the exact-main automation clone, and tests/e2e/mine-bunker-fp.spec.ts restores the Bunker breached verdict assertion. Evidence gap deliberately left open under F-132: the physical Mac render lane has not run since de3dbf88, so the seven acceptance questions (raid verdict under two-sided melee, default tier case count, heartbeat untouched by a manual run, visible lock conflict plus orphaned-lock recovery, floor-deck case on the physical renderer, wheel-zoom initial readiness, and wall clock against the 20.6 minute baseline) are unanswered on current main.">
 </head>
 <body>
 <article>

@@ -324,7 +324,12 @@ export function createMatch(
     tick: 0,
     timeLimitTicks: options.timeLimitTicks ?? DEFAULT_TIME_LIMIT_TICKS,
     status: { over: false },
-    telemetry: options.telemetry ? createTelemetry() : null,
+    telemetry: options.telemetry
+      ? createTelemetry([
+          designs[0].parts.map((part) => part.iid),
+          designs[1].parts.map((part) => part.iid),
+        ])
+      : null,
   };
 }
 

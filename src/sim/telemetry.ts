@@ -86,27 +86,36 @@ export interface MatchTelemetry {
   tallies: [Map<string, PartTally>, Map<string, PartTally>];
 }
 
-export function createTelemetry(): MatchTelemetry {
-  return {
-    impacts: [],
-    logged: 0,
-    destructions: [],
-    impactCount: 0,
-    tallies: [new Map(), new Map()],
-  };
-}
-
-function tallyFor(
-  telemetry: MatchTelemetry,
-  bot: 0 | 1,
-  iid: string,
-): PartTally {
-  const perBot = telemetry.tallies[bot];
-  const existing = perBot.get(iid);
-  if (existing) return existing;
-  const created = emptyTally();
-  perBot.set(iid, created);
-  return created;
+/**
+ * Builds the telemetry for a match, with every tally and every attacker
+ * attribution slot allocated up front.
+ *
+ * Seeding matters: recordImpact runs inside stepMatch, which the arena
+ * drives from useFrame, and the frame-loop rule forbids allocating there.
+ * First-touch creation of a part's tally (or of an attacker's entry in
+ * takenFrom) would allocate during combat. Both sets are known and small at
+ * match creation (parts, and parts times enemy parts), so they are built
+ * here once and recordImpact only ever adds numbers.
+ */
+export function createTelemetry(
+  partIids: readonly [readonly string[], readonly string[]] = [[], []],
+): MatchTelemetry {
+  const tallies: [Map<string, PartTally>, Map<string, PartTally>] = [
+    new Map(),
+    new Map(),
+  ];
+  for (const bot of [0, 1] as const) {
+    for (const iid of partIids[bot]) {
+      const tally = emptyTally();
+      // Only the other bot can damage this part, so those are the only
+      // attribution slots that can ever be written.
+      for (const enemyIid of partIids[1 - bot]) {
+        tally.takenFrom.set(enemyIid, 0);
+      }
+      tallies[bot].set(iid, tally);
+    }
+  }
+  return { impacts: [], logged: 0, destructions: [], impactCount: 0, tallies };
 }
 
 /**
@@ -126,16 +135,22 @@ export function recordImpact(
 ): void {
   telemetry.impactCount += 1;
 
-  const attacker = tallyFor(telemetry, attackerBot, attackerIid);
-  attacker.damageDealt += damage;
-  attacker.hitsDealt += 1;
-  const victim = tallyFor(telemetry, victimBot, victimIid);
-  victim.damageTaken += damage;
-  victim.hitsTaken += 1;
-  victim.takenFrom.set(
-    attackerIid,
-    (victim.takenFrom.get(attackerIid) ?? 0) + damage,
-  );
+  // Every slot below was seeded by createTelemetry, so these are numeric
+  // updates into existing objects: no allocation on the frame path.
+  const attacker = telemetry.tallies[attackerBot].get(attackerIid);
+  if (attacker) {
+    attacker.damageDealt += damage;
+    attacker.hitsDealt += 1;
+  }
+  const victim = telemetry.tallies[victimBot].get(victimIid);
+  if (victim) {
+    victim.damageTaken += damage;
+    victim.hitsTaken += 1;
+    const previous = victim.takenFrom.get(attackerIid);
+    if (previous !== undefined) {
+      victim.takenFrom.set(attackerIid, previous + damage);
+    }
+  }
 
   if (telemetry.logged >= MAX_TELEMETRY_IMPACTS) return;
   const slot = telemetry.impacts[telemetry.logged];
@@ -320,7 +335,10 @@ export function buildTeardown(input: TeardownInput): MatchTeardown {
       const sources = input.telemetry.tallies[index].get(part.iid)?.takenFrom;
       if (!sources) continue;
       let bestIid: string | null = null;
-      let bestDamage = -1;
+      // Starts at 0, not -1: every enemy part is a seeded slot now, so a
+      // part destroyed without contact damage must report no killer rather
+      // than the alphabetically first candidate.
+      let bestDamage = 0;
       // Sorted so an exact tie always names the same part.
       for (const [iid, damage] of [...sources].sort((a, b) =>
         a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0,

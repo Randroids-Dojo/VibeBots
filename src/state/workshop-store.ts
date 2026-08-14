@@ -382,6 +382,8 @@ export interface WorkshopState {
   rotateSelected: () => void;
   setName: (name: string) => void;
   setBehavior: (patch: Partial<BotBehavior>) => void;
+  /** Declare (or clear) the design's weight class (F-228). Undoable. */
+  setWeightClass: (classId: string | undefined) => void;
   loadDesign: (design: BotDesign) => void;
   select: (iid: string | null) => void;
   undo: () => void;
@@ -624,6 +626,17 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       ...patch,
     };
     set({ ...withDesign(pushHistory(history, { ...design, behavior })) });
+  },
+
+  setWeightClass: (classId) => {
+    const { history, design } = get();
+    if (design.weightClass === classId) return;
+    // Undeclaring drops the key entirely rather than storing undefined, so
+    // a saved design round-trips to exactly what it was before classes.
+    const next: BotDesign = { ...design };
+    if (classId === undefined) delete next.weightClass;
+    else next.weightClass = classId;
+    set({ ...withDesign(pushHistory(history, next)) });
   },
 
   loadDesign: (design) =>

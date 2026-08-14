@@ -18,6 +18,7 @@ import { MatchTeardownSheet } from "@/components/match-teardown";
 import { StampBookPopup } from "@/components/mine-stamp-book-popup";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
+import { TechInspection } from "@/components/tech-inspection";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
@@ -395,6 +396,7 @@ export function WorkshopPanel() {
   const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
   const setBehavior = useWorkshopStore((s) => s.setBehavior);
+  const setWeightClass = useWorkshopStore((s) => s.setWeightClass);
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
@@ -1133,6 +1135,12 @@ export function WorkshopPanel() {
                   </ul>
                 )}
               </section>
+
+              <TechInspection
+                design={design}
+                panelStyle={panelStyle}
+                onSelectClass={setWeightClass}
+              />
 
               <BalanceReadout panelStyle={panelStyle} design={design} />
 

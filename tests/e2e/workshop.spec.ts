@@ -1375,6 +1375,52 @@ test(
   },
 );
 
+test(
+  "the tech inspection passes rule by rule and enforces a declared class",
+  ciCase("E2E-WORKSHOP-0034", "@functional"),
+  async ({ page }) => {
+    await page.goto("/workshop");
+    await expect(page.getByLabel("Part carousel")).toBeVisible();
+
+    await page.getByRole("tab", { name: "Tune" }).click();
+    const inspection = page.getByLabel("Tech inspection");
+    await expect(inspection).toBeVisible();
+
+    // Every rule is listed and the starter bot passes all of them.
+    const items = inspection.getByTestId("inspection-item");
+    await expect(items).toHaveCount(7);
+    for (const item of await items.all()) {
+      await expect(item).toHaveAttribute("data-passed", "true");
+    }
+    await expect(inspection.getByTestId("inspection-verdict")).toHaveText(
+      "Passed",
+    );
+
+    // Unclassed by default; the starter bot is light enough for anything.
+    const antweight = inspection.locator(
+      '[data-testid="weight-class-option"][data-class-id="antweight"]',
+    );
+    await antweight.click();
+    await expect(antweight).toHaveAttribute("aria-pressed", "true");
+    await expect(inspection.getByTestId("inspection-verdict")).toHaveText(
+      "Passed",
+    );
+
+    // Declaring the lightest class on a heavy build must fail exactly one
+    // rule, and it must be the weight rule: a checklist localizes the fault.
+    const featherweight = inspection.locator(
+      '[data-testid="weight-class-option"][data-class-id="featherweight"]',
+    );
+    await featherweight.click();
+    await expect(featherweight).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      inspection.locator(
+        '[data-testid="inspection-item"][data-item-id="weight"]',
+      ),
+    ).toHaveAttribute("data-passed", "true");
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

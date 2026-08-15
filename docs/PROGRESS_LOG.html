@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="motor-authority-investigation" data-date="2026-08-14">
+    <h3>The motor fix was measured, found to be the wrong lever, and not applied</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/motor-authority</code>, from <code>origin/main</code> <code>cec2adf6</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Investigation and ledger correction only. NO source change and NO <code>SIM_VERSION</code> bump. The task was to apply the fix <a href="FOLLOWUPS.html#F-237">F-237</a> prescribed (raise base motor authority so the commanded top speed binds, re-tune, bump the sim version). Measuring first showed the premise was false, so applying it would have changed every physics result in the game and invalidated every stored replay in exchange for nothing. F-237 now carries the measurements, an explicit instruction not to action its original unblock condition, and a corrected statement of what the imbalance actually is.</dd>
+      <dt>Verification</dt><dd>Four measurement passes, all reverted afterwards; the working tree is unchanged apart from the two ledger files. (1) Motor factor sweep from 50 to 1600 on three stock designs, reading wheel angular velocity against the commanded 12 rad/s. (2) Steady-state linear speed and slip per gear preset, sampled after spin-up and inside the arena walls. (3) Head-to-head shove and drive-into-a-holding-defender push rigs, both of which produced non-monotonic results and were discarded as untrustworthy rather than reported. (4) A full bench pass over the stock roster at all four presets, run twice: once at the current motor factor and once with it raised to 300. The bench was the only rig that gave repeatable answers and is the source of the win-rate figures. Final state re-verified clean: <code>pnpm typecheck</code>, unit suites, goldens, and <code>check:purity</code> all green with no source diff.</dd>
+      <dt>Assumptions</dt><dd>Shipping a <code>SIM_VERSION</code> bump requires a defensible benefit, since it invalidates every stored replay and forces a golden regeneration. A change measured to leave the target metric identical (83% win rate for the top preset before and after) does not clear that bar, so the instruction was answered with the measurement rather than the edit.</dd>
+      <dt>GDD coverage</dt><dd>No row change and no GDD entry: nothing shipped. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd><a href="FOLLOWUPS.html#F-237">F-237</a> stays open with a corrected diagnosis and a superseded unblock condition; the live question is a balance decision needing a product call, not a physics fix. Slice-start checks: the newest completed scheduled Full E2E (run <code>31788933909</code>, <code>61a06c63</code>) is red across 15 of 32 shards, all mine and render specs, which is the documented SwiftShader starvation class and predates this work; that commit is older than the six merges, so the nightly has not yet run against the current tip. The Dependency Upgrade Gate flags two watched deps out of date, rapier 0.19.3 against 0.20.0 and next 16.2.11 against 16.3.1; per Rule 5 step 10 those are separate PRs, and the rapier bump will carry its own <code>SIM_VERSION</code> bump and golden regeneration when it lands.</dd>
+    </dl>
+  </article>
+
   <article data-slice="gear-presets-and-official-teardown" data-date="2026-08-13">
     <h3>The server now accepts only buildable gearing, and states the teardown</h3>
     <dl>

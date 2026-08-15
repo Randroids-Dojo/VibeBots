@@ -285,11 +285,45 @@ function makeCombatBot(
   };
 }
 
+/**
+ * Starting arrangements for a match (F-237 methodology fix).
+ *
+ * The sim is fully deterministic and spawns were fixed, so one matchup was
+ * one outcome forever: a six-opponent bench produced six data points with
+ * no variance, which is fine for catching a regression and useless for
+ * judging balance. Varying where the bots start turns the same roster into
+ * a real sample.
+ *
+ * Index 0 is exactly the historical spawn, so an unvaried match is
+ * byte-identical to every match ever recorded and no stored replay or
+ * golden vector moves. Offsets are pure data, well inside the wall ring,
+ * and lateral ones force an opening turn instead of a head-on charge.
+ */
+export const SPAWN_ARRANGEMENTS: ReadonlyArray<{
+  a: { x: number; z: number };
+  b: { x: number; z: number };
+}> = [
+  { a: { x: 0, z: -3 }, b: { x: 0, z: 3 } },
+  { a: { x: -1.5, z: -3 }, b: { x: 1.5, z: 3 } },
+  { a: { x: 1.5, z: -3 }, b: { x: -1.5, z: 3 } },
+  { a: { x: 0, z: -4.5 }, b: { x: 0, z: 4.5 } },
+  { a: { x: -2, z: -2.5 }, b: { x: 2, z: 2.5 } },
+  { a: { x: 2, z: -4 }, b: { x: -2, z: 4 } },
+];
+
+/** Spawn height: just above rest, so landing cannot self-damage. */
+const SPAWN_Y = 0.42;
+
 export interface MatchOptions {
   catalog?: Record<string, PartDef>;
   timeLimitTicks?: number;
   /** Record the impact log that feeds the post-match teardown sheet. */
   telemetry?: boolean;
+  /**
+   * Index into SPAWN_ARRANGEMENTS. Omitted or 0 reproduces the historical
+   * fixed spawn exactly; higher indexes wrap.
+   */
+  variation?: number;
 }
 
 export function createMatch(
@@ -300,8 +334,24 @@ export function createMatch(
   const catalog = options.catalog ?? PART_CATALOG;
   // Spawn just above rest height; a tall drop would exceed the damage
   // threshold on landing and bots would hurt themselves before contact.
-  const a = makeCombatBot(world, designs[0], { x: 0, y: 0.42, z: -3 }, catalog);
-  const b = makeCombatBot(world, designs[1], { x: 0, y: 0.42, z: 3 }, catalog);
+  const spawn =
+    SPAWN_ARRANGEMENTS[
+      (((options.variation ?? 0) % SPAWN_ARRANGEMENTS.length) +
+        SPAWN_ARRANGEMENTS.length) %
+        SPAWN_ARRANGEMENTS.length
+    ];
+  const a = makeCombatBot(
+    world,
+    designs[0],
+    { x: spawn.a.x, y: SPAWN_Y, z: spawn.a.z },
+    catalog,
+  );
+  const b = makeCombatBot(
+    world,
+    designs[1],
+    { x: spawn.b.x, y: SPAWN_Y, z: spawn.b.z },
+    catalog,
+  );
   const colliderIndex = new Map<
     number,
     { bot: 0 | 1; iid: string; isWeapon: boolean }

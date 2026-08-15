@@ -1320,7 +1320,7 @@ test(
     // headlessly, so give it room; it is still far faster than watching one.
     await bench.getByTestId("run-bench").click();
     const report = bench.getByTestId("bench-report");
-    await expect(report).toBeVisible({ timeout: 90_000 });
+    await expect(report).toBeVisible({ timeout: 180_000 });
 
     // The headline number is a real percentage, not a placeholder.
     await expect(bench.getByTestId("bench-win-rate")).toHaveText(
@@ -1328,7 +1328,7 @@ test(
     );
     // One row per stock opponent, each carrying a decided outcome.
     const rows = bench.getByTestId("bench-match-row");
-    await expect(rows).toHaveCount(6);
+    await expect(rows).toHaveCount(18);
     for (const row of await rows.all()) {
       await expect(row).toHaveText(/win|loss|draw/);
     }
@@ -1337,7 +1337,7 @@ test(
     // The build did not change, so nothing should have flipped.
     await bench.getByTestId("run-bench").click();
     const comparison = bench.getByTestId("bench-comparison");
-    await expect(comparison).toBeVisible({ timeout: 90_000 });
+    await expect(comparison).toBeVisible({ timeout: 180_000 });
     await expect(comparison).toContainText("No outcome changed");
   },
 );

@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="bench-spawn-variation" data-date="2026-08-14">
+    <h3>The bench got real samples, and the balance problem disappeared</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/motor-authority</code>, from <code>origin/main</code> <code>cec2adf6</code>.</dd>
+      <dt>PR</dt><dd>Pending (<a href="https://github.com/Randroids-Dojo/VibeBots/pull/322">#322</a>).</dd>
+      <dt>Changed</dt><dd>Matches gained a starting arrangement. <code>SPAWN_ARRANGEMENTS</code> in <code>combat.ts</code> holds six pure-data spawn pairs and <code>MatchOptions.variation</code> selects one, wrapping out-of-range indexes; index 0 is exactly the historical spawn, so an unvaried match is byte-identical to every match ever recorded. <code>resolveMatch</code> and <code>runBench</code> thread it through, and the bench fights every opponent from several arrangements (three in the workshop panel by default). This exists because the bench was not a balance instrument: the sim is fully deterministic and spawns were fixed, so one matchup was one outcome forever, and a six-opponent roster produced a win rate with no variance behind it and 16.7-point granularity. No sim rules changed, <code>SIM_VERSION</code> stays 6, and no golden vector moved.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green. <code>pnpm vitest run src/sim src/lib src/state src/app</code> green (83 files, 1307 tests) including 6 new spawn-variation tests (arrangements inside the walls, bots apart and facing across, the unvaried identity contract, variations producing genuinely different fights, per-variation determinism, and index wrapping) and 3 new bench tests. <code>pnpm test:goldens</code> green with no vector moved, which together with the identity test is the evidence for not bumping <code>SIM_VERSION</code>. <code>pnpm check:purity</code> green. <code>pnpm build</code> green, then e2e <code>E2E-WORKSHOP-0032</code> passed against the production build in 15.7s, now asserting 18 rows (six opponents times three arrangements).</dd>
+      <dt>Assumptions</dt><dd>Three arrangements is the workshop default: it keeps a roster pass to a few seconds while giving the number samples behind it, where six would be better statistically but slow the panel past the point players would use it. Arrangements vary position only, not orientation, because rotating a spawn needs trigonometry that the sim purity gate bans.</dd>
+      <dt>GDD coverage</dt><dd><code>docs/gdd/05-test-arena.html</code> gained a build log entry. No coverage row changed. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>Resolved <a href="FOLLOWUPS.html#F-237">F-237</a>, as no imbalance: re-measured at 36 matches per preset instead of 6, the gear presets win 44%, 50%, 61%, and 58%, a 17-point spread with the top preset not even strongest. The 83% that started this was six fixed matchups. F-237 also records the four levers tested and rejected so none is re-attempted, including the original motor prescription (no effect) and decoupling steering authority (rejected because reduction's turn advantage comes from grip, which is correct physics).</dd>
+    </dl>
+  </article>
+
   <article data-slice="motor-authority-investigation" data-date="2026-08-14">
     <h3>The motor fix was measured, found to be the wrong lever, and not applied</h3>
     <dl>

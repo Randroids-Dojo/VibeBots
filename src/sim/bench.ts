@@ -55,6 +55,8 @@ export type BenchOutcome = "win" | "loss" | "draw";
 export interface BenchMatch {
   opponentId: string;
   opponentName: string;
+  /** Which starting arrangement this bout was fought from. */
+  variation: number;
   outcome: BenchOutcome;
   reason: MatchEndReason;
   ticks: number;
@@ -100,6 +102,14 @@ export interface BenchOptions {
   roster?: readonly BenchOpponentSpec[];
   timeLimitTicks?: number;
   /**
+   * How many starting arrangements to fight each opponent from. The sim is
+   * deterministic, so one arrangement per opponent gives one outcome per
+   * opponent and a win rate with no variance behind it: fine for spotting
+   * a regression, far too coarse to judge balance on. Defaults to 1, which
+   * is the historical single fixed spawn.
+   */
+  variations?: number;
+  /**
    * Awaited after each match. A UI caller passes a yield here so the bench
    * does not hold the main thread for the whole run; the sim itself stays
    * free of host timers.
@@ -129,15 +139,23 @@ export async function runBench(
   options: BenchOptions = {},
 ): Promise<BenchReport> {
   const roster = options.roster ?? BENCH_ROSTER;
+  const variations = Math.max(1, Math.floor(options.variations ?? 1));
   const matches: BenchMatch[] = [];
+  const bouts: Array<{ opponent: BenchOpponentSpec; variation: number }> = [];
+  for (const opponent of roster) {
+    for (let variation = 0; variation < variations; variation++) {
+      bouts.push({ opponent, variation });
+    }
+  }
 
-  for (const [index, opponent] of roster.entries()) {
+  for (const [index, bout] of bouts.entries()) {
+    const opponent = bout.opponent;
     // Telemetry is on so the report can name which parts were lost; the
     // per-match cost is trivial next to the 3600 physics steps.
     const resolved = await resolveMatch(
       [design, opponent.design],
       options.timeLimitTicks,
-      { telemetry: true },
+      { telemetry: true, variation: bout.variation },
     );
     const status = resolved.status;
     if (!status.over) throw new Error("bench match returned without a result");
@@ -148,6 +166,7 @@ export async function runBench(
     const match: BenchMatch = {
       opponentId: opponent.id,
       opponentName: opponent.name,
+      variation: bout.variation,
       outcome,
       reason: status.reason,
       ticks: resolved.tick,
@@ -161,7 +180,7 @@ export async function runBench(
       scoreMargin: status.scores[0].total - status.scores[1].total,
     };
     matches.push(match);
-    await options.onMatch?.(match, index, roster.length);
+    await options.onMatch?.(match, index, bouts.length);
   }
 
   const wins = matches.filter((m) => m.outcome === "win").length;

@@ -5,6 +5,7 @@ import {
   createMatch,
   freeMatch,
   SPAWN_ARRANGEMENTS,
+  spawnArrangement,
   stepMatch,
 } from "./combat";
 import { CPU_BRAWLER_DESIGN, CPU_WHIRLIGIG_DESIGN } from "./design";
@@ -90,13 +91,13 @@ describe("match variation", () => {
     expect(second.tick).toBe(first.tick);
   }, 60000);
 
-  it("wraps out-of-range indexes instead of crashing", async () => {
-    const wrapped = await runVariation(SPAWN_ARRANGEMENTS.length);
-    const zero = await runVariation(0);
-    expect(wrapped.hash).toBe(zero.hash);
-    // Negative indexes wrap forward rather than reading off the end.
-    const negative = await runVariation(-1);
-    const last = await runVariation(SPAWN_ARRANGEMENTS.length - 1);
-    expect(negative.hash).toBe(last.hash);
-  }, 90000);
+  it("wraps out-of-range indexes instead of reading off the array", () => {
+    const count = SPAWN_ARRANGEMENTS.length;
+    expect(spawnArrangement(undefined)).toBe(SPAWN_ARRANGEMENTS[0]);
+    expect(spawnArrangement(count)).toBe(SPAWN_ARRANGEMENTS[0]);
+    expect(spawnArrangement(count * 3 + 2)).toBe(SPAWN_ARRANGEMENTS[2]);
+    // Negative indexes wrap forward rather than yielding undefined.
+    expect(spawnArrangement(-1)).toBe(SPAWN_ARRANGEMENTS[count - 1]);
+    expect(spawnArrangement(-count - 1)).toBe(SPAWN_ARRANGEMENTS[count - 1]);
+  });
 });

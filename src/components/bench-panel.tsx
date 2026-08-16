@@ -111,7 +111,10 @@ export function BenchPanel({
   const run = useCallback(async () => {
     setError(null);
     setComparison(null);
-    setProgress({ done: 0, total: BENCH_ROSTER.length });
+    setProgress({
+      done: 0,
+      total: BENCH_ROSTER.length * BENCH_VARIATIONS,
+    });
     try {
       const next = await runBench(design, {
         // Several starting arrangements per opponent, not one. A single

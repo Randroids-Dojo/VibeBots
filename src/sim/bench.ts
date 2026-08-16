@@ -148,14 +148,13 @@ export async function runBench(
     }
   }
 
-  for (const [index, bout] of bouts.entries()) {
-    const opponent = bout.opponent;
+  for (const [index, { opponent, variation }] of bouts.entries()) {
     // Telemetry is on so the report can name which parts were lost; the
     // per-match cost is trivial next to the 3600 physics steps.
     const resolved = await resolveMatch(
       [design, opponent.design],
       options.timeLimitTicks,
-      { telemetry: true, variation: bout.variation },
+      { telemetry: true, variation },
     );
     const status = resolved.status;
     if (!status.over) throw new Error("bench match returned without a result");
@@ -166,7 +165,7 @@ export async function runBench(
     const match: BenchMatch = {
       opponentId: opponent.id,
       opponentName: opponent.name,
-      variation: bout.variation,
+      variation,
       outcome,
       reason: status.reason,
       ticks: resolved.tick,

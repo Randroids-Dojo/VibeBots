@@ -314,6 +314,18 @@ export const SPAWN_ARRANGEMENTS: ReadonlyArray<{
 /** Spawn height: just above rest, so landing cannot self-damage. */
 const SPAWN_Y = 0.42;
 
+/**
+ * The arrangement for a variation index, wrapping in both directions so a
+ * caller iterating past the end (or passing a negative) gets a real spawn
+ * rather than reading off the array.
+ */
+export function spawnArrangement(
+  variation = 0,
+): (typeof SPAWN_ARRANGEMENTS)[number] {
+  const count = SPAWN_ARRANGEMENTS.length;
+  return SPAWN_ARRANGEMENTS[((variation % count) + count) % count];
+}
+
 export interface MatchOptions {
   catalog?: Record<string, PartDef>;
   timeLimitTicks?: number;
@@ -334,12 +346,7 @@ export function createMatch(
   const catalog = options.catalog ?? PART_CATALOG;
   // Spawn just above rest height; a tall drop would exceed the damage
   // threshold on landing and bots would hurt themselves before contact.
-  const spawn =
-    SPAWN_ARRANGEMENTS[
-      (((options.variation ?? 0) % SPAWN_ARRANGEMENTS.length) +
-        SPAWN_ARRANGEMENTS.length) %
-        SPAWN_ARRANGEMENTS.length
-    ];
+  const spawn = spawnArrangement(options.variation);
   const a = makeCombatBot(
     world,
     designs[0],

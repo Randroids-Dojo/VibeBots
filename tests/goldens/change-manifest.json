@@ -270,5 +270,266 @@
         }
       }
     ]
+  },
+  {
+    "id": "goldens-20260816212025801",
+    "createdAt": "2026-08-16T21:20:25.801Z",
+    "reason": "rapier 0.19.3 to 0.20.0 (Dependency Upgrade Gate). A physics engine bump changes deterministic results across the board, so every stored hash and replay from SIM_VERSION 6 or earlier is invalid. SIM_VERSION 6 to 7.",
+    "changes": [
+      {
+        "vectorId": "GOLDEN-COMBAT-0001",
+        "kind": "combat",
+        "changedFields": [
+          "$.outcomes.rewards[0].credits",
+          "$.outcomes.rewards[0].trackXp",
+          "$.outcomes.rewards[1].credits",
+          "$.outcomes.rewards[1].trackXp",
+          "$.outcomes.status.scores[0].damageDealt",
+          "$.outcomes.status.scores[0].damageTaken",
+          "$.outcomes.status.scores[0].healthRemaining",
+          "$.outcomes.status.scores[0].pressureTicks",
+          "$.outcomes.status.scores[0].total",
+          "$.outcomes.status.scores[1].damageDealt",
+          "$.outcomes.status.scores[1].damageTaken",
+          "$.outcomes.status.scores[1].healthRemaining",
+          "$.outcomes.status.scores[1].partsRemaining",
+          "$.outcomes.status.scores[1].pressureTicks",
+          "$.outcomes.status.scores[1].total",
+          "$.snapshotHash"
+        ],
+        "oldSnapshotHash": "8a99c01b32684138",
+        "newSnapshotHash": "6c8cbe61672d4ac7",
+        "oldOutcomes": {
+          "rewards": [
+            {
+              "outcome": "win",
+              "credits": 196,
+              "trackXp": 98
+            },
+            {
+              "outcome": "loss",
+              "credits": 70,
+              "trackXp": 32
+            }
+          ],
+          "status": {
+            "over": true,
+            "winner": 0,
+            "reason": "timeout",
+            "scores": [
+              {
+                "damageDealt": 96.69359046936034,
+                "damageTaken": 45.07393550872803,
+                "partsRemaining": 4,
+                "partCount": 4,
+                "healthRemaining": 444.926064491272,
+                "healthTotal": 490,
+                "pressureTicks": 28,
+                "mobileAtEnd": true,
+                "total": 239.49164203341044
+              },
+              {
+                "damageDealt": 45.07393550872803,
+                "damageTaken": 96.69359046936034,
+                "partsRemaining": 4,
+                "partCount": 4,
+                "healthRemaining": 343.30640953063966,
+                "healthTotal": 440,
+                "pressureTicks": 29,
+                "mobileAtEnd": true,
+                "total": 78.27192809576941
+              }
+            ]
+          },
+          "tick": 900
+        },
+        "newOutcomes": {
+          "rewards": [
+            {
+              "outcome": "win",
+              "credits": 180,
+              "trackXp": 90
+            },
+            {
+              "outcome": "loss",
+              "credits": 43,
+              "trackXp": 19
+            }
+          ],
+          "status": {
+            "over": true,
+            "winner": 0,
+            "reason": "timeout",
+            "scores": [
+              {
+                "damageDealt": 80,
+                "damageTaken": 18.33468925476074,
+                "partsRemaining": 4,
+                "partCount": 4,
+                "healthRemaining": 471.66531074523925,
+                "healthTotal": 490,
+                "pressureTicks": 58,
+                "mobileAtEnd": true,
+                "total": 236.4055351977013
+              },
+              {
+                "damageDealt": 18.33468925476074,
+                "damageTaken": 80,
+                "partsRemaining": 3,
+                "partCount": 4,
+                "healthRemaining": 360,
+                "healthTotal": 440,
+                "pressureTicks": 43,
+                "mobileAtEnd": true,
+                "total": 36.272913863056836
+              }
+            ]
+          },
+          "tick": 900
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": 5,
+          "to": 7
+        }
+      },
+      {
+        "vectorId": "GOLDEN-COMBAT-0002",
+        "kind": "combat",
+        "changedFields": [
+          "$.outcomes.rewards[1].credits",
+          "$.outcomes.rewards[1].trackXp",
+          "$.outcomes.status.scores[0].damageDealt",
+          "$.outcomes.status.scores[0].damageTaken",
+          "$.outcomes.status.scores[0].healthRemaining",
+          "$.outcomes.status.scores[0].partsRemaining",
+          "$.outcomes.status.scores[0].pressureTicks",
+          "$.outcomes.status.scores[0].total",
+          "$.outcomes.status.scores[1].damageDealt",
+          "$.outcomes.status.scores[1].damageTaken",
+          "$.outcomes.status.scores[1].healthRemaining",
+          "$.outcomes.status.scores[1].pressureTicks",
+          "$.outcomes.status.scores[1].total",
+          "$.snapshotHash"
+        ],
+        "oldSnapshotHash": "b7925f8c7d3d0db3",
+        "newSnapshotHash": "84aeb5460ef8afa2",
+        "oldOutcomes": {
+          "rewards": [
+            {
+              "outcome": "win",
+              "credits": 200,
+              "trackXp": 100
+            },
+            {
+              "outcome": "loss",
+              "credits": 110,
+              "trackXp": 52
+            }
+          ],
+          "status": {
+            "over": true,
+            "winner": 0,
+            "reason": "timeout",
+            "scores": [
+              {
+                "damageDealt": 131.4547164916992,
+                "damageTaken": 85.88675994873047,
+                "partsRemaining": 5,
+                "partCount": 5,
+                "healthRemaining": 484.11324005126954,
+                "healthTotal": 570,
+                "pressureTicks": 327,
+                "mobileAtEnd": true,
+                "total": 273.5720800567091
+              },
+              {
+                "damageDealt": 85.88675994873047,
+                "damageTaken": 131.4547164916992,
+                "partsRemaining": 5,
+                "partCount": 5,
+                "healthRemaining": 718.5452835083008,
+                "healthTotal": 850,
+                "pressureTicks": 63,
+                "mobileAtEnd": true,
+                "total": 129.3361730238971
+              }
+            ]
+          },
+          "tick": 900
+        },
+        "newOutcomes": {
+          "rewards": [
+            {
+              "outcome": "win",
+              "credits": 200,
+              "trackXp": 100
+            },
+            {
+              "outcome": "loss",
+              "credits": 125,
+              "trackXp": 60
+            }
+          ],
+          "status": {
+            "over": true,
+            "winner": 0,
+            "reason": "timeout",
+            "scores": [
+              {
+                "damageDealt": 197.53124725341797,
+                "damageTaken": 109.99999999999999,
+                "partsRemaining": 4,
+                "partCount": 5,
+                "healthRemaining": 460,
+                "healthTotal": 570,
+                "pressureTicks": 208,
+                "mobileAtEnd": true,
+                "total": 370.1911494775962
+              },
+              {
+                "damageDealt": 109.99999999999999,
+                "damageTaken": 197.53124725341797,
+                "partsRemaining": 5,
+                "partCount": 5,
+                "healthRemaining": 652.468752746582,
+                "healthTotal": 850,
+                "pressureTicks": 122,
+                "mobileAtEnd": true,
+                "total": 109.2381565029169
+              }
+            ]
+          },
+          "tick": 900
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": 6,
+          "to": 7
+        }
+      },
+      {
+        "vectorId": "GOLDEN-WORLD-0001",
+        "kind": "world",
+        "changedFields": ["$.outcomes.simVersion", "$.snapshotHash"],
+        "oldSnapshotHash": "f0c31ac2f5e7bd1c",
+        "newSnapshotHash": "b70ff16c6f724b39",
+        "oldOutcomes": {
+          "seed": 42,
+          "simVersion": 6,
+          "steps": 600
+        },
+        "newOutcomes": {
+          "seed": 42,
+          "simVersion": 7,
+          "steps": 600
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": 6,
+          "to": 7
+        }
+      }
+    ]
   }
 ]

@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.12",
-    "@dimforge/rapier3d-deterministic-compat": "0.19.3",
+    "@dimforge/rapier3d-deterministic-compat": "0.20.0",
     "@neondatabase/serverless": "^1.1.0",
     "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.3.0",
     "@react-three/drei": "^10.7.7",

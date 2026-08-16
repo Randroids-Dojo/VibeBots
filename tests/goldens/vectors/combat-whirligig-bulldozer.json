@@ -4,7 +4,7 @@
   "kind": "combat",
   "seed": 0,
   "stepCount": 900,
-  "simVersion": 6,
+  "simVersion": 7,
   "designInputs": [
     {
       "name": "Whirligig",
@@ -121,7 +121,7 @@
   ],
   "actionLog": [],
   "expected": {
-    "snapshotHash": "b7925f8c7d3d0db3",
+    "snapshotHash": "84aeb5460ef8afa2",
     "outcomes": {
       "rewards": [
         {
@@ -131,8 +131,8 @@
         },
         {
           "outcome": "loss",
-          "credits": 110,
-          "trackXp": 52
+          "credits": 125,
+          "trackXp": 60
         }
       ],
       "status": {
@@ -141,31 +141,31 @@
         "reason": "timeout",
         "scores": [
           {
-            "damageDealt": 131.4547164916992,
-            "damageTaken": 85.88675994873047,
-            "partsRemaining": 5,
+            "damageDealt": 197.53124725341797,
+            "damageTaken": 109.99999999999999,
+            "partsRemaining": 4,
             "partCount": 5,
-            "healthRemaining": 484.11324005126954,
+            "healthRemaining": 460,
             "healthTotal": 570,
-            "pressureTicks": 327,
+            "pressureTicks": 208,
             "mobileAtEnd": true,
-            "total": 273.5720800567091
+            "total": 370.1911494775962
           },
           {
-            "damageDealt": 85.88675994873047,
-            "damageTaken": 131.4547164916992,
+            "damageDealt": 109.99999999999999,
+            "damageTaken": 197.53124725341797,
             "partsRemaining": 5,
             "partCount": 5,
-            "healthRemaining": 718.5452835083008,
+            "healthRemaining": 652.468752746582,
             "healthTotal": 850,
-            "pressureTicks": 63,
+            "pressureTicks": 122,
             "mobileAtEnd": true,
-            "total": 129.3361730238971
+            "total": 109.2381565029169
           }
         ]
       },
       "tick": 900
     }
   },
-  "manifestId": "goldens-20260813041042091"
+  "manifestId": "goldens-20260816212025801"
 }

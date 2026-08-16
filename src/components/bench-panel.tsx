@@ -29,6 +29,12 @@ function signed(value: number): string {
   return value > 0 ? `+${value}` : String(value);
 }
 
+/**
+ * Starting arrangements fought per opponent. Three keeps a roster pass to a
+ * few seconds while giving the win rate real samples behind it.
+ */
+const BENCH_VARIATIONS = 3;
+
 const OUTCOME_COLOR: Record<string, string> = {
   win: STATUS.good,
   loss: STATUS.bad,
@@ -105,9 +111,16 @@ export function BenchPanel({
   const run = useCallback(async () => {
     setError(null);
     setComparison(null);
-    setProgress({ done: 0, total: BENCH_ROSTER.length });
+    setProgress({
+      done: 0,
+      total: BENCH_ROSTER.length * BENCH_VARIATIONS,
+    });
     try {
       const next = await runBench(design, {
+        // Several starting arrangements per opponent, not one. A single
+        // fixed spawn made every matchup one deterministic outcome, so a
+        // six-bot roster reported a win rate with no variance behind it.
+        variations: BENCH_VARIATIONS,
         onMatch: async (_match, index, total) => {
           setProgress({ done: index + 1, total });
           // Hand the main thread back between matches so the bench canvas
@@ -130,9 +143,9 @@ export function BenchPanel({
     <section style={panelStyle} aria-label="Bench">
       <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Bench</h2>
       <p style={{ margin: "0 0 8px", fontSize: "0.72rem", opacity: 0.8 }}>
-        Fights this build against all {BENCH_ROSTER.length} stock bots and
-        reports what happened. Run it after a change to see what the change
-        actually did.
+        Fights this build against all {BENCH_ROSTER.length} stock bots from{" "}
+        {BENCH_VARIATIONS} starting positions each. Run it after a change to see
+        what the change actually did.
       </p>
 
       <button
@@ -224,7 +237,7 @@ export function BenchPanel({
           >
             {report.matches.map((match) => (
               <li
-                key={match.opponentId}
+                key={`${match.opponentId}:${match.variation}`}
                 data-testid="bench-match-row"
                 style={{
                   display: "flex",

@@ -23,6 +23,7 @@ function match(over: Partial<BenchMatch> = {}): BenchMatch {
   return {
     opponentId: "brawler",
     opponentName: "Brawler",
+    variation: 0,
     outcome: "loss",
     reason: "timeout",
     ticks: 3600,
@@ -169,6 +170,39 @@ describe("runBench", () => {
       comparison.perOpponent.some((d) => d.scoreMarginDelta !== 0);
     expect(anyDifference).toBe(true);
   }, 120000);
+});
+
+describe("bench variations", () => {
+  it("fights each opponent from every arrangement", async () => {
+    const report = await runBench(TEST_BOT_DESIGN, {
+      roster: SHORT_ROSTER,
+      variations: 3,
+    });
+    expect(report.matches).toHaveLength(SHORT_ROSTER.length * 3);
+    for (const opponent of SHORT_ROSTER) {
+      const bouts = report.matches.filter((m) => m.opponentId === opponent.id);
+      expect(bouts.map((m) => m.variation).sort()).toEqual([0, 1, 2]);
+    }
+  }, 120000);
+
+  it("gets genuinely different fights out of the same matchup", async () => {
+    // Without this the sim's determinism meant one matchup was one
+    // outcome forever, so a win rate had no samples behind it.
+    const report = await runBench(TEST_BOT_DESIGN, {
+      roster: [SHORT_ROSTER[1]],
+      variations: 4,
+    });
+    const signatures = new Set(
+      report.matches.map((m) => `${m.outcome}:${m.ticks}:${m.damageDealt}`),
+    );
+    expect(signatures.size).toBeGreaterThan(1);
+  }, 120000);
+
+  it("defaults to the single historical arrangement", async () => {
+    const report = await runBench(TEST_BOT_DESIGN, { roster: SHORT_ROSTER });
+    expect(report.matches).toHaveLength(SHORT_ROSTER.length);
+    expect(report.matches.every((m) => m.variation === 0)).toBe(true);
+  }, 60000);
 });
 
 describe("compareBench", () => {

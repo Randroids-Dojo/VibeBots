@@ -34,6 +34,8 @@ export interface ResolvedMatch {
 export interface ResolveMatchOptions {
   /** Record impacts and return the post-match teardown sheet. */
   telemetry?: boolean;
+  /** Starting arrangement index; 0 (default) is the historical spawn. */
+  variation?: number;
 }
 
 /** One hash for "the same fight": final snapshot plus combat state. */
@@ -57,6 +59,7 @@ export async function resolveMatch(
     match = createMatch(world, designs, {
       timeLimitTicks,
       telemetry: options.telemetry,
+      variation: options.variation,
     });
     while (!match.status.over) {
       stepMatch(match);

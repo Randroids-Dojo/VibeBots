@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="deps-rapier-0-20-0" data-date="2026-08-16">
+    <h3>Rapier 0.19.3 to 0.20.0, and the sim version with it</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/deps/rapier-0.19.3-to-0.20.0</code>, stacked on the Next bump (PR #323).</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Second half of the Dependency Upgrade Gate slice, landed separately from the Next bump per Rule 5 step 10. The physics engine moved from 0.19.3 to 0.20.0, still the deterministic-compat variant and still an exact pin. As the dependency ledger predicts, every deterministic result changed: the walking-skeleton world hash moved from <code>f0c31ac2f5e7bd1c</code> to <code>b70ff16c6f724b39</code>, and both combat vectors moved. <code>SIM_VERSION</code> is therefore 6 to 7 and the golden vectors were regenerated with a recorded reason; every stored hash and replay from SIM_VERSION 6 or earlier is invalid. No application code needed changing for the bump itself.</dd>
+      <dt>Verification</dt><dd>Baseline hashes were captured on 0.19.3 BEFORE the bump so the change could be shown rather than assumed, and the regenerated goldens match the post-bump hashes measured independently by that probe. <code>pnpm typecheck</code> green. <code>pnpm vitest run src/sim src/lib src/state src/app</code> green (83 files, 1307 tests). <code>pnpm test:goldens</code> green after regeneration. <code>pnpm check:purity</code> green. Determinism re-verified after the bump: the same matchup and the same seeded world resolve to identical hashes on repeat runs. Match outcomes were stable across the bump, so this is a numeric shift rather than a balance change.</dd>
+      <dt>Assumptions</dt><dd>A hash change with stable winners is treated as an acceptable engine bump rather than a balance event, so no retune was attempted. The two failing tests were fixed by measuring what they claim to measure rather than by widening their thresholds, because widening would have preserved the fragility for the next bump to hit.</dd>
+      <dt>GDD coverage</dt><dd>No row change and no GDD entry: a dependency bump ships no player-facing behaviour. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>None new. Two sim tests failed on the bump and BOTH were fragile measurements rather than broken behaviour, which is the reusable lesson and is recorded in the dependency ledger for the next bump. The assembly straight-line test drove 300 steps at a speed covering roughly 17 units inside a 9-unit ring, so it had always been reading the bot sliding along a wall rather than driving; it measures at 150 steps now and asserts lateral drift as a fraction of distance covered instead of pinning a coordinate. The degradation test measured distance travelled inside a live fight, which after contact is dominated by shoving, wall contact, and steering; it measures peak speed in the pre-contact window now, where the property is clean and monotonic at healthy 1.41 against worn 0.74. Neither sim behaviour was actually wrong.</dd>
+    </dl>
+  </article>
+
   <article data-slice="deps-next-16-3-1" data-date="2026-08-16">
     <h3>Next 16.2.11 to 16.3.1</h3>
     <dl>

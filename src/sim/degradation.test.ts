@@ -18,13 +18,18 @@ import {
 import { matchResultHash } from "./resolve";
 
 /**
- * Drives a match forward, optionally softening one of bot 0's parts first,
- * and reports how far bot 0 travelled.
+ * Peak speed a bot reaches before the two ever touch.
+ *
+ * Measured pre-contact on purpose. Distance travelled inside a live fight
+ * is not a drive measurement: once the bots collide, the number is
+ * dominated by shoving, wall contact, and the controller steering, which
+ * made the earlier version of this test non-monotonic under the rapier
+ * 0.20 bump even though the behaviour it checks was intact. The bots spawn
+ * six apart and close at a few metres per second, so this window is clean.
  */
-async function travelWithDamage(
+async function peakSpeedBeforeContact(
   design: BotDesign,
   damage: Array<{ iid: string; amount: number }>,
-  ticks: number,
 ): Promise<number> {
   const world = await createArenaWorld();
   const match = createMatch(world, [design, CPU_BRAWLER_DESIGN]);
@@ -33,14 +38,16 @@ async function travelWithDamage(
   for (const entry of damage) {
     damagePart(match, 0, entry.iid, entry.amount);
   }
-  const start = match.bots[0].coreBody.translation();
-  const from = { x: start.x, z: start.z };
-  for (let i = 0; i < ticks && !match.status.over; i++) stepMatch(match);
-  const end = match.bots[0].coreBody.translation();
-  const travelled = Math.sqrt((end.x - from.x) ** 2 + (end.z - from.z) ** 2);
+  const bot = match.bots[0];
+  let peak = 0;
+  for (let i = 0; i < 45; i++) {
+    stepMatch(match);
+    const velocity = bot.coreBody.linvel();
+    peak = Math.max(peak, Math.sqrt(velocity.x ** 2 + velocity.z ** 2));
+  }
   freeMatch(match);
   world.free();
-  return travelled;
+  return peak;
 }
 
 describe("partEffectiveness", () => {
@@ -70,17 +77,14 @@ describe("partEffectiveness", () => {
 describe("worn parts work worse", () => {
   it("a battered wheel slows the bot down", async () => {
     // The failure mode the old model erased: still driving, but hurt.
-    const healthy = await travelWithDamage(TEST_BOT_DESIGN, [], 240);
-    const worn = await travelWithDamage(
-      TEST_BOT_DESIGN,
+    const healthy = await peakSpeedBeforeContact(TEST_BOT_DESIGN, []);
+    const worn = await peakSpeedBeforeContact(TEST_BOT_DESIGN, [
       // Drive wheels have 80 durability; leave a sliver so the bot is
       // damaged rather than immobilized.
-      [
-        { iid: "wheel-l", amount: 75 },
-        { iid: "wheel-r", amount: 75 },
-      ],
-      240,
-    );
+      { iid: "wheel-l", amount: 75 },
+      { iid: "wheel-r", amount: 75 },
+    ]);
+    expect(healthy).toBeGreaterThan(0);
     expect(worn).toBeLessThan(healthy);
   }, 60000);
 

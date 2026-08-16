@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="deps-next-16-3-1" data-date="2026-08-16">
+    <h3>Next 16.2.11 to 16.3.1</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/deps/next-16.2.11-to-16.3.1</code>, from <code>origin/main</code> <code>dd13a3e4</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Dependency Upgrade Gate slice. The gate had two watched deps out of date; per Rule 5 step 10 they land as separate PRs rather than bundled, and this is the framework half. Exact pin moved from 16.2.11 to 16.3.1. No codemod and no application change was required.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> green with route types regenerated. <code>pnpm vitest run src/sim src/lib src/state src/app</code> green (83 files, 1307 tests). <code>pnpm test:goldens</code> green with no vector moved. <code>pnpm build</code> green. <code>pnpm test:e2e:critical --project=chromium</code> green (4 tests), which is the check that matters for this dep: it exercises the mine and workshop canvases, so it covers both things the dependency ledger tells you to verify after a Next bump, the <code>transpilePackages</code> resolution of the raw-TypeScript VibeKit and the dynamic <code>ssr: false</code> canvas imports.</dd>
+      <dt>Assumptions</dt><dd>A minor Next release with a clean typegen, build, and canvas smoke needs no migration work; the ledger's post-bump checklist is treated as satisfied by the critical gate rather than by a separate manual pass.</dd>
+      <dt>GDD coverage</dt><dd>No row change and no GDD entry: a dependency bump ships no player-facing behaviour. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>None new. The other half of the gate, rapier 0.19.3 to 0.20.0, follows in its own PR and carries a <code>SIM_VERSION</code> bump plus a golden regeneration because it changes physics results everywhere at once.</dd>
+    </dl>
+  </article>
+
   <article data-slice="bench-spawn-variation" data-date="2026-08-14">
     <h3>The bench got real samples, and the balance problem disappeared</h3>
     <dl>

@@ -60,13 +60,14 @@
       <dt>Why watched</dt><dd>determinism-critical physics engine; any version change alters simulation results everywhere at once.</dd>
       <dt>Source</dt><dd><a href="https://www.npmjs.com/package/@dimforge/rapier3d-deterministic-compat">npm registry</a>, <a href="https://github.com/dimforge/rapier.js/releases">rapier.js releases</a></dd>
       <dt>Pin format</dt><dd>npm EXACT version, never a caret or tilde. Client and server must run the identical WASM build.</dd>
-      <dt>Currently pinned</dt><dd><code>0.19.3</code></dd>
+      <dt>Currently pinned</dt><dd><code>0.20.0</code></dd>
       <dt>Detect-new</dt><dd><code>npm view @dimforge/rapier3d-deterministic-compat version</code></dd>
       <dt>Migration notes</dt><dd>
         <ul>
           <li>Any bump changes physics results across the board. The bump PR must also bump <code>SIM_VERSION</code> in <code>src/sim/constants.ts</code> and note that stored hashes/replays from earlier sim versions are invalid.</li>
           <li>Rerun the determinism tests AND compare a local hash against a preview-deploy hash (<code>/api/sim/verify</code>) before merging.</li>
           <li>Never swap to the non-compat or simd variants: compat embeds the WASM as base64 (works under Turbopack and Vercel file tracing); the deterministic build carries the cross-platform guarantee.</li>
+          <li>2026-08-16: 0.19.3 to 0.20.0. Physics moved as expected and every deterministic hash changed, so <code>SIM_VERSION</code> went 6 to 7 and the goldens were regenerated with a recorded reason; every stored hash and replay from SIM_VERSION 6 or earlier is invalid. Match OUTCOMES were stable across the bump (both probe matchups kept the same winner), so this was a numeric shift rather than a balance change. No API change was needed: the bump typechecked and built with no code edit. Two sim tests failed and both were fragile MEASUREMENTS rather than broken behaviour, which is worth recording because it is what a physics bump will keep exposing. The assembly straight-line test drove 300 steps at a speed that covers roughly 17 units inside a 9-unit ring, so it had always been reading a wall slide, not driving; it now measures at 150 steps and asserts lateral drift as a fraction of distance covered. The degradation test measured distance travelled inside a live fight, which after contact is dominated by shoving and steering; it now measures peak speed in the pre-contact window, where the property is clean and monotonic (healthy 1.41 against worn 0.74). When this dep bumps again, expect to fix measurements of this kind rather than the sim itself.</li>
         </ul>
       </dd>
     </dl>

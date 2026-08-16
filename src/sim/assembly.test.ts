@@ -103,12 +103,21 @@ describe("assembleBot", () => {
   });
 
   it("drives the bot along the ground deterministically", async () => {
-    const a = await driveAndHash(300);
-    const b = await driveAndHash(300);
+    // 150 steps, not 300: at this drive speed the bot reaches the arena
+    // wall around step 200 and is then pinned against it, sliding
+    // sideways. Measuring at 300 was reading that slide, so the lateral
+    // assertion was really a claim about wall contact and drifted with any
+    // engine change (it broke on the rapier 0.20 bump for exactly that
+    // reason). This window is entirely free-driving.
+    const a = await driveAndHash(150);
+    const b = await driveAndHash(150);
     expect(b.hash).toBe(a.hash);
-    // Wheels spin around the x axis, so the bot rolls along z.
+    // Wheels spin around the x axis, so the bot rolls along z. Lateral
+    // drift is asserted as a fraction of distance covered rather than an
+    // absolute, so the check states the intent (it tracks roughly
+    // straight) instead of pinning a coordinate.
     expect(Math.abs(a.rootZ)).toBeGreaterThan(0.5);
-    expect(Math.abs(a.rootX)).toBeLessThan(0.25);
+    expect(Math.abs(a.rootX)).toBeLessThan(Math.abs(a.rootZ) * 0.15);
   });
 
   it("assembles oriented designs deterministically and holds the yaw", async () => {

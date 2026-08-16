@@ -3,7 +3,7 @@
  * physics results: a rapier version bump, a DT change, or a change to
  * world construction. Stored hashes from older SIM_VERSIONs are invalid.
  */
-export const SIM_VERSION = 6;
+export const SIM_VERSION = 7;
 
 /** Fixed timestep in seconds. The sim never steps with a variable dt. */
 export const DT = 1 / 60;

@@ -4,7 +4,7 @@
   "kind": "combat",
   "seed": 0,
   "stepCount": 900,
-  "simVersion": 5,
+  "simVersion": 7,
   "designInputs": [
     {
       "name": "Rammer",
@@ -91,18 +91,18 @@
   ],
   "actionLog": [],
   "expected": {
-    "snapshotHash": "8a99c01b32684138",
+    "snapshotHash": "6c8cbe61672d4ac7",
     "outcomes": {
       "rewards": [
         {
           "outcome": "win",
-          "credits": 196,
-          "trackXp": 98
+          "credits": 180,
+          "trackXp": 90
         },
         {
           "outcome": "loss",
-          "credits": 70,
-          "trackXp": 32
+          "credits": 43,
+          "trackXp": 19
         }
       ],
       "status": {
@@ -111,31 +111,31 @@
         "reason": "timeout",
         "scores": [
           {
-            "damageDealt": 96.69359046936034,
-            "damageTaken": 45.07393550872803,
+            "damageDealt": 80,
+            "damageTaken": 18.33468925476074,
             "partsRemaining": 4,
             "partCount": 4,
-            "healthRemaining": 444.926064491272,
+            "healthRemaining": 471.66531074523925,
             "healthTotal": 490,
-            "pressureTicks": 28,
+            "pressureTicks": 58,
             "mobileAtEnd": true,
-            "total": 239.49164203341044
+            "total": 236.4055351977013
           },
           {
-            "damageDealt": 45.07393550872803,
-            "damageTaken": 96.69359046936034,
-            "partsRemaining": 4,
+            "damageDealt": 18.33468925476074,
+            "damageTaken": 80,
+            "partsRemaining": 3,
             "partCount": 4,
-            "healthRemaining": 343.30640953063966,
+            "healthRemaining": 360,
             "healthTotal": 440,
-            "pressureTicks": 29,
+            "pressureTicks": 43,
             "mobileAtEnd": true,
-            "total": 78.27192809576941
+            "total": 36.272913863056836
           }
         ]
       },
       "tick": 900
     }
   },
-  "manifestId": "goldens-20260723183653897"
+  "manifestId": "goldens-20260816212025801"
 }

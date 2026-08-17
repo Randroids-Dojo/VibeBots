@@ -77,9 +77,12 @@ export async function pressMineKeyUntilStatus(
   key: "ArrowDown" | "ArrowUp" | "ArrowLeft" | "ArrowRight",
   attribute: string,
   value: string,
+  /** Presses to allow. The default suits a single step; a walk of several
+   * cells needs its own headroom. */
+  attempts = 4,
 ): Promise<void> {
   const status = page.getByLabel("Mine status");
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     await pressMineKeyPaced(page, key);
     if ((await status.getAttribute(attribute)) === value) return;
   }

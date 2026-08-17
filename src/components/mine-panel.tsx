@@ -147,14 +147,12 @@ import {
   HUD_ACCENT_SURFACE,
   HUD_ACCENT_TEXT,
   HUD_BORDER,
-  HUD_BOTTOM_INSET,
   HUD_DANGER,
   HUD_DANGER_TEXT,
   HUD_FONT_BODY,
   HUD_FONT_LARGE,
   HUD_FONT_SMALL,
   HUD_GOLD,
-  HUD_HOTBAR_ROW_HEIGHT,
   HUD_LAYER,
   HUD_RADIUS_LARGE,
   HUD_RADIUS_MEDIUM,
@@ -190,7 +188,11 @@ import {
 import { type MineMenuActionId, MineSettingsMenu } from "./mine-settings-menu";
 import type { MineMenuFolderId } from "./mine-settings-menu-model";
 import { mineShopNoteSfxEvent, playMineSfxEvent } from "./mine-sfx";
-import { sheetButtonStyle, triggerShopHaptic } from "./mine-sheet-controls";
+import {
+  prefersReducedMotion,
+  sheetButtonStyle,
+  triggerShopHaptic,
+} from "./mine-sheet-controls";
 import { STALL_ICONS, StallMenu } from "./mine-stall-menu";
 import { STALLS, stallAt } from "./mine-stalls";
 import { StampBookPopup } from "./mine-stamp-book-popup";
@@ -505,6 +507,13 @@ const chipStyle: React.CSSProperties = {
   display: "inline-block",
 };
 
+/**
+ * Bottom zone geometry. Every bottom-anchored control shares one inset so
+ * the hotbar and the context action sit on the same line, and it respects
+ * the home indicator, which the old fixed `bottom: 18` did not. Overlays
+ * that stack above the whole row clear it through `HUD_HOTBAR_CLEAR`.
+ */
+const HUD_BOTTOM_INSET = "calc(18px + env(safe-area-inset-bottom))";
 const MINE_TOOLS_SEEN_KEY = "vibebots-mine-tools-seen";
 const HUD_SLOT_GAP = 6;
 /**
@@ -522,7 +531,7 @@ function hotbarSlotStyle(enabled: boolean): React.CSSProperties {
   return {
     position: "relative",
     width: HUD_SLOT_SIZE,
-    height: HUD_HOTBAR_ROW_HEIGHT,
+    height: HUD_TOUCH_MIN + 6,
     borderRadius: HUD_RADIUS_MEDIUM,
     border: `1px solid ${HUD_BORDER}`,
     background: HUD_SURFACE_SOLID,
@@ -1135,17 +1144,17 @@ function JuiceOverlays() {
           // before the bot starts falling, and the report would then open
           // over a fall still in the air. Restart the ceiling from the
           // frame the playback actually appears on.
-          let ceilingRearmed =
-            useMineStore.getState().fallVisualStartKey === impactKey;
-          wreckImpactUnsub.current = useMineStore.subscribe((state) => {
+          wreckImpactUnsub.current = useMineStore.subscribe((state, prev) => {
             if (state.fallVisualImpactKey === impactKey) {
               wreckImpactUnsub.current?.();
               wreckImpactUnsub.current = null;
               scheduleWreck(afterImpactMs);
               return;
             }
-            if (!ceilingRearmed && state.fallVisualStartKey === impactKey) {
-              ceilingRearmed = true;
+            if (
+              state.fallVisualStartKey === impactKey &&
+              prev.fallVisualStartKey !== impactKey
+            ) {
               scheduleWreck(ceilingMs);
             }
           });
@@ -2068,6 +2077,7 @@ export function MinePanel({
 
   const mineSceneReady = worldLoaded && mineSceneStatus === "ready";
   const elevatorStage = elevatorPresentation.stage;
+  const elevatorSequence = elevatorPresentation.sequence;
   const elevatorBusy =
     elevatorAutoDir !== null ||
     elevatorStage === "calling" ||
@@ -2184,7 +2194,7 @@ export function MinePanel({
           // animation reduced motion asks us not to play. Skipping it also
           // drops a whole rendered frame from the wait, which is what a
           // player on a slow scene actually feels.
-          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          if (prefersReducedMotion()) {
             pendingElevatorEntryRef.current = null;
             setElevatorPresentation((value) => ({
               ...value,
@@ -2242,14 +2252,10 @@ export function MinePanel({
   // stage is a no-op, because the handler only acts on the stage it is
   // still in.
   useEffect(() => {
-    const { sequence, stage } = elevatorPresentation;
-    if (stage !== "calling") return;
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setTimeout(() => {
-      handleElevatorStageComplete(sequence, stage);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [elevatorPresentation, handleElevatorStageComplete]);
+    if (elevatorStage !== "calling") return;
+    if (!prefersReducedMotion()) return;
+    handleElevatorStageComplete(elevatorSequence, elevatorStage);
+  }, [elevatorSequence, elevatorStage, handleElevatorStageComplete]);
 
   directionActionRef.current = performDirectionAction;
 

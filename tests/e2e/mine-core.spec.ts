@@ -25,6 +25,22 @@ import {
   setCell,
 } from "./support/mine-helpers";
 
+/** The scene the trip report opens over, sampled in page on the frame the
+ * report appears (E2E-MINE-CORE-0011). Declared once so the writer and the
+ * reader cannot drift apart. */
+interface CrushReportSample {
+  fallActive: string | null;
+  camY: number;
+  cells: number;
+  tumbleFrames: number;
+}
+
+declare global {
+  interface Window {
+    __vibebotsCrushReportSample?: CrushReportSample | null;
+  }
+}
+
 test(
   "surface day and night grades change production pixels without new draws",
   ciCase("E2E-MINE-CORE-0001", "@render"),
@@ -918,23 +934,14 @@ test(
     // report assertions at the end of this test cannot be outrun by the
     // test's own screenshot work.
     await page.evaluate(() => {
-      const browserWindow = window as typeof window & {
-        __vibebotsCrushReportSample?: {
-          fallActive: string | null;
-          camY: number;
-          cells: number;
-          tumbleFrames: number;
-        } | null;
-      };
-      browserWindow.__vibebotsCrushReportSample = null;
+      window.__vibebotsCrushReportSample = null;
       const sample = () => {
-        if (browserWindow.__vibebotsCrushReportSample) return true;
         const reportButton = document.querySelector(
           '[aria-label="Dismiss trip report"]',
         );
         if (!reportButton) return false;
         const element = document.querySelector("canvas");
-        browserWindow.__vibebotsCrushReportSample = {
+        window.__vibebotsCrushReportSample = {
           fallActive: element?.getAttribute("data-fall-visual-active") ?? null,
           camY: Number(element?.getAttribute("data-cam-y")),
           cells: Number(element?.getAttribute("data-rendered-cell-count")),
@@ -944,11 +951,13 @@ test(
         };
         return true;
       };
-      if (sample()) return;
+      // The observer's disconnect is the only once-only guard: it stops
+      // firing the moment the first sample lands.
       const observer = new MutationObserver(() => {
         if (sample()) observer.disconnect();
       });
       observer.observe(document.body, { childList: true, subtree: true });
+      if (sample()) observer.disconnect();
     });
     // Sample the playback state atomically: separate attribute reads can
     // straddle the playback's end on a slow runner, pairing a stale
@@ -1019,17 +1028,7 @@ test(
     // frame-starved runner, which would turn a product assertion into a
     // measurement of how fast the test itself ran.
     const atReport = await page.evaluate(
-      () =>
-        (
-          window as typeof window & {
-            __vibebotsCrushReportSample?: {
-              fallActive: string | null;
-              camY: number;
-              cells: number;
-              tumbleFrames: number;
-            } | null;
-          }
-        ).__vibebotsCrushReportSample ?? null,
+      () => window.__vibebotsCrushReportSample ?? null,
     );
     expect(atReport).not.toBeNull();
     expect(atReport?.fallActive).toBe("true");

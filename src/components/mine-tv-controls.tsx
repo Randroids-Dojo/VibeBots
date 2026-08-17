@@ -2,7 +2,10 @@
 
 import type { CSSProperties } from "react";
 import type { Direction } from "@/sim/mine";
-import { HUD_BOTTOM_INSET, HUD_HOTBAR_ROW_HEIGHT } from "./mine-hud-tokens";
+import { HUD_HOTBAR_CLEAR, HUD_LAYER } from "./mine-hud-tokens";
+
+/** Gap between the deck and the hotbar row it stacks above. */
+const TV_DECK_HOTBAR_GAP = 12;
 
 /**
  * TV remote control deck (Fire TV et al). Silk's remote moves a virtual
@@ -113,9 +116,9 @@ export function MineTvControls({
         // The deck sits above the hotbar row, not on top of it: the bottom
         // control row moved into this corner with the HUD redesign, and its
         // leftmost slots covered the deck's down arrow so a remote could not
-        // dig down at all.
-        bottom: `calc(${HUD_BOTTOM_INSET} + ${HUD_HOTBAR_ROW_HEIGHT + 12}px)`,
-        zIndex: 9,
+        // dig down at all. Same layer as the hotbar, cleared by geometry.
+        bottom: `calc(${HUD_HOTBAR_CLEAR} + ${TV_DECK_HOTBAR_GAP}px)`,
+        zIndex: HUD_LAYER.controls,
         display: "grid",
         gridTemplateColumns: "62px 62px 62px",
         gridTemplateRows: "62px 62px 62px",

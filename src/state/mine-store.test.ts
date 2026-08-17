@@ -194,7 +194,7 @@ describe("mine store upgrade flow", () => {
     expect(useMineStore.getState().fallVisualStartKey).toBe(9);
     // Ticks reset across trips, so the playback bridge clears the marks
     // when a new playback begins; a stale key must never gate a new trip.
-    useMineStore.getState().clearFallVisualImpact();
+    useMineStore.getState().clearFallVisualMarks();
     expect(useMineStore.getState().fallVisualImpactKey).toBeNull();
     expect(useMineStore.getState().fallVisualStartKey).toBeNull();
   });

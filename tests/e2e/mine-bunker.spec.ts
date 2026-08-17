@@ -670,15 +670,8 @@ test(
     await placeWallInFp(page);
 
     // The wall placement left the fp pointer lock held, and a locked
-    // pointer routes every click to the canvas (a real player presses
-    // Escape to free the cursor first). Release it so the DOM button
-    // receives the click.
-    await page.evaluate(() => document.exitPointerLock?.());
-    await expect
-      .poll(async () => page.locator("canvas").getAttribute("data-fp-lock"), {
-        timeout: 10_000,
-      })
-      .not.toBe("locked");
+    // pointer routes every click to the canvas.
+    await releaseFpPointerLock(page);
     // The fp Upkeep button opens the sheet as an overlay over the live fp
     // canvas (no mode switch). The Reset row is a two-step confirm: the
     // first tap arms it without resetting anything and the view stays in

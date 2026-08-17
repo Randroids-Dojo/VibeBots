@@ -276,7 +276,7 @@ export function useMineDeathPlaybackBridge(
         // Ticks reset to 0 across trips, so a leftover impact mark from a
         // previous trip could collide with this playback's key. Every new
         // playback starts unmarked.
-        useMineStore.getState().clearFallVisualImpact();
+        useMineStore.getState().clearFallVisualMarks();
       } else if (!(state.lastResult?.ok && state.lastResult.collapsed)) {
         fallPlayback.current = null;
         setFallWindow(null);

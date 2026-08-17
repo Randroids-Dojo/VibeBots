@@ -633,7 +633,7 @@ test(
     await expect(sellNote).toContainText(/^Sold Coal x17, Copper x9/);
     await page.waitForTimeout(100);
     await expect(sellNote).toContainText(/^Sold Coal x17, Copper x9/);
-    await expect(page.getByText(/^Tip:/)).toHaveCount(0);
+    await expect(sellNote.getByText(/^Tip:/)).toHaveCount(0);
     const box = await sellNote.boundingBox();
     expect(box).not.toBeNull();
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);

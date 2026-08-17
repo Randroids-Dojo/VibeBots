@@ -13,6 +13,7 @@ import {
   installGamepadBackControl,
   MINE_VERSION,
   pressGamepadBack,
+  releaseFpPointerLock,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -515,6 +516,9 @@ test(
       depth: 2,
       slot: "wall-pz",
     });
+    // Placing the wall left the pointer lock held, and the lock hit-tests
+    // every click to the canvas; the exit control is DOM chrome.
+    await releaseFpPointerLock(page);
     await page.getByRole("button", { name: "Exit bunker" }).click();
     await expect(page.getByLabel("Mine status")).toHaveAttribute(
       "data-fp-mode",
@@ -666,15 +670,8 @@ test(
     await placeWallInFp(page);
 
     // The wall placement left the fp pointer lock held, and a locked
-    // pointer routes every click to the canvas (a real player presses
-    // Escape to free the cursor first). Release it so the DOM button
-    // receives the click.
-    await page.evaluate(() => document.exitPointerLock?.());
-    await expect
-      .poll(async () => page.locator("canvas").getAttribute("data-fp-lock"), {
-        timeout: 10_000,
-      })
-      .not.toBe("locked");
+    // pointer routes every click to the canvas.
+    await releaseFpPointerLock(page);
     // The fp Upkeep button opens the sheet as an overlay over the live fp
     // canvas (no mode switch). The Reset row is a two-step confirm: the
     // first tap arms it without resetting anything and the view stays in

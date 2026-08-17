@@ -13,6 +13,7 @@ import {
   MINE_VERSION,
   openStall,
   pressMineKey,
+  pressMineKeyUntilStatus,
   routeStarterMineWorld,
   START_COL,
   STARTING_CONSUMABLES,
@@ -744,9 +745,16 @@ test(
     const canvas = page.locator("canvas");
     await expect(status).toHaveAttribute("data-depth", "0");
     await expect(canvas).toHaveAttribute("data-miner-x", "0.00");
-    for (let col = 1; col <= shaftCol; col += 1) {
-      await pressMineKey(page, "ArrowRight");
-    }
+    // Walk to the shaft on the sim column, not on a fixed press count: a
+    // press inside the action-repeat window is dropped, so a slow runner
+    // arrived one column short of the rail.
+    await pressMineKeyUntilStatus(
+      page,
+      "ArrowRight",
+      "data-col",
+      String(shaftCol),
+      shaftCol * 3,
+    );
     await expect(canvas).toHaveAttribute("data-miner-x", "3.00");
 
     await resetMineMotionProbe(page);

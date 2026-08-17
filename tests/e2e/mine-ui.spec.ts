@@ -495,46 +495,45 @@ test(
   ciCase("E2E-MINE-UI-0007", "@functional"),
   async ({ page }) => {
     await page.setViewportSize({ width: 575, height: 1280 });
-    await page.addInitScript(() => {
-      const w = window as typeof window & {
-        __vibebotsSurfaceTipSequence?: (string | null)[];
-        __vibebotsSurfaceTipRotationMs?: number;
-      };
-      // The sequence is consumed one entry per rotation (then random tips
-      // resume), so each phase is padded wide enough that its assertion
-      // cannot miss the window even after a slow first paint.
-      const longTip =
-        "Tip: rich ore may need several hits. Every swing still costs battery.";
-      const shortTip =
-        "Tip: press up into solid ground to dig overhead without using a ladder.";
-      w.__vibebotsSurfaceTipSequence = [
-        longTip,
-        longTip,
-        longTip,
-        longTip,
-        shortTip,
-        shortTip,
-        shortTip,
-        null,
-        null,
-        null,
-        null,
-      ];
-      w.__vibebotsSurfaceTipRotationMs = 2_000;
-    });
+    const longTip =
+      "Tip: rich ore may need several hits. Every swing still costs battery.";
+    const shortTip =
+      "Tip: press up into solid ground to dig overhead without using a ladder.";
+    await page.addInitScript(
+      (tips) => {
+        const w = window as typeof window & {
+          __vibebotsSurfaceTipSequence?: (string | null)[];
+          __vibebotsSurfaceTipRotationMs?: number;
+        };
+        // The sequence is consumed one entry per rotation (then random tips
+        // resume), so each phase is padded wide enough that its assertion
+        // cannot miss the window even after a slow first paint.
+        w.__vibebotsSurfaceTipSequence = [
+          tips.long,
+          tips.long,
+          tips.long,
+          tips.long,
+          tips.short,
+          tips.short,
+          tips.short,
+          null,
+          null,
+          null,
+          null,
+        ];
+        w.__vibebotsSurfaceTipRotationMs = 2_000;
+      },
+      { long: longTip, short: shortTip },
+    );
     await page.goto("/mine");
     await dismissReleaseNotes(page);
 
-    const status = page.getByLabel("Mine status");
-    await expect(status).toContainText(
-      "Tip: rich ore may need several hits. Every swing still costs battery.",
-      { timeout: 12_000 },
-    );
-    await expect(status).toContainText(
-      "Tip: press up into solid ground to dig overhead without using a ladder.",
-      { timeout: 12_000 },
-    );
-    await expect(status).not.toContainText("Tip:", { timeout: 12_000 });
+    // Tips live in the bottom toast lane, not the top status chip (#309).
+    const surfaceInfo = page.locator("[data-mine-surface-info='true']");
+    await expect(surfaceInfo).toHaveText(longTip, { timeout: 12_000 });
+    await expect(surfaceInfo).toHaveText(shortTip, { timeout: 12_000 });
+    // An empty slot unmounts the line rather than rendering a blank chip.
+    await expect(surfaceInfo).toHaveCount(0, { timeout: 12_000 });
   },
 );
 
@@ -628,11 +627,13 @@ test(
 
     await pressMineKey(page, "ArrowUp");
     await expect(status).toHaveAttribute("data-depth", "0");
-    const sellNote = status.getByText(/^Sold Coal x17, Copper x9/);
-    await expect(sellNote).toBeVisible();
+    // The sell result takes the same toast-lane slot the tips rotate through
+    // (#309), so it must be the only line there.
+    const sellNote = page.locator("[data-mine-surface-info='true']");
+    await expect(sellNote).toContainText(/^Sold Coal x17, Copper x9/);
     await page.waitForTimeout(100);
-    await expect(sellNote).toBeVisible();
-    await expect(status.getByText(/^Tip:/)).toHaveCount(0);
+    await expect(sellNote).toContainText(/^Sold Coal x17, Copper x9/);
+    await expect(sellNote.getByText(/^Tip:/)).toHaveCount(0);
     const box = await sellNote.boundingBox();
     expect(box).not.toBeNull();
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(575 - 12);

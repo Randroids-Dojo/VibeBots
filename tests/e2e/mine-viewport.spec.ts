@@ -559,8 +559,10 @@ test(
           const zoom = document
             .querySelector('[aria-label="Zoom controls"]')
             ?.getBoundingClientRect();
+          // The chips sit in a wrapper row inside the section, so this
+          // walks descendants rather than direct children.
           const statusTargets = [
-            ...document.querySelectorAll('[aria-label="Mine status"] > span'),
+            ...document.querySelectorAll('[aria-label="Mine status"] span'),
           ].map((node) => node.getBoundingClientRect());
           const settings = document
             .querySelector('[aria-label="Open settings"]')

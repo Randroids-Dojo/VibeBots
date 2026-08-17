@@ -406,7 +406,16 @@ export interface MineSessionState {
    * from a previous trip must never satisfy a later trip's gate. */
   fallVisualImpactKey: number | null;
   markFallVisualImpact: (key: number) => void;
-  clearFallVisualImpact: () => void;
+  /** Tick key of the playback whose FIRST frame has rendered. The trip
+   * report's wall-clock ceiling exists for a canvas that never renders the
+   * impact, but measured from the death it can expire before a stalled
+   * scene has even started the playback, which puts the report on screen
+   * ahead of the fall. The report re-arms that ceiling from this signal so
+   * it only runs while the playback is really on screen. */
+  fallVisualStartKey: number | null;
+  markFallVisualStart: (key: number) => void;
+  /** Drops both rendered-playback marks, so a new playback starts unmarked. */
+  clearFallVisualMarks: () => void;
   move: (action: MineAction) => MoveResult | null;
   clearTerminalResult: () => void;
   loadWorld: () => Promise<boolean>;
@@ -887,9 +896,15 @@ export const useMineStore = create<MineSessionState>((set, get) => {
       if (get().fallVisualImpactKey === key) return;
       set({ fallVisualImpactKey: key });
     },
-    clearFallVisualImpact: () => {
-      if (get().fallVisualImpactKey === null) return;
-      set({ fallVisualImpactKey: null });
+    clearFallVisualMarks: () => {
+      const { fallVisualImpactKey, fallVisualStartKey } = get();
+      if (fallVisualImpactKey === null && fallVisualStartKey === null) return;
+      set({ fallVisualImpactKey: null, fallVisualStartKey: null });
+    },
+    fallVisualStartKey: null,
+    markFallVisualStart: (key) => {
+      if (get().fallVisualStartKey === key) return;
+      set({ fallVisualStartKey: key });
     },
 
     saveCurrentTrip: persistCurrentTrip,

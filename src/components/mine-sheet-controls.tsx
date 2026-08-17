@@ -96,9 +96,18 @@ export const sheetButtonStyle = (enabled: boolean): CSSProperties => ({
   fontSize: "0.9rem",
 });
 
-function hapticsAllowed(): boolean {
+/** The one read of the motion preference for the mine's 2D chrome. The
+ * canvases use `usePrefersReducedMotion`, which lives next to the R3F
+ * scene; the panel cannot import that module without pulling three into
+ * its bundle, so the plain query lives here instead of being spelled out
+ * at each call site. */
+export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
-  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function hapticsAllowed(): boolean {
+  return !prefersReducedMotion();
 }
 
 export function triggerShopHaptic(kind: "press" | "commit" | "deny"): void {

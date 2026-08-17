@@ -80,6 +80,14 @@ export const HUD_LAYER = {
   menu: 14,
 } as const;
 
+/**
+ * Height the bottom control row occupies, inset included: what an overlay
+ * has to clear to sit above the hotbar. Declared once in `globals.css`
+ * alongside the sheet anchor, so anything stacking above the row reads the
+ * same number the row itself is built from.
+ */
+export const HUD_HOTBAR_CLEAR = "var(--mine-hotbar-clear)";
+
 export const HUD_FONT_SMALL = "0.8rem";
 export const HUD_FONT_BODY = "0.95rem";
 export const HUD_FONT_LARGE = "1.35rem";

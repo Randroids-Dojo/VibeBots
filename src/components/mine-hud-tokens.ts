@@ -80,6 +80,20 @@ export const HUD_LAYER = {
   menu: 14,
 } as const;
 
+/**
+ * Bottom zone geometry. Every bottom-anchored control shares one inset so
+ * the hotbar and the context action sit on the same line, and it respects
+ * the home indicator, which the old fixed `bottom: 18` did not.
+ */
+export const HUD_BOTTOM_INSET = "calc(18px + env(safe-area-inset-bottom))";
+
+/**
+ * Height of one hotbar slot, and so of the whole bottom control row. The
+ * TV deck stacks above that row, so the number has to be readable from
+ * outside `mine-panel.tsx`.
+ */
+export const HUD_HOTBAR_ROW_HEIGHT = HUD_TOUCH_MIN + 6;
+
 export const HUD_FONT_SMALL = "0.8rem";
 export const HUD_FONT_BODY = "0.95rem";
 export const HUD_FONT_LARGE = "1.35rem";

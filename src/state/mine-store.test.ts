@@ -188,10 +188,15 @@ describe("mine store upgrade flow", () => {
     useMineStore.getState().markFallVisualImpact(7);
     useMineStore.getState().markFallVisualImpact(9);
     expect(useMineStore.getState().fallVisualImpactKey).toBe(9);
-    // Ticks reset across trips, so the playback bridge clears the mark
+    // The start mark tracks the same key so the report's ceiling can be
+    // re-armed from the frame the playback appears on.
+    useMineStore.getState().markFallVisualStart(9);
+    expect(useMineStore.getState().fallVisualStartKey).toBe(9);
+    // Ticks reset across trips, so the playback bridge clears the marks
     // when a new playback begins; a stale key must never gate a new trip.
     useMineStore.getState().clearFallVisualImpact();
     expect(useMineStore.getState().fallVisualImpactKey).toBeNull();
+    expect(useMineStore.getState().fallVisualStartKey).toBeNull();
   });
 
   it("returns no action result while cash-out blocks movement", () => {

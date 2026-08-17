@@ -329,15 +329,27 @@ test(
       )
       .toBeLessThan(camZBefore - 1);
 
-    // Double-tap recenters.
-    for (const _ of [0, 1]) {
-      await viewport.dispatchEvent("pointerdown", {
-        pointerId: 4,
-        clientX: cx,
-        clientY: cy,
-      });
-      await viewport.dispatchEvent("pointerup", { pointerId: 4 });
-    }
+    // Double-tap recenters. Both taps have to land inside the product's
+    // 300ms double-tap window, so they are dispatched in one page call:
+    // four separate driver round trips can straddle that window on a
+    // loaded machine and read as two single taps.
+    await viewport.evaluate(
+      (node, point) => {
+        for (const _ of [0, 1]) {
+          for (const type of ["pointerdown", "pointerup"]) {
+            node.dispatchEvent(
+              new PointerEvent(type, {
+                pointerId: 4,
+                clientX: point.x,
+                clientY: point.y,
+                bubbles: true,
+              }),
+            );
+          }
+        }
+      },
+      { x: cx, y: cy },
+    );
     await expect
       .poll(async () => await canvas.getAttribute("data-holodeck-zoom"))
       .toBe("1.00");

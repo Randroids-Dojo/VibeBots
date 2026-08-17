@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import type { Direction } from "@/sim/mine";
+import { HUD_BOTTOM_INSET, HUD_HOTBAR_ROW_HEIGHT } from "./mine-hud-tokens";
 
 /**
  * TV remote control deck (Fire TV et al). Silk's remote moves a virtual
@@ -109,7 +110,11 @@ export function MineTvControls({
       style={{
         position: "absolute",
         left: 24,
-        bottom: 24,
+        // The deck sits above the hotbar row, not on top of it: the bottom
+        // control row moved into this corner with the HUD redesign, and its
+        // leftmost slots covered the deck's down arrow so a remote could not
+        // dig down at all.
+        bottom: `calc(${HUD_BOTTOM_INSET} + ${HUD_HOTBAR_ROW_HEIGHT + 12}px)`,
         zIndex: 9,
         display: "grid",
         gridTemplateColumns: "62px 62px 62px",

@@ -13,6 +13,7 @@ import {
   installGamepadBackControl,
   MINE_VERSION,
   pressGamepadBack,
+  releaseFpPointerLock,
   START_COL,
   STARTING_CONSUMABLES,
   setCell,
@@ -515,6 +516,9 @@ test(
       depth: 2,
       slot: "wall-pz",
     });
+    // Placing the wall left the pointer lock held, and the lock hit-tests
+    // every click to the canvas; the exit control is DOM chrome.
+    await releaseFpPointerLock(page);
     await page.getByRole("button", { name: "Exit bunker" }).click();
     await expect(page.getByLabel("Mine status")).toHaveAttribute(
       "data-fp-mode",

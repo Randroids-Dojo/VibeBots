@@ -1371,6 +1371,10 @@ function MineScene({
           duration,
           frames: 0,
         };
+        // The playback is on screen from this frame. The trip report's
+        // fallback ceiling re-arms here so a scene that took seconds to
+        // reach this frame cannot let the report land ahead of the fall.
+        useMineStore.getState().markFallVisualStart(activeFall.key);
       }
       if (motionProgress(activeFall.track, t) < 1) activeFall.track.frames += 1;
       [visualTargetX, visualTargetY] = sampleMotion(

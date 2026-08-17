@@ -908,6 +908,48 @@ test(
       })
       .toBeLessThan(-6.9);
     const beforeCrushShot = await canvas.screenshot();
+    // The tumble counter is cumulative for the session, so the proof that
+    // THIS crush tumbled is the rise over its pre-crush value.
+    const tumbleBeforeCrush = Number(
+      await canvas.getAttribute("data-crush-tumble-frames"),
+    );
+    // Arm the in-page sample of the scene the report opens over. It fires
+    // once, on the frame the report node appears, so the wreck-under-the-
+    // report assertions at the end of this test cannot be outrun by the
+    // test's own screenshot work.
+    await page.evaluate(() => {
+      const browserWindow = window as typeof window & {
+        __vibebotsCrushReportSample?: {
+          fallActive: string | null;
+          camY: number;
+          cells: number;
+          tumbleFrames: number;
+        } | null;
+      };
+      browserWindow.__vibebotsCrushReportSample = null;
+      const sample = () => {
+        if (browserWindow.__vibebotsCrushReportSample) return true;
+        const reportButton = document.querySelector(
+          '[aria-label="Dismiss trip report"]',
+        );
+        if (!reportButton) return false;
+        const element = document.querySelector("canvas");
+        browserWindow.__vibebotsCrushReportSample = {
+          fallActive: element?.getAttribute("data-fall-visual-active") ?? null,
+          camY: Number(element?.getAttribute("data-cam-y")),
+          cells: Number(element?.getAttribute("data-rendered-cell-count")),
+          tumbleFrames: Number(
+            element?.getAttribute("data-crush-tumble-frames"),
+          ),
+        };
+        return true;
+      };
+      if (sample()) return;
+      const observer = new MutationObserver(() => {
+        if (sample()) observer.disconnect();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
     // Sample the playback state atomically: separate attribute reads can
     // straddle the playback's end on a slow runner, pairing a stale
     // active flag with a post-reset camera.
@@ -961,18 +1003,6 @@ test(
         timeout: 20_000,
       })
       .toBe("true");
-    // The wreck must physically tumble after the hit (Rule 10): the frame
-    // counter only advances while the body's pose is really displacing.
-    const tumbleStart = Number(
-      await canvas.getAttribute("data-crush-tumble-frames"),
-    );
-    await expect
-      .poll(
-        async () =>
-          Number(await canvas.getAttribute("data-crush-tumble-frames")),
-        { timeout: 5_000 },
-      )
-      .toBeGreaterThan(tumbleStart);
     const activeCrushShot = await canvas.screenshot();
     expect(Buffer.compare(beforeCrushShot, activeCrushShot)).not.toBe(0);
 
@@ -981,20 +1011,34 @@ test(
     await expect(report).toContainText("Crushed by falling rock");
     await expect(report).toContainText("where the rock fell");
     await expect(report).not.toContainText("battery died");
-    // On a frame-starved runner the attributes lag the store by however
-    // long the canvas goes between frames; the playback stays alive until
-    // impact + 4.3s, so give the next rendered frame time to say so.
-    await expect(canvas).toHaveAttribute("data-fall-visual-active", "true", {
-      timeout: 15_000,
-    });
-    await expect
-      .poll(async () => Number(await canvas.getAttribute("data-cam-y")), {
-        timeout: 10_000,
-      })
-      .toBeLessThan(-7);
-    expect(
-      Number(await canvas.getAttribute("data-rendered-cell-count")),
-    ).toBeGreaterThan(20);
+    // The contract is that the wreck is still on camera WHEN the report
+    // lands, and the hold that guarantees it is 3.6s from the impact. Read
+    // back the sample the page took at that instant (armed before the
+    // crush) rather than reading the live attributes here: the tumble poll
+    // and the two canvas screenshots above can outrun the hold on a
+    // frame-starved runner, which would turn a product assertion into a
+    // measurement of how fast the test itself ran.
+    const atReport = await page.evaluate(
+      () =>
+        (
+          window as typeof window & {
+            __vibebotsCrushReportSample?: {
+              fallActive: string | null;
+              camY: number;
+              cells: number;
+            } | null;
+          }
+        ).__vibebotsCrushReportSample ?? null,
+    );
+    expect(atReport).not.toBeNull();
+    expect(atReport?.fallActive).toBe("true");
+    expect(atReport?.camY).toBeLessThan(-7);
+    expect(atReport?.cells).toBeGreaterThan(20);
+    // The wreck physically tumbled after the hit (Rule 10): the counter
+    // only advances on frames where the body's pose really displaced, and
+    // the tumble settles, so this reads the total it reached rather than
+    // requiring it to still be rising when the test happens to look.
+    expect(atReport?.tumbleFrames).toBeGreaterThan(tumbleBeforeCrush);
   },
 );
 

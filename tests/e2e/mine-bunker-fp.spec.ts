@@ -17,8 +17,10 @@ import {
   holdFpDigUntil,
   MINE_VERSION,
   openSettingsFor,
+  releaseFpPointerLock,
   START_COL,
   STARTING_CONSUMABLES,
+  selectFpSlotByKey,
   setCell,
   touchHold,
   touchHoldDrag,
@@ -711,8 +713,9 @@ test(
     const floorSlot = page.getByTestId("bunker-fp-slot-floor-panel");
     const floorCountBefore = await floorSlot.getAttribute("aria-label");
     const floorCount = Number((floorCountBefore ?? "").replace("Floor x", ""));
-    await floorSlot.click();
-    await expect(floorSlot).toHaveAttribute("aria-pressed", "true");
+    // The pointer lock is held from the wall placement above, so the slot
+    // is armed by its number key, the way a building player arms it.
+    await selectFpSlotByKey(page, "bunker-fp-slot-floor-panel");
     await expect
       .poll(async () => canvas.getAttribute("data-fp-place"), {
         timeout: 10_000,
@@ -753,8 +756,7 @@ test(
         }),
       ]),
     );
-    await wallSlot.click();
-    await expect(wallSlot).toHaveAttribute("aria-pressed", "true");
+    await selectFpSlotByKey(page, "bunker-fp-slot-wall-panel");
 
     // Auto-stow prying (F-099) has no carry state: the chip's selector
     // matches nothing at any point in this loop.
@@ -2198,18 +2200,8 @@ test(
       .toBe("done");
 
     // The closer card is a button: tapping it completes the chain and
-    // persists the done flag. Release the pointer lock first: with the lock
-    // held the browser hit-tests every click to the locked canvas, so a DOM
-    // click on the card gets intercepted. A real player presses Escape and
-    // the BROWSER frees the lock natively; synthetic Escape cannot trigger
-    // that user-agent path, so the test frees it the same way the browser
-    // would, through exitPointerLock.
-    await page.evaluate(() => document.exitPointerLock());
-    await expect
-      .poll(async () => canvas.getAttribute("data-fp-lock"), {
-        timeout: 10_000,
-      })
-      .not.toBe("locked");
+    // persists the done flag, so the lock has to come off first.
+    await releaseFpPointerLock(page);
     await page.getByTestId("bunker-fp-tutorial").click();
     await expect(page.getByTestId("bunker-fp-tutorial")).toHaveCount(0);
     expect(
@@ -2813,13 +2805,20 @@ test(
 
     // The Clanker render layer actually draws the wave (not just the HUD
     // counting it): its dataset probe reports the number of Clanker bodies
-    // it makes visible each frame, and that rises above zero while the raid
-    // is live.
+    // it makes visible each frame, and that rises above zero once the wave
+    // has burrowed in from the approach.
+    //
+    // The budget is wide on purpose, and it is not slack for a flaky
+    // assertion. The raid advances on clamped frame deltas (FP_DT_CLAMP,
+    // 0.05s) fed into a 6 Hz accumulator, so on a software renderer the
+    // wave closes in at a fraction of wall-clock speed by design. The
+    // breach is what is being asserted; how many seconds the renderer
+    // takes to get there is not.
     await expect
       .poll(
         async () =>
           Number(await canvas.getAttribute("data-fp-clankers-visible")),
-        { timeout: 15_000 },
+        { timeout: 90_000 },
       )
       .toBeGreaterThan(0);
 

@@ -858,6 +858,35 @@ export async function armFpPointer(page: Page): Promise<void> {
     .not.toBe("unlocked");
 }
 
+/** Free the pointer lock the way the browser's native Escape does. While
+ * the lock is held, every click is hit-tested to the locked canvas, so a
+ * DOM click on a HUD control never lands. Synthetic Escape cannot trigger
+ * the user-agent path, so a test that has to click DOM chrome frees the
+ * lock here first. A test that keeps building afterwards should press the
+ * slot's number key instead (`selectFpSlotByKey`), because the next canvas
+ * click would be spent re-acquiring the lock. */
+export async function releaseFpPointerLock(page: Page): Promise<void> {
+  await page.evaluate(() => document.exitPointerLock());
+  await expect
+    .poll(async () => page.locator("canvas").getAttribute("data-fp-lock"), {
+      timeout: 10_000,
+    })
+    .not.toBe("locked");
+}
+
+/** Arm a first-person hotbar slot the way a pointer-locked player must:
+ * by the number key printed on the slot. Clicking it works only while the
+ * lock is free, which is not the state a player builds in. */
+export async function selectFpSlotByKey(
+  page: Page,
+  testId: string,
+): Promise<void> {
+  const slot = page.getByTestId(testId);
+  const key = (await slot.locator(".bunker-fp-slot-key").innerText()).trim();
+  await page.keyboard.press(key);
+  await expect(slot).toHaveAttribute("aria-pressed", "true");
+}
+
 /** Hold the primary input until the fp open-cell count reaches
  * `openCells`. Bunker blocks take multiple pickaxe hits (surface
  * parity, REQ-013), so one click is one swing, not one block; the held

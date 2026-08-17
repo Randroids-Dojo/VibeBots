@@ -147,12 +147,14 @@ import {
   HUD_ACCENT_SURFACE,
   HUD_ACCENT_TEXT,
   HUD_BORDER,
+  HUD_BOTTOM_INSET,
   HUD_DANGER,
   HUD_DANGER_TEXT,
   HUD_FONT_BODY,
   HUD_FONT_LARGE,
   HUD_FONT_SMALL,
   HUD_GOLD,
+  HUD_HOTBAR_ROW_HEIGHT,
   HUD_LAYER,
   HUD_RADIUS_LARGE,
   HUD_RADIUS_MEDIUM,
@@ -503,12 +505,6 @@ const chipStyle: React.CSSProperties = {
   display: "inline-block",
 };
 
-/**
- * Bottom zone geometry. Every bottom-anchored control shares one inset so
- * the hotbar and the context action sit on the same line, and it respects
- * the home indicator, which the old fixed `bottom: 18` did not.
- */
-const HUD_BOTTOM_INSET = "calc(18px + env(safe-area-inset-bottom))";
 const MINE_TOOLS_SEEN_KEY = "vibebots-mine-tools-seen";
 const HUD_SLOT_GAP = 6;
 /**
@@ -526,7 +522,7 @@ function hotbarSlotStyle(enabled: boolean): React.CSSProperties {
   return {
     position: "relative",
     width: HUD_SLOT_SIZE,
-    height: HUD_TOUCH_MIN + 6,
+    height: HUD_HOTBAR_ROW_HEIGHT,
     borderRadius: HUD_RADIUS_MEDIUM,
     border: `1px solid ${HUD_BORDER}`,
     background: HUD_SURFACE_SOLID,
@@ -1133,11 +1129,25 @@ function JuiceOverlays() {
           scheduleWreck(afterImpactMs);
         } else {
           scheduleWreck(ceilingMs);
+          // The ceiling covers a canvas that never renders the impact. A
+          // canvas that has not rendered the playback's FIRST frame yet is
+          // a different case: a stalled scene can burn the whole ceiling
+          // before the bot starts falling, and the report would then open
+          // over a fall still in the air. Restart the ceiling from the
+          // frame the playback actually appears on.
+          let ceilingRearmed =
+            useMineStore.getState().fallVisualStartKey === impactKey;
           wreckImpactUnsub.current = useMineStore.subscribe((state) => {
-            if (state.fallVisualImpactKey !== impactKey) return;
-            wreckImpactUnsub.current?.();
-            wreckImpactUnsub.current = null;
-            scheduleWreck(afterImpactMs);
+            if (state.fallVisualImpactKey === impactKey) {
+              wreckImpactUnsub.current?.();
+              wreckImpactUnsub.current = null;
+              scheduleWreck(afterImpactMs);
+              return;
+            }
+            if (!ceilingRearmed && state.fallVisualStartKey === impactKey) {
+              ceilingRearmed = true;
+              scheduleWreck(ceilingMs);
+            }
           });
         }
       } else {
@@ -2170,6 +2180,20 @@ export function MinePanel({
           !result.collapsed &&
           next.mine.elevatorPhase === "boarded"
         ) {
+          // Boarding is the doors-opening beat, which is exactly the
+          // animation reduced motion asks us not to play. Skipping it also
+          // drops a whole rendered frame from the wait, which is what a
+          // player on a slow scene actually feels.
+          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            pendingElevatorEntryRef.current = null;
+            setElevatorPresentation((value) => ({
+              ...value,
+              stage: "choosing",
+              carRow: next.mine.miner.row,
+              entryDirection: null,
+            }));
+            return;
+          }
           setElevatorPresentation((value) => ({
             ...value,
             stage: "boarding",
@@ -2208,6 +2232,24 @@ export function MinePanel({
     },
     [],
   );
+
+  // Reduced motion must not wait on the renderer. The call finishes when
+  // the canvas has animated the car in, so a slow scene (a phone, a
+  // software renderer) stretched a 0.12s reduced-motion arrival into whole
+  // seconds: three rendered frames, whatever they cost. With the
+  // preference on, the panel finishes the arrival itself and the canvas
+  // snaps the car into place. The canvas's own later call for the same
+  // stage is a no-op, because the handler only acts on the stage it is
+  // still in.
+  useEffect(() => {
+    const { sequence, stage } = elevatorPresentation;
+    if (stage !== "calling") return;
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setTimeout(() => {
+      handleElevatorStageComplete(sequence, stage);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [elevatorPresentation, handleElevatorStageComplete]);
 
   directionActionRef.current = performDirectionAction;
 
@@ -5402,7 +5444,10 @@ export function MinePanel({
               </span>
             )}
             {showSurfaceInfoLine && (
-              <span style={{ ...statusChipStyle, color: surfaceInfoColor }}>
+              <span
+                data-mine-surface-info="true"
+                style={{ ...statusChipStyle, color: surfaceInfoColor }}
+              >
                 {surfaceInfoLine}
               </span>
             )}

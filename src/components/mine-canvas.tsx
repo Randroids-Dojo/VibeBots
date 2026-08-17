@@ -122,6 +122,8 @@ import {
   ELEVATOR_CALL_SECONDS,
   type ElevatorPresentation,
   type ElevatorPresentationStage,
+  elevatorCallSeconds,
+  elevatorCallStartY,
 } from "./mine-elevator-presentation";
 import { InstancedBlockGrid } from "./mine-instanced-grid";
 import {
@@ -1809,33 +1811,27 @@ function MineScene({
         visual.stage = stage;
         visual.startedAt = t;
         if (stage === "calling") {
-          const visibleLimit = Math.max(
-            1,
-            (elevatorCar.position.y < targetY
-              ? renderWindow.below
-              : renderWindow.above) - 1,
+          // The car approaches from wherever it actually rests. A car
+          // already at the boarding row gets a zero-length track, so the
+          // call completes on this same frame with no travel at all.
+          elevatorCar.position.y = elevatorCallStartY(
+            elevatorCar.position.y,
+            targetY,
+            renderWindow.above,
+            renderWindow.below,
           );
-          if (Math.abs(elevatorCar.position.y - targetY) > visibleLimit) {
-            elevatorCar.position.y =
-              elevatorCar.position.y < targetY
-                ? targetY - visibleLimit
-                : targetY + visibleLimit;
-          }
-          if (Math.abs(elevatorCar.position.y - targetY) < 0.12) {
-            const approachRow =
-              elevatorPresentation.carRow < railBottom
-                ? elevatorPresentation.carRow + 1
-                : Math.max(0, elevatorPresentation.carRow - 1);
-            elevatorCar.position.y = -approachRow;
-          }
           carMotion.fromX = railColumn;
           carMotion.fromY = elevatorCar.position.y;
           carMotion.toX = railColumn;
           carMotion.toY = targetY;
           carMotion.startedAt = t;
-          carMotion.duration = reducedMotion
-            ? ELEVATOR_REDUCED_MOTION_SECONDS
-            : ELEVATOR_CALL_SECONDS;
+          carMotion.duration = elevatorCallSeconds(
+            elevatorCar.position.y,
+            targetY,
+            reducedMotion
+              ? ELEVATOR_REDUCED_MOTION_SECONDS
+              : ELEVATOR_CALL_SECONDS,
+          );
           carMotion.easeWeight = 1;
           carMotion.frames = 0;
           elevatorGate.position.y = 0.55;

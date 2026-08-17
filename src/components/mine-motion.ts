@@ -103,6 +103,9 @@ export function retargetMotion(
 }
 
 export function motionProgress(track: MotionTrack, now: number): number {
+  // A zero-length track is already done; dividing by it would poison the
+  // first frame's sample with NaN.
+  if (track.duration <= 0) return 1;
   const raw = (now - track.startedAt) / track.duration;
   return Math.max(0, Math.min(1, raw));
 }

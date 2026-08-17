@@ -16,6 +16,12 @@ describe("mine motion tracks", () => {
     expect(motionProgress(track, 10.15)).toBeCloseTo(0.5);
   });
 
+  it("treats a zero-length track as already complete", () => {
+    const track = snapMotion(10, 3, -4, 0);
+    expect(motionProgress(track, 10)).toBe(1);
+    expect(sampleMotion(track, 10)).toEqual([3, -4]);
+  });
+
   it("eases between endpoints and clamps outside the window", () => {
     const track = retargetMotion(null, 0, 0, 0, 10, -10, 1);
     expect(sampleMotion(track, 0)).toEqual([0, 0]);

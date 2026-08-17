@@ -1026,6 +1026,7 @@ test(
               fallActive: string | null;
               camY: number;
               cells: number;
+              tumbleFrames: number;
             } | null;
           }
         ).__vibebotsCrushReportSample ?? null,

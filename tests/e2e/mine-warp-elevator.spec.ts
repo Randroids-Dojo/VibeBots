@@ -1162,6 +1162,112 @@ test(
 );
 
 test(
+  "re-entering the elevator where it already rests plays no travel",
+  ciCase("E2E-MINE-WARP-ELEVATOR-0016", "@render"),
+  async ({ page }) => {
+    const railDepth = 6;
+    const gear = {
+      ...DEFAULT_GEAR,
+      elevator: railDepth,
+      elevatorColumn: START_COL,
+    };
+    const mine = createMine(9301, gear, STARTING_CONSUMABLES);
+    for (let row = 1; row <= railDepth; row += 1) {
+      setCell(mine, START_COL, row, { kind: "empty" });
+    }
+    // A surface cell and a bottom-row cell beside the rail, so the miner
+    // can step off at both ends and walk back on. The dirt above and below
+    // the bottom exit keeps the side pocket free of falls and holds the
+    // floor regardless of the seed.
+    setCell(mine, START_COL - 1, 0, { kind: "empty" });
+    setCell(mine, START_COL - 1, 5, { kind: "dirt" });
+    setCell(mine, START_COL - 1, 6, { kind: "empty" });
+    setCell(mine, START_COL - 1, 7, { kind: "dirt" });
+    const baseDiff = exportDiff(mine);
+    await page.route("**/api/mine/world", async (route) => {
+      await route.fulfill({
+        json: { activeSlot: 1, seed: 9301, tripIndex: 0, diff: baseDiff },
+      });
+    });
+    await page.route("**/api/gear", async (route) => {
+      await route.fulfill({
+        json: {
+          gear,
+          consumables: STARTING_CONSUMABLES,
+          balance: 0,
+        },
+      });
+    });
+    await installMineMotionProbe(page);
+
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    await awaitMineSceneReady(page);
+    const status = page.getByLabel("Mine status");
+    await expect(status).toHaveAttribute("data-depth", "0");
+
+    // First entry: the car is parked at the bottom, so this call is the
+    // real approach (covered by other cases). Reach the chooser, then
+    // step off; the car stays parked at the surface.
+    await page.keyboard.press("ArrowDown");
+    await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+      timeout: 10_000,
+    });
+    await pressMineKey(page, "ArrowLeft");
+    await expect(status).toHaveAttribute("data-col", "-1");
+    await expect(status).toHaveAttribute("data-elevator-stage", "idle");
+
+    // Re-enter at the surface: the car is already here, so boarding must
+    // not animate the car away and back (the old one-row dip and rise).
+    await resetMineMotionProbe(page);
+    await pressMineKey(page, "ArrowRight");
+    await expect(status).toHaveAttribute("data-col", "0");
+    await page.keyboard.press("ArrowDown");
+    await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+      timeout: 10_000,
+    });
+    await expect(status).toHaveAttribute("data-elevator-phase", "boarded");
+    await expect(status).toHaveAttribute("data-depth", "0");
+    const surfaceSamples = await readMineMotionProbe(page);
+    expect(surfaceSamples.length).toBeGreaterThan(2);
+    expect(
+      motionRange(surfaceSamples, (sample) => sample.carY),
+      `car Y samples: ${motionValueSummary(surfaceSamples, (sample) => sample.carY)}`,
+    ).toBeLessThan(0.15);
+    expect(Math.abs(surfaceSamples[0].carY)).toBeLessThan(0.15);
+
+    // Ride down, step off at the bottom, and board again from the side:
+    // the car rests at the bottom row, so this entry is instant too.
+    await page.getByRole("button", { name: "Go to bottom" }).click();
+    await expect(status).toHaveAttribute("data-depth", String(railDepth), {
+      timeout: 10_000,
+    });
+    await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+      timeout: 10_000,
+    });
+    await pressMineKey(page, "ArrowLeft");
+    await expect(status).toHaveAttribute("data-col", "-1");
+    await expect(status).toHaveAttribute("data-elevator-stage", "idle");
+
+    await resetMineMotionProbe(page);
+    await pressMineKey(page, "ArrowRight");
+    await expect(status).toHaveAttribute("data-elevator-stage", "choosing", {
+      timeout: 10_000,
+    });
+    await expect(status).toHaveAttribute("data-elevator-phase", "boarded");
+    await expect(status).toHaveAttribute("data-depth", String(railDepth));
+    const bottomSamples = await readMineMotionProbe(page);
+    expect(bottomSamples.length).toBeGreaterThan(2);
+    expect(
+      motionRange(bottomSamples, (sample) => sample.carY),
+      `car Y samples: ${motionValueSummary(bottomSamples, (sample) => sample.carY)}`,
+    ).toBeLessThan(0.15);
+    expect(Math.abs(bottomSamples[0].carY + railDepth)).toBeLessThan(0.15);
+    await expect(page.getByRole("button", { name: "Go to top" })).toBeVisible();
+  },
+);
+
+test(
   "a restored downward elevator ride continues to the bottom",
   ciCase("E2E-MINE-WARP-ELEVATOR-0009", "@render"),
   async ({ page }) => {

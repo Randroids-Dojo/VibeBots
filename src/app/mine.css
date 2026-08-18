@@ -528,32 +528,53 @@
   line-height: 1.2;
 }
 
+/* Loading-surface backdrop: near-black negative space with a cool
+ * shaft light from above, a faint warm floor tint, a vignette that
+ * seats the notice card, and the drifting icon-motif tile rendered by
+ * the inline SVG child (see MineSceneBackdrop in mine-panel.tsx). */
 .mine-scene-backdrop {
   position: absolute;
   inset: 0;
   z-index: 0;
+  overflow: hidden;
   background:
     radial-gradient(
-      circle at 50% 18%,
-      rgb(var(--hud-accent-rgb) / 0.16),
-      transparent 24%
+      120% 90% at 50% 46%,
+      transparent 55%,
+      rgba(0, 0, 0, 0.45) 100%
     ),
-    linear-gradient(180deg, #0b0e14 0%, #090910 46%, #130f0b 100%);
+    radial-gradient(
+      70% 30% at 50% 0%,
+      rgb(var(--hud-accent-rgb) / 0.09),
+      transparent 100%
+    ),
+    radial-gradient(
+      80% 30% at 50% 100%,
+      rgb(var(--hud-gold-rgb) / 0.04),
+      transparent 100%
+    ),
+    linear-gradient(180deg, #0c0f17 0%, #0a0d13 55%, #090b10 100%);
 }
 
-.mine-scene-backdrop::before {
+.mine-scene-backdrop svg {
   position: absolute;
-  inset: auto 0 0;
-  height: 48%;
-  content: "";
-  background:
-    repeating-linear-gradient(
-      90deg,
-      rgba(122, 90, 58, 0.5) 0 34px,
-      rgba(92, 66, 48, 0.5) 34px 68px
-    ),
-    linear-gradient(180deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.42));
-  mask-image: linear-gradient(180deg, transparent 0%, black 22%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* One tile period (260x300) per loop, so the drift is seamless. */
+.mine-backdrop-drift {
+  animation: mine-backdrop-drift 52s linear infinite;
+}
+
+@keyframes mine-backdrop-drift {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(-260px, -300px);
+  }
 }
 
 /* Veil variant (first-load black-screen fix): sits above the canvas
@@ -1595,6 +1616,7 @@ button[data-bag-full-flash="true"] {
   .mine-base-indicator,
   .mine-base-teleport-burst,
   .mine-base-teleport-burst span,
+  .mine-backdrop-drift,
   .mine-loader-ties,
   .mine-loader-posts,
   .mine-loader-joint,

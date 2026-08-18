@@ -208,6 +208,13 @@ const MINE_SCENE_LOAD_ERROR =
   "The network dropped before the mine could load. Your save was not changed. Check the connection and retry.";
 const STRATUM_BANNER_MS = 2600;
 
+/* Loading-surface backdrop: dark negative space made deliberate. A
+ * faint seamless tile of the game's own iconography (gem, cog, pickaxe,
+ * bolt, ore chunk) drifts diagonally at whisper opacity over the
+ * gradient painted by the mine-scene-backdrop CSS; the drift loops one
+ * exact tile period (260x300) so the seam never shows. Deliberately
+ * abstract: a full-bleed illustrated scene would promise an art style
+ * the 3D mine does not have. */
 function MineSceneBackdrop({ veil = false }: { veil?: boolean }) {
   return (
     <div
@@ -217,7 +224,78 @@ function MineSceneBackdrop({ veil = false }: { veil?: boolean }) {
           : "mine-scene-backdrop"
       }
       aria-hidden="true"
-    />
+    >
+      <svg aria-hidden="true" focusable="false">
+        <defs>
+          <pattern
+            id="mine-backdrop-motif"
+            width="260"
+            height="300"
+            patternUnits="userSpaceOnUse"
+          >
+            <g
+              transform="translate(48 56) rotate(-12)"
+              fill="rgb(84 224 199 / 0.05)"
+            >
+              <path d="M0 -10 L14 2 L0 20 L-14 2 Z" />
+            </g>
+            <g
+              transform="translate(190 92) rotate(15)"
+              fill="#dce5f7"
+              opacity="0.032"
+            >
+              <path
+                fillRule="evenodd"
+                d="M0 -19 L4 -13 L11 -15 L12 -8 L19 -6 L16 0 L19 6 L12 8 L11 15 L4 13 L0 19 L-4 13 L-11 15 L-12 8 L-19 6 L-16 0 L-19 -6 L-12 -8 L-11 -15 L-4 -13 Z M0 -7 A7 7 0 1 0 0 7 A7 7 0 1 0 0 -7 Z"
+              />
+            </g>
+            <g transform="translate(96 182) rotate(32)" opacity="0.04">
+              <path d="M-2.5 -20 L2.5 -20 L2 30 L-2 30 Z" fill="#dce5f7" />
+              <path
+                d="M-26 -14 Q 0 -34 26 -14 Q 16 -26 4 -27 L-4 -27 Q -16 -26 -26 -14 Z"
+                fill="#dce5f7"
+              />
+            </g>
+            <g
+              transform="translate(214 238) rotate(-18)"
+              fill="#dce5f7"
+              opacity="0.045"
+            >
+              <path d="M2 -16 L-8 4 L-1 4 L-4 16 L8 -4 L1 -4 Z" />
+            </g>
+            <g
+              transform="translate(38 262) rotate(8)"
+              fill="#dce5f7"
+              opacity="0.035"
+            >
+              <path d="M-11 9 L-13 -3 L-4 -11 L9 -9 L13 3 L5 11 Z" />
+              <path d="M-4 -11 L2 -2 L-11 9 Z" opacity="0.5" />
+            </g>
+            <g
+              transform="translate(160 300) rotate(20)"
+              fill="rgb(84 224 199 / 0.035)"
+            >
+              <path d="M0 -7 L10 1 L0 14 L-10 1 Z" />
+            </g>
+            <g
+              transform="translate(160 0) rotate(20)"
+              fill="rgb(84 224 199 / 0.035)"
+            >
+              <path d="M0 -7 L10 1 L0 14 L-10 1 Z" />
+            </g>
+          </pattern>
+        </defs>
+        <g className="mine-backdrop-drift">
+          <rect
+            x="-320"
+            y="-340"
+            width="4200"
+            height="2600"
+            fill="url(#mine-backdrop-motif)"
+          />
+        </g>
+      </svg>
+    </div>
   );
 }
 

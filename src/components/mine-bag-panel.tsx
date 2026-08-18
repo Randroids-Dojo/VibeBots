@@ -98,16 +98,6 @@ export function MineBagPanel({
             </div>
             <div className="mine-bag-lid-pockets">
               <div className="mine-bag-pocket">
-                <span>Stack slots</span>
-                <strong>
-                  {filledStackCount}/{capacity}
-                </strong>
-              </div>
-              <div className="mine-bag-pocket">
-                <span>Ore chunks</span>
-                <strong>{oreCount}</strong>
-              </div>
-              <div className="mine-bag-pocket">
                 <span>Scrap</span>
                 <strong>{scrapCredits} vibes</strong>
               </div>

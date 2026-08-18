@@ -219,15 +219,13 @@ export function BunkerControlPanel({
           </button>
         </header>
 
-        {(!hasBunker || layoutIncompatible) && (
+        {!hasBunker && (
           <p className="bunker-status-copy">
-            {hasBunker
-              ? "This bunker was built under the old layout and can't be edited. Start fresh to rebuild."
-              : !preview
-                ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
-                : localBlockerCount > 0
-                  ? `Clear ${localBlockerCount} red cell${localBlockerCount === 1 ? "" : "s"}. The miner's row counts.`
-                  : "Ready to claim. Build now, then bank at surface to save."}
+            {!preview
+              ? "Dig deeper to fit a 7x5 claim. The top row cannot touch the surface."
+              : localBlockerCount > 0
+                ? `Clear ${localBlockerCount} red cell${localBlockerCount === 1 ? "" : "s"}. The miner's row counts.`
+                : "Ready to claim."}
           </p>
         )}
 
@@ -238,8 +236,8 @@ export function BunkerControlPanel({
             aria-label="Player level progress"
           >
             {player.nextLevelXp === null
-              ? `Level ${player.overallLevel}/${player.levelCap} \u00b7 Defense XP capped \u00b7 Beacon cap ${player.beaconLimit}`
-              : `Level ${player.overallLevel}/${player.levelCap} \u00b7 Defense XP ${levelProgressValue}/${levelProgressMax} \u00b7 Beacon cap ${player.beaconLimit}`}
+              ? `Level ${player.overallLevel}/${player.levelCap} \u00b7 XP capped`
+              : `Level ${player.overallLevel}/${player.levelCap} \u00b7 XP ${levelProgressValue}/${levelProgressMax}`}
           </p>
         )}
 
@@ -251,8 +249,8 @@ export function BunkerControlPanel({
           >
             <strong>Layout needs a fresh start</strong>
             <span>
-              Bunkers built before the new build system can't be edited. Start
-              fresh keeps your dug-out rooms but clears built parts (no refund).
+              Start fresh keeps your dug-out rooms and clears built parts (no
+              refund).
             </span>
           </div>
         )}

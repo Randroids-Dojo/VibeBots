@@ -4558,8 +4558,8 @@ export function MinePanel({
         >
           <span style={{ display: "block", fontWeight: 800 }}>
             {elevatorPlacementIsFree
-              ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. Your old shaft stays open.`
-              : `Shaft column ${miner.col}. Walk to any surface spot, then build. The starter shaft comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`}
+              ? `Move your ${gear.elevator}-row shaft to column ${miner.col}. The old shaft stays open.`
+              : `Shaft column ${miner.col}.`}
           </span>
           {elevatorPlacementError && (
             <span
@@ -4596,7 +4596,6 @@ export function MinePanel({
         >
           <span style={{ fontSize: "1.2rem" }}>{STALL_ICONS[stall.id]}</span>
           <span style={{ color: stall.color }}>{stall.name}</span>
-          <span style={{ opacity: 0.6, fontSize: "0.82rem" }}>Tap to open</span>
         </button>
       )}
       {/* Destination buildings route to another screen on tap. */}

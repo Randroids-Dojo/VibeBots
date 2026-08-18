@@ -141,20 +141,18 @@ const FP_TUTORIAL_COPY: Record<
     desktop: "Pick a part slot, aim at a face, and click to place it.",
   },
   "place-no-stock": {
-    touch:
-      "No parts in stock. The Hardware Store on the surface sells wall and floor panels.",
-    desktop:
-      "No parts in stock. The Hardware Store on the surface sells wall and floor panels.",
+    touch: "No parts in stock. The surface Hardware Store sells panels.",
+    desktop: "No parts in stock. The surface Hardware Store sells panels.",
   },
   pry: {
     touch: "Hold a finger on a placed part to pry it back into your pack.",
     desktop: "Right-click a placed part to pry it back into your pack.",
   },
   done: {
-    touch:
-      "That is the whole kit. The Upkeep button (top right) opens repair, skins, and Reset; Exit is above it.",
-    desktop:
-      "That is the whole kit. The Upkeep button (top right) opens repair, skins, and Reset; Exit is above it.",
+    // Upkeep and Exit are labelled buttons on screen; the closer does not
+    // need to read them out.
+    touch: "That is the whole kit.",
+    desktop: "That is the whole kit.",
   },
 };
 

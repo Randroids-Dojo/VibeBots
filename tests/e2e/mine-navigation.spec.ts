@@ -261,12 +261,17 @@ test(
     await expect(buyer).toContainText("Roof");
     await expect(buyer).toContainText("Door");
     await expect(buyer).toContainText("Basic Turret");
-    await expect(buyer).toContainText("Requires level 2");
-    await expect(buyer).toContainText("3 shots per raid");
-    await expect(buyer).toContainText("Breaks after 5 Clanker hits");
+    // The lock reads "Needs lv 2" on the button face; the sentence stays as
+    // its accessible name.
+    await expect(
+      buyer.getByRole("button", { name: "Requires level 2" }),
+    ).toBeVisible();
+    await expect(buyer).toContainText("3 shots, breaks after 5 hits");
     await expect(buyer).toContainText("Floor Spikes");
-    await expect(buyer).toContainText("Breaks after 3 steps");
-    await expect(buyer).toContainText("Limit 4 at your level");
+    await expect(buyer).toContainText("breaks after 3 steps");
+    // The per-level cap lives in the row badge, not in a second sentence.
+    await expect(buyer).toContainText("have 0 / 4");
+    await expect(buyer).not.toContainText("Limit 4 at your level");
     await expect(buyer).not.toContainText("Base stock unlocks by player level");
     await expect(buyer).not.toContainText("New claims start with");
 
@@ -276,7 +281,9 @@ test(
     await expect(depot).toContainText("supplies for digging deeper");
     await expect(depot).toContainText("Ladder");
     await expect(depot).toContainText("have");
-    await expect(depot).toContainText("Buy 1 for 2 vibes");
+    await expect(
+      depot.getByRole("button", { name: "Buy 1 for 2 vibes" }).first(),
+    ).toBeVisible();
     await expect(depot).not.toContainText("best for");
     await expect(depot).not.toContainText("vibes left");
     await expect(depot).not.toContainText("current trip");
@@ -284,7 +291,9 @@ test(
     await expect(depot).not.toContainText("Basic Turret");
     await expect(depot).not.toContainText("Floor Spikes");
     await depot.getByRole("button", { name: "x5" }).click();
-    await expect(depot).toContainText("Buy 5 for 10 vibes");
+    await expect(
+      depot.getByRole("button", { name: "Buy 5 for 10 vibes" }).first(),
+    ).toBeVisible();
 
     // And on to the Upgrades stall: the gear tracks.
     await walkToStallPrompt(page, "ArrowRight", "Upgrades");

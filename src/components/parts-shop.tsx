@@ -194,9 +194,6 @@ export function PartsShop() {
           </li>
         ))}
       </ul>
-      <p style={{ margin: "12px 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-        Vibes come from the mine. Cash out at the surface, then spend here.
-      </p>
     </aside>
   );
 }

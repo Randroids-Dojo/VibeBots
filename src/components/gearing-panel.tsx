@@ -65,7 +65,7 @@ export function GearingPanel({
     <section style={panelStyle} aria-label="Drive gearing">
       <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Drive gearing</h2>
       <p style={{ margin: "0 0 8px", fontSize: "0.72rem", opacity: 0.8 }}>
-        Gears every drive axle at once. Reduction buys torque and costs power.
+        Gears every drive axle at once.
       </p>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

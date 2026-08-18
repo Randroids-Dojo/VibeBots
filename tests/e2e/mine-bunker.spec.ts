@@ -464,9 +464,7 @@ test(
 
     await page.getByRole("button", { name: "Start bunker claim" }).click();
     const status = page.getByRole("region", { name: "Bunker upkeep" });
-    await expect(status).toContainText(
-      "Ready to claim. Build now, then bank at surface to save.",
-    );
+    await expect(status).toContainText("Ready to claim.");
     await status.getByRole("button", { name: "Claim 7x5 bunker" }).click();
     // The claimed sheet swaps to the trimmed upkeep view: no instructional
     // copy, just the one-line level readout under the upkeep title.

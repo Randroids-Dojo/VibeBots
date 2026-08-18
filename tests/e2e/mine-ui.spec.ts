@@ -395,10 +395,14 @@ test(
     await expect(dialog).toHaveAttribute("data-bag-stack-limit", "5");
     await expect(dialog.locator("[data-bag-lid='true']")).toBeVisible();
     await expect(dialog.locator("[data-bag-tray='true']")).toBeVisible();
-    await expect(
-      dialog.getByText("Stack slots", { exact: true }),
-    ).toBeVisible();
-    await expect(dialog.getByText("Ore chunks", { exact: true })).toBeVisible();
+    // The lid keeps only what the tray cannot show: scrap and parts. Slot
+    // and chunk counts live on the cells and on the HUD chip.
+    await expect(dialog.getByText("Stack slots", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(dialog.getByText("Ore chunks", { exact: true })).toHaveCount(
+      0,
+    );
     await expect(dialog.getByText("Scrap", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Parts", { exact: true })).toBeVisible();
     const coalStack = dialog.locator("[data-ore='coal']");

@@ -121,12 +121,17 @@ function HardwareStorePanel({
         const hasLimit = Number.isFinite(ownedLimit);
         const detail =
           partId === "basic-turret"
-            ? `${def.blurb}. Level ${minLevel}. ${def.ammo ?? 0} shots per raid. Breaks after ${def.durability} Clanker hits.`
+            ? `${def.blurb}; ${def.ammo ?? 0} shots, breaks after ${def.durability} hits`
             : partId === "floor-spikes"
-              ? `${def.blurb}. Breaks after ${def.durability} steps. Limit ${ownedLimit} at your level.`
+              ? `${def.blurb}; breaks after ${def.durability} steps`
               : def.blurb;
         const canBuy = affordable && !levelLocked && !capped;
         const buttonLabel = levelLocked
+          ? `Needs lv ${minLevel}`
+          : capped
+            ? `Limit ${ownedLimit}`
+            : `${totalPrice} vibes`;
+        const buttonName = levelLocked
           ? `Requires level ${minLevel}`
           : capped
             ? `Limit ${ownedLimit}`
@@ -145,9 +150,10 @@ function HardwareStorePanel({
             action={
               <button
                 type="button"
+                aria-label={buttonName}
                 onClick={() => onBuyBasePart(partId, buyQuantity)}
                 disabled={!canBuy}
-                style={{ ...sheetButtonStyle(canBuy), minWidth: 124 }}
+                style={{ ...sheetButtonStyle(canBuy), minWidth: 92 }}
               >
                 {buttonLabel}
               </button>
@@ -159,16 +165,7 @@ function HardwareStorePanel({
         <p
           style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
         >
-          Bunker ledger offline. Base stock can be browsed, but purchases wait
-          until storage is online.
-        </p>
-      )}
-      {balance === null && (
-        <p
-          style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
-        >
-          Wallet ledger offline. The Hardware Store can show the catalog, but
-          purchases wait until storage is online.
+          Bunker ledger offline; browsing only.
         </p>
       )}
     </div>
@@ -513,11 +510,15 @@ export function StallMenu({
                 : null;
             const actionLabel =
               item === "beacon" && !beaconAllowed
+                ? `Limit ${beaconLimit}`
+                : `${totalPrice} vibes`;
+            const actionName =
+              item === "beacon" && !beaconAllowed
                 ? `Limit ${beaconLimit} total`
                 : `Buy ${buyQuantity} for ${totalPrice} vibes`;
             const rowSub =
               item === "beacon" && !beaconAllowed
-                ? "At the cap. If a beacon is deployed, scrap it in scrap mode to free a slot."
+                ? "at the cap; scrap a planted one to free a slot"
                 : blurb;
             return (
               <SheetRow
@@ -529,12 +530,13 @@ export function StallMenu({
                 action={
                   <button
                     type="button"
+                    aria-label={actionName}
                     onClick={() => {
                       triggerShopHaptic("press");
                       onBuyConsumable(item, buyQuantity);
                     }}
                     disabled={!affordable}
-                    style={{ ...sheetButtonStyle(affordable), minWidth: 124 }}
+                    style={{ ...sheetButtonStyle(affordable), minWidth: 92 }}
                   >
                     {actionLabel}
                   </button>
@@ -600,9 +602,6 @@ export function StallMenu({
               />
             );
           })}
-          <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            Upgrades sell any hauled-up loot first, then apply immediately.
-          </p>
         </div>
       )}
       {stall.id === "elevator" && (
@@ -719,19 +718,13 @@ export function StallMenu({
       )}
       {stall.id === "warp" && (
         <div>
-          <SheetRow
-            icon={ITEM_ICONS.beacon}
-            name={
-              warpDestinationCount > 0
-                ? `${warpDestinationCount} destination${warpDestinationCount > 1 ? "s" : ""} online`
-                : "No planted beacons yet"
-            }
-            sub={
-              warpDestinationCount > 0
-                ? `Warpcoil range: ${warpRange(mine.gear)} rows for planted beacons. Biome portals are free.`
-                : `Buy beacon kits at the Supply Depot. Warpcoil range: ${warpRange(mine.gear)} rows.`
-            }
-          />
+          {warpDestinationCount === 0 && (
+            <SheetRow
+              icon={ITEM_ICONS.beacon}
+              name="No planted beacons yet"
+              sub={`beacon kits at the Supply Depot; range ${warpRange(mine.gear)} rows`}
+            />
+          )}
           <div
             style={{
               display: "grid",
@@ -742,19 +735,7 @@ export function StallMenu({
               paddingRight: 2,
             }}
           >
-            {warpDestinationCount === 0 ? (
-              <button
-                type="button"
-                disabled
-                style={{
-                  ...sheetButtonStyle(false),
-                  width: "100%",
-                  minHeight: 48,
-                }}
-              >
-                Warp to beacon
-              </button>
-            ) : (
+            {warpDestinationCount > 0 && (
               <>
                 {portals.map((portal) => (
                   <div
@@ -777,12 +758,10 @@ export function StallMenu({
                       }}
                     >
                       <span style={{ fontWeight: 800 }}>{portal.name}</span>
-                      <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
-                        col {portal.col}
-                      </span>
                     </div>
                     <button
                       type="button"
+                      aria-label={`Warp to ${portal.name}`}
                       onClick={() => onRide(portalWarpAction(portal.id))}
                       style={{
                         ...sheetButtonStyle(true),
@@ -790,7 +769,7 @@ export function StallMenu({
                         minHeight: 38,
                       }}
                     >
-                      Portal
+                      Warp
                     </button>
                   </div>
                 ))}
@@ -824,7 +803,7 @@ export function StallMenu({
                       >
                         <span style={{ fontWeight: 800 }}>{displayName}</span>
                         <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
-                          row {beacon.row}, col {beacon.col}
+                          row {beacon.row}
                           {beacon.inRange ? "" : " out of range"}
                         </span>
                       </div>

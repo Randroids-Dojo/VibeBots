@@ -124,8 +124,8 @@ test(
     const slotTwo = saveSlots.getByRole("group", { name: "Slot 2" });
     await slotTwo.getByRole("button", { name: "Delete" }).click();
     expect(deleteRequests).toBe(0);
-    await expect(slotTwo).toContainText("Destructive action");
-    await expect(slotTwo).toContainText("cannot be restored");
+    await expect(slotTwo).toContainText("Permanent.");
+    await expect(slotTwo).toContainText("Everything in Slot 2 is gone");
 
     await slotTwo
       .getByRole("button", { name: "Delete Slot 2 Forever" })

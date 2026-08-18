@@ -68,6 +68,18 @@ function statusText(state: AccountSyncState): string {
   return "Guest save is local to this device.";
 }
 
+/** One accent for the action the state offers, one for the way out. */
+const ACCOUNT_PRIMARY_ACCENT = {
+  border: "#54e0c7",
+  background: "#172b30",
+  color: "#54e0c7",
+};
+const ACCOUNT_QUIET_ACCENT = {
+  border: "#72809b",
+  background: "#1a2030",
+  color: "#d8deec",
+};
+
 export interface AccountDialogControls {
   busy: boolean;
   signedIn: boolean;
@@ -76,6 +88,17 @@ export interface AccountDialogControls {
   canKeepDevice: boolean;
   signInDisabled: boolean;
   signInLabel: string;
+  /**
+   * Which buttons the dialog draws at all. A control that can never fire
+   * from the current state is not an affordance, it is a row of grey the
+   * player has to read past, so the dialog shows the one or two moves
+   * that are actually open. Refresh is a recovery control and appears
+   * only when there is something to recover from.
+   */
+  showSignIn: boolean;
+  showClaim: boolean;
+  showLoadCloud: boolean;
+  showRefresh: boolean;
 }
 
 export function accountDialogControls({
@@ -129,6 +152,10 @@ export function accountDialogControls({
       : signInUrlReady && providerReady
         ? "Sign in or create account with Google"
         : "Google sign-in pending",
+    showSignIn: !signedIn,
+    showClaim: signedIn && state.mode !== "conflict",
+    showLoadCloud: state.mode === "conflict",
+    showRefresh: state.state === "error" || state.state === "unavailable",
   };
 }
 
@@ -214,6 +241,10 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
     canKeepDevice,
     signInDisabled,
     signInLabel,
+    showSignIn,
+    showClaim,
+    showLoadCloud,
+    showRefresh,
   } = accountDialogControls({
     state,
     signInUrl: SIGN_IN_URL,
@@ -293,85 +324,73 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
           )}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          <DialogActionButton
-            accent={{
-              border: "#cdd6ea",
-              background: "#20283a",
-              color: "#e6e8ee",
-            }}
-            disabled={signInDisabled}
-            onClick={async () => {
-              if (SIGN_IN_URL.length === 0) return;
-              setPending("sign-in");
-              const handoff = await onStartSignIn();
-              setPending(null);
-              if (!handoff) return;
-              window.location.assign(
-                accountSignInRedirectUrl({
-                  signInUrl: SIGN_IN_URL,
-                  origin: window.location.origin,
-                  handoff,
-                }),
-              );
-            }}
-          >
-            {signInLabel}
-          </DialogActionButton>
-          <DialogActionButton
-            accent={{
-              border: "#54e0c7",
-              background: "#172b30",
-              color: "#54e0c7",
-            }}
-            disabled={!canClaim}
-            onClick={async () => {
-              setPending("claim");
-              await onClaim();
-              setPending(null);
-            }}
-          >
-            Save this run
-          </DialogActionButton>
-          <DialogActionButton
-            accent={{
-              border: "#f0c36b",
-              background: "#2d2616",
-              color: "#f0c36b",
-            }}
-            disabled={!canLoadCloud}
-            onClick={async () => {
-              setPending("load");
-              const loaded = await onLoadCloud();
-              setPending(null);
-              if (loaded) onClose();
-            }}
-          >
-            Load cloud save
-          </DialogActionButton>
+          {showSignIn && (
+            <DialogActionButton
+              accent={ACCOUNT_PRIMARY_ACCENT}
+              disabled={signInDisabled}
+              onClick={async () => {
+                if (SIGN_IN_URL.length === 0) return;
+                setPending("sign-in");
+                const handoff = await onStartSignIn();
+                setPending(null);
+                if (!handoff) return;
+                window.location.assign(
+                  accountSignInRedirectUrl({
+                    signInUrl: SIGN_IN_URL,
+                    origin: window.location.origin,
+                    handoff,
+                  }),
+                );
+              }}
+            >
+              {signInLabel}
+            </DialogActionButton>
+          )}
+          {showClaim && (
+            <DialogActionButton
+              accent={ACCOUNT_PRIMARY_ACCENT}
+              disabled={!canClaim}
+              onClick={async () => {
+                setPending("claim");
+                await onClaim();
+                setPending(null);
+              }}
+            >
+              Save this run
+            </DialogActionButton>
+          )}
+          {showLoadCloud && (
+            <DialogActionButton
+              accent={ACCOUNT_PRIMARY_ACCENT}
+              disabled={!canLoadCloud}
+              onClick={async () => {
+                setPending("load");
+                const loaded = await onLoadCloud();
+                setPending(null);
+                if (loaded) onClose();
+              }}
+            >
+              Load cloud save
+            </DialogActionButton>
+          )}
           {canKeepDevice && (
             <DialogActionButton
-              accent={{
-                border: "#72809b",
-                background: "#1a2030",
-                color: "#d8deec",
-              }}
+              accent={ACCOUNT_QUIET_ACCENT}
               disabled={busy}
               onClick={onClose}
             >
               Keep this device save
             </DialogActionButton>
           )}
-          <DialogActionButton
-            accent={{
-              border: "#9fb6ff",
-              background: "#1c2440",
-              color: "#c7d4ff",
-            }}
-            disabled={busy}
-            onClick={onRefresh}
-          >
-            Refresh
-          </DialogActionButton>
+          {showRefresh && (
+            <DialogActionButton
+              accent={ACCOUNT_QUIET_ACCENT}
+              disabled={busy}
+              onClick={onRefresh}
+            >
+              Refresh
+            </DialogActionButton>
+          )}
         </div>
       </section>
     </DismissibleDialogFrame>

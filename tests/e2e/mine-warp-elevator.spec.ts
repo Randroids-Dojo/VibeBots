@@ -511,7 +511,6 @@ test(
     await expect(status).toHaveAttribute("data-depth", "0");
 
     const elevator = await openStall(page, "Elevator", "ArrowLeft");
-    await expect(elevator).toContainText("choose your shaft column");
     await expect(elevator).toContainText(
       "starter shaft: 20 rows for 100 vibes",
     );
@@ -549,8 +548,7 @@ test(
 
     await pressMineKey(page, "ArrowLeft");
     const reopened = await openStall(page, "Elevator");
-    await expect(reopened).toContainText("rail at column -4 reaches 20 deep");
-    await expect(reopened).toContainText("one premium row per purchase");
+    await expect(reopened).toContainText("20 rows deep");
     const extend = reopened.getByRole("button", {
       name: "Buy one elevator rail for 35 vibes",
     });

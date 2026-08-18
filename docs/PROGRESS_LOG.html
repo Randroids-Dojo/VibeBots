@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="elevator-menu-simplification" data-date="2026-08-18">
+    <h3>The Elevator stall says how deep the rail goes and what one more row costs, and nothing else</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>claude/menu-simplification-4d0m32</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>User-reported on a phone screenshot: <q>This menu makes zero sense to me.</q> The Elevator sheet carried five separate lines of prose for one buy button. The panel is now one <code>SheetRow</code> plus the control. Gone: the raw column index in the state line (<code>rail at column -1 reaches 6 deep</code> now reads <code>6 rows deep</code>; the shaft's location is visible in the world and on the mine status element), the <code>one premium row per purchase</code> sub-line, the <code>Each rail extends the shaft one row deeper.</code> explainer that repeated it, and the <code>speed level 1 moves 6 rows per automatic step</code> readout, which is the Elevator Speed track the Upgrades stall already sells with its own row and level badge. The locked tease drops its flavour name and its permit paragraph, keeping the two facts that make it a goal: what the starter shaft costs and the depth that opens it. The header blurb went from <code>premium rail shaft; free rides</code> to <code>buy rail, ride free</code>. The rail-resync recovery alert stays: it is an error path with a retry, not decoration. No pricing, gating, purchase, or placement logic changed; every <code>aria-label</code> and disabled condition on the buy control is untouched, so the flows the e2e drives still read the same to assistive tech. Files: <code>src/components/mine-stall-menu.tsx</code>, <code>src/components/mine-stalls.ts</code>.</dd>
+      <dt>Verification</dt><dd>Dash checks (<code>scripts/check-dashes.sh</code>) and <code>git diff --check</code> clean. <code>pnpm typecheck</code> green. <code>pnpm biome ci</code> green on the four touched files. <code>pnpm vitest run src/components</code> green (53 files, 476 tests), including a new case that pins the trimmed panel: the state line reads <code>6 rows deep</code> and the four deleted strings are absent. The elevator e2e assertions were updated to the new copy; the purchase-flow steps around them are unchanged. Note: this environment cannot fetch the VibeKit tarball dependency (<code>codeload.github.com</code> and <code>github.com</code> archive URLs both return 403 through the agent proxy), so the install ran against a local git clone of the same pinned commit <code>4b1e61de</code> via a temporary <code>file:</code> spec; <code>package.json</code> and <code>pnpm-lock.yaml</code> were restored and are unmodified in the diff. Playwright was not run here for the same reason.</dd>
+      <dt>Assumptions</dt><dd>A player who owns rail does not need the column number in the shop: the shaft is drawn in the world at that column and the panel is only for buying depth. Elevator Speed belongs to the Upgrades stall, so its current level is not repeated at the Elevator.</dd>
+      <dt>GDD coverage</dt><dd>No row change and no GDD entry: copy simplification on a shipped feature, and the REQ-028 requirement text already describes the tease as naming the unlock depth and the starter price, which both still render. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
+
   <article data-slice="elevator-call-from-rest" data-date="2026-08-16">
     <h3>The called elevator comes from where it actually is</h3>
     <dl>

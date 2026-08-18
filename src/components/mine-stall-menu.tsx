@@ -20,9 +20,7 @@ import {
   ELEVATOR_STARTER_PRICE,
   ELEVATOR_STARTER_RAIL_ROWS,
   ELEVATOR_UNLOCK_DEPTH,
-  elevatorColumn,
   elevatorRailPrice,
-  elevatorSpeedRows,
   findBeacons,
   findPortalBeacons,
   GEAR_TRACKS,
@@ -607,48 +605,28 @@ export function StallMenu({
           </p>
         </div>
       )}
-      {stall.id === "elevator" &&
-        (elevatorLocked ? (
-          <div>
-            <SheetRow
-              icon={"\u{1F6D7}"}
-              name="the shaft doors are still boarded up"
-              sub={`a free-riding elevator down your mine; ${STARTER_SHAFT_BLURB}`}
-              action={
+      {stall.id === "elevator" && (
+        <div>
+          <SheetRow
+            icon={"\u{1F6D7}"}
+            name={
+              elevatorLocked
+                ? STARTER_SHAFT_BLURB
+                : choosingExistingShaft
+                  ? `place your ${gear.elevator}-row shaft`
+                  : gear.elevator > 0
+                    ? `${gear.elevator} rows deep`
+                    : STARTER_SHAFT_BLURB
+            }
+            action={
+              elevatorLocked ? (
                 <span
                   data-testid="elevator-locked"
                   style={{ fontSize: "0.8rem", opacity: 0.6 }}
                 >
                   depth {ELEVATOR_UNLOCK_DEPTH}
                 </span>
-              }
-            />
-            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-              Reach depth {ELEVATOR_UNLOCK_DEPTH} to earn your shaft permit.
-              Deepest banked so far: {deepestDepth}.
-            </p>
-          </div>
-        ) : (
-          <div>
-            <SheetRow
-              icon={"\u{1F6D7}"}
-              name={
-                choosingExistingShaft
-                  ? `place your existing ${gear.elevator}-row shaft`
-                  : gear.elevator > 0
-                    ? `rail at column ${elevatorColumn(gear)} reaches ${gear.elevator} deep`
-                    : "choose your shaft column"
-              }
-              sub={
-                choosingExistingShaft
-                  ? "one free location choice; bought depth stays"
-                  : elevatorMaxed
-                    ? "rail reaches the mine bottom"
-                    : gear.elevator > 0
-                      ? "one premium row per purchase"
-                      : STARTER_SHAFT_BLURB
-              }
-              action={
+              ) : (
                 <button
                   type="button"
                   aria-label={
@@ -700,55 +678,45 @@ export function StallMenu({
                           ? `${autoBanking ? "Bank + " : ""}${elevatorRailPrice(gear.elevator)} vibes`
                           : "Choose spot"}
                 </button>
-              }
-            />
-            {railResyncFailed && (
-              <div
-                data-testid="rail-resync-recovery"
-                role="alert"
+              )
+            }
+          />
+          {railResyncFailed && (
+            <div
+              data-testid="rail-resync-recovery"
+              role="alert"
+              style={{
+                margin: "8px 0 0",
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(245, 158, 11, 0.5)",
+                background: "rgba(245, 158, 11, 0.12)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
+                Your rail moved on another device and the refresh failed. Retry
+                to reload the latest rail before buying.
+              </span>
+              <button
+                type="button"
+                data-testid="rail-resync-retry"
+                aria-label="Retry refreshing the rail"
+                onClick={onRetryRailResync}
+                disabled={railRetryPending}
                 style={{
-                  margin: "8px 0 0",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(245, 158, 11, 0.5)",
-                  background: "rgba(245, 158, 11, 0.12)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
+                  ...sheetButtonStyle(!railRetryPending),
+                  alignSelf: "flex-start",
                 }}
               >
-                <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
-                  Your rail moved on another device and the refresh failed.
-                  Retry to reload the latest rail before buying.
-                </span>
-                <button
-                  type="button"
-                  data-testid="rail-resync-retry"
-                  aria-label="Retry refreshing the rail"
-                  onClick={onRetryRailResync}
-                  disabled={railRetryPending}
-                  style={{
-                    ...sheetButtonStyle(!railRetryPending),
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  {railRetryPending ? "Refreshing..." : "Retry refresh"}
-                </button>
-              </div>
-            )}
-            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-              {choosingExistingShaft
-                ? "Choose any surface column. The old shaft stays open as a tunnel."
-                : gear.elevator > 0
-                  ? "Each rail extends the shaft one row deeper."
-                  : `Place the starter shaft at any surface column. That spot stays yours and comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`}
-            </p>
-            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-              speed level {gear.elevatorSpeed ?? 1} moves{" "}
-              {elevatorSpeedRows(gear)} rows per automatic step
-            </p>
-          </div>
-        ))}
+                {railRetryPending ? "Refreshing..." : "Retry refresh"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       {stall.id === "warp" && (
         <div>
           <SheetRow

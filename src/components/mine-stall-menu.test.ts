@@ -67,7 +67,7 @@ describe("StallMenu elevator purchases", () => {
     expect(markup).toContain(
       'aria-label="Choose free elevator shaft location"',
     );
-    expect(markup).toContain("one free location choice; bought depth stays");
+    expect(markup).toContain("place your 999-row shaft");
     expect(markup).toContain(">Choose spot</button>");
     expect(markup).not.toMatch(/disabled=""[^>]*>Choose spot<\/button>/);
   });
@@ -83,8 +83,6 @@ describe("StallMenu elevator purchases", () => {
 
     expect(markup).toContain('data-testid="elevator-locked"');
     expect(markup).toContain("depth 24");
-    expect(markup).toContain("Reach depth 24 to earn your shaft permit.");
-    expect(markup).toContain("Deepest banked so far: 23.");
     // The tease still sells the goal: what the shaft is and what it costs.
     expect(markup).toContain("starter shaft: 20 rows for 100 vibes");
     // No purchase or placement control renders while locked.
@@ -148,6 +146,23 @@ describe("StallMenu elevator purchases", () => {
 
     expect(markup).not.toContain('data-testid="elevator-locked"');
     expect(markup).toContain('aria-label="Buy one elevator rail for 25 vibes"');
+  });
+
+  it("keeps the unlocked panel to one state line and one control", () => {
+    const props = elevatorStallProps({
+      gear: { ...DEFAULT_GEAR, elevator: 6, elevatorColumn: -1 },
+      balance: 100,
+    });
+
+    const markup = renderToStaticMarkup(createElement(StallMenu, props));
+
+    expect(markup).toContain("6 rows deep");
+    // The column index, the per-purchase blurb, the rail explainer, and the
+    // speed readout (which the Upgrades stall already sells) are all gone.
+    expect(markup).not.toContain("rail at column");
+    expect(markup).not.toContain("one premium row per purchase");
+    expect(markup).not.toContain("Each rail extends the shaft one row deeper.");
+    expect(markup).not.toContain("rows per automatic step");
   });
 
   it("blocks the rail buy and offers a retry when a resync failed", () => {

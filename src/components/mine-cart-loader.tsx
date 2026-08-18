@@ -6,10 +6,11 @@
  *
  * The loop is built on one shared ground speed so nothing slides:
  * ties tile 26px every 0.42s (61.9px/s), the wheels (r 8.5, circumference
- * 53.4px) spin once per 0.86s to match, and the rail joint crosses the
- * 220px viewBox at that same speed once per 3.78s master loop. Every
- * master-loop keyframe percentage derives from the joint passing under
- * the front wheel at 43.6% and the rear wheel at 56.4%.
+ * 53.4px) spin once per 0.86s (0.3% slip, invisible), and the rail joint
+ * travels 234px (117px in from either side of center) at that same speed
+ * once per 3.78s master loop, entering and leaving beyond the 220px
+ * viewBox. Every master-loop keyframe percentage derives from the joint
+ * passing under the front wheel at 43.6% and the rear wheel at 56.4%.
  */
 
 const TIE_OFFSETS = [0, 26, 52, 78, 104, 130, 156, 182, 208, 234, 260];

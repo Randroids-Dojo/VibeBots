@@ -124,6 +124,7 @@ import {
   sheetActionStyle,
 } from "./mine-bottom-sheet";
 import { BunkerControlPanel } from "./mine-bunker-control-panel";
+import { MineCartLoader } from "./mine-cart-loader";
 import { pickContextAction } from "./mine-context-action";
 import {
   CRUSH_REPORT_AFTER_IMPACT_MS,
@@ -237,13 +238,7 @@ function MineSceneNotice({
       aria-live={loading ? "polite" : "assertive"}
     >
       <div className="mine-scene-loader" aria-hidden="true">
-        <span className="mine-scene-loader-rail" />
-        <span className="mine-scene-loader-cart">
-          <span className="mine-scene-loader-gem" />
-          <span className="mine-scene-loader-gem" />
-          <span className="mine-scene-loader-gem" />
-        </span>
-        <span className="mine-scene-loader-bit" data-mine-loader-bit="true" />
+        <MineCartLoader />
       </div>
       <div className="mine-scene-notice-copy">
         <strong>{loading ? "Opening the shaft" : "Mine signal lost"}</strong>

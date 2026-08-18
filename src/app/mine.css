@@ -254,40 +254,6 @@
   }
 }
 
-@keyframes mine-loader-cart-run {
-  0% {
-    transform: translateX(-68px);
-  }
-  50% {
-    transform: translateX(68px);
-  }
-  100% {
-    transform: translateX(-68px);
-  }
-}
-
-@keyframes mine-loader-bit-dig {
-  0%,
-  100% {
-    transform: translate(-50%, 0) rotate(0deg);
-  }
-  50% {
-    transform: translate(-50%, 8px) rotate(180deg);
-  }
-}
-
-@keyframes mine-loader-gem-glow {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: translateY(2px) scale(0.9);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-2px) scale(1.08);
-  }
-}
-
 @keyframes mine-danger-chip-throb {
   0%,
   100% {
@@ -624,92 +590,320 @@
   backdrop-filter: blur(10px);
 }
 
+/* The mine cart loading vignette (mine-cart-loader.tsx). One shared
+ * ground speed keeps the physics honest: ties tile 26px per 0.42s
+ * (61.9px/s), the r=8.5 wheels spin once per 0.86s to match, and the
+ * rail joint crosses the scene at that speed once per 3.78s master
+ * loop. Master-loop keyframes key off the joint passing under the
+ * front wheel at 43.6% and the rear wheel at 56.4%; the ore reacts a
+ * beat after each strike (follow-through), the lantern swings on its
+ * own pendulum period. Transform and opacity only. */
 .mine-scene-loader {
-  position: relative;
-  width: 188px;
-  height: 72px;
+  width: 200px;
+  height: 80px;
 }
 
-.mine-scene-loader-rail {
-  position: absolute;
-  right: 0;
-  bottom: 10px;
-  left: 0;
-  height: 4px;
-  background: repeating-linear-gradient(
-    90deg,
-    #5a3a35 0 10px,
-    #a98658 10px 16px
-  );
-  border-radius: 999px;
-  box-shadow: 0 0 12px rgb(var(--hud-gold-rgb) / 0.22);
+.mine-scene-loader svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.mine-scene-loader-cart {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  display: flex;
-  width: 58px;
-  height: 34px;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: #2c3549;
-  border: 2px solid #6c7d9d;
-  border-radius: 8px 8px 12px 12px;
-  box-shadow: inset 0 -8px rgba(0, 0, 0, 0.22);
-  animation: mine-loader-cart-run 1.55s ease-in-out infinite;
+.mine-loader-ties {
+  animation: mine-loader-ties-scroll 0.42s linear infinite;
 }
 
-.mine-scene-loader-cart::before,
-.mine-scene-loader-cart::after {
-  position: absolute;
-  bottom: -9px;
-  width: 12px;
-  height: 12px;
-  content: "";
-  background: #111722;
-  border: 2px solid #8792aa;
-  border-radius: 999px;
+@keyframes mine-loader-ties-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-26px);
+  }
 }
 
-.mine-scene-loader-cart::before {
-  left: 8px;
+.mine-loader-posts {
+  animation: mine-loader-posts-scroll 3.78s linear infinite;
 }
 
-.mine-scene-loader-cart::after {
-  right: 8px;
+@keyframes mine-loader-posts-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-110px);
+  }
 }
 
-.mine-scene-loader-gem {
-  width: 9px;
-  height: 12px;
-  background: var(--hud-accent);
-  clip-path: polygon(50% 0, 100% 35%, 76% 100%, 24% 100%, 0 35%);
-  animation: mine-loader-gem-glow 0.82s ease-in-out infinite;
+.mine-loader-joint {
+  animation: mine-loader-joint-pass 3.78s linear infinite;
 }
 
-.mine-scene-loader-gem:nth-child(2) {
-  background: var(--hud-gold);
+@keyframes mine-loader-joint-pass {
+  from {
+    transform: translateX(117px);
+  }
+  to {
+    transform: translateX(-117px);
+  }
+}
+
+.mine-loader-spokes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mine-loader-wheel-spin 0.86s linear infinite;
+}
+
+@keyframes mine-loader-wheel-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mine-loader-cart {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: mine-loader-cart-jolt 3.78s linear infinite;
+}
+
+@keyframes mine-loader-cart-jolt {
+  0%,
+  41% {
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  43.6% {
+    transform: translateY(-1.3px) rotate(-1.7deg);
+    animation-timing-function: ease-in-out;
+  }
+  46.1% {
+    transform: translateY(0.35px) rotate(0.6deg);
+    animation-timing-function: ease-out;
+  }
+  48.5%,
+  54% {
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  56.4% {
+    transform: translateY(-1.1px) rotate(1.5deg);
+    animation-timing-function: ease-in-out;
+  }
+  58.9% {
+    transform: translateY(0.3px) rotate(-0.5deg);
+    animation-timing-function: ease-out;
+  }
+  61.5%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
+
+.mine-loader-ore-a,
+.mine-loader-ore-b,
+.mine-loader-ore-c {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: mine-loader-ore-react 3.78s linear infinite;
+}
+
+.mine-loader-ore-b {
+  animation-delay: 0.06s;
+}
+
+.mine-loader-ore-c {
   animation-delay: 0.12s;
 }
 
-.mine-scene-loader-gem:nth-child(3) {
-  background: #8fe9f2;
-  animation-delay: 0.24s;
+@keyframes mine-loader-ore-react {
+  0%,
+  44.5% {
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  47.2% {
+    transform: translateY(-2px) rotate(-1.4deg);
+    animation-timing-function: ease-in-out;
+  }
+  50% {
+    transform: translateY(0.7px) rotate(0.7deg);
+    animation-timing-function: ease-out;
+  }
+  52.7%,
+  57% {
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  59.2% {
+    transform: translateY(-1.6px) rotate(1.1deg);
+    animation-timing-function: ease-in-out;
+  }
+  62% {
+    transform: translateY(0.55px) rotate(-0.6deg);
+    animation-timing-function: ease-out;
+  }
+  65%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
 }
 
-.mine-scene-loader-bit {
-  position: absolute;
-  top: 2px;
-  left: 50%;
-  width: 18px;
-  height: 36px;
-  background: linear-gradient(180deg, var(--hud-gold), #8f5a2d);
-  clip-path: polygon(50% 0, 100% 58%, 50% 100%, 0 58%);
-  filter: drop-shadow(0 0 10px rgb(var(--hud-gold-rgb) / 0.44));
-  animation: mine-loader-bit-dig 0.72s ease-in-out infinite;
+.mine-loader-lantern {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+  animation: mine-loader-lantern-swing 1.26s cubic-bezier(0.45, 0, 0.55, 1)
+    infinite alternate;
+}
+
+@keyframes mine-loader-lantern-swing {
+  from {
+    transform: rotate(-6deg);
+  }
+  to {
+    transform: rotate(6deg);
+  }
+}
+
+.mine-loader-glow {
+  animation: mine-loader-glow-flicker 3.78s ease-in-out infinite;
+}
+
+@keyframes mine-loader-glow-flicker {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  23% {
+    opacity: 0.66;
+  }
+  41% {
+    opacity: 0.52;
+  }
+  58% {
+    opacity: 0.68;
+  }
+  76% {
+    opacity: 0.58;
+  }
+  88% {
+    opacity: 0.64;
+  }
+}
+
+.mine-loader-dust-1,
+.mine-loader-dust-2,
+.mine-loader-dust-3 {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: mine-loader-dust 1.26s linear infinite;
+}
+
+.mine-loader-dust-2 {
+  animation-delay: 0.42s;
+}
+
+.mine-loader-dust-3 {
+  animation-delay: 0.84s;
+}
+
+@keyframes mine-loader-dust {
+  0% {
+    transform: translate(0, 0) scale(0.4);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.38;
+  }
+  100% {
+    transform: translate(-18px, -7px) scale(1.5);
+    opacity: 0;
+  }
+}
+
+.mine-loader-spark-front,
+.mine-loader-spark-rear {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: mine-loader-spark-front 3.78s linear infinite;
+}
+
+.mine-loader-spark-rear {
+  animation-name: mine-loader-spark-rear;
+}
+
+@keyframes mine-loader-spark-front {
+  0%,
+  42.8% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  44.3% {
+    opacity: 0.9;
+    transform: translate(1px, -2px) scale(1);
+  }
+  47.8% {
+    opacity: 0;
+    transform: translate(3px, -4px) scale(0.5);
+  }
+  48.3%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+}
+
+@keyframes mine-loader-spark-rear {
+  0%,
+  55.6% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  57.1% {
+    opacity: 0.85;
+    transform: translate(1px, -2px) scale(1);
+  }
+  60.6% {
+    opacity: 0;
+    transform: translate(3px, -4px) scale(0.5);
+  }
+  61.1%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+}
+
+.mine-loader-glint {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: mine-loader-glint 3.78s linear infinite;
+}
+
+@keyframes mine-loader-glint {
+  0%,
+  71% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  74.5% {
+    opacity: 0.95;
+    transform: scale(1) rotate(24deg);
+  }
+  78% {
+    opacity: 0;
+    transform: scale(0.1) rotate(45deg);
+  }
+  79%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
 }
 
 .mine-scene-notice-copy {
@@ -1401,9 +1595,22 @@ button[data-bag-full-flash="true"] {
   .mine-base-indicator,
   .mine-base-teleport-burst,
   .mine-base-teleport-burst span,
-  .mine-scene-loader-bit,
-  .mine-scene-loader-cart,
-  .mine-scene-loader-gem,
+  .mine-loader-ties,
+  .mine-loader-posts,
+  .mine-loader-joint,
+  .mine-loader-spokes,
+  .mine-loader-cart,
+  .mine-loader-ore-a,
+  .mine-loader-ore-b,
+  .mine-loader-ore-c,
+  .mine-loader-lantern,
+  .mine-loader-glow,
+  .mine-loader-dust-1,
+  .mine-loader-dust-2,
+  .mine-loader-dust-3,
+  .mine-loader-spark-front,
+  .mine-loader-spark-rear,
+  .mine-loader-glint,
   .stall-sheet {
     animation: none;
   }

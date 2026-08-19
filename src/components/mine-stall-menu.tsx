@@ -132,10 +132,10 @@ function HardwareStorePanel({
             ? `Limit ${ownedLimit}`
             : `${totalPrice} vibes`;
         const buttonName = levelLocked
-          ? `Requires level ${minLevel}`
+          ? `${def.name} requires level ${minLevel}`
           : capped
-            ? `Limit ${ownedLimit}`
-            : `Buy ${buyQuantity} for ${totalPrice} vibes`;
+            ? `${def.name} limit ${ownedLimit}`
+            : `Buy ${buyQuantity} ${def.name} for ${totalPrice} vibes`;
         return (
           <SheetRow
             key={partId}
@@ -514,8 +514,8 @@ export function StallMenu({
                 : `${totalPrice} vibes`;
             const actionName =
               item === "beacon" && !beaconAllowed
-                ? `Limit ${beaconLimit} total`
-                : `Buy ${buyQuantity} for ${totalPrice} vibes`;
+                ? `Warp Beacon limit ${beaconLimit} total`
+                : `Buy ${buyQuantity} ${name} for ${totalPrice} vibes`;
             const rowSub =
               item === "beacon" && !beaconAllowed
                 ? "at the cap; scrap a planted one to free a slot"
@@ -609,13 +609,11 @@ export function StallMenu({
           <SheetRow
             icon={"\u{1F6D7}"}
             name={
-              elevatorLocked
-                ? STARTER_SHAFT_BLURB
-                : choosingExistingShaft
-                  ? `place your ${gear.elevator}-row shaft`
-                  : gear.elevator > 0
-                    ? `${gear.elevator} rows deep`
-                    : STARTER_SHAFT_BLURB
+              choosingExistingShaft
+                ? `place your ${gear.elevator}-row shaft`
+                : gear.elevator > 0
+                  ? `${gear.elevator} rows deep`
+                  : STARTER_SHAFT_BLURB
             }
             action={
               elevatorLocked ? (
@@ -735,145 +733,141 @@ export function StallMenu({
               paddingRight: 2,
             }}
           >
-            {warpDestinationCount > 0 && (
-              <>
-                {portals.map((portal) => (
+            {portals.map((portal) => (
+              <div
+                key={`portal:${portal.id}`}
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  padding: 10,
+                  border: `1px solid ${portal.color}`,
+                  borderRadius: 12,
+                  background: "rgba(17, 21, 31, 0.45)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ fontWeight: 800 }}>{portal.name}</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Warp to ${portal.name}`}
+                  onClick={() => onRide(portalWarpAction(portal.id))}
+                  style={{
+                    ...sheetButtonStyle(true),
+                    width: "100%",
+                    minHeight: 38,
+                  }}
+                >
+                  Warp
+                </button>
+              </div>
+            ))}
+            {beacons.map((beacon, index) => {
+              const draftKey = `${beacon.col},${beacon.row}`;
+              const fallbackName =
+                index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
+              const displayName = beacon.label ?? fallbackName;
+              const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
+              const cleanedDraft = normalizeBeaconLabel(draft);
+              const renameReady = cleanedDraft !== (beacon.label ?? "");
+              return (
+                <div
+                  key={draftKey}
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    padding: 10,
+                    border: "1px solid rgba(84, 224, 199, 0.18)",
+                    borderRadius: 12,
+                    background: "rgba(17, 21, 31, 0.45)",
+                  }}
+                >
                   <div
-                    key={`portal:${portal.id}`}
                     style={{
-                      display: "grid",
-                      gap: 8,
-                      padding: 10,
-                      border: `1px solid ${portal.color}`,
-                      borderRadius: 12,
-                      background: "rgba(17, 21, 31, 0.45)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
                     }}
                   >
-                    <div
+                    <span style={{ fontWeight: 800 }}>{displayName}</span>
+                    <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
+                      row {beacon.row}
+                      {beacon.inRange ? "" : " out of range"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      aria-label={`Rename ${fallbackName}`}
+                      maxLength={BEACON_LABEL_MAX_LENGTH}
+                      value={draft}
+                      placeholder={fallbackName}
+                      onChange={(event) =>
+                        setBeaconDrafts((current) => ({
+                          ...current,
+                          [draftKey]: event.target.value,
+                        }))
+                      }
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
+                        width: "100%",
+                        minWidth: 0,
+                        height: 38,
+                        borderRadius: 10,
+                        border: "1px solid #2c3a5c",
+                        background: "rgba(12, 15, 23, 0.86)",
+                        color: "#e6e8ee",
+                        padding: "0 10px",
+                        fontWeight: 700,
                       }}
-                    >
-                      <span style={{ fontWeight: 800 }}>{portal.name}</span>
-                    </div>
+                    />
                     <button
                       type="button"
-                      aria-label={`Warp to ${portal.name}`}
-                      onClick={() => onRide(portalWarpAction(portal.id))}
+                      onClick={() =>
+                        onRide(renameBeaconAction(beacon, cleanedDraft))
+                      }
+                      disabled={!renameReady}
                       style={{
-                        ...sheetButtonStyle(true),
-                        width: "100%",
+                        ...sheetButtonStyle(renameReady),
+                        minWidth: 64,
+                        minHeight: 38,
+                      }}
+                    >
+                      Rename
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onRide(
+                          `warp-down:${beacon.col},${beacon.row}` as MineAction,
+                        )
+                      }
+                      disabled={!beacon.inRange}
+                      style={{
+                        ...sheetButtonStyle(beacon.inRange),
+                        minWidth: 60,
                         minHeight: 38,
                       }}
                     >
                       Warp
                     </button>
                   </div>
-                ))}
-                {beacons.map((beacon, index) => {
-                  const draftKey = `${beacon.col},${beacon.row}`;
-                  const fallbackName =
-                    index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
-                  const displayName = beacon.label ?? fallbackName;
-                  const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
-                  const cleanedDraft = normalizeBeaconLabel(draft);
-                  const renameReady = cleanedDraft !== (beacon.label ?? "");
-                  return (
-                    <div
-                      key={draftKey}
-                      style={{
-                        display: "grid",
-                        gap: 8,
-                        padding: 10,
-                        border: "1px solid rgba(84, 224, 199, 0.18)",
-                        borderRadius: 12,
-                        background: "rgba(17, 21, 31, 0.45)",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                        }}
-                      >
-                        <span style={{ fontWeight: 800 }}>{displayName}</span>
-                        <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
-                          row {beacon.row}
-                          {beacon.inRange ? "" : " out of range"}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "minmax(0, 1fr) auto auto",
-                          gap: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        <input
-                          aria-label={`Rename ${fallbackName}`}
-                          maxLength={BEACON_LABEL_MAX_LENGTH}
-                          value={draft}
-                          placeholder={fallbackName}
-                          onChange={(event) =>
-                            setBeaconDrafts((current) => ({
-                              ...current,
-                              [draftKey]: event.target.value,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            minWidth: 0,
-                            height: 38,
-                            borderRadius: 10,
-                            border: "1px solid #2c3a5c",
-                            background: "rgba(12, 15, 23, 0.86)",
-                            color: "#e6e8ee",
-                            padding: "0 10px",
-                            fontWeight: 700,
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onRide(renameBeaconAction(beacon, cleanedDraft))
-                          }
-                          disabled={!renameReady}
-                          style={{
-                            ...sheetButtonStyle(renameReady),
-                            minWidth: 64,
-                            minHeight: 38,
-                          }}
-                        >
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onRide(
-                              `warp-down:${beacon.col},${beacon.row}` as MineAction,
-                            )
-                          }
-                          disabled={!beacon.inRange}
-                          style={{
-                            ...sheetButtonStyle(beacon.inRange),
-                            minWidth: 60,
-                            minHeight: 38,
-                          }}
-                        >
-                          Warp
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

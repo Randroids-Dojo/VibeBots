@@ -10,6 +10,8 @@ import type {
 } from "@/state/mine-store";
 import {
   DIALOG_BACKDROP_STYLE,
+  DIALOG_PRIMARY_ACCENT,
+  DIALOG_QUIET_ACCENT,
   DialogActionButton,
   dialogCardStyle,
   useFocusTrap,
@@ -67,18 +69,6 @@ function statusText(state: AccountSyncState): string {
   if (state.mode === "signed_in") return "Ready to save this run.";
   return "Guest save is local to this device.";
 }
-
-/** One accent for the action the state offers, one for the way out. */
-const ACCOUNT_PRIMARY_ACCENT = {
-  border: "#54e0c7",
-  background: "#172b30",
-  color: "#54e0c7",
-};
-const ACCOUNT_QUIET_ACCENT = {
-  border: "#72809b",
-  background: "#1a2030",
-  color: "#d8deec",
-};
 
 export interface AccountDialogControls {
   busy: boolean;
@@ -326,7 +316,7 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {showSignIn && (
             <DialogActionButton
-              accent={ACCOUNT_PRIMARY_ACCENT}
+              accent={DIALOG_PRIMARY_ACCENT}
               disabled={signInDisabled}
               onClick={async () => {
                 if (SIGN_IN_URL.length === 0) return;
@@ -348,7 +338,7 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
           )}
           {showClaim && (
             <DialogActionButton
-              accent={ACCOUNT_PRIMARY_ACCENT}
+              accent={DIALOG_PRIMARY_ACCENT}
               disabled={!canClaim}
               onClick={async () => {
                 setPending("claim");
@@ -361,7 +351,7 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
           )}
           {showLoadCloud && (
             <DialogActionButton
-              accent={ACCOUNT_PRIMARY_ACCENT}
+              accent={DIALOG_PRIMARY_ACCENT}
               disabled={!canLoadCloud}
               onClick={async () => {
                 setPending("load");
@@ -375,7 +365,7 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
           )}
           {canKeepDevice && (
             <DialogActionButton
-              accent={ACCOUNT_QUIET_ACCENT}
+              accent={DIALOG_QUIET_ACCENT}
               disabled={busy}
               onClick={onClose}
             >
@@ -384,7 +374,7 @@ export const AccountSyncPopup = memo(function AccountSyncPopup({
           )}
           {showRefresh && (
             <DialogActionButton
-              accent={ACCOUNT_QUIET_ACCENT}
+              accent={DIALOG_QUIET_ACCENT}
               disabled={busy}
               onClick={onRefresh}
             >

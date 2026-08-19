@@ -261,10 +261,10 @@ test(
     await expect(buyer).toContainText("Roof");
     await expect(buyer).toContainText("Door");
     await expect(buyer).toContainText("Basic Turret");
-    // The lock reads "Needs lv 2" on the button face; the sentence stays as
-    // its accessible name.
+    // The lock reads "Needs lv 2" on the button face; the accessible name
+    // names the part it belongs to.
     await expect(
-      buyer.getByRole("button", { name: "Requires level 2" }),
+      buyer.getByRole("button", { name: "Basic Turret requires level 2" }),
     ).toBeVisible();
     await expect(buyer).toContainText("3 shots, breaks after 5 hits");
     await expect(buyer).toContainText("Floor Spikes");
@@ -282,7 +282,7 @@ test(
     await expect(depot).toContainText("Ladder");
     await expect(depot).toContainText("have");
     await expect(
-      depot.getByRole("button", { name: "Buy 1 for 2 vibes" }).first(),
+      depot.getByRole("button", { name: "Buy 1 Ladder for 2 vibes" }),
     ).toBeVisible();
     await expect(depot).not.toContainText("best for");
     await expect(depot).not.toContainText("vibes left");
@@ -292,7 +292,7 @@ test(
     await expect(depot).not.toContainText("Floor Spikes");
     await depot.getByRole("button", { name: "x5" }).click();
     await expect(
-      depot.getByRole("button", { name: "Buy 5 for 10 vibes" }).first(),
+      depot.getByRole("button", { name: "Buy 5 Ladder for 10 vibes" }),
     ).toBeVisible();
 
     // And on to the Upgrades stall: the gear tracks.
@@ -377,7 +377,9 @@ test(
     const hardware = await openStall(page, "Hardware Store");
     await expect(hardware).toContainText("50 vibes");
 
-    await hardware.getByRole("button", { name: "Buy 1 for 6 vibes" }).click();
+    await hardware
+      .getByRole("button", { name: "Buy 1 Wall for 6 vibes" })
+      .click();
 
     await expect(status).toHaveAttribute("data-wallet", "44");
     await expect(hardware).toContainText("44 vibes");

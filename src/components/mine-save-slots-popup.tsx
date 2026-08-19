@@ -277,10 +277,8 @@ export function SaveSlotsPopup({
                       textTransform: "uppercase",
                     }}
                   >
-                    Destructive action: this permanently deletes Slot{" "}
-                    {summary.slot}. The mine, upgrades, stamps, purchases, bot
-                    parts, constructed bots, wallet, and checkpoints cannot be
-                    restored.
+                    Permanent. Everything in Slot {summary.slot} is gone: mine,
+                    wallet, parts, bots, stamps.
                   </p>
                 )}
               </fieldset>

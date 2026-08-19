@@ -38,13 +38,36 @@ export function dialogCardStyle(maxWidthPx: number): CSSProperties {
   };
 }
 
+/**
+ * The two accents every mine dialog picks from: the move the current state
+ * offers, and the way out of it. They live here rather than in each dialog
+ * so the account and save-conflict sheets cannot drift apart.
+ */
+export type DialogAccent = {
+  border: string;
+  background: string;
+  color: string;
+};
+
+export const DIALOG_PRIMARY_ACCENT: DialogAccent = {
+  border: "#54e0c7",
+  background: "#172b30",
+  color: "#54e0c7",
+};
+
+export const DIALOG_QUIET_ACCENT: DialogAccent = {
+  border: "#72809b",
+  background: "#1a2030",
+  color: "#d8deec",
+};
+
 export function DialogActionButton({
   accent,
   disabled = false,
   onClick,
   children,
 }: {
-  accent: { border: string; background: string; color: string };
+  accent: DialogAccent;
   disabled?: boolean;
   onClick: () => void;
   children: ReactNode;

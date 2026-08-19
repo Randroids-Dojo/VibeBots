@@ -18,7 +18,7 @@ export const STALLS: readonly StallDef[] = [
     col: -5,
     name: "Elevator",
     color: "#9aa7ff",
-    blurb: "premium rail shaft; free rides",
+    blurb: "buy rail, ride free",
   },
   {
     id: "buyer",
@@ -46,7 +46,7 @@ export const STALLS: readonly StallDef[] = [
     col: 6,
     name: "Warp Pad",
     color: "#e08aff",
-    blurb: "jumps to your beacon, range by warpcoil",
+    blurb: "jumps to your beacons",
   },
 ] as const;
 

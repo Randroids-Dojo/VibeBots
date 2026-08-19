@@ -133,8 +133,7 @@ export function StampBookPopup({
             </p>
             {offline && (
               <p style={{ margin: "6px 0 0", color: "#f5c542" }}>
-                Stamp ledger offline. Stamps are visible, progress waits for
-                storage.
+                Stamp ledger offline; progress waits for storage.
               </p>
             )}
             {error && (
@@ -241,22 +240,24 @@ export function StampBookPopup({
                           >
                             {achievement.description}
                           </p>
-                          <div
-                            style={{
-                              height: 6,
-                              borderRadius: 999,
-                              background: "#252f47",
-                              overflow: "hidden",
-                            }}
-                          >
+                          {!done && (
                             <div
                               style={{
-                                width: `${Math.min(100, Math.round((achievement.progress.current / achievement.progress.target) * 100))}%`,
-                                height: "100%",
-                                background: done ? "#54e0c7" : "#f5c542",
+                                height: 6,
+                                borderRadius: 999,
+                                background: "#252f47",
+                                overflow: "hidden",
                               }}
-                            />
-                          </div>
+                            >
+                              <div
+                                style={{
+                                  width: `${Math.min(100, Math.round((achievement.progress.current / achievement.progress.target) * 100))}%`,
+                                  height: "100%",
+                                  background: "#f5c542",
+                                }}
+                              />
+                            </div>
+                          )}
                           <p
                             style={{
                               margin: "6px 0 0",

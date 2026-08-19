@@ -75,10 +75,7 @@ function Comparison({ comparison }: { comparison: BenchComparison }) {
         </p>
       )}
       {flat && (
-        <p style={{ margin: "4px 0 0", opacity: 0.75 }}>
-          No outcome changed. Check the score margins below for movement too
-          small to flip a result.
-        </p>
+        <p style={{ margin: "4px 0 0", opacity: 0.75 }}>No outcome changed.</p>
       )}
     </div>
   );
@@ -144,8 +141,7 @@ export function BenchPanel({
       <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>Bench</h2>
       <p style={{ margin: "0 0 8px", fontSize: "0.72rem", opacity: 0.8 }}>
         Fights this build against all {BENCH_ROSTER.length} stock bots from{" "}
-        {BENCH_VARIATIONS} starting positions each. Run it after a change to see
-        what the change actually did.
+        {BENCH_VARIATIONS} starting positions each.
       </p>
 
       <button

@@ -163,10 +163,9 @@ test(
     }
     const pad = await openStall(page, "Warp Pad", "ArrowRight");
     await expect(pad).toContainText("No planted beacons yet");
-    await expect(pad).toContainText("Warpcoil range: 60 rows");
-    await expect(
-      pad.getByRole("button", { name: "Warp to beacon" }),
-    ).toBeDisabled();
+    await expect(pad).toContainText("range 60 rows");
+    // Nothing to warp to renders as the empty line alone: no dead control.
+    await expect(pad.getByRole("button", { name: /^Warp/ })).toHaveCount(0);
   },
 );
 
@@ -303,7 +302,9 @@ test.describe
         for (let i = 0; i < 6; i++) await pressMineKey(page, "ArrowRight");
         const pad = await openStall(page, "Warp Pad", "ArrowRight");
         await expect(pad).toContainText("Winter Beacon");
-        await expect(pad).toContainText("portals are free");
+        await expect(
+          pad.getByRole("button", { name: "Warp to Winter Beacon" }),
+        ).toBeVisible();
       },
     );
 
@@ -429,9 +430,8 @@ test(
       await pressMineKey(page, "ArrowRight");
     }
     const pad = await openStall(page, "Warp Pad", "ArrowRight");
-    await expect(pad).toContainText("2 destinations online");
-    await expect(pad).toContainText("row 70, col -2 out of range");
-    await expect(pad).toContainText("row 3, col 0");
+    await expect(pad).toContainText("row 70 out of range");
+    await expect(pad).toContainText("row 3");
     await expect(
       pad.getByRole("button", { name: "Warp" }).first(),
     ).toBeDisabled();
@@ -511,7 +511,6 @@ test(
     await expect(status).toHaveAttribute("data-depth", "0");
 
     const elevator = await openStall(page, "Elevator", "ArrowLeft");
-    await expect(elevator).toContainText("choose your shaft column");
     await expect(elevator).toContainText(
       "starter shaft: 20 rows for 100 vibes",
     );
@@ -549,8 +548,7 @@ test(
 
     await pressMineKey(page, "ArrowLeft");
     const reopened = await openStall(page, "Elevator");
-    await expect(reopened).toContainText("rail at column -4 reaches 20 deep");
-    await expect(reopened).toContainText("one premium row per purchase");
+    await expect(reopened).toContainText("20 rows deep");
     const extend = reopened.getByRole("button", {
       name: "Buy one elevator rail for 35 vibes",
     });
@@ -658,8 +656,7 @@ test(
     await dismissReleaseNotes(page);
     const status = page.getByLabel("Mine status");
     const elevator = await openStall(page, "Elevator", "ArrowLeft");
-    await expect(elevator).toContainText("place your existing 4-row shaft");
-    await expect(elevator).toContainText("one free location choice");
+    await expect(elevator).toContainText("place your 4-row shaft");
     await elevator
       .getByRole("button", { name: "Choose free elevator shaft location" })
       .click();

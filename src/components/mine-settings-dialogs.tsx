@@ -884,16 +884,6 @@ export function IosHomeScreenPrompt({ disabled }: { disabled: boolean }) {
           Mobile Safari needs the Home Screen app before notifications can work.
           Tap Share, then Add to Home Screen.
         </p>
-        <p
-          style={{
-            margin: "0 0 14px",
-            color: "#aab3c8",
-            fontSize: "0.76rem",
-            lineHeight: 1.3,
-          }}
-        >
-          Safari does not let websites open that sheet automatically.
-        </p>
         <div
           style={{
             display: "grid",
@@ -1000,9 +990,10 @@ export function PerfTelemetryControl() {
           lineHeight: 1.25,
         }}
       >
-        {enabled
-          ? "Recording frame timings, scene stats, network request timing, memory use, time in background, and device info to help fix slowdowns. GPU timings start on your next visit."
-          : "Off by default. When on, sends frame timings, scene stats, network request timing, memory use, time in background, and device info so slowdowns on your device can be fixed."}
+        Sends frame timings, scene stats, network timing (including the busiest
+        request paths), memory use, background time, and device info (GPU,
+        screen, connection, browser). Traces are stored against your player and
+        a random session id, and kept for 30 days.
       </p>
     </section>
   );
@@ -1123,11 +1114,9 @@ export function ReleaseNotificationControl() {
           ? "Notification keys are not set on this deploy."
           : uiState === "denied"
             ? "Notifications are blocked in browser settings."
-            : uiState === "enabled"
-              ? "You will get one-line release summaries."
-              : uiState === "error"
-                ? "Could not save notification settings."
-                : summary || "Get one-line release summaries.";
+            : uiState === "error"
+              ? "Could not save notification settings."
+              : summary;
 
   return (
     <section
@@ -1173,16 +1162,18 @@ export function ReleaseNotificationControl() {
       >
         {label}
       </button>
-      <p
-        style={{
-          margin: 0,
-          color: "#aab3c8",
-          fontSize: "0.72rem",
-          lineHeight: 1.25,
-        }}
-      >
-        {note}
-      </p>
+      {note && (
+        <p
+          style={{
+            margin: 0,
+            color: "#aab3c8",
+            fontSize: "0.72rem",
+            lineHeight: 1.25,
+          }}
+        >
+          {note}
+        </p>
+      )}
     </section>
   );
 }

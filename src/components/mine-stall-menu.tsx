@@ -20,9 +20,7 @@ import {
   ELEVATOR_STARTER_PRICE,
   ELEVATOR_STARTER_RAIL_ROWS,
   ELEVATOR_UNLOCK_DEPTH,
-  elevatorColumn,
   elevatorRailPrice,
-  elevatorSpeedRows,
   findBeacons,
   findPortalBeacons,
   GEAR_TRACKS,
@@ -123,16 +121,21 @@ function HardwareStorePanel({
         const hasLimit = Number.isFinite(ownedLimit);
         const detail =
           partId === "basic-turret"
-            ? `${def.blurb}. Level ${minLevel}. ${def.ammo ?? 0} shots per raid. Breaks after ${def.durability} Clanker hits.`
+            ? `${def.blurb}; ${def.ammo ?? 0} shots, breaks after ${def.durability} hits`
             : partId === "floor-spikes"
-              ? `${def.blurb}. Breaks after ${def.durability} steps. Limit ${ownedLimit} at your level.`
+              ? `${def.blurb}; breaks after ${def.durability} steps`
               : def.blurb;
         const canBuy = affordable && !levelLocked && !capped;
         const buttonLabel = levelLocked
-          ? `Requires level ${minLevel}`
+          ? `Needs lv ${minLevel}`
           : capped
             ? `Limit ${ownedLimit}`
-            : `Buy ${buyQuantity} for ${totalPrice} vibes`;
+            : `${totalPrice} vibes`;
+        const buttonName = levelLocked
+          ? `${def.name} requires level ${minLevel}`
+          : capped
+            ? `${def.name} limit ${ownedLimit}`
+            : `Buy ${buyQuantity} ${def.name} for ${totalPrice} vibes`;
         return (
           <SheetRow
             key={partId}
@@ -147,9 +150,10 @@ function HardwareStorePanel({
             action={
               <button
                 type="button"
+                aria-label={buttonName}
                 onClick={() => onBuyBasePart(partId, buyQuantity)}
                 disabled={!canBuy}
-                style={{ ...sheetButtonStyle(canBuy), minWidth: 124 }}
+                style={{ ...sheetButtonStyle(canBuy), minWidth: 92 }}
               >
                 {buttonLabel}
               </button>
@@ -161,16 +165,7 @@ function HardwareStorePanel({
         <p
           style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
         >
-          Bunker ledger offline. Base stock can be browsed, but purchases wait
-          until storage is online.
-        </p>
-      )}
-      {balance === null && (
-        <p
-          style={{ margin: "10px 0 0", fontSize: "0.75rem", color: "#f5c542" }}
-        >
-          Wallet ledger offline. The Hardware Store can show the catalog, but
-          purchases wait until storage is online.
+          Bunker ledger offline; browsing only.
         </p>
       )}
     </div>
@@ -515,11 +510,15 @@ export function StallMenu({
                 : null;
             const actionLabel =
               item === "beacon" && !beaconAllowed
-                ? `Limit ${beaconLimit} total`
-                : `Buy ${buyQuantity} for ${totalPrice} vibes`;
+                ? `Limit ${beaconLimit}`
+                : `${totalPrice} vibes`;
+            const actionName =
+              item === "beacon" && !beaconAllowed
+                ? `Warp Beacon limit ${beaconLimit} total`
+                : `Buy ${buyQuantity} ${name} for ${totalPrice} vibes`;
             const rowSub =
               item === "beacon" && !beaconAllowed
-                ? "At the cap. If a beacon is deployed, scrap it in scrap mode to free a slot."
+                ? "at the cap; scrap a planted one to free a slot"
                 : blurb;
             return (
               <SheetRow
@@ -531,12 +530,13 @@ export function StallMenu({
                 action={
                   <button
                     type="button"
+                    aria-label={actionName}
                     onClick={() => {
                       triggerShopHaptic("press");
                       onBuyConsumable(item, buyQuantity);
                     }}
                     disabled={!affordable}
-                    style={{ ...sheetButtonStyle(affordable), minWidth: 124 }}
+                    style={{ ...sheetButtonStyle(affordable), minWidth: 92 }}
                   >
                     {actionLabel}
                   </button>
@@ -602,53 +602,28 @@ export function StallMenu({
               />
             );
           })}
-          <p style={{ margin: "10px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-            Upgrades sell any hauled-up loot first, then apply immediately.
-          </p>
         </div>
       )}
-      {stall.id === "elevator" &&
-        (elevatorLocked ? (
-          <div>
-            <SheetRow
-              icon={"\u{1F6D7}"}
-              name="the shaft doors are still boarded up"
-              sub={`a free-riding elevator down your mine; ${STARTER_SHAFT_BLURB}`}
-              action={
+      {stall.id === "elevator" && (
+        <div>
+          <SheetRow
+            icon={"\u{1F6D7}"}
+            name={
+              choosingExistingShaft
+                ? `place your ${gear.elevator}-row shaft`
+                : gear.elevator > 0
+                  ? `${gear.elevator} rows deep`
+                  : STARTER_SHAFT_BLURB
+            }
+            action={
+              elevatorLocked ? (
                 <span
                   data-testid="elevator-locked"
                   style={{ fontSize: "0.8rem", opacity: 0.6 }}
                 >
                   depth {ELEVATOR_UNLOCK_DEPTH}
                 </span>
-              }
-            />
-            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-              Reach depth {ELEVATOR_UNLOCK_DEPTH} to earn your shaft permit.
-              Deepest banked so far: {deepestDepth}.
-            </p>
-          </div>
-        ) : (
-          <div>
-            <SheetRow
-              icon={"\u{1F6D7}"}
-              name={
-                choosingExistingShaft
-                  ? `place your existing ${gear.elevator}-row shaft`
-                  : gear.elevator > 0
-                    ? `rail at column ${elevatorColumn(gear)} reaches ${gear.elevator} deep`
-                    : "choose your shaft column"
-              }
-              sub={
-                choosingExistingShaft
-                  ? "one free location choice; bought depth stays"
-                  : elevatorMaxed
-                    ? "rail reaches the mine bottom"
-                    : gear.elevator > 0
-                      ? "one premium row per purchase"
-                      : STARTER_SHAFT_BLURB
-              }
-              action={
+              ) : (
                 <button
                   type="button"
                   aria-label={
@@ -700,70 +675,54 @@ export function StallMenu({
                           ? `${autoBanking ? "Bank + " : ""}${elevatorRailPrice(gear.elevator)} vibes`
                           : "Choose spot"}
                 </button>
-              }
-            />
-            {railResyncFailed && (
-              <div
-                data-testid="rail-resync-recovery"
-                role="alert"
-                style={{
-                  margin: "8px 0 0",
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  border: "1px solid rgba(245, 158, 11, 0.5)",
-                  background: "rgba(245, 158, 11, 0.12)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                }}
-              >
-                <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
-                  Your rail moved on another device and the refresh failed.
-                  Retry to reload the latest rail before buying.
-                </span>
-                <button
-                  type="button"
-                  data-testid="rail-resync-retry"
-                  aria-label="Retry refreshing the rail"
-                  onClick={onRetryRailResync}
-                  disabled={railRetryPending}
-                  style={{
-                    ...sheetButtonStyle(!railRetryPending),
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  {railRetryPending ? "Refreshing..." : "Retry refresh"}
-                </button>
-              </div>
-            )}
-            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-              {choosingExistingShaft
-                ? "Choose any surface column. The old shaft stays open as a tunnel."
-                : gear.elevator > 0
-                  ? "Each rail extends the shaft one row deeper."
-                  : `Place the starter shaft at any surface column. That spot stays yours and comes with ${ELEVATOR_STARTER_RAIL_ROWS} rows of rail.`}
-            </p>
-            <p style={{ margin: "6px 0 0", fontSize: "0.7rem", opacity: 0.55 }}>
-              speed level {gear.elevatorSpeed ?? 1} moves{" "}
-              {elevatorSpeedRows(gear)} rows per automatic step
-            </p>
-          </div>
-        ))}
-      {stall.id === "warp" && (
-        <div>
-          <SheetRow
-            icon={ITEM_ICONS.beacon}
-            name={
-              warpDestinationCount > 0
-                ? `${warpDestinationCount} destination${warpDestinationCount > 1 ? "s" : ""} online`
-                : "No planted beacons yet"
-            }
-            sub={
-              warpDestinationCount > 0
-                ? `Warpcoil range: ${warpRange(mine.gear)} rows for planted beacons. Biome portals are free.`
-                : `Buy beacon kits at the Supply Depot. Warpcoil range: ${warpRange(mine.gear)} rows.`
+              )
             }
           />
+          {railResyncFailed && (
+            <div
+              data-testid="rail-resync-recovery"
+              role="alert"
+              style={{
+                margin: "8px 0 0",
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(245, 158, 11, 0.5)",
+                background: "rgba(245, 158, 11, 0.12)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <span style={{ fontSize: "0.72rem", lineHeight: 1.35 }}>
+                Your rail moved on another device and the refresh failed. Retry
+                to reload the latest rail before buying.
+              </span>
+              <button
+                type="button"
+                data-testid="rail-resync-retry"
+                aria-label="Retry refreshing the rail"
+                onClick={onRetryRailResync}
+                disabled={railRetryPending}
+                style={{
+                  ...sheetButtonStyle(!railRetryPending),
+                  alignSelf: "flex-start",
+                }}
+              >
+                {railRetryPending ? "Refreshing..." : "Retry refresh"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {stall.id === "warp" && (
+        <div>
+          {warpDestinationCount === 0 && (
+            <SheetRow
+              icon={ITEM_ICONS.beacon}
+              name="No planted beacons yet"
+              sub={`beacon kits at the Supply Depot; range ${warpRange(mine.gear)} rows`}
+            />
+          )}
           <div
             style={{
               display: "grid",
@@ -774,159 +733,141 @@ export function StallMenu({
               paddingRight: 2,
             }}
           >
-            {warpDestinationCount === 0 ? (
-              <button
-                type="button"
-                disabled
+            {portals.map((portal) => (
+              <div
+                key={`portal:${portal.id}`}
                 style={{
-                  ...sheetButtonStyle(false),
-                  width: "100%",
-                  minHeight: 48,
+                  display: "grid",
+                  gap: 8,
+                  padding: 10,
+                  border: `1px solid ${portal.color}`,
+                  borderRadius: 12,
+                  background: "rgba(17, 21, 31, 0.45)",
                 }}
               >
-                Warp to beacon
-              </button>
-            ) : (
-              <>
-                {portals.map((portal) => (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
+                >
+                  <span style={{ fontWeight: 800 }}>{portal.name}</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Warp to ${portal.name}`}
+                  onClick={() => onRide(portalWarpAction(portal.id))}
+                  style={{
+                    ...sheetButtonStyle(true),
+                    width: "100%",
+                    minHeight: 38,
+                  }}
+                >
+                  Warp
+                </button>
+              </div>
+            ))}
+            {beacons.map((beacon, index) => {
+              const draftKey = `${beacon.col},${beacon.row}`;
+              const fallbackName =
+                index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
+              const displayName = beacon.label ?? fallbackName;
+              const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
+              const cleanedDraft = normalizeBeaconLabel(draft);
+              const renameReady = cleanedDraft !== (beacon.label ?? "");
+              return (
+                <div
+                  key={draftKey}
+                  style={{
+                    display: "grid",
+                    gap: 8,
+                    padding: 10,
+                    border: "1px solid rgba(84, 224, 199, 0.18)",
+                    borderRadius: 12,
+                    background: "rgba(17, 21, 31, 0.45)",
+                  }}
+                >
                   <div
-                    key={`portal:${portal.id}`}
                     style={{
-                      display: "grid",
-                      gap: 8,
-                      padding: 10,
-                      border: `1px solid ${portal.color}`,
-                      borderRadius: 12,
-                      background: "rgba(17, 21, 31, 0.45)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
                     }}
                   >
-                    <div
+                    <span style={{ fontWeight: 800 }}>{displayName}</span>
+                    <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
+                      row {beacon.row}
+                      {beacon.inRange ? "" : " out of range"}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1fr) auto auto",
+                      gap: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      aria-label={`Rename ${fallbackName}`}
+                      maxLength={BEACON_LABEL_MAX_LENGTH}
+                      value={draft}
+                      placeholder={fallbackName}
+                      onChange={(event) =>
+                        setBeaconDrafts((current) => ({
+                          ...current,
+                          [draftKey]: event.target.value,
+                        }))
+                      }
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
+                        width: "100%",
+                        minWidth: 0,
+                        height: 38,
+                        borderRadius: 10,
+                        border: "1px solid #2c3a5c",
+                        background: "rgba(12, 15, 23, 0.86)",
+                        color: "#e6e8ee",
+                        padding: "0 10px",
+                        fontWeight: 700,
                       }}
-                    >
-                      <span style={{ fontWeight: 800 }}>{portal.name}</span>
-                      <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
-                        col {portal.col}
-                      </span>
-                    </div>
+                    />
                     <button
                       type="button"
-                      onClick={() => onRide(portalWarpAction(portal.id))}
+                      onClick={() =>
+                        onRide(renameBeaconAction(beacon, cleanedDraft))
+                      }
+                      disabled={!renameReady}
                       style={{
-                        ...sheetButtonStyle(true),
-                        width: "100%",
+                        ...sheetButtonStyle(renameReady),
+                        minWidth: 64,
                         minHeight: 38,
                       }}
                     >
-                      Portal
+                      Rename
                     </button>
-                  </div>
-                ))}
-                {beacons.map((beacon, index) => {
-                  const draftKey = `${beacon.col},${beacon.row}`;
-                  const fallbackName =
-                    index === 0 ? "Newest beacon" : `Beacon ${index + 1}`;
-                  const displayName = beacon.label ?? fallbackName;
-                  const draft = beaconDrafts[draftKey] ?? beacon.label ?? "";
-                  const cleanedDraft = normalizeBeaconLabel(draft);
-                  const renameReady = cleanedDraft !== (beacon.label ?? "");
-                  return (
-                    <div
-                      key={draftKey}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onRide(
+                          `warp-down:${beacon.col},${beacon.row}` as MineAction,
+                        )
+                      }
+                      disabled={!beacon.inRange}
                       style={{
-                        display: "grid",
-                        gap: 8,
-                        padding: 10,
-                        border: "1px solid rgba(84, 224, 199, 0.18)",
-                        borderRadius: 12,
-                        background: "rgba(17, 21, 31, 0.45)",
+                        ...sheetButtonStyle(beacon.inRange),
+                        minWidth: 60,
+                        minHeight: 38,
                       }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: 12,
-                        }}
-                      >
-                        <span style={{ fontWeight: 800 }}>{displayName}</span>
-                        <span style={{ opacity: 0.78, fontSize: "0.78rem" }}>
-                          row {beacon.row}, col {beacon.col}
-                          {beacon.inRange ? "" : " out of range"}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "minmax(0, 1fr) auto auto",
-                          gap: 8,
-                          alignItems: "center",
-                        }}
-                      >
-                        <input
-                          aria-label={`Rename ${fallbackName}`}
-                          maxLength={BEACON_LABEL_MAX_LENGTH}
-                          value={draft}
-                          placeholder={fallbackName}
-                          onChange={(event) =>
-                            setBeaconDrafts((current) => ({
-                              ...current,
-                              [draftKey]: event.target.value,
-                            }))
-                          }
-                          style={{
-                            width: "100%",
-                            minWidth: 0,
-                            height: 38,
-                            borderRadius: 10,
-                            border: "1px solid #2c3a5c",
-                            background: "rgba(12, 15, 23, 0.86)",
-                            color: "#e6e8ee",
-                            padding: "0 10px",
-                            fontWeight: 700,
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onRide(renameBeaconAction(beacon, cleanedDraft))
-                          }
-                          disabled={!renameReady}
-                          style={{
-                            ...sheetButtonStyle(renameReady),
-                            minWidth: 64,
-                            minHeight: 38,
-                          }}
-                        >
-                          Rename
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onRide(
-                              `warp-down:${beacon.col},${beacon.row}` as MineAction,
-                            )
-                          }
-                          disabled={!beacon.inRange}
-                          style={{
-                            ...sheetButtonStyle(beacon.inRange),
-                            minWidth: 60,
-                            minHeight: 38,
-                          }}
-                        >
-                          Warp
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            )}
+                      Warp
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

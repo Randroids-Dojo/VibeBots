@@ -149,6 +149,92 @@ describe("accountSignInUrlIsExpectedRoute", () => {
 });
 
 describe("accountDialogControls", () => {
+  it("draws only the moves the current state offers", () => {
+    const guest = accountDialogControls({
+      state: accountState(),
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    expect(guest.showSignIn).toBe(true);
+    expect(guest.showClaim).toBe(false);
+    expect(guest.showLoadCloud).toBe(false);
+    expect(guest.showRefresh).toBe(false);
+
+    const signedIn = accountDialogControls({
+      state: { ...accountState(), mode: "signed_in" },
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    // Signed in, the sign-in button could only ever render disabled.
+    expect(signedIn.showSignIn).toBe(false);
+    expect(signedIn.showClaim).toBe(true);
+    expect(signedIn.showLoadCloud).toBe(false);
+
+    const conflict = accountDialogControls({
+      state: { ...accountState(), mode: "conflict", accountSave: cloudSave },
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    // A conflict is a choice between two saves, not a save-this-run moment.
+    expect(conflict.showClaim).toBe(false);
+    expect(conflict.showLoadCloud).toBe(true);
+    expect(conflict.showRefresh).toBe(false);
+  });
+
+  it("hides an action whose save does not exist", () => {
+    // Signed in with nothing saved on this device: there is no run to save.
+    const nothingLocal = accountDialogControls({
+      state: { ...accountState(), mode: "signed_in", currentSave: null },
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    expect(nothingLocal.showClaim).toBe(false);
+    expect(nothingLocal.canClaim).toBe(false);
+
+    // A conflict with no cloud save is not a conflict worth a button.
+    const nothingCloud = accountDialogControls({
+      state: { ...accountState(), mode: "conflict", accountSave: null },
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    expect(nothingCloud.showLoadCloud).toBe(false);
+    expect(nothingCloud.canLoadCloud).toBe(false);
+  });
+
+  it("keeps a running action on screen while it completes", () => {
+    // `busy` disables the button but must not make it vanish mid-click.
+    const claiming = accountDialogControls({
+      state: { ...accountState(), mode: "signed_in" },
+      signInUrl: "/sign-in",
+      pending: "claim",
+    });
+    expect(claiming.showClaim).toBe(true);
+    expect(claiming.canClaim).toBe(false);
+  });
+
+  it("offers Refresh only when there is something to recover from", () => {
+    for (const state of ["error", "unavailable"] as const) {
+      expect(
+        accountDialogControls({
+          state: {
+            ...accountState(),
+            state,
+            message: "boom",
+          } as AccountSyncState,
+          signInUrl: "/sign-in",
+          pending: null,
+        }).showRefresh,
+      ).toBe(true);
+    }
+    expect(
+      accountDialogControls({
+        state: accountState(),
+        signInUrl: "/sign-in",
+        pending: null,
+      }).showRefresh,
+    ).toBe(false);
+  });
+
   it("keeps Google sign-in disabled until the provider URL is configured", () => {
     const controls = accountDialogControls({
       state: accountState(),

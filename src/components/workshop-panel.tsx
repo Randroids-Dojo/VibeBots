@@ -607,7 +607,7 @@ export function WorkshopPanel() {
                 }}
               >
                 {verification.agrees
-                  ? `Official result matches (hash ${verification.hash.slice(0, 8)}...)`
+                  ? "Official result matches."
                   : "Mismatch: the server saw a different fight."}
               </p>
             )}
@@ -1055,16 +1055,6 @@ export function WorkshopPanel() {
                     );
                   })}
                 </div>
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: "0.72rem",
-                    opacity: 0.65,
-                  }}
-                >
-                  Swapping the chassis starts a fresh build. Undo brings it
-                  back.
-                </p>
                 <button
                   type="button"
                   className={
@@ -1099,17 +1089,6 @@ export function WorkshopPanel() {
                     ? "Carousel: all parts"
                     : "Carousel: owned only"}
                 </button>
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: "0.72rem",
-                    opacity: 0.65,
-                  }}
-                >
-                  {includeUnowned
-                    ? "The carousel includes parts not in your inventory."
-                    : "The carousel shows only parts you own. Buy more in the Shop."}
-                </p>
               </section>
             </>
           )}
@@ -1196,10 +1175,6 @@ export function WorkshopPanel() {
                     </span>
                   </label>
                 ))}
-                <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.65 }}>
-                  Bots fight on their own; temperament biases how this one does
-                  it.
-                </p>
               </section>
 
               <BenchPanel design={design} panelStyle={panelStyle} />
@@ -1212,15 +1187,6 @@ export function WorkshopPanel() {
                 <h2 style={{ margin: "0 0 4px", fontSize: "0.95rem" }}>
                   Blueprints
                 </h2>
-                <p
-                  style={{
-                    margin: "0 0 10px",
-                    fontSize: "0.72rem",
-                    opacity: 0.65,
-                  }}
-                >
-                  Load a ready-made bot, then make it yours.
-                </p>
                 <div
                   style={{
                     display: "flex",

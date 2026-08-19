@@ -3,6 +3,8 @@
 import { memo, useRef } from "react";
 import {
   DIALOG_BACKDROP_STYLE,
+  DIALOG_PRIMARY_ACCENT,
+  DIALOG_QUIET_ACCENT,
   DialogActionButton,
   dialogCardStyle,
   useFocusTrap,
@@ -56,21 +58,13 @@ export const SaveConflictPopup = memo(function SaveConflictPopup({
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           <DialogActionButton
-            accent={{
-              border: "#54e0c7",
-              background: "#172b30",
-              color: "#54e0c7",
-            }}
+            accent={DIALOG_PRIMARY_ACCENT}
             onClick={() => onResolve("sync")}
           >
             Sync now (discard this run)
           </DialogActionButton>
           <DialogActionButton
-            accent={{
-              border: "#72809b",
-              background: "#1a2030",
-              color: "#d8deec",
-            }}
+            accent={DIALOG_QUIET_ACCENT}
             onClick={() => onResolve("keep")}
           >
             Keep playing

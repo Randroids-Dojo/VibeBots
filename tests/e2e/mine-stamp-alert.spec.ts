@@ -74,7 +74,7 @@ test(
     });
 
     await depot
-      .getByRole("button", { name: /Buy 1 for/, disabled: false })
+      .getByRole("button", { name: /^Buy 1 /, disabled: false })
       .first()
       .click();
 
@@ -109,7 +109,7 @@ test(
   async ({ page }) => {
     const depot = await openStubbedDepot(page, 2026071002);
     await depot
-      .getByRole("button", { name: /Buy 1 for/, disabled: false })
+      .getByRole("button", { name: /^Buy 1 /, disabled: false })
       .first()
       .click();
 

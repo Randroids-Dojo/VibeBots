@@ -110,16 +110,19 @@ export function accountDialogControls({
     state.state === "finishing-sign-in" ||
     state.state === "loading-cloud";
   const signedIn = state.mode !== "guest";
-  const canClaim =
-    !busy &&
+  // What the state offers at all, before the in-flight check. The dialog
+  // draws a button from these; `busy` only greys the one already running,
+  // so an action stays on screen while it completes.
+  const claimAvailable =
     state.state !== "unavailable" &&
     state.mode === "signed_in" &&
     state.currentSave?.exists === true;
-  const canLoadCloud =
-    !busy &&
+  const cloudLoadAvailable =
     state.state !== "unavailable" &&
     state.mode === "conflict" &&
     state.accountSave?.exists === true;
+  const canClaim = !busy && claimAvailable;
+  const canLoadCloud = !busy && cloudLoadAvailable;
   const canKeepDevice =
     !busy && state.state !== "unavailable" && state.mode === "conflict";
   const providerReady = state.providerStatus.ready;
@@ -143,8 +146,8 @@ export function accountDialogControls({
         ? "Sign in or create account with Google"
         : "Google sign-in pending",
     showSignIn: !signedIn,
-    showClaim: signedIn && state.mode !== "conflict",
-    showLoadCloud: state.mode === "conflict",
+    showClaim: claimAvailable,
+    showLoadCloud: cloudLoadAvailable,
     showRefresh: state.state === "error" || state.state === "unavailable",
   };
 }

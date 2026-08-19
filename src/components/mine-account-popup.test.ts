@@ -171,7 +171,7 @@ describe("accountDialogControls", () => {
     expect(signedIn.showLoadCloud).toBe(false);
 
     const conflict = accountDialogControls({
-      state: { ...accountState(), mode: "conflict" },
+      state: { ...accountState(), mode: "conflict", accountSave: cloudSave },
       signInUrl: "/sign-in",
       pending: null,
     });
@@ -179,6 +179,37 @@ describe("accountDialogControls", () => {
     expect(conflict.showClaim).toBe(false);
     expect(conflict.showLoadCloud).toBe(true);
     expect(conflict.showRefresh).toBe(false);
+  });
+
+  it("hides an action whose save does not exist", () => {
+    // Signed in with nothing saved on this device: there is no run to save.
+    const nothingLocal = accountDialogControls({
+      state: { ...accountState(), mode: "signed_in", currentSave: null },
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    expect(nothingLocal.showClaim).toBe(false);
+    expect(nothingLocal.canClaim).toBe(false);
+
+    // A conflict with no cloud save is not a conflict worth a button.
+    const nothingCloud = accountDialogControls({
+      state: { ...accountState(), mode: "conflict", accountSave: null },
+      signInUrl: "/sign-in",
+      pending: null,
+    });
+    expect(nothingCloud.showLoadCloud).toBe(false);
+    expect(nothingCloud.canLoadCloud).toBe(false);
+  });
+
+  it("keeps a running action on screen while it completes", () => {
+    // `busy` disables the button but must not make it vanish mid-click.
+    const claiming = accountDialogControls({
+      state: { ...accountState(), mode: "signed_in" },
+      signInUrl: "/sign-in",
+      pending: "claim",
+    });
+    expect(claiming.showClaim).toBe(true);
+    expect(claiming.canClaim).toBe(false);
   });
 
   it("offers Refresh only when there is something to recover from", () => {

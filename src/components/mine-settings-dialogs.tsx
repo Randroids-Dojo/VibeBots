@@ -990,8 +990,10 @@ export function PerfTelemetryControl() {
           lineHeight: 1.25,
         }}
       >
-        Sends frame timings, scene stats, network timing, memory use, background
-        time, and device info so slowdowns on your device can be fixed.
+        Sends frame timings, scene stats, network timing (including the busiest
+        request paths), memory use, background time, and device info (GPU,
+        screen, connection, browser). Traces are stored against your player and
+        a random session id, and kept for 30 days.
       </p>
     </section>
   );

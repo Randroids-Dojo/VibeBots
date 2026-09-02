@@ -2719,6 +2719,15 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-240" data-f="F-240" data-priority="polish">
+    <h3>F-240: The tall-menu perf e2e fails under four local workers and passes serially</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 while running the whole workshop e2e file locally at four workers for the G3 and G6 slices. E2E-WORKSHOP-0025 ("bot clears a tall menu after it loads, and re-opening does not blink (perf)", <code>tests/e2e/workshop.spec.ts</code>) failed once in each four-worker run and passed two of two serial repeats each time. It measures a re-open blink window, so four CPU-shared browsers make its timing miss. CI runs one worker per shard, where it has not failed, so it is a local-parallelism artifact of the same kind <code>docs/CI_WORKFLOW.html</code> records for two-worker shards.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Either widen the case's blink window with a reason written next to it, or mark the case <code>@soak</code> so a parallel local run skips it, or make the local runner default to one worker for the workshop file. Acceptance: the whole workshop file passes at the local default worker count three times in a row.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the workshop garage program (G3, PR #338; also seen on G6, PR #337). Dot <code>VibeBots-f-240-make-45187b28</code>.</dd>
+    </dl>
+  </section>
   <section id="F-211" data-f="F-211" data-priority="polish">
     <h3>F-211: Reject AI attribution in repository metadata</h3>
     <dl>

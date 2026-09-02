@@ -35,7 +35,7 @@ test(
       "The coach line follows you",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "Replay the first build lives in the Garage tab",
+      "Garage tab has a Replay the first build button",
     );
 
     await page.mouse.click(8, 8);

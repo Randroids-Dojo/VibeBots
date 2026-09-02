@@ -1281,6 +1281,9 @@ export function WorkshopPanel() {
                     </span>
                   </div>
                   <p className="inspector-blurb">{selectedDef.blurb}</p>
+                  <p className="inspector-stats" data-testid="selected-stats">
+                    {`${selectedDef.category} · mass ${partMass(selectedDef).toFixed(2)} · ${selectedDef.powerDraw} power`}
+                  </p>
                   {selectedDef.category !== "core" &&
                     selectedDurability !== null && (
                       <div className="inspector-durability">

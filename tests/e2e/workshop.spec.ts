@@ -5,9 +5,12 @@ import { ciCase } from "./support/ci-case";
 
 // The guided first build (G6) opens a fresh browser on a three-part bot.
 // Every case in this file was written against the bare starter core, so
-// they all start with the guide already done; the one guide case below
-// clears the flag again in its own init script, which runs after this one.
-test.beforeEach(async ({ page }) => {
+// they all start with the guide already done. The guide cases themselves
+// (titled with G6) get no init script at all, so a fresh context starts
+// the guide and a reload sees only the flag the guide wrote; two scripts
+// racing over one key would leave the start state to script order.
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.includes("(G6)")) return;
   await page.addInitScript((key: string) => {
     try {
       localStorage.setItem(key, "1");
@@ -1738,15 +1741,6 @@ test(
   "a first visit opens on a guided bot and the coach card follows the player (G6)",
   ciCase("E2E-WORKSHOP-0039", "@functional"),
   async ({ page }) => {
-    // Clear the done flag on the FIRST load only: init scripts run on every
-    // navigation, and a reload must see the flag the guide itself wrote.
-    await page.addInitScript((key: string) => {
-      try {
-        if (sessionStorage.getItem("e2e-guide-cleared")) return;
-        sessionStorage.setItem("e2e-guide-cleared", "1");
-        localStorage.removeItem(key);
-      } catch {}
-    }, WORKSHOP_GUIDE_DONE_KEY);
     await page.setViewportSize({ width: 390, height: 760 });
     // A brand-new player owns nothing; the guide's wheel must still place.
     await page.route("**/api/shop", async (route) => {
@@ -1794,15 +1788,6 @@ test(
   "the guided first build can be skipped and replayed from the garage (G6)",
   ciCase("E2E-WORKSHOP-0040", "@functional"),
   async ({ page }) => {
-    // Clear the done flag on the FIRST load only: init scripts run on every
-    // navigation, and a reload must see the flag the guide itself wrote.
-    await page.addInitScript((key: string) => {
-      try {
-        if (sessionStorage.getItem("e2e-guide-cleared")) return;
-        sessionStorage.setItem("e2e-guide-cleared", "1");
-        localStorage.removeItem(key);
-      } catch {}
-    }, WORKSHOP_GUIDE_DONE_KEY);
     await page.setViewportSize({ width: 390, height: 760 });
     await page.goto("/workshop");
     const coach = page.getByTestId("coach-card");

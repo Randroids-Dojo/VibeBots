@@ -64,7 +64,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Replay the first build lives in the Garage tab beside Reset, for showing someone else or for a fresh start.",
+          text: "The Garage tab has a Replay the first build button beside Reset, for showing someone else or for a fresh start.",
         },
       ],
     },

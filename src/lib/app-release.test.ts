@@ -73,7 +73,7 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "A first-ever visit loads a bot that is one drag from done and hands you the missing wheel. Drag it onto the glowing mount and the bot is complete, even before you own a single part.",
       "The coach line follows you: after the wheel it points at Test fight, and after the fight it points at the Shop tab. Skip ends it at any time, and it never comes back unless you ask.",
-      "Replay the first build lives in the Garage tab beside Reset, for showing someone else or for a fresh start.",
+      "The Garage tab has a Replay the first build button beside Reset, for showing someone else or for a fresh start.",
     ]);
   });
 

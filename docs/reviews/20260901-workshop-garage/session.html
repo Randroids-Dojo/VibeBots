@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Workshop garage program playtest (2026-09-02)</title></head>
+<body>
+<h1>Workshop garage program playtest</h1>
+<p>Scripted local capture run for the program gate in
+<code>docs/research/workshop-garage-program-2026-09.html</code> (package 0.1.302, the top of
+the stacked branches G1 to G7 plus the share codes slice, at PR #341 and above).
+Driver: <code>scripts/playtest-garage.mjs</code> at Android portrait (390x760) against a local
+production build; the shop and saves endpoints simulated at the API boundary (no Postgres
+locally), the client, canvas, and sheet are the real build. Captured manually (no VibeReview
+CLI session), per the manual-capture provision in AGENTS.md Rule 12. The driver's JSON
+summary is <code>playtest-summary.json</code> beside this page.</p>
+<ol>
+  <li><figure><img src="captures/garage-01-first-visit.png" alt="First visit" width="390"><figcaption>First visit: the guided bot on the front three-quarter camera, live Power and Weight meters, family chips, the coach card, and the thumb bar.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-02-drop-sparks.png" alt="Right after the drop" width="390"><figcaption>Right after the guided drop: the wheel landed on the far axle, the meters moved, the reason line appeared, and the burst was in flight (read from the canvas, not visible at this size).</figcaption></figure></li>
+  <li><figure><img src="captures/garage-03-after-drop.png" alt="After the drop" width="390"><figcaption>Seven hundred milliseconds later: the coach card advanced to the fight step; the remove handle sits on the new wheel.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-04-fight-roster.png" alt="Fight roster" width="390"><figcaption>The fight roster off the thumb bar's Test fight button.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-05-weapon-chip-lance.png" alt="Weapon chip" width="390"><figcaption>Weapon family chip active, the Lance in hand on the turntable.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-05b-lance-blurb.png" alt="Lance blurb" width="390"><figcaption>A tap on the hero opens its blurb and stats.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-06-paint-sheet.png" alt="Paint sheet" width="390"><figcaption>The Paint section: cobalt body, gold trim.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-07-painted-bot.png" alt="Painted bot" width="390"><figcaption>The painted bot on the bench.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-08-share.png" alt="Share code" width="390"><figcaption>The Garage's Share section with this bot's code.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-09-chain-merge.png" alt="Chain merge cue" width="390"><figcaption>A wheel dropped onto a full axle merges; a copy still in stock brings up Merge again to Lv 3.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-10-remove-dissolve.png" alt="Removal" width="390"><figcaption>Right after Remove: the ghost dissolves (trace read from the canvas).</figcaption></figure></li>
+  <li><figure><img src="captures/garage-11-test-fight.png" alt="Test fight" width="390"><figcaption>Test fight against Contagion: the painted bot in its paint, team rings under both.</figcaption></figure></li>
+</ol>
+</body>
+</html>

@@ -44,6 +44,24 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-243" data-f="F-243" data-priority="blocks-release">
+    <h3>F-243: The budget reason line covers the family chips</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 in the workshop garage program playtest (<code>docs/reviews/20260901-workshop-garage/session.html</code>, captures 02, 03, and 05). The header card grows a third line when the reason line shows (<q>No room for Drive Wheel on any mount</q>), and the family chips sit at a fixed offset under the two-line header, so the card covers the chip row: the driver read <code>workshop-budget-reason</code> at the Weapon chip's centre and a real pointer click on the chip timed out. The reason line shows whenever the browsed part has no slot, which on a finished bot is most of the time, so the chips are unreachable exactly when a player would use them to browse another family.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Lay the chips out relative to the header's real height (flow them under the card, or reserve the reason line's height in the card so it never grows). Acceptance: with a reason line showing, every chip's centre reports the chip from <code>elementFromPoint</code> and a pointer click on it filters the carousel; pinned in the workshop e2e.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program playtest. Dot <code>VibeBots-f-243-keep-addbd46a</code>.</dd>
+    </dl>
+  </section>
+  <section id="F-241" data-f="F-241" data-priority="blocks-release">
+    <h3>F-241: The guided first build's free axle faces away from the camera</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 in the workshop garage program playtest (<code>docs/reviews/20260901-workshop-garage/session.html</code>, captures 01 to 03). The guided start design leaves the left axle free and the coach card says <q>Drag the wheel from below onto the glowing mount</q>, but the G1 camera sits at +x, so the free mount is behind the core from the player's point of view and its glow is not in the frame; after the drop the new wheel is a sliver peeking out behind the core. The first thing the guide asks a new player to do points at something they cannot see.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Either free the camera-facing axle in <code>GUIDED_START_DESIGN</code> (and keep the drag landing on it in the G6 e2e), or frame the camera toward the free mount when the coach's place step opens. Acceptance: on a fresh visit the glowing mount is inside the frame with no camera input, and the placed wheel is fully visible after the drop.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program playtest. Dot <code>VibeBots-f-241-turn-895c7d00</code>.</dd>
+    </dl>
+  </section>
   <section id="F-223" data-f="F-223" data-priority="polish">
     <h3>F-223: Skip the browser matrix for documentation-only diffs</h3>
     <dl>
@@ -2719,6 +2737,15 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-242" data-f="F-242" data-priority="polish">
+    <h3>F-242: The remove handle floats over the header card when the sheet is open</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 in the workshop garage program playtest (<code>docs/reviews/20260901-workshop-garage/session.html</code>, capture 09). With the sheet open the canvas is short, the selected part sits near the top of it, and the remove handle (a screen-space button anchored to the part) is drawn over the header card's reason line. It stays tappable, but it reads as a stray control on the header.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Clamp the handle's anchor inside the canvas rect, or hide it while the sheet is open (the inspector's own Remove button covers the action there). Acceptance: the handle's rect never intersects the header card in the workshop e2e with the sheet open.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program playtest. Dot <code>VibeBots-f-242-keep-71bce339</code>.</dd>
+    </dl>
+  </section>
   <section id="F-240" data-f="F-240" data-priority="polish">
     <h3>F-240: The tall-menu perf e2e fails under four local workers and passes serially</h3>
     <dl>

@@ -242,5 +242,35 @@
   </dl>
 </article>
 
+<article data-vibereview-session="20260901-workshop-garage" data-capture="garage-09-chain-merge" data-severity="praise">
+  <h3>Playtest capture: The chain merge is the bench's best beat</h3>
+  <dl>
+    <dt>Session</dt><dd><a href="reviews/20260901-workshop-garage/session.html">Workshop garage program playtest (local 0.1.302 build)</a> (captured manually, scripted run)</dd>
+    <dt>Screenshot</dt><dd><a href="reviews/20260901-workshop-garage/captures/garage-09-chain-merge.png">captures/garage-09-chain-merge.png</a> (scripted local run)</dd>
+    <dt>Rating</dt><dd>5</dd>
+    <dt>Feedback</dt><dd>Dropping a wheel onto a full axle merged it to Lv 2 with the gold pop, and because a copy was still in stock the inspector lit a gold <q>Merge again to Lv 3</q> line right above the Merge button. The driver read the cue text and, after the second merge to the cap, no cue. Together with the blurb (<q>Rubber drive wheel. One per axle, lifts the belly.</q>), the stats line, and the HP bar under it, the inspector finally tells a player what they hold and what to do next.</dd>
+  </dl>
+</article>
+
+<article data-vibereview-session="20260901-workshop-garage" data-capture="garage-01-first-visit" data-severity="issue">
+  <h3>Playtest capture: The guide points at a mount the camera cannot see</h3>
+  <dl>
+    <dt>Session</dt><dd><a href="reviews/20260901-workshop-garage/session.html">Workshop garage program playtest (local 0.1.302 build)</a> (captured manually, scripted run)</dd>
+    <dt>Screenshot</dt><dd><a href="reviews/20260901-workshop-garage/captures/garage-01-first-visit.png">captures/garage-01-first-visit.png</a> (scripted local run)</dd>
+    <dt>Rating</dt><dd>2</dd>
+    <dt>Feedback</dt><dd>The first visit opens on the guided bot with the coach card reading <q>Drag the wheel from below onto the glowing mount</q>, but the free axle is the far one and its glow is behind the core from the front three-quarter camera. The drop still lands (the e2e proves it) and the coach advances, yet the new wheel shows as a sliver behind the core (capture 03). The very first instruction asks for something the player cannot see. Logged as F-241.</dd>
+  </dl>
+</article>
+
+<article data-vibereview-session="20260901-workshop-garage" data-capture="garage-05-weapon-chip-lance" data-severity="issue">
+  <h3>Playtest capture: The reason line covers the family chips</h3>
+  <dl>
+    <dt>Session</dt><dd><a href="reviews/20260901-workshop-garage/session.html">Workshop garage program playtest (local 0.1.302 build)</a> (captured manually, scripted run)</dd>
+    <dt>Screenshot</dt><dd><a href="reviews/20260901-workshop-garage/captures/garage-05-weapon-chip-lance.png">captures/garage-05-weapon-chip-lance.png</a> (scripted local run)</dd>
+    <dt>Rating</dt><dd>2</dd>
+    <dt>Feedback</dt><dd>Once the bot's axles were full the header grew its amber reason line and the chip row slid under the card: a pointer click on Weapon timed out and <code>elementFromPoint</code> at the chip's centre returned the reason line. The driver had to dispatch the click to continue. On a finished bot the reason line is up most of the time, so the chips are unreachable exactly when a player would browse another family. Logged as F-243; the remove handle drifting over the header with the sheet open (capture 09) is the smaller cousin, F-242.</dd>
+  </dl>
+</article>
+
 </body>
 </html>

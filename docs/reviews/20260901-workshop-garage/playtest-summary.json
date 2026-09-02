@@ -1,0 +1,56 @@
+{
+  "coachCardOnFirstVisit": true,
+  "coachStep": "place",
+  "title": "My Bot: 3 parts",
+  "meters": {
+    "power": true,
+    "weight": true
+  },
+  "thumbBar": true,
+  "chips": {
+    "/weapon/i": {
+      "covered": "workshop-budget-reason",
+      "click": "dispatched"
+    },
+    "/^all$/i": {
+      "covered": "workshop-budget-reason",
+      "click": "dispatched"
+    }
+  },
+  "sparkingRightAfterDrop": "1",
+  "titleAfterDrop": "My Bot: 4 parts",
+  "coachStepAfterDrop": "fight",
+  "sparkingLater": "0",
+  "rosterItems": [
+    "Fight Contagion",
+    "Fight Night Terror",
+    "Fight Impaler",
+    "Test fight vs Brawler",
+    "Fight a rival"
+  ],
+  "lanceBlurb": "Longer reach than the spike, and easier to snap.",
+  "paint": {
+    "primary": "cobalt",
+    "accent": "gold"
+  },
+  "shareCode": {
+    "prefix": "VB1.",
+    "length": 355
+  },
+  "titleAfterMergeDrop": "My Bot: 4 parts",
+  "chainCue": "Merge again to Lv 3",
+  "dissolve": {
+    "frames": "4",
+    "min": "0.200",
+    "stillDissolving": "0"
+  },
+  "titleAfterRemove": "My Bot: 3 parts",
+  "opponent": "Fight Contagion",
+  "arenaPaint": {
+    "bot0": "none",
+    "bot1": "cobalt:gold"
+  },
+  "consoleErrors": [],
+  "failedResponses": [],
+  "missing": []
+}

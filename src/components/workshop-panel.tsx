@@ -832,6 +832,9 @@ export function WorkshopPanel() {
       setSheetOpen(true);
       return;
     }
+    // A lever lesson applies its change (undoable) and opens Tune so the
+    // slider is seen moving.
+    if (action.kind === "behavior") setBehavior(action.patch);
     setTab("tune");
     setSheetOpen(true);
   };

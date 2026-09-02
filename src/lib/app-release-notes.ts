@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.305-workshop-phone-size";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.306-workshop-levers";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.306",
+      date: "2026-09-02",
+      title: "The debrief teaches the levers, and one tap pulls them",
+      intro:
+        "Your bot has had three temperament sliders and gearing all along, but nothing in the game ever said when to touch them. The debrief now does: a decision lost off the front foot offers more aggression, a knockout taken in the pocket offers more patience, and one tap applies the change and shows you the slider.",
+      changes: [
+        {
+          build,
+          text: "Lose a decision while spending less of the fight closing in than your opponent and the debrief says so, with your front-foot share against theirs, and offers Raise aggression.",
+        },
+        {
+          build,
+          text: "Get knocked out while giving far less damage than you took and the debrief says the bot stayed in the pocket and offers Raise patience, so it resets after a hit.",
+        },
+        {
+          build,
+          text: "Each of those buttons applies the change (Undo takes it back) and opens Tune so you see the slider move before the next fight.",
+        },
+      ],
+    },
     {
       version: "0.1.305",
       date: "2026-09-02",

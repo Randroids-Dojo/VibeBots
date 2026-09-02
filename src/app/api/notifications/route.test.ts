@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.305-workshop-phone-size",
+      releaseNoticeId: "2026-09-02-0.1.306-workshop-levers",
       releaseSummary:
-        "The fight and the sparks read at phone size: On a phone the arena opened so far out that the bots you painted were specks, and the sparks a drop throws were too small to see. The camera now frames a portrait fight over your bot's shoulder, and a drop's sparks are big enough to catch.",
+        "The debrief teaches the levers, and one tap pulls them: Your bot has had three temperament sliders and gearing all along, but nothing in the game ever said when to touch them. The debrief now does: a decision lost off the front foot offers more aggression, a knockout taken in the pocket offers more patience, and one tap applies the change and shows you the slider.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.305-workshop-phone-size",
+      releaseNoticeId: "2026-09-02-0.1.306-workshop-levers",
       attempted: 2,
       sent: 1,
       expired: 1,

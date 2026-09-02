@@ -3,9 +3,11 @@ import type { MatchScore } from "@/sim/combat";
 import { type BotDesign, TEST_BOT_DESIGN } from "@/sim/design";
 import type { MatchTeardown, TeardownBot, TeardownPart } from "@/sim/telemetry";
 import {
+  AGGRESSION_STEP,
   buildDebrief,
   clockFromTicks,
   DEBRIEF_MAX_LESSONS,
+  PATIENCE_STEP,
   PLATE_SUGGESTION,
   suggestWeapon,
 } from "./fight-debrief";
@@ -61,7 +63,7 @@ function teardown(
   };
 }
 
-function score(total: number): MatchScore {
+function score(total: number, pressureTicks = 0): MatchScore {
   return {
     damageDealt: 0,
     damageTaken: 0,
@@ -69,7 +71,7 @@ function score(total: number): MatchScore {
     partCount: 1,
     healthRemaining: 1,
     healthTotal: 1,
-    pressureTicks: 0,
+    pressureTicks,
     mobileAtEnd: true,
     total,
   };
@@ -414,6 +416,70 @@ describe("buildDebrief", () => {
     expect(cleanDebrief.lessons[0].text).toContain("Impaler could not answer");
   });
 
+  it("reads a decision lost off the front foot as the throttle lever (H1)", () => {
+    const mine = bot("Mine", [
+      part({ iid: "core", name: "Cube Core", category: "core", damageTaken: 10 }),
+      part({ iid: "spike", name: "Ram Spike", category: "weapon", damageDealt: 12 }),
+      part({ iid: "plate", name: "Frame Plate", damageTaken: 10 }),
+      part({ iid: "wheel", name: "Drive Wheel", damageTaken: 10 }),
+    ]);
+    const debrief = buildDebrief({
+      teardown: teardown(mine, opponent, 3600),
+      winner: 0,
+      reason: "timeout",
+      scores: [score(61, 1800), score(40, 360)],
+      me: 1,
+      design: { ...TEST_BOT_DESIGN, behavior: { aggression: 0.5, flankBias: 0.5, patience: 0.5 } },
+    });
+    expect(debrief.lessons[0]).toMatchObject({
+      id: "decision",
+      action: { kind: "behavior", patch: { aggression: 0.5 + AGGRESSION_STEP } },
+      actionLabel: "Raise aggression",
+    });
+    expect(debrief.lessons[0].text).toContain("front foot 10% of the fight to their 50%");
+    // Already relentless: the lever has nowhere to go, so Tune it is.
+    const maxed = buildDebrief({
+      teardown: teardown(mine, opponent, 3600),
+      winner: 0,
+      reason: "timeout",
+      scores: [score(61, 1800), score(40, 360)],
+      me: 1,
+      design: { ...TEST_BOT_DESIGN, behavior: { aggression: 1, flankBias: 0.5, patience: 0.5 } },
+    });
+    expect(maxed.lessons[0]).toMatchObject({ id: "decision", action: { kind: "tune" } });
+  });
+
+  it("reads a knockout taken in the pocket as the patience lever (H1)", () => {
+    const mine = bot("Mine", [
+      part({
+        iid: "core",
+        name: "Cube Core",
+        category: "core",
+        damageTaken: 100,
+        destroyed: true,
+        destroyedAtTick: 900,
+        killedByName: "Saw Blade",
+      }),
+      part({ iid: "spike", name: "Ram Spike", category: "weapon", damageDealt: 20 }),
+      part({ iid: "wheel", name: "Drive Wheel", damageTaken: 60 }),
+    ]);
+    const debrief = buildDebrief({
+      teardown: teardown(mine, opponent),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: { ...TEST_BOT_DESIGN, behavior: { aggression: 0.5, flankBias: 0.5, patience: 0.4 } },
+    });
+    // The core went first, then the pocket lesson; the soak detail is cut.
+    expect(debrief.lessons.map((l) => l.id)).toEqual(["first-loss", "resets"]);
+    expect(debrief.lessons[1]).toMatchObject({
+      action: { kind: "behavior", patch: { patience: 0.4 + PATIENCE_STEP } },
+      actionLabel: "Raise patience",
+    });
+    expect(debrief.lessons[1].text).toContain("gave 20 and took 160");
+  });
+
   it("caps the lessons and keeps the priority order", () => {
     const mine = bot("Mine", [
       part({
@@ -442,7 +508,7 @@ describe("buildDebrief", () => {
       design: BARE_CORE,
       ownedPartIds: [],
     });
-    // Four rules fire (no hits, first loss, soak, decision); two show.
+    // Four rules fire (no hits, first loss, decision, soak); two show.
     expect(debrief.lessons).toHaveLength(DEBRIEF_MAX_LESSONS);
     expect(debrief.lessons.map((l) => l.id)).toEqual(["no-hits", "first-loss"]);
   });

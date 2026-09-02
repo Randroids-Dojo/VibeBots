@@ -2178,6 +2178,27 @@ test(
     );
     const lesson = debrief.locator('[data-lesson="no-hits"]');
     await expect(lesson).toContainText("This bot has no weapon");
+    // A wheelless core never closes, so a decision reads off the front
+    // foot and offers the throttle lever (H1); a knockout offers no
+    // second lever here, so only assert it when the fight went to time.
+    const headline = await debrief
+      .locator(".fight-debrief-headline")
+      .textContent();
+    const decision = debrief.locator('[data-lesson="decision"]');
+    if (headline?.includes("decision")) {
+      await expect(decision).toContainText("raise Aggression");
+      await decision.getByRole("button", { name: "Raise aggression" }).click();
+      await expect(
+        page.getByRole("slider", { name: "Aggression slider" }),
+      ).toHaveValue("0.7");
+      await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+      // Undo takes the lever back like any edit.
+      await page.getByRole("button", { name: "Undo" }).click();
+      await expect(
+        page.getByRole("slider", { name: "Aggression slider" }),
+      ).toHaveValue("0.5");
+      return;
+    }
 
     // The fix-it button leaves the arena and puts a weapon in hand, shown
     // even though none is owned.

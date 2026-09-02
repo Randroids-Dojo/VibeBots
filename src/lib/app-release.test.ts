@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.305-workshop-phone-size");
+    expect(release.noticeId).toBe("2026-09-02-0.1.306-workshop-levers");
     expect(latestNote).toMatchObject({
-      version: "0.1.305",
-      title: "The fight and the sparks read at phone size",
+      version: "0.1.306",
+      title: "The debrief teaches the levers, and one tap pulls them",
       intro:
-        "On a phone the arena opened so far out that the bots you painted were specks, and the sparks a drop throws were too small to see. The camera now frames a portrait fight over your bot's shoulder, and a drop's sparks are big enough to catch.",
+        "Your bot has had three temperament sliders and gearing all along, but nothing in the game ever said when to touch them. The debrief now does: a decision lost off the front foot offers more aggression, a knockout taken in the pocket offers more patience, and one tap applies the change and shows you the slider.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "On a portrait screen the arena camera sits behind your bot, higher and closer, looking down the line at the opponent, so both bots fill the tall screen instead of shrinking to the edges. Landscape keeps the broadside shot.",
-      "A drop's spark burst is bigger and denser, so it reads at a glance on a phone.",
-      "No change to how fights play out; only where the camera stands and how the sparks look.",
+      "Lose a decision while spending less of the fight closing in than your opponent and the debrief says so, with your front-foot share against theirs, and offers Raise aggression.",
+      "Get knocked out while giving far less damage than you took and the debrief says the bot stayed in the pocket and offers Raise patience, so it resets after a hit.",
+      "Each of those buttons applies the change (Undo takes it back) and opens Tune so you see the slider move before the next fight.",
     ]);
   });
 

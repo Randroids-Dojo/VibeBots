@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workshop breadth and expression program (2026-09)</title>
+</head>
+<body>
+<header>
+  <h1>Workshop breadth and expression program</h1>
+  <p>Written 2026-09-02 from the second Fun Factor Audit of the workshop garage program (<code>docs/FUN_FACTOR_AUDIT.html</code>). That audit found the first minute and the core loop at the bar the garage program set, and named what still keeps the workshop short of the session goal (Banjo-Kazooie Nuts and Bolts level building): breadth and expression. F-246 (the hour-in surprise: the catalog and the roster run out) and F-247 (skill expression: two builds of the same parts fight the same) are the program's two threads.</p>
+</header>
+
+<main>
+<section id="brief">
+  <h2>The brief and the bar</h2>
+  <p>Nuts and Bolts keeps a builder busy for hours because every part changes how a vehicle behaves and the challenges keep asking for a different vehicle. VibeBots' bench has the first half in miniature (parts have mass, power, reach, and merge levels) and the sim already reads three temperament levers and gearing, but the loop never names them: the debrief points at parts and the Tune tab, the roster is four fixed fights, and the catalog tops out at three rungs. The bar for this program: a player an hour in still has a lever to learn, a fight that asks for a different bot, and a part to reach for.</p>
+</section>
+
+<section id="facts">
+  <h2>What the sim already gives a build to vary</h2>
+  <ul>
+    <li>Temperament (<code>botBehaviorSchema</code>, design-owned, sim-read): aggression scales throttle 0.8x to 1.2x, patience scales the backoff cycle after closing 0.5x to 1.5x, flank bias scales the flank arc 0.5x to 1.5x. Neutral 0.5 reproduces the classic controller. The Tune tab has the three sliders.</li>
+    <li>Gearing (<code>gearRatio</code> on drive connections, fixed set): more torque or more speed on the wheels.</li>
+    <li>Orientation: quarter-turn yaw on placements (F-006), so a weapon can face the front or the side.</li>
+    <li>The match score (<code>MatchScore</code>) records damage, parts, health, mobility at the end, and pressure ticks (ticks spent closing on the opponent), so a decision can be read as who was on the front foot.</li>
+  </ul>
+  <p>So F-247 as the audit stated it is too strong: two builds of the same parts can already fight differently. What is true is that nothing in the loop teaches the levers, so the player never finds them. H1 fixes that where the player is already listening: the debrief.</p>
+</section>
+
+<section id="principles">
+  <h2>Principles for every slice</h2>
+  <ul>
+    <li>No sim change unless a slice says so; adding parts and opponents does not bump <code>SIM_VERSION</code> (existing matchups replay byte-identical), a new lever the sim reads does.</li>
+    <li>Every lever the debrief names has a one-tap fix that applies it and shows the player where it lives, so the next fight tests the lesson.</li>
+    <li>Every new opponent punishes a build the debrief can name a counter for; every new part is a reason to come back to the shop, not a recolour.</li>
+    <li>Rule 10 e2e per slice; captures into the review session; a Fun Factor Audit article at the end of the program.</li>
+  </ul>
+</section>
+
+<section id="slices">
+  <h2>Slice plan, in order</h2>
+
+  <section id="h1">
+    <h3>H1: The debrief teaches the levers</h3>
+    <p>Two lessons that read the match score and the design's temperament. A decision lost while spending less of the fight on the front foot says so and offers Raise aggression (the throttle lever). A knockout taken while giving far less than it took says the bot stayed in the pocket and offers Raise patience (the reset lever). Both fix-it actions apply the change through <code>setBehavior</code> (undoable, +0.2 and +0.25 respectively, clamped) and open Tune so the player sees the slider move. The decision lesson keeps its old form (Open Tune) when the player was already on the front foot. Priority moves the decision lesson ahead of the soak lesson: on a decision, the judges' card is the verdict and the soak is a detail. Pure rules, unit tested; the G9 e2e grows to press Raise aggression and read the slider.</p>
+  </section>
+
+  <section id="h2">
+    <h3>H2: An opponent that punishes the first build</h3>
+    <p>The first bot every player makes is a cube with two wheels and a spike. A fourth stock opponent, an armoured hedgehog (cube core, hardened plates on every rigid mount, a hammer on top, patient, low flank), shrugs off spikes and wins on the card; the debrief's never-connected lesson already points at a spinner or a lance. Pure data in <code>REPLICA_OPPONENTS</code>, validated by the existing opponent tests, plus a bench check that it beats the Cube Rammer and loses to a saw build so the counter is real.</p>
+  </section>
+
+  <section id="h3">
+    <h3>H3: Catalog wave two</h3>
+    <p>A fourth rung where a family has three, and one part that is not a rung: a heavier wheel above the Super Wheel for the tower builds that cannot turn, a tier-three spike (a tempered lance), and a counterweight block (structure, heavy, cheap) that lets a top-heavy build stop tipping. Follows the G4 pattern: additive parts, looks, blurbs, shop rows, chips, no sim version change.</p>
+  </section>
+</section>
+
+<section id="gates">
+  <h2>Sequencing and gates</h2>
+  <p>H1 first: it is the smallest and it is the expression thread. H2 second: it gives H1's lessons a fight to be right about. H3 last. After H3, a Fun Factor Audit article with the verdict on the session goal. Each slice: branch from the stack's top, verify, PR, bot review settled, and the owner merges the stack in order.</p>
+</section>
+</main>
+</body>
+</html>

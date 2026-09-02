@@ -8,20 +8,23 @@
  * the same fight always says the same thing.
  */
 import type { MatchEndReason, MatchScore } from "@/sim/combat";
-import type { BotDesign } from "@/sim/design";
+import { type BotBehavior, type BotDesign, NEUTRAL_BEHAVIOR } from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
 
 export type DebriefAction =
   | { kind: "browse"; partId: string }
   | { kind: "select"; iid: string }
-  | { kind: "tune" };
+  | { kind: "tune" }
+  /** Apply a temperament change and open Tune so the slider is seen moving (H1). */
+  | { kind: "behavior"; patch: Partial<BotBehavior> };
 
 export type DebriefLessonId =
   | "no-hits"
   | "first-loss"
-  | "soak"
   | "decision"
+  | "resets"
+  | "soak"
   | "weakest"
   | "clean";
 
@@ -66,6 +69,11 @@ export const WEAPON_SUGGESTIONS: readonly string[] = [
 ];
 /** The plate the soak and core lessons send the player to. */
 export const PLATE_SUGGESTION = "frame-plate";
+/** How far a lever lesson moves its slider (H1); undoable like any edit. */
+export const AGGRESSION_STEP = 0.2;
+export const PATIENCE_STEP = 0.25;
+/** A knockout taken while giving less than this share of what it took stayed in the pocket. */
+export const POCKET_RATIO = 0.5;
 
 const TICKS_PER_SECOND = 60;
 
@@ -114,6 +122,7 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
     : won
       ? `You won by ${reasonWord(reason)} at ${clock}`
       : `You lost by ${reasonWord(reason)} at ${clock}`;
+  const behavior: BotBehavior = { ...NEUTRAL_BEHAVIOR, ...design.behavior };
 
   const lessons: DebriefLesson[] = [];
   const weapon = design.parts
@@ -181,7 +190,61 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
     }
   }
 
-  // 3. One part soaked the damage: spread the load.
+  // 3. Lost (or drew) on the judges' card: on a decision the card is the
+  // verdict, so this comes before the soak detail. Spending less of the
+  // fight on the front foot than the opponent is the throttle lever.
+  if (reason === "timeout" && !won && scores) {
+    const ours = Math.round(scores[me].total);
+    const others = Math.round(scores[me === 0 ? 1 : 0].total);
+    const ticks = Math.max(1, teardown.ticks);
+    const myFoot = scores[me].pressureTicks / ticks;
+    const theirFoot = scores[me === 0 ? 1 : 0].pressureTicks / ticks;
+    if (myFoot < theirFoot && behavior.aggression < 1) {
+      lessons.push({
+        id: "decision",
+        text: `${drew ? `The judges had it level, ${ours} to ${others}` : `The judges scored it ${others} to ${ours}`}. You were on the front foot ${pct(myFoot)}% of the fight to their ${pct(theirFoot)}%: raise Aggression to close faster.`,
+        action: {
+          kind: "behavior",
+          patch: {
+            aggression: Math.min(1, behavior.aggression + AGGRESSION_STEP),
+          },
+        },
+        actionLabel: "Raise aggression",
+      });
+    } else {
+      lessons.push({
+        id: "decision",
+        text: drew
+          ? `The judges had it level, ${ours} to ${others}. More drive power closes the distance and lands the extra hit.`
+          : `The judges scored it ${others} to ${ours}: fewer hits landed. More drive power closes the distance; see Tune.`,
+        action: { kind: "tune" },
+        actionLabel: "Open Tune",
+      });
+    }
+  }
+
+  // 4. Knocked out while giving far less than it took: the bot stayed in
+  // the pocket. Patience is the reset lever.
+  if (
+    reason === "disable" &&
+    !won &&
+    !drew &&
+    mine.damageTaken > 0 &&
+    mine.damageDealt < mine.damageTaken * POCKET_RATIO &&
+    behavior.patience < 1
+  ) {
+    lessons.push({
+      id: "resets",
+      text: `You gave ${Math.round(mine.damageDealt)} and took ${Math.round(mine.damageTaken)}: the bot stayed in the pocket. Raise Patience so it resets after a hit.`,
+      action: {
+        kind: "behavior",
+        patch: { patience: Math.min(1, behavior.patience + PATIENCE_STEP) },
+      },
+      actionLabel: "Raise patience",
+    });
+  }
+
+  // 5. One part soaked the damage: spread the load.
   if (mine.damageTaken > 0) {
     let soak: TeardownPart | null = null;
     for (const part of mine.parts) {
@@ -200,21 +263,7 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
     }
   }
 
-  // 4. Lost (or drew) on the judges' card: close the distance.
-  if (reason === "timeout" && !won && scores) {
-    const ours = Math.round(scores[me].total);
-    const others = Math.round(scores[me === 0 ? 1 : 0].total);
-    lessons.push({
-      id: "decision",
-      text: drew
-        ? `The judges had it level, ${ours} to ${others}. More drive power closes the distance and lands the extra hit.`
-        : `The judges scored it ${others} to ${ours}: fewer hits landed. More drive power closes the distance; see Tune.`,
-      action: { kind: "tune" },
-      actionLabel: "Open Tune",
-    });
-  }
-
-  // 5. Won: name the survivor that nearly did not.
+  // 6. Won: name the survivor that nearly did not.
   if (won) {
     let weakest: TeardownPart | null = null;
     let weakestFraction = 1;

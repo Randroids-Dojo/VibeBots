@@ -644,6 +644,7 @@ export function WorkshopPanel() {
     measure();
     window.addEventListener("resize", measure);
     let raf = 0;
+    let wasClamped: boolean | null = null;
     const tick = () => {
       const x = Number.parseFloat(canvas.dataset.selectedScreenX ?? "");
       const y = Number.parseFloat(canvas.dataset.selectedScreenY ?? "");
@@ -654,7 +655,11 @@ export function WorkshopPanel() {
         const clamped = yPx < minTop;
         btn.style.left = `${x * 100}%`;
         btn.style.top = `${clamped ? minTop : yPx}px`;
-        btn.dataset.clamped = clamped ? "true" : "false";
+        // The attribute is for tests and styling; write it on change only.
+        if (clamped !== wasClamped) {
+          wasClamped = clamped;
+          btn.dataset.clamped = clamped ? "true" : "false";
+        }
         btn.style.visibility = "visible";
       } else {
         btn.style.visibility = "hidden";

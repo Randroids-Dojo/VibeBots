@@ -2089,8 +2089,14 @@ test(
       canvas.evaluate((c: HTMLCanvasElement) =>
         Number(c.dataset.selectedScreenX),
       );
+    const anchorY = () =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.selectedScreenY),
+      );
     await expect.poll(anchorX).toBeGreaterThan(0.05);
     await expect.poll(anchorX).toBeLessThan(0.95);
+    await expect.poll(anchorY).toBeGreaterThan(0.05);
+    await expect.poll(anchorY).toBeLessThan(0.95);
 
     // F-243: both axles are full, so the reason line is up; the family
     // chips sit under it inside the header card and a real pointer click

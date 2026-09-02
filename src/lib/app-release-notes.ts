@@ -9,7 +9,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
       date: "2026-09-02",
       title: "The guide's mount faces you, and the family chips stay in reach",
       intro:
-        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed.",
+        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed, and the remove handle no longer floats over the header when the sheet is open.",
       changes: [
         {
           build,

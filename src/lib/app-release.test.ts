@@ -33,7 +33,7 @@ describe("app release notes", () => {
       version: "0.1.303",
       title: "The guide's mount faces you, and the family chips stay in reach",
       intro:
-        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed.",
+        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed, and the remove handle no longer floats over the header when the sheet is open.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "The guided first build starts with both axles empty and Mirror on: the glowing axle you can see takes the wheel and its twin fills at the same time, so the first drop finishes the bot where you can watch it.",

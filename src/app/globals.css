@@ -106,7 +106,7 @@ button:focus-visible {
 .workshop-tabs button,
 .carousel-arrow,
 .inspector-actions button,
-.workshop-header-menu button {
+.workshop-ready-chip {
   transition:
     transform 90ms ease,
     filter 120ms ease,
@@ -118,7 +118,7 @@ button:focus-visible {
 .workshop-tabs button:not(:disabled):active,
 .carousel-arrow:not(:disabled):active,
 .inspector-actions button:not(:disabled):active,
-.workshop-header-menu button:not(:disabled):active {
+.workshop-ready-chip:not(:disabled):active {
   transform: translateY(1px) scale(0.97);
   filter: brightness(0.92);
 }
@@ -242,9 +242,8 @@ button:focus-visible {
   right: 20px;
   z-index: 11;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 12px;
   background: rgb(var(--hud-surface-rgb) / 0.92);
   border: 1px solid var(--hud-border);
@@ -256,27 +255,190 @@ button:focus-visible {
   font-weight: 600;
 }
 
-/* Compact options menu: a single button in the top bar opens a dropdown with
- * the bot actions, so the bar stays a thin strip and frees room for the bot. */
-.workshop-header-menu {
-  position: relative;
-  margin-left: auto;
+.workshop-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.workshop-header-menu-button {
+/* Readiness chip (G2): one word for the inspection verdict, and a tap opens
+ * the inspection itself on the Tune tab. */
+.workshop-ready-chip {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
   background: transparent;
-  color: #cdd4e4;
-  border: 1px solid #344061;
-  border-radius: 8px;
-  padding: 4px 12px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.workshop-header-menu-panel {
+.workshop-ready-chip-ok {
+  color: #54e0c7;
+  border-color: rgba(84, 224, 199, 0.4);
+}
+
+.workshop-ready-chip-bad {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+/* Live budget meters (G2): power against the core's supply and mass against
+ * the weight-class ceiling, filling as parts land. */
+.workshop-meters {
+  display: flex;
+  gap: 12px;
+}
+
+.workshop-meter {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--hud-text-muted);
+}
+
+.workshop-meter-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.workshop-meter-track {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: #1a2133;
+  border: 1px solid #26304a;
+  overflow: hidden;
+}
+
+.workshop-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--hud-accent);
+  transition: width 220ms ease;
+}
+
+.workshop-meter-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-text);
+  white-space: nowrap;
+}
+
+.workshop-meter-over .workshop-meter-fill,
+.workshop-meter-flash .workshop-meter-fill {
+  background: #ff6b6b;
+}
+
+.workshop-meter-over .workshop-meter-value {
+  color: #ff6b6b;
+}
+
+/* The flash: the meter a refused part would break pulses red once, so the
+ * refusal points at its own cause. */
+.workshop-meter-flash {
+  animation: workshop-meter-flash 900ms ease-out;
+}
+
+@keyframes workshop-meter-flash {
+  0% {
+    color: #ff6b6b;
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  100% {
+    color: inherit;
+    transform: translateX(0);
+  }
+}
+
+.workshop-budget-reason {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #ffd166;
+}
+
+/* Thumb bar (G2): the build actions live in the sheet's top strip, always
+ * visible whether the sheet is open or collapsed, in reach of the thumb. */
+.workshop-thumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 6px;
+}
+
+.workshop-thumb-button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 38px;
+  padding: 6px 4px;
+  background: var(--hud-border);
+  color: var(--hud-text);
+  border: 1px solid #344061;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.workshop-thumb-button:disabled {
+  background: #161b28;
+  color: #5a6378;
+  cursor: not-allowed;
+}
+
+.workshop-thumb-button.workshop-thumb-active {
+  background: #2f7d6b;
+  border-color: #54e0c7;
+}
+
+.workshop-thumb-button.workshop-thumb-primary {
+  flex: 1.5 1 0;
+  background: var(--hud-accent);
+  color: #0b0e14;
+}
+
+.workshop-thumb-button.workshop-thumb-primary:disabled {
+  background: #161b28;
+  color: #5a6378;
+}
+
+.workshop-thumb-button:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+}
+
+/* The fight roster opens upward from the Test fight button. */
+.workshop-fight-menu {
+  position: relative;
+  flex: 1.5 1 0;
+  min-width: 0;
+  display: flex;
+}
+
+.workshop-fight-menu > .workshop-thumb-button {
+  flex: 1 1 0;
+}
+
+.workshop-fight-menu-panel {
   position: absolute;
-  top: calc(100% + 6px);
+  bottom: calc(100% + 8px);
   right: 0;
   z-index: 19;
   display: flex;
@@ -288,22 +450,6 @@ button:focus-visible {
   border: 1px solid #344061;
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.workshop-header-menu-row {
-  display: flex;
-  gap: 6px;
-}
-
-.workshop-header-menu-row button {
-  flex: 1;
-  background: var(--hud-border);
-  color: var(--hud-text);
-  border: 1px solid #344061;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  cursor: pointer;
 }
 
 .workshop-fight-action {
@@ -322,7 +468,6 @@ button:focus-visible {
   background: #7aa8ff;
 }
 
-.workshop-header-menu-row button:disabled,
 .workshop-fight-action:disabled {
   background: #161b28;
   color: #5a6378;
@@ -594,37 +739,6 @@ button:focus-visible {
   background: #a82c2f;
 }
 
-/* Recenter (G1): a small pill under the Back button on the left edge, on the
- * bench itself, so the view can come home with one tap after orbiting. It
- * sits left of the header's column (which starts at 170px and wraps to two
- * rows on a phone), so nothing in the header can cover it. */
-.workshop-recenter {
-  position: absolute;
-  top: 62px;
-  left: 16px;
-  z-index: 11;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 4px 12px 4px 10px;
-  border: 1px solid var(--hud-border);
-  border-radius: 999px;
-  background: rgb(var(--hud-surface-rgb) / 0.86);
-  color: var(--hud-text);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.workshop-recenter:hover {
-  background: #303c5c;
-}
-
-.workshop-recenter:not(:disabled):active {
-  transform: translateY(1px) scale(0.97);
-}
-
 /* Build carousel arrows (N1): thumb-sized prev/next around the hero part,
  * so part selection is one part at a time instead of a scrolling list. */
 .carousel-arrow {
@@ -849,13 +963,6 @@ button:focus-visible {
     top: 60px;
     left: 12px;
     right: 12px;
-  }
-
-  /* The header is a full-width strip here, so the Recenter pill drops just
-   * below it instead of sitting beside it. */
-  .workshop-recenter {
-    top: 110px;
-    left: 12px;
   }
 
   /* The selected-part inspector floats just above the collapsed sheet peek

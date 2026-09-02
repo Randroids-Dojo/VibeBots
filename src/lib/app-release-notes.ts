@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-01-0.1.295-workshop-face-the-bot";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.296-workshop-build-hud";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.296",
+      date: "2026-09-02",
+      title: "Build with the budget in view and every action under your thumb",
+      intro:
+        "The workshop hid undo, redo, and the fights behind a menu, and told you a part would not fit by doing nothing. The bench now keeps its actions in reach and shows how much power and weight you have left as you build.",
+      changes: [
+        {
+          build,
+          text: "Power and weight meters sit in the top bar and fill as parts land. Declare a weight class and the weight meter takes that ceiling; leave it open and it reads against the lightest class your bot fits.",
+        },
+        {
+          build,
+          text: "When the part in hand has nowhere to go, the bar says why in one line: no free mount, how much more power it needs, or how far over your class it would land. The meter it would break flashes.",
+        },
+        {
+          build,
+          text: "Undo, Redo, Mirror, Recenter, and Test fight live in a thumb bar at the top of the bottom sheet, visible whether the sheet is open or closed. The fight roster opens straight from Test fight.",
+        },
+      ],
+    },
     {
       version: "0.1.295",
       date: "2026-09-01",

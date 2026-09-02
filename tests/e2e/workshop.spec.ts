@@ -60,10 +60,11 @@ async function tapHero(page: Page) {
   await page.mouse.up();
 }
 
-// The bot actions (undo/redo, fights) live in the top-bar "Actions" options
-// menu now. Open it (idempotent) before clicking one of its menu items.
+// The fight roster lives behind the thumb bar's "Test fight" button (G2);
+// undo, redo, mirror, and recenter are plain buttons beside it. Open the
+// roster (idempotent) before clicking one of its menu items.
 async function openActions(page: Page) {
-  const btn = page.getByRole("button", { name: "Bot actions" });
+  const btn = page.getByRole("button", { name: "Test fight" });
   if ((await btn.getAttribute("aria-expanded")) !== "true") {
     await btn.click();
   }
@@ -131,10 +132,9 @@ test(
     await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
     await expect(inspector.getByText("Lv 2")).toBeVisible();
 
-    await openActions(page);
-    await page.getByRole("menuitem", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    await page.getByRole("menuitem", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
     await expect(
       page.getByText("My Bot: 1 part", { exact: false }),
     ).toBeVisible();
@@ -692,23 +692,38 @@ test(
 );
 
 test(
-  "the top bar collapses the bot actions into an options menu",
+  "the thumb bar holds undo, redo, mirror, recenter, and the fight roster (G2)",
   ciCase("E2E-WORKSHOP-0015", "@functional"),
   async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto("/workshop");
-    const actions = page.getByRole("button", { name: "Bot actions" });
+    // The bar sits in the sheet's top strip, so it shows with the sheet
+    // collapsed (the default on Build) and needs no menu to reach.
+    const bar = page.getByTestId("thumb-bar");
+    await expect(bar).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Undo" })).toBeDisabled();
+    await expect(bar.getByRole("button", { name: "Redo" })).toBeDisabled();
+    await expect(bar.getByRole("button", { name: "Mirror" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(
+      bar.getByRole("button", { name: "Recenter the view on the bot" }),
+    ).toBeVisible();
+    const actions = bar.getByRole("button", { name: "Test fight" });
     await expect(actions).toBeVisible();
-    // Closed by default: the actions are not in the DOM until opened.
+    // The old top-bar options menu is gone.
+    await expect(page.getByRole("button", { name: "Bot actions" })).toHaveCount(
+      0,
+    );
+    // Closed by default: the roster is not in the DOM until opened.
     await expect(
       page.getByRole("menuitem", { name: "Test fight vs Brawler" }),
     ).toHaveCount(0);
 
-    // Open: undo/redo, the replica opponent roster, and both fight actions appear.
+    // Open: the replica opponent roster and both fight actions appear.
     await actions.click();
     await expect(page.getByRole("menu")).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Undo" })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Redo" })).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: "Fight Contagion" }),
     ).toBeVisible();
@@ -861,7 +876,7 @@ test(
     await expect.poll(lift).toBeGreaterThan(0.05);
     // Run a test fight (this unmounts the whole workshop view for the arena),
     // then come straight back.
-    await page.getByRole("button", { name: "Bot actions" }).click();
+    await openActions(page);
     await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
     await page.getByRole("button", { name: "Back to build" }).click();
     // The sheet is still open, so the lift must be re-measured and restored, not
@@ -1181,8 +1196,7 @@ test(
     await expect(page.getByText("My Bot: 1 part")).toBeVisible();
 
     // The swap is undoable: one Undo restores the Cube chassis.
-    await openActions(page);
-    await page.getByRole("menuitem", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
     await expect(cube).toHaveAttribute("aria-pressed", "true");
   },
 );
@@ -1233,11 +1247,11 @@ test(
     const canvas = page.locator("canvas");
     await expect(canvas).toBeVisible();
 
-    // Turn Mirror on (open the sheet for the Build controls), then collapse the
-    // sheet so it clears the carousel and hero-drag band.
-    await openSheet(page);
-    const chassis = page.getByRole("region", { name: "Chassis" });
-    const mirror = chassis.getByRole("button", { name: /Mirror/ });
+    // Turn Mirror on from the thumb bar (visible with the sheet collapsed),
+    // which leaves the carousel and hero-drag band clear.
+    const mirror = page.getByTestId("thumb-bar").getByRole("button", {
+      name: "Mirror",
+    });
     await expect(mirror).toHaveAttribute("aria-pressed", "false");
     await mirror.click();
     await expect(mirror).toHaveAttribute("aria-pressed", "true");
@@ -1533,6 +1547,93 @@ test(
     // Recenter again returns to the same centre.
     await recenter.click();
     await expect.poll(() => read("cameraTargetX")).toBeCloseTo(centeredX, 2);
+  },
+);
+
+test(
+  "the header meters read the live budget and name why a part will not fit (G2)",
+  ciCase("E2E-WORKSHOP-0037", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [
+            { part_id: DRIVE_WHEEL.id, count: 3 },
+            { part_id: "spin-mount", count: 1 },
+            { part_id: "spinner-bar", count: 1 },
+            { part_id: "hardened-plate", count: 1 },
+          ],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const power = page.getByTestId("meter-power");
+    const weight = page.getByTestId("meter-weight");
+    // A bare cube core: no draw, full supply, and an unclassed bot reads
+    // against the lightest class it fits.
+    await expect(power).toHaveAttribute("data-draw", "0");
+    await expect(power).toHaveAttribute("data-supply", "100");
+    await expect(weight).toHaveAttribute("data-class", "antweight");
+    await expect(page.getByTestId("ready-chip")).toHaveAttribute(
+      "data-ready",
+      "true",
+    );
+
+    // Two wheels in one mirrored drag (the thumb bar's Mirror): the power
+    // meter follows the draw the inspection sums.
+    await page
+      .getByTestId("thumb-bar")
+      .getByRole("button", { name: "Mirror" })
+      .click();
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+    await expect(power).toHaveAttribute("data-draw", "40");
+
+    // A third wheel has no mount: the reason names the mount, not a budget.
+    const reason = page.getByTestId("budget-reason");
+    await expect(reason).toHaveAttribute("data-blocker", "mount");
+    await expect(reason).toContainText("No room for Drive Wheel");
+
+    // Max reduction on both axles costs 31.2 power; a spin mount on the
+    // nose then leaves the spinner bar (36) short by 7.2, and the power
+    // meter flashes to say so.
+    await page.getByRole("tab", { name: "Tune" }).click();
+    await page.locator('[data-testid="gear-option"][data-ratio="2.2"]').click();
+    await expect(power).toHaveAttribute("data-draw", "71.2");
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Spin Mount");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
+    await selectCarouselPart(page, "Spinner Bar");
+    await expect(reason).toHaveAttribute("data-blocker", "power");
+    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
+    await expect(page.locator('[data-meter="power"]')).toHaveAttribute(
+      "data-flash",
+      "true",
+    );
+
+    // Declare Antweight: the weight meter takes the class name and ceiling,
+    // and the hardened plate is refused on weight, not on a mount.
+    await page.getByRole("tab", { name: "Tune" }).click();
+    await page.getByRole("button", { name: /^Antweight/ }).click();
+    await expect(weight).toHaveAttribute("data-class", "antweight");
+    await expect(weight).toHaveAttribute("data-limit", "0.60");
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Hardened Plate");
+    await expect(reason).toHaveAttribute("data-blocker", "weight");
+    await expect(reason).toContainText("over Antweight");
   },
 );
 

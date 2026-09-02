@@ -20,6 +20,12 @@ import { StampBookPopup } from "@/components/mine-stamp-book-popup";
 import { PartsShop, prefetchShop } from "@/components/parts-shop";
 import { StampCollectAlert } from "@/components/stamp-collect-alert";
 import { TechInspection } from "@/components/tech-inspection";
+import {
+  blockerCopy,
+  budgetReading,
+  meterFill,
+  placementBlocker,
+} from "@/components/workshop-budget";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { panelStyle, pillStyle } from "@/components/workshop-ui";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
@@ -132,10 +138,9 @@ export function WorkshopPanel() {
   // Build-tab toggle: off by default, so the carousel only offers parts the
   // player actually owns. On, it also offers parts not yet in the inventory.
   const [includeUnowned, setIncludeUnowned] = useState(false);
-  // The top bar is a compact options menu: the bot actions (undo/redo, fights)
-  // live in a dropdown so the bar stays a thin strip and leaves room for the
-  // bot below it.
-  const [actionsOpen, setActionsOpen] = useState(false);
+  // The fight roster opens from the thumb bar's Test fight button (G2); the
+  // top bar carries only the bot's name, readiness, and budget meters.
+  const [fightOpen, setFightOpen] = useState(false);
   // Bot-first sheet (N): the tab controls live in a bottom sheet over the bot.
   // Open/closed is one clean state. Tapping the active tab or the handle
   // toggles it; tapping another tab switches to it and keeps it open; dragging
@@ -152,7 +157,8 @@ export function WorkshopPanel() {
   // is excluded: its sheet is short and its hero-drag band must stay put.
   const [menuLift, setMenuLift] = useState(0);
   const panelsRef = useRef<HTMLDivElement | null>(null);
-  const actionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const fightMenuRef = useRef<HTMLDivElement | null>(null);
+  const dragStripRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const removeHandleRef = useRef<HTMLButtonElement | null>(null);
   const dragRef = useRef<{
@@ -220,19 +226,19 @@ export function WorkshopPanel() {
     setSheetDrag(null);
   };
 
-  // Close the options menu when a pointer goes down outside it (tap a tab, the
+  // Close the fight menu when a pointer goes down outside it (tap a tab, the
   // bot, anywhere). Actions inside the menu keep it open until they choose to
   // close (the fights navigate away and close it themselves).
   useEffect(() => {
-    if (!actionsOpen) return;
+    if (!fightOpen) return;
     const onDown = (e: PointerEvent) => {
-      if (!actionsMenuRef.current?.contains(e.target as Node)) {
-        setActionsOpen(false);
+      if (!fightMenuRef.current?.contains(e.target as Node)) {
+        setFightOpen(false);
       }
     };
     document.addEventListener("pointerdown", onDown);
     return () => document.removeEventListener("pointerdown", onDown);
-  }, [actionsOpen]);
+  }, [fightOpen]);
 
   const toggleSheetTap = () => {
     if (suppressTapRef.current) {
@@ -274,7 +280,8 @@ export function WorkshopPanel() {
       }
       const panel = panelsRef.current;
       const vh = window.innerHeight || 1;
-      const peekPx = 100; // handle + tab bar always showing at the sheet top
+      // Handle, thumb bar, and tab row: everything that shows at the sheet top.
+      const peekPx = dragStripRef.current?.offsetHeight ?? 148;
       const headerPx = 118; // compact top header the bot must stay clear of
       const contentPx = Math.min(panel?.scrollHeight ?? 0, vh * MENU_MAX_VH);
       // Center the bot in the band between the header and the open sheet top,
@@ -415,6 +422,9 @@ export function WorkshopPanel() {
 
   const validation = validateDesign(design);
   const behavior = design.behavior ?? NEUTRAL_BEHAVIOR;
+  // Live budget (G2): the header meters read the same sums the inspection
+  // does, and the reason line says why the part in hand cannot go on.
+  const budget = budgetReading(design);
   const usedPartCounts = designPartCounts(design);
 
   // The carousel pool: with the toggle off (default) it is only the parts the
@@ -498,6 +508,25 @@ export function WorkshopPanel() {
   // bot to place or merge (tap-to-place was removed as redundant).
   const activeCoreId = currentCoreId(design);
   const browseDef = PART_CATALOG[browsePartId];
+  const blocker = browseDef ? placementBlocker(design, browseDef) : null;
+  const blockerKind = blocker?.kind ?? null;
+  // The meter a blocked part would break flashes once when the block
+  // appears (browsing to the part, or the bot changing under it), so the
+  // refusal points at its own cause instead of a silent non-drop.
+  const [flashMeter, setFlashMeter] = useState<"power" | "weight" | null>(null);
+  // One key per (part, meter) so browsing to a second blocked part flashes
+  // again even when both are blocked by the same meter.
+  const flashKey =
+    blockerKind === "power" || blockerKind === "weight"
+      ? `${browsePartId}:${blockerKind}`
+      : null;
+  useEffect(() => {
+    if (!flashKey) return;
+    const meter = flashKey.endsWith(":power") ? "power" : "weight";
+    setFlashMeter(meter);
+    const timer = setTimeout(() => setFlashMeter(null), 900);
+    return () => clearTimeout(timer);
+  }, [flashKey]);
   const browseOwned =
     inventory.state === "ready" ? (inventory.counts.get(browsePartId) ?? 0) : 0;
   const browseUsed = usedPartCounts.get(browsePartId) ?? 0;
@@ -695,33 +724,6 @@ export function WorkshopPanel() {
         </button>
       )}
 
-      {/* Recenter (G1): one tap brings the view home to the front
-          three-quarter with the whole bot in frame, after orbiting or after
-          a tap has framed one part. Lives on the bench, not in a menu. */}
-      <button
-        type="button"
-        className="workshop-recenter"
-        aria-label="Recenter the view on the bot"
-        title="Recenter the view"
-        onClick={recenterView}
-      >
-        <svg
-          aria-hidden="true"
-          focusable="false"
-          width={18}
-          height={18}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13z M12 2.5v3 M12 18.5v3 M2.5 12h3 M18.5 12h3 M12 10.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z" />
-        </svg>
-        <span>Recenter</span>
-      </button>
-
       {/* The carousel stays live on every tab. When a menu covers the lower
           screen the bot lifts, so the carousel lifts with it to stay clear. */}
       <section
@@ -754,134 +756,104 @@ export function WorkshopPanel() {
       </section>
 
       <header className="workshop-header">
-        <span className="workshop-header-title">
-          {design.name}: {design.parts.length}{" "}
-          {design.parts.length === 1 ? "part" : "parts"}
-          {validation.ok ? (
-            <span style={{ color: "#54e0c7", marginLeft: 8 }}>valid</span>
-          ) : (
-            <span style={{ color: "#ff6b6b", marginLeft: 8 }}>
-              {validation.errors.length}{" "}
-              {validation.errors.length === 1 ? "issue" : "issues"}
-            </span>
-          )}
-        </span>
-        <div className="workshop-header-menu" ref={actionsMenuRef}>
+        <div className="workshop-header-row">
+          <span className="workshop-header-title">
+            {design.name}: {design.parts.length}{" "}
+            {design.parts.length === 1 ? "part" : "parts"}
+          </span>
           <button
             type="button"
-            className="workshop-header-menu-button"
-            aria-haspopup="true"
-            aria-expanded={actionsOpen}
-            aria-label="Bot actions"
-            onClick={() => setActionsOpen((o) => !o)}
+            className={
+              validation.ok
+                ? "workshop-ready-chip workshop-ready-chip-ok"
+                : "workshop-ready-chip workshop-ready-chip-bad"
+            }
+            data-testid="ready-chip"
+            data-ready={validation.ok ? "true" : "false"}
+            title="Open the tech inspection"
+            onClick={() => {
+              setTab("tune");
+              setSheetOpen(true);
+            }}
           >
-            Actions
+            {validation.ok
+              ? "valid"
+              : `${validation.errors.length} ${
+                  validation.errors.length === 1 ? "issue" : "issues"
+                }`}
           </button>
-          {actionsOpen && (
-            <div className="workshop-header-menu-panel" role="menu">
-              <div className="workshop-header-menu-row">
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={undo}
-                  disabled={!canUndo(history)}
-                >
-                  Undo
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={redo}
-                  disabled={!canRedo(history)}
-                >
-                  Redo
-                </button>
-              </div>
-              {REPLICA_OPPONENTS.map((opponent) => (
-                <button
-                  key={opponent.id}
-                  type="button"
-                  role="menuitem"
-                  className="workshop-fight-action"
-                  onClick={() => {
-                    setActionsOpen(false);
-                    setEndInfo(null);
-                    setVerification({ state: "idle" });
-                    setMatchup([opponent.design, design]);
-                  }}
-                  disabled={!validation.ok}
-                  title={
-                    validation.ok
-                      ? `${opponent.blurb} (in the style of ${opponent.inspiredBy})`
-                      : "fix validity errors first"
-                  }
-                >
-                  Fight {opponent.name}
-                </button>
-              ))}
-              <button
-                type="button"
-                role="menuitem"
-                className="workshop-fight-action"
-                onClick={() => {
-                  setActionsOpen(false);
-                  setEndInfo(null);
-                  setVerification({ state: "idle" });
-                  setMatchup([CPU_BRAWLER_DESIGN, design]);
-                }}
-                disabled={!validation.ok}
-                title={validation.ok ? undefined : "fix validity errors first"}
-              >
-                Test fight vs Brawler
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className="workshop-fight-action workshop-fight-rival"
-                onClick={async () => {
-                  setEndInfo(null);
-                  setVerification({ state: "idle" });
-                  setRivalState("pending");
-                  try {
-                    const res = await fetch("/api/match/opponent");
-                    if (!res.ok) {
-                      setRivalState(res.status === 404 ? "none" : "error");
-                      return;
-                    }
-                    const body = (await res.json()) as { design: BotDesign };
-                    setRivalState("idle");
-                    setActionsOpen(false);
-                    setMatchup([body.design, design]);
-                  } catch {
-                    setRivalState("error");
-                  }
-                }}
-                disabled={!validation.ok || rivalState === "pending"}
-                title={validation.ok ? undefined : "fix validity errors first"}
-              >
-                {rivalState === "pending"
-                  ? "Finding rival..."
-                  : "Fight a rival"}
-              </button>
-              {rivalState === "none" && (
-                <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.7 }}>
-                  No rival designs saved yet; fight the stock bots meanwhile.
-                </p>
-              )}
-              {rivalState === "error" && (
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: "0.72rem",
-                    color: "#ff6b6b",
-                  }}
-                >
-                  Could not reach the rival ladder.
-                </p>
-              )}
-            </div>
-          )}
         </div>
+        <section className="workshop-meters" aria-label="Build budget">
+          <div
+            className={`workshop-meter${
+              budget.overdrawn ? " workshop-meter-over" : ""
+            }${flashMeter === "power" ? " workshop-meter-flash" : ""}`}
+            data-meter="power"
+            data-flash={flashMeter === "power" ? "true" : "false"}
+            title="Power the parts and gearing draw against what the core supplies"
+          >
+            <span className="workshop-meter-label">Power</span>
+            <span className="workshop-meter-track" aria-hidden="true">
+              <span
+                className="workshop-meter-fill"
+                style={{
+                  width: `${meterFill(budget.powerDraw, budget.powerSupply) * 100}%`,
+                }}
+              />
+            </span>
+            <span
+              className="workshop-meter-value"
+              data-testid="meter-power"
+              data-draw={budget.powerDraw}
+              data-supply={budget.powerSupply}
+            >
+              {budget.powerDraw}/{budget.powerSupply}
+            </span>
+          </div>
+          <div
+            className={`workshop-meter${
+              budget.overweight ? " workshop-meter-over" : ""
+            }${flashMeter === "weight" ? " workshop-meter-flash" : ""}`}
+            data-meter="weight"
+            data-flash={flashMeter === "weight" ? "true" : "false"}
+            title={
+              budget.declared
+                ? `Mass against the declared ${budget.weightClass.name} ceiling`
+                : `Mass against the ${budget.weightClass.name} ceiling, the lightest class this bot fits`
+            }
+          >
+            <span className="workshop-meter-label">
+              {budget.declared ? budget.weightClass.name : "Weight"}
+            </span>
+            <span className="workshop-meter-track" aria-hidden="true">
+              <span
+                className="workshop-meter-fill"
+                style={{
+                  width: `${meterFill(budget.mass, budget.massLimit) * 100}%`,
+                }}
+              />
+            </span>
+            <span
+              className="workshop-meter-value"
+              data-testid="meter-weight"
+              data-mass={budget.mass.toFixed(2)}
+              data-limit={budget.massLimit.toFixed(2)}
+              data-class={budget.weightClass.id}
+            >
+              {budget.mass.toFixed(2)}/{budget.massLimit.toFixed(2)}
+            </span>
+          </div>
+        </section>
+        {browseDef && blocker && (
+          <p
+            className="workshop-budget-reason"
+            data-testid="budget-reason"
+            data-blocker={blocker.kind}
+            role="status"
+          >
+            {blockerCopy(browseDef, blocker)}
+          </p>
+        )}
       </header>
 
       <div
@@ -908,6 +880,7 @@ export function WorkshopPanel() {
             (toggle) or a tab button (select). */}
         <div
           className="workshop-sheet-drag"
+          ref={dragStripRef}
           onPointerDown={onSheetDragDown}
           onPointerMove={onSheetDragMove}
           onPointerUp={onSheetDragUp}
@@ -929,6 +902,153 @@ export function WorkshopPanel() {
               {sheetOpen ? "▼ see bot" : "▲ controls"}
             </span>
           </button>
+
+          <div
+            className="workshop-thumb-bar"
+            role="toolbar"
+            aria-label="Bot actions"
+            data-testid="thumb-bar"
+          >
+            <button
+              type="button"
+              className="workshop-thumb-button"
+              onClick={undo}
+              disabled={!canUndo(history)}
+              title="Undo the last change"
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              className="workshop-thumb-button"
+              onClick={redo}
+              disabled={!canRedo(history)}
+              title="Redo the undone change"
+            >
+              Redo
+            </button>
+            <button
+              type="button"
+              className={
+                mirrorEnabled
+                  ? "workshop-thumb-button workshop-thumb-active"
+                  : "workshop-thumb-button"
+              }
+              aria-pressed={mirrorEnabled}
+              onClick={toggleMirror}
+              title="Placing a part on a side mount also fills its mirror"
+            >
+              Mirror
+            </button>
+            <button
+              type="button"
+              className="workshop-thumb-button"
+              aria-label="Recenter the view on the bot"
+              title="Recenter the view"
+              onClick={recenterView}
+            >
+              Recenter
+            </button>
+            <div className="workshop-fight-menu" ref={fightMenuRef}>
+              <button
+                type="button"
+                className="workshop-thumb-button workshop-thumb-primary"
+                aria-haspopup="true"
+                aria-expanded={fightOpen}
+                aria-label="Test fight"
+                disabled={!validation.ok}
+                title={
+                  validation.ok
+                    ? "Pick an opponent for a test fight"
+                    : "Fix the inspection issues first"
+                }
+                onClick={() => setFightOpen((o) => !o)}
+              >
+                Test fight
+              </button>
+              {fightOpen && (
+                <div className="workshop-fight-menu-panel" role="menu">
+                  {REPLICA_OPPONENTS.map((opponent) => (
+                    <button
+                      key={opponent.id}
+                      type="button"
+                      role="menuitem"
+                      className="workshop-fight-action"
+                      onClick={() => {
+                        setFightOpen(false);
+                        setEndInfo(null);
+                        setVerification({ state: "idle" });
+                        setMatchup([opponent.design, design]);
+                      }}
+                      title={`${opponent.blurb} (in the style of ${opponent.inspiredBy})`}
+                    >
+                      Fight {opponent.name}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="workshop-fight-action"
+                    onClick={() => {
+                      setFightOpen(false);
+                      setEndInfo(null);
+                      setVerification({ state: "idle" });
+                      setMatchup([CPU_BRAWLER_DESIGN, design]);
+                    }}
+                  >
+                    Test fight vs Brawler
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="workshop-fight-action workshop-fight-rival"
+                    onClick={async () => {
+                      setEndInfo(null);
+                      setVerification({ state: "idle" });
+                      setRivalState("pending");
+                      try {
+                        const res = await fetch("/api/match/opponent");
+                        if (!res.ok) {
+                          setRivalState(res.status === 404 ? "none" : "error");
+                          return;
+                        }
+                        const body = (await res.json()) as {
+                          design: BotDesign;
+                        };
+                        setRivalState("idle");
+                        setFightOpen(false);
+                        setMatchup([body.design, design]);
+                      } catch {
+                        setRivalState("error");
+                      }
+                    }}
+                    disabled={rivalState === "pending"}
+                  >
+                    {rivalState === "pending"
+                      ? "Finding rival..."
+                      : "Fight a rival"}
+                  </button>
+                  {rivalState === "none" && (
+                    <p style={{ margin: 0, fontSize: "0.72rem", opacity: 0.7 }}>
+                      No rival designs saved yet; fight the stock bots
+                      meanwhile.
+                    </p>
+                  )}
+                  {rivalState === "error" && (
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.72rem",
+                        color: "#ff6b6b",
+                      }}
+                    >
+                      Could not reach the rival ladder.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div
             className="workshop-tabs"
@@ -1083,19 +1203,6 @@ export function WorkshopPanel() {
                     );
                   })}
                 </div>
-                <button
-                  type="button"
-                  className={
-                    mirrorEnabled
-                      ? "mirror-toggle mirror-active"
-                      : "mirror-toggle"
-                  }
-                  aria-pressed={mirrorEnabled}
-                  onClick={toggleMirror}
-                  title="Placing a part on a side mount also fills its mirror"
-                >
-                  {mirrorEnabled ? "Mirror: on" : "Mirror: off"}
-                </button>
               </section>
 
               <section style={panelStyle} aria-label="Parts">

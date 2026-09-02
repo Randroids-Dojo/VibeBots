@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-01-0.1.295-workshop-face-the-bot",
+      releaseNoticeId: "2026-09-02-0.1.296-workshop-build-hud",
       releaseSummary:
-        "The workshop shows you the front of your bot: The bench camera used to sit behind the bot, so a build with a plow or a blade on the nose showed you its back. The view now opens on the front three-quarter, comes to a part when you tap it, and comes home on one button.",
+        "Build with the budget in view and every action under your thumb: The workshop hid undo, redo, and the fights behind a menu, and told you a part would not fit by doing nothing. The bench now keeps its actions in reach and shows how much power and weight you have left as you build.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-01-0.1.295-workshop-face-the-bot",
+      releaseNoticeId: "2026-09-02-0.1.296-workshop-build-hud",
       attempted: 2,
       sent: 1,
       expired: 1,

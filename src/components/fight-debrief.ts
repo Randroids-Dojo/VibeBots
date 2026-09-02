@@ -119,6 +119,12 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
   const weapon = design.parts
     .map((part) => PART_CATALOG[part.partId])
     .find((def) => def?.category === "weapon");
+  // What the weapons themselves landed: hull contact also deals damage,
+  // and a bot that only bumped still has a weapon that never connected.
+  let weaponDamage = 0;
+  for (const part of mine.parts) {
+    if (part.category === "weapon") weaponDamage += part.damageDealt;
+  }
 
   // 1. No weapon, or a weapon that never landed: the bot cannot win a
   // fight it never touches. A weaponless bot gets this lesson whatever
@@ -133,7 +139,7 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
       },
       actionLabel: "Pick a weapon",
     });
-  } else if (mine.damageDealt <= 0) {
+  } else if (weaponDamage <= 0) {
     lessons.push({
       id: "no-hits",
       text: `Your ${weapon.name} never connected. A longer reach or a spinner lands hits the ${weapon.name} cannot.`,

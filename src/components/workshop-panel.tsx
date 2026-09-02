@@ -142,6 +142,13 @@ export function WorkshopPanel() {
   // the wrong run, but the lesson from the last finished fight stays on
   // screen until the player leaves the arena or takes a fix-it action.
   const [debriefInfo, setDebriefInfo] = useState<MatchEndInfo | null>(null);
+  // The official teardown the server agreed on, keyed by the result hash,
+  // so the retained debrief keeps reading it after the rerun clears the
+  // live verification.
+  const [officialTeardown, setOfficialTeardown] = useState<{
+    hash: string;
+    teardown: MatchTeardown;
+  } | null>(null);
   const [teardownOpen, setTeardownOpen] = useState(false);
   const [rivalState, setRivalState] = useState<
     "idle" | "pending" | "none" | "error"
@@ -493,6 +500,12 @@ export function WorkshopPanel() {
       const official = await res.json();
       enqueueStampAlertsFromResponse(official);
       const agrees = official.hash === endInfo.hash;
+      if (agrees && official.teardown) {
+        setOfficialTeardown({
+          hash: official.hash,
+          teardown: official.teardown,
+        });
+      }
       setVerification({
         state: "done",
         agrees,
@@ -775,11 +788,12 @@ export function WorkshopPanel() {
   // one or two lessons that decided the fight, each with a fix-it action.
   const debrief = useMemo(() => {
     if (!debriefInfo || !matchup) return null;
-    // The official teardown when the server agreed on this very run,
-    // else the local one from the run the debrief describes.
+    // The official teardown when the server agreed on the run the debrief
+    // describes (kept by hash, so it survives the exhibition rerun), else
+    // the local one from that run.
     const teardown =
-      endInfo === debriefInfo && shownTeardown
-        ? shownTeardown.teardown
+      officialTeardown && officialTeardown.hash === debriefInfo.hash
+        ? officialTeardown.teardown
         : debriefInfo.teardown;
     if (!teardown) return null;
     return buildDebrief({
@@ -796,12 +810,13 @@ export function WorkshopPanel() {
               .map(([id]) => id)
           : undefined,
     });
-  }, [debriefInfo, endInfo, matchup, shownTeardown, inventory]);
+  }, [debriefInfo, officialTeardown, matchup, inventory]);
   // A fix-it button leaves the arena and lands the player on the fix.
   const applyDebriefAction = (action: DebriefAction) => {
     setMatchup(null);
     setEndInfo(null);
     setDebriefInfo(null);
+    setOfficialTeardown(null);
     setVerification({ state: "idle" });
     setTeardownOpen(false);
     if (action.kind === "browse") {
@@ -968,6 +983,7 @@ export function WorkshopPanel() {
             setMatchup(null);
             setEndInfo(null);
             setDebriefInfo(null);
+            setOfficialTeardown(null);
             setVerification({ state: "idle" });
             setTeardownOpen(false);
           }}

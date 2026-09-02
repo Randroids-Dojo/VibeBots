@@ -176,6 +176,29 @@ describe("buildDebrief", () => {
     expect(lesson.action).toEqual({ kind: "browse", partId: "saw-blade" });
   });
 
+  it("still calls a weapon unconnected when only the hull dealt damage", () => {
+    const mine = bot("Mine", [
+      part({
+        iid: "core",
+        name: "Cube Core",
+        category: "core",
+        damageDealt: 30,
+        damageTaken: 10,
+      }),
+      part({ iid: "spike", name: "Ram Spike", category: "weapon" }),
+    ]);
+    const debrief = buildDebrief({
+      teardown: teardown(mine, opponent),
+      winner: 0,
+      reason: "timeout",
+      scores: [score(20), score(9)],
+      me: 1,
+      design: TEST_BOT_DESIGN,
+    });
+    expect(debrief.lessons[0].id).toBe("no-hits");
+    expect(debrief.lessons[0].text).toContain("Ram Spike never connected");
+  });
+
   it("names the first part lost, what took it, and selects it to fix", () => {
     const mine = bot("Mine", [
       part({

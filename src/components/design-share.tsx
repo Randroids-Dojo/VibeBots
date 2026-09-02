@@ -88,7 +88,7 @@ export function DesignShare() {
           borderRadius: 6,
           padding: "6px 8px",
           fontFamily: "monospace",
-          fontSize: "0.7rem",
+          fontSize: "1rem",
           wordBreak: "break-all",
         }}
       />
@@ -137,7 +137,7 @@ export function DesignShare() {
           borderRadius: 6,
           padding: "6px 8px",
           fontFamily: "monospace",
-          fontSize: "0.7rem",
+          fontSize: "1rem",
         }}
       />
       <div

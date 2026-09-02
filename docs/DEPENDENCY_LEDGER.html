@@ -119,12 +119,13 @@
       <dt>Why watched</dt><dd>tracks React majors and three internals; the async WebGPU <code>gl</code> factory relies on v9+ behavior.</dd>
       <dt>Source</dt><dd><a href="https://github.com/pmndrs/react-three-fiber/releases">react-three-fiber releases</a></dd>
       <dt>Pin format</dt><dd>npm exact version.</dd>
-      <dt>Currently pinned</dt><dd><code>9.6.1</code></dd>
+      <dt>Currently pinned</dt><dd><code>9.7.0</code></dd>
       <dt>Detect-new</dt><dd><code>npm view @react-three/fiber dist-tags.latest</code></dd>
       <dt>Migration notes</dt><dd>
         <ul>
           <li>Check drei compatibility before bumping; fiber and drei move together.</li>
           <li>Verify the WebGPURenderer canvas still initializes (the <code>gl</code> async factory) after the bump.</li>
+          <li>2026-09-02: 9.6.1 to 9.7.0, a minor. A reconciler hardening release against <code>react-dom</code> as the standard: internal child ordering now follows React reorders (a keyed reorder could drift the internal map), a removed pierced prop (<code>position-x</code>) resets the pierced value rather than the base object, host props (<code>dispose</code>, <code>onUpdate</code>) update in place, instance reconstruction batches across a <code>React.memo</code> bailout, event priorities copy <code>react-dom</code>'s list, and the reconciler may queue microtasks. No API change and no application change: typecheck, unit suite, and build were clean, the lockfile moved only <code>@react-three/fiber</code> (drei 10.7.7 stays and resolves the new peer), and the mine, workshop, and arena canvases were smoked against the bump build.</li>
         </ul>
       </dd>
     </dl>

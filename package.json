@@ -45,7 +45,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@randroids-dojo/vibekit": "github:Randroids-Dojo/VibeKit#v0.3.0",
     "@react-three/drei": "^10.7.7",
-    "@react-three/fiber": "9.6.1",
+    "@react-three/fiber": "9.7.0",
     "next": "16.3.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",

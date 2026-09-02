@@ -671,20 +671,17 @@ function ArenaScene({
         // its half-span pushed along world x and along world z from its
         // centre, whichever projects wider.
         const edge = projectedEdgeRef.current;
-        edge.set(
-          botCenters[1].x + playerSpan / 2,
-          frame.targetY,
-          botCenters[1].z,
-        );
-        edge.project(state.camera);
-        let halfWidth = Math.abs(edge.x - bot1.x);
-        edge.set(
-          botCenters[1].x,
-          frame.targetY,
-          botCenters[1].z + playerSpan / 2,
-        );
-        edge.project(state.camera);
-        halfWidth = Math.max(halfWidth, Math.abs(edge.x - bot1.x));
+        const half = playerSpan / 2;
+        let halfWidth = 0;
+        // Both ends of both axes: under perspective the edge nearer the
+        // camera projects wider, and which end that is depends on the rig.
+        for (let k = 0; k < 4; k++) {
+          const ox = k === 0 ? half : k === 1 ? -half : 0;
+          const oz = k === 2 ? half : k === 3 ? -half : 0;
+          edge.set(botCenters[1].x + ox, frame.targetY, botCenters[1].z + oz);
+          edge.project(state.camera);
+          halfWidth = Math.max(halfWidth, Math.abs(edge.x - bot1.x));
+        }
         // NDC spans two units across the viewport, so a half-span in NDC
         // is the full-span fraction of the width.
         setDatasetNumber(cache, stage.dataset, "bot1ScreenSize", halfWidth, 3);

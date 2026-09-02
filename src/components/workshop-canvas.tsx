@@ -919,9 +919,13 @@ function WorkshopScene() {
       let dy = sparkCamera.position.y - at.y;
       let dz = sparkCamera.position.z - at.z;
       const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
-      dx = (dx / len) * SPARK_TOWARD_CAMERA;
-      dy = (dy / len) * SPARK_TOWARD_CAMERA;
-      dz = (dz / len) * SPARK_TOWARD_CAMERA;
+      // Never past halfway to the camera: at the closest zoom a front
+      // mount sits inside the slide's reach, and a burst behind the eye
+      // is a burst nobody sees.
+      const reach = Math.min(SPARK_TOWARD_CAMERA, len * 0.5);
+      dx = (dx / len) * reach;
+      dy = (dy / len) * reach;
+      dz = (dz / len) * reach;
       b.t = 0;
       b.x = at.x + dx;
       b.y = at.y + dy;

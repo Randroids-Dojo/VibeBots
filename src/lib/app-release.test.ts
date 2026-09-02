@@ -38,7 +38,7 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "The Tower core is 0.8 tall instead of 1.0 and its axles sit a tenth below centre, so it moves: a tower with two wheels and a spike now beats Brawler, Night Terror, Bulldozer, and Impaler, and a lance build wins four rungs as well.",
       "Its five mounts and its 130 power are unchanged; what it gains is the shove, which is what a heavy brick is for.",
-      "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before today shows as unverified until it is refought.",
+      "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before September 2, 2026 shows as unverified until it is refought.",
     ]);
   });
 

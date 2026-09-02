@@ -531,5 +531,34 @@
         }
       }
     ]
+  },
+  {
+    "id": "goldens-20260902233349709",
+    "createdAt": "2026-09-02T23:33:49.709Z",
+    "reason": "Tower core collider reshaped (0.8 tall, axles a tenth below centre) so the tall chassis can close; sim version 8 (F-249)",
+    "changes": [
+      {
+        "vectorId": "GOLDEN-WORLD-0001",
+        "kind": "world",
+        "changedFields": ["$.outcomes.simVersion"],
+        "oldSnapshotHash": "b70ff16c6f724b39",
+        "newSnapshotHash": "b70ff16c6f724b39",
+        "oldOutcomes": {
+          "seed": 42,
+          "simVersion": 7,
+          "steps": 600
+        },
+        "newOutcomes": {
+          "seed": 42,
+          "simVersion": 8,
+          "steps": 600
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": 7,
+          "to": 8
+        }
+      }
+    ]
   }
 ]

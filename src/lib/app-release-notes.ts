@@ -21,7 +21,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before today shows as unverified until it is refought.",
+          text: "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before September 2, 2026 shows as unverified until it is refought.",
         },
       ],
     },

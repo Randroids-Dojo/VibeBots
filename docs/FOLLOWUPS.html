@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-251" data-f="F-251" data-priority="nice-to-have">
+    <h3>F-251: The goldens update script exits 1 on Windows with no message</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 while stepping the sim version to 8 for the Tower core. <code>pnpm test:goldens:update -- --reason ...</code> exits 1 and prints nothing, because <code>scripts/update-goldens.mjs</code> calls <code>spawnSync("pnpm", ...)</code> without a shell and <code>pnpm</code> is a <code>.cmd</code> shim on Windows, so the spawn fails with a null status that the script turns into exit 1. The runner itself works: <code>VIBEBOTS_GOLDEN_REASON=... VIBEBOTS_UPDATE_GOLDENS=1 pnpm exec vitest run --config vitest.goldens.config.ts tests/goldens/update-runner.test.ts</code> regenerated the vectors and the manifest. The manifest the runner writes also needs <code>biome check --write</code> afterwards, because it prints one-element arrays across lines and the Quality gate wants them on one.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Spawn with <code>shell: true</code> or resolve <code>pnpm.cmd</code> on win32, print the spawn error when the status is null, and format the manifest after writing it. Acceptance: the documented command regenerates the goldens on Windows and leaves a clean <code>biome check</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the Tower core slice (PR #354). Dot <code>VibeBots-f-251-the-ca5efaa4</code>.</dd>
+    </dl>
+  </section>
   <section id="F-250" data-f="F-250" data-priority="nice-to-have">
     <h3>F-250: The debrief does not know the ladder</h3>
     <dl>

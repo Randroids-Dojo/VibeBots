@@ -418,8 +418,18 @@ describe("buildDebrief", () => {
 
   it("reads a decision lost off the front foot as the throttle lever (H1)", () => {
     const mine = bot("Mine", [
-      part({ iid: "core", name: "Cube Core", category: "core", damageTaken: 10 }),
-      part({ iid: "spike", name: "Ram Spike", category: "weapon", damageDealt: 12 }),
+      part({
+        iid: "core",
+        name: "Cube Core",
+        category: "core",
+        damageTaken: 10,
+      }),
+      part({
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
+        damageDealt: 12,
+      }),
       part({ iid: "plate", name: "Frame Plate", damageTaken: 10 }),
       part({ iid: "wheel", name: "Drive Wheel", damageTaken: 10 }),
     ]);
@@ -429,14 +439,22 @@ describe("buildDebrief", () => {
       reason: "timeout",
       scores: [score(61, 1800), score(40, 360)],
       me: 1,
-      design: { ...TEST_BOT_DESIGN, behavior: { aggression: 0.5, flankBias: 0.5, patience: 0.5 } },
+      design: {
+        ...TEST_BOT_DESIGN,
+        behavior: { aggression: 0.5, flankBias: 0.5, patience: 0.5 },
+      },
     });
     expect(debrief.lessons[0]).toMatchObject({
       id: "decision",
-      action: { kind: "behavior", patch: { aggression: 0.5 + AGGRESSION_STEP } },
+      action: {
+        kind: "behavior",
+        patch: { aggression: 0.5 + AGGRESSION_STEP },
+      },
       actionLabel: "Raise aggression",
     });
-    expect(debrief.lessons[0].text).toContain("front foot 10% of the fight to their 50%");
+    expect(debrief.lessons[0].text).toContain(
+      "front foot 10% of the fight to their 50%",
+    );
     // Already relentless: the lever has nowhere to go, so Tune it is.
     const maxed = buildDebrief({
       teardown: teardown(mine, opponent, 3600),
@@ -444,9 +462,15 @@ describe("buildDebrief", () => {
       reason: "timeout",
       scores: [score(61, 1800), score(40, 360)],
       me: 1,
-      design: { ...TEST_BOT_DESIGN, behavior: { aggression: 1, flankBias: 0.5, patience: 0.5 } },
+      design: {
+        ...TEST_BOT_DESIGN,
+        behavior: { aggression: 1, flankBias: 0.5, patience: 0.5 },
+      },
     });
-    expect(maxed.lessons[0]).toMatchObject({ id: "decision", action: { kind: "tune" } });
+    expect(maxed.lessons[0]).toMatchObject({
+      id: "decision",
+      action: { kind: "tune" },
+    });
   });
 
   it("reads a knockout taken in the pocket as the patience lever (H1)", () => {
@@ -460,7 +484,12 @@ describe("buildDebrief", () => {
         destroyedAtTick: 900,
         killedByName: "Saw Blade",
       }),
-      part({ iid: "spike", name: "Ram Spike", category: "weapon", damageDealt: 20 }),
+      part({
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
+        damageDealt: 20,
+      }),
       part({ iid: "wheel", name: "Drive Wheel", damageTaken: 60 }),
     ]);
     const debrief = buildDebrief({
@@ -469,7 +498,10 @@ describe("buildDebrief", () => {
       reason: "disable",
       scores: null,
       me: 1,
-      design: { ...TEST_BOT_DESIGN, behavior: { aggression: 0.5, flankBias: 0.5, patience: 0.4 } },
+      design: {
+        ...TEST_BOT_DESIGN,
+        behavior: { aggression: 0.5, flankBias: 0.5, patience: 0.4 },
+      },
     });
     // The core went first, then the pocket lesson; the soak detail is cut.
     expect(debrief.lessons.map((l) => l.id)).toEqual(["first-loss", "resets"]);

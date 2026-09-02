@@ -2151,10 +2151,9 @@ test(
   "a test fight ends with a debrief whose fix-it button lands on the bench with the fix in hand (G9)",
   ciCase("E2E-WORKSHOP-0045", "@functional"),
   async ({ page }) => {
-    // A weaponless bare core can only bump, so the fight ends with a loss
-    // (a knockout, or a decision at the minute) and the first lesson is
-    // the weapon one, whose fix-it browses a weapon the player does not
-    // own yet.
+    // A weaponless bare core can only bump, so the fight goes to the
+    // judges at the minute and the first lesson is the weapon one; the
+    // second is the throttle lever, which the case pulls.
     test.setTimeout(150_000);
     await page.setViewportSize({ width: 390, height: 760 });
     await page.route("**/api/shop", async (route) => {
@@ -2178,38 +2177,29 @@ test(
     );
     const lesson = debrief.locator('[data-lesson="no-hits"]');
     await expect(lesson).toContainText("This bot has no weapon");
-    // A wheelless core never closes, so a decision reads off the front
-    // foot and offers the throttle lever (H1); a knockout offers no
-    // second lever here, so only assert it when the fight went to time.
-    const headline = await debrief
-      .locator(".fight-debrief-headline")
-      .textContent();
-    const decision = debrief.locator('[data-lesson="decision"]');
-    if (headline?.includes("decision")) {
-      await expect(decision).toContainText("raise Aggression");
-      await decision.getByRole("button", { name: "Raise aggression" }).click();
-      await expect(
-        page.getByRole("slider", { name: "Aggression slider" }),
-      ).toHaveValue("0.7");
-      await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
-      // Undo takes the lever back like any edit.
-      await page.getByRole("button", { name: "Undo" }).click();
-      await expect(
-        page.getByRole("slider", { name: "Aggression slider" }),
-      ).toHaveValue("0.5");
-      return;
-    }
-
-    // The fix-it button leaves the arena and puts a weapon in hand, shown
-    // even though none is owned.
-    await lesson.getByRole("button", { name: "Pick a weapon" }).click();
     await expect(
-      page.getByRole("button", { name: "Test fight" }),
+      lesson.getByRole("button", { name: "Pick a weapon" }),
     ).toBeVisible();
-    await expect(
-      page.getByLabel("Part carousel").getByTestId("carousel-part-name"),
-    ).toHaveText("Lance");
+    // The workshop fight uses spawn arrangement 0 and the sim is
+    // deterministic, so this matchup always goes to the judges at the
+    // minute: a wheelless core never closes, and the decision reads off
+    // the front foot and offers the throttle lever (H1).
+    await expect(debrief.locator(".fight-debrief-headline")).toContainText(
+      "You lost by decision at 1:00",
+    );
+    const decision = debrief.locator('[data-lesson="decision"]');
+    await expect(decision).toContainText("raise Aggression");
+    await decision.getByRole("button", { name: "Raise aggression" }).click();
+    // The tap leaves the arena, applies the lever, and opens Tune on it.
     await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+    await expect(
+      page.getByRole("slider", { name: "Aggression slider" }),
+    ).toHaveValue("0.7");
+    // Undo takes the lever back like any edit.
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(
+      page.getByRole("slider", { name: "Aggression slider" }),
+    ).toHaveValue("0.5");
   },
 );
 

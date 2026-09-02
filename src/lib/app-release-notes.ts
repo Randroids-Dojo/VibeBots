@@ -14,7 +14,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
       changes: [
         {
           build,
-          text: "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats the two rungs the stock wheels lose to and loses the blade fight the stock wheels win.",
+          text: "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats Bulldozer, the shove the stock wheels lose, and draws the blade fight; it does not save you from Impaler.",
         },
         {
           build,

@@ -37,7 +37,7 @@ describe("app release notes", () => {
         "The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats the two rungs the stock wheels lose to and loses the blade fight the stock wheels win.",
+      "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats Bulldozer, the shove the stock wheels lose, and draws the blade fight; it does not save you from Impaler.",
       "Tempered Lance: the lance, hardened, with reach that does not snap. On the first build it beats every rung of the ladder.",
       "Ballast Block: a dense block for a tail or a deck. Mass wins a shove: on the first build's tail it beats four rungs of five. All three are additive; every recorded fight replays the same.",
     ]);

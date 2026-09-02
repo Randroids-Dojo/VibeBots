@@ -691,7 +691,7 @@ export const BALLAST_WHEEL: PartDef = {
   id: "ballast-wheel",
   name: "Ballast Wheel",
   category: "mobility",
-  shape: { type: "cylinder", halfHeight: 0.085, radius: 0.3, axis: "x" },
+  shape: { type: "cylinder", halfHeight: 0.085, radius: 0.31, axis: "x" },
   density: 3.2,
   powerDraw: 30,
   powerSupply: 0,

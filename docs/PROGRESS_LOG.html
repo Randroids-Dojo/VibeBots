@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="deps-fiber-9-7-0" data-date="2026-09-02">
+    <h3>React Three Fiber 9.6.1 to 9.7.0</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>chore/deps/fiber-9.6.1-to-9.7.0</code>, from <code>origin/main</code> <code>cd9721c3</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Changed</dt><dd>Dependency Upgrade Gate slice, the second half of the gate that fired at session start (the Next security bump is PR #331). Exact pin moved from 9.6.1 to 9.7.0. Upstream calls it a reconciler hardening pass against <code>react-dom</code> as the standard: keyed child reorders keep the internal map in sync, a removed pierced prop resets the pierced value instead of the base object, host props update in place, instance reconstruction batches across memo bailouts, event priorities match <code>react-dom</code>, and reconciler microtasks are supported. None of those name an API this project calls differently, and no application change was required. The lockfile moved only <code>@react-three/fiber</code>; drei 10.7.7 stays and resolves the new peer. The ledger's <strong>Currently pinned</strong> line moved in the same diff.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. <code>pnpm typecheck</code> exit 0. <code>pnpm test</code> exit 0 (167 files, 2089 tests). <code>pnpm build</code> exit 0. <code>pnpm test:e2e:critical --project=chromium</code> exit 0 (4 cases: the mine canvas and the VibeKit resolution). The reconciler is what this release changes, so the two canvases the critical set never mounts were smoked against the bump build too: <code>tests/e2e/workshop.spec.ts</code> whole file (drag targeting, the hero turntable, the merge banner, and the menu lift all live in R3F trees) and <code>tests/e2e/arena.spec.ts</code>, exit 0 (36 passed, 1 skipped by its own viewport guard). Dash check (text files) and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>A minor with a clean typecheck, unit suite, build, and canvas smoke needs no migration work. The one behaviour change with a plausible reach into this code, the pierced-prop reset, would only show where a <code>position-x</code>-style prop is added and later removed on the same element; the workshop and arena e2e cover the trees that set such props.</dd>
+      <dt>GDD coverage</dt><dd>No row change and no GDD entry: a dependency bump ships no player-facing behaviour. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
   <article data-slice="menu-copy-audit" data-date="2026-08-18">
     <h3>Every menu in the game says its state once and stops talking</h3>
     <dl>

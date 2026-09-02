@@ -597,6 +597,9 @@ export function mergeAchievementStats(
     chassisFought: Math.max(current.chassisFought, patch.chassisFought ?? 0),
     partsMaxed: Math.max(current.partsMaxed, patch.partsMaxed ?? 0),
     sawMatchWins: current.sawMatchWins + (patch.sawMatchWins ?? 0),
+    // Derived from the saved designs (a painted design exists or not), so
+    // it merges as a high-water mark rather than a sum.
+    designsPainted: Math.max(current.designsPainted, patch.designsPainted ?? 0),
   };
 }
 

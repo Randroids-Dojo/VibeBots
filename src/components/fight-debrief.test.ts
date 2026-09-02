@@ -205,8 +205,13 @@ describe("buildDebrief", () => {
         iid: "core",
         name: "Cube Core",
         category: "core",
-        damageDealt: 30,
         damageTaken: 10,
+      }),
+      part({
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
+        damageDealt: 30,
       }),
       part({
         iid: "wheel-l",
@@ -251,10 +256,15 @@ describe("buildDebrief", () => {
         iid: "core",
         name: "Cube Core",
         category: "core",
-        damageDealt: 5,
         destroyed: true,
         destroyedAtTick: 600,
         damageTaken: 120,
+      }),
+      part({
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
+        damageDealt: 5,
       }),
     ]);
     const debrief = buildDebrief({
@@ -278,8 +288,13 @@ describe("buildDebrief", () => {
         iid: "core",
         name: "Cube Core",
         category: "core",
-        damageDealt: 40,
         damageTaken: 10,
+      }),
+      part({
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
+        damageDealt: 40,
       }),
       part({ iid: "plate", name: "Frame Plate", damageTaken: 70 }),
     ]);
@@ -306,8 +321,13 @@ describe("buildDebrief", () => {
         iid: "core",
         name: "Cube Core",
         category: "core",
-        damageDealt: 12,
         damageTaken: 10,
+      }),
+      part({
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
+        damageDealt: 12,
       }),
       part({ iid: "plate", name: "Frame Plate", damageTaken: 10 }),
       part({ iid: "wheel", name: "Drive Wheel", damageTaken: 10 }),
@@ -331,10 +351,11 @@ describe("buildDebrief", () => {
 
   it("after a win, names the survivor that nearly did not, or calls it clean", () => {
     const worn = bot("Mine", [
+      part({ iid: "core", name: "Cube Core", category: "core" }),
       part({
-        iid: "core",
-        name: "Cube Core",
-        category: "core",
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
         damageDealt: 90,
       }),
       part({
@@ -371,10 +392,11 @@ describe("buildDebrief", () => {
     });
 
     const clean = bot("Mine", [
+      part({ iid: "core", name: "Cube Core", category: "core" }),
       part({
-        iid: "core",
-        name: "Cube Core",
-        category: "core",
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
         damageDealt: 90,
       }),
     ]);
@@ -427,10 +449,11 @@ describe("buildDebrief", () => {
 
   it("reads the player's side wherever it sits", () => {
     const mine = bot("Mine", [
+      part({ iid: "core", name: "Cube Core", category: "core" }),
       part({
-        iid: "core",
-        name: "Cube Core",
-        category: "core",
+        iid: "spike",
+        name: "Ram Spike",
+        category: "weapon",
         damageDealt: 50,
       }),
     ]);

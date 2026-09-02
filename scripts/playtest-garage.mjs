@@ -109,6 +109,11 @@ const canvasData = (key) =>
     .locator("canvas")
     .first()
     .evaluate((c, k) => c.dataset[k] ?? "", key);
+// A recorded value that is not what the program promised is a missing
+// feature too, so a regression cannot exit zero with evidence attached.
+function expectValue(label, actual, ok) {
+  if (!ok(actual)) missing.push(`${label}: ${JSON.stringify(actual)}`);
+}
 async function expectVisible(locator, label) {
   try {
     await locator.first().waitFor({ state: "visible", timeout: 8000 });
@@ -200,6 +205,26 @@ summary.coachStepAfterDrop = await coach
   .catch(() => null);
 summary.sparkingLater = await canvasData("sparking");
 await shot("garage-03-after-drop");
+expectValue(
+  "sparks in flight after the drop",
+  summary.sparkingRightAfterDrop,
+  (v) => v === "1",
+);
+expectValue(
+  "sparks dead within a second",
+  summary.sparkingLater,
+  (v) => v === "0",
+);
+expectValue(
+  "coach advanced to the fight step",
+  summary.coachStepAfterDrop,
+  (v) => v === "fight",
+);
+expectValue(
+  "parts after the guided drop",
+  summary.titleAfterDrop,
+  (v) => v === "My Bot: 4 parts",
+);
 
 // 3. The fight roster on the thumb bar (G2).
 const fightBtn = pg.getByRole("button", { name: "Test fight" });
@@ -208,6 +233,14 @@ if (await expectVisible(fightBtn, "Test fight button")) {
   await pg.waitForTimeout(300);
   summary.rosterItems = await pg.getByRole("menuitem").allTextContents();
   await shot("garage-04-fight-roster");
+  expectValue(
+    "roster lists the stock fights",
+    summary.rosterItems,
+    (v) =>
+      v.length >= 4 &&
+      v.some((t) => /Brawler/.test(t)) &&
+      v.some((t) => /rival/i.test(t)),
+  );
   await pg.keyboard.press("Escape");
   await pg.waitForTimeout(200);
 }
@@ -240,9 +273,31 @@ async function tapChip(label) {
     click = "dispatched";
   }
   summary.chips[String(label)] = { covered, click };
+  expectValue(
+    `chip ${label} reachable by a pointer`,
+    covered,
+    (v) => v === null,
+  );
   await pg.waitForTimeout(400);
 }
+// Keyboard activation (Rule 10): a focused chip toggles on Enter and the
+// carousel follows, the same as a tap.
+async function keyChip(label) {
+  const chip = chips.locator("button", { hasText: label }).first();
+  await chip.focus();
+  await pg.keyboard.press("Enter");
+  await pg.waitForTimeout(400);
+  const pressed = await chip.getAttribute("aria-pressed");
+  summary.chips[`${String(label)} (keyboard)`] = { pressed };
+  expectValue(
+    `chip ${label} pressed by keyboard`,
+    pressed,
+    (v) => v === "true",
+  );
+}
 await tapChip(/weapon/i);
+await keyChip(/drive/i);
+await keyChip(/weapon/i);
 await carouselTo("Lance");
 await pg.waitForTimeout(500);
 await shot("garage-05-weapon-chip-lance");
@@ -261,6 +316,11 @@ summary.lanceBlurb =
       .catch(() => null)
   )?.trim() ?? null;
 await shot("garage-05b-lance-blurb");
+expectValue(
+  "lance blurb",
+  summary.lanceBlurb,
+  (v) => typeof v === "string" && v.length > 0,
+);
 await pg.mouse.move(195, 545);
 await pg.mouse.down();
 await pg.waitForTimeout(120);
@@ -286,6 +346,8 @@ summary.paint = {
   accent: await canvasData("paintAccent"),
 };
 await shot("garage-07-painted-bot");
+expectValue("body paint applied", summary.paint.primary, (v) => v === "cobalt");
+expectValue("trim paint applied", summary.paint.accent, (v) => v === "gold");
 
 // 6. Share (G8): the code for this exact bot.
 await pg.getByRole("tab", { name: "Garage" }).click();
@@ -297,6 +359,11 @@ if (await expectVisible(code, "share code")) {
     .inputValue()
     .catch(async () => (await code.textContent()) ?? "");
   summary.shareCode = { prefix: text.slice(0, 4), length: text.length };
+  expectValue(
+    "share code prefix",
+    summary.shareCode.prefix,
+    (v) => v === "VB1.",
+  );
 }
 await shot("garage-08-share");
 await pg.getByRole("tab", { name: "Build" }).click();
@@ -317,6 +384,11 @@ const chain = pg.getByTestId("chain-cue");
 summary.chainCue =
   (await chain.textContent().catch(() => null))?.trim() ?? null;
 await shot("garage-09-chain-merge");
+expectValue(
+  "chain cue after the first merge",
+  summary.chainCue,
+  (v) => v === "Merge again to Lv 3",
+);
 
 // 8. Removal (G7): the selected part comes off with a dissolve; the canvas
 // publishes the trace (frames animated, smallest scale reached).
@@ -334,6 +406,26 @@ if (await expectVisible(remove, "Remove handle")) {
   summary.titleAfterRemove = (
     await pg.locator(".workshop-header-title").textContent()
   )?.trim();
+  expectValue(
+    "dissolve animated over frames",
+    summary.dissolve.frames,
+    (v) => Number(v) >= 2,
+  );
+  expectValue(
+    "dissolve reached its end scale",
+    summary.dissolve.min,
+    (v) => Number(v) <= 0.25,
+  );
+  expectValue(
+    "dissolve finished",
+    summary.dissolve.stillDissolving,
+    (v) => v === "0",
+  );
+  expectValue(
+    "parts after the removal",
+    summary.titleAfterRemove,
+    (v) => v === "My Bot: 3 parts",
+  );
 }
 await collapseSheet();
 
@@ -355,6 +447,16 @@ if (await expectVisible(firstOpponent, "first roster opponent")) {
       .catch(() => ""),
   };
   await shot("garage-11-test-fight");
+  expectValue(
+    "player bot fights in its paint",
+    summary.arenaPaint.bot1,
+    (v) => v === "cobalt:gold",
+  );
+  expectValue(
+    "opponent keeps the team colour",
+    summary.arenaPaint.bot0,
+    (v) => v === "none",
+  );
 }
 
 await b.close();
@@ -367,4 +469,6 @@ writeFileSync(
   `${JSON.stringify(summary, null, 2)}
 `,
 );
-if (errors.length > 0 || missing.length > 0) process.exit(1);
+if (errors.length > 0 || failedResponses.length > 0 || missing.length > 0) {
+  process.exit(1);
+}

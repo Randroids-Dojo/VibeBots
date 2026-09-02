@@ -43,7 +43,7 @@ export function releaseNotes(build: number | null): AppReleaseNote[] {
         },
         {
           build,
-          text: "Merge a part with another copy still in your inventory and the inspector says Merge again with a three note chime, so a chain to Lv 3 is never missed.",
+          text: "Merge a part with another copy still in your inventory and the inspector says Merge again with a three-note chime, so a chain to Lv 3 is never missed.",
         },
       ],
     },

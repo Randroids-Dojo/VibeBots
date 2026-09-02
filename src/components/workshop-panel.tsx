@@ -39,6 +39,7 @@ import {
 } from "@/components/workshop-onboarding";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { panelStyle, pillStyle } from "@/components/workshop-ui";
+import { PAINT_SWATCHES } from "@/lib/bot-paint";
 import { decodeDesignCode } from "@/lib/design-code";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
@@ -513,6 +514,7 @@ export function WorkshopPanel() {
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
   const setBehavior = useWorkshopStore((s) => s.setBehavior);
   const setWeightClass = useWorkshopStore((s) => s.setWeightClass);
+  const setPaint = useWorkshopStore((s) => s.setPaint);
   const undo = useWorkshopStore((s) => s.undo);
   const redo = useWorkshopStore((s) => s.redo);
   const reset = useWorkshopStore((s) => s.reset);
@@ -1396,6 +1398,62 @@ export function WorkshopPanel() {
                     );
                   })}
                 </div>
+              </section>
+
+              <section style={panelStyle} aria-label="Paint">
+                <h2 style={{ margin: "0 0 8px", fontSize: "0.95rem" }}>
+                  Paint
+                </h2>
+                {(
+                  [
+                    ["primary", "Body"],
+                    ["accent", "Trim"],
+                  ] as const
+                ).map(([channel, label]) => (
+                  <div key={channel} className="paint-row">
+                    <span className="paint-row-label">{label}</span>
+                    <div
+                      className="paint-swatches"
+                      role="toolbar"
+                      aria-label={`${label} paint`}
+                    >
+                      {PAINT_SWATCHES.map((swatch) => {
+                        const pressed = design.paint?.[channel] === swatch.id;
+                        return (
+                          <button
+                            key={swatch.id}
+                            type="button"
+                            className={
+                              pressed
+                                ? "paint-swatch paint-swatch-active"
+                                : "paint-swatch"
+                            }
+                            style={{ background: swatch.hex }}
+                            aria-label={`${label} paint ${swatch.name}`}
+                            aria-pressed={pressed}
+                            title={swatch.name}
+                            onClick={() =>
+                              setPaint({
+                                primary: design.paint?.primary ?? "ember",
+                                accent: design.paint?.accent ?? "slate",
+                                [channel]: swatch.id,
+                              })
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="mirror-toggle"
+                  onClick={() => setPaint(undefined)}
+                  disabled={!design.paint}
+                  title="Back to every part's own finish"
+                >
+                  Clear paint
+                </button>
               </section>
 
               <section style={panelStyle} aria-label="Parts">

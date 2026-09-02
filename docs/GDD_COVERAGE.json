@@ -38,7 +38,8 @@
         "src/components/workshop-budget.ts",
         "src/lib/design-code.ts",
         "src/components/design-share.tsx",
-        "src/components/workshop-onboarding.ts"
+        "src/components/workshop-onboarding.ts",
+        "src/lib/bot-paint.ts"
       ],
       "testRefs": [
         "src/sim/design.test.ts",
@@ -50,7 +51,8 @@
         "src/components/workshop-camera.test.ts",
         "src/components/workshop-budget.test.ts",
         "src/lib/design-code.test.ts",
-        "src/components/workshop-onboarding.test.ts"
+        "src/components/workshop-onboarding.test.ts",
+        "src/lib/bot-paint.test.ts"
       ],
       "followupRefs": [
         "F-006"
@@ -781,7 +783,8 @@
         "src/components/stamp-art.test.ts",
         "src/components/stamp-collect-alert.test.ts",
         "src/state/stamp-alert-store.test.ts",
-        "tests/e2e/mine-stamp-alert.spec.ts"
+        "tests/e2e/mine-stamp-alert.spec.ts",
+        "src/server/achievements.test.ts"
       ],
       "followupRefs": [
         "F-128"

@@ -790,6 +790,46 @@ button:focus-visible {
   background: #a82c2f;
 }
 
+/* Paint swatches (G5): two rows of colour buttons in the Build sheet. */
+.paint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.paint-row-label {
+  flex: 0 0 40px;
+  font-size: 0.78rem;
+  color: var(--hud-text-muted);
+}
+
+.paint-swatches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.paint-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  padding: 0;
+}
+
+.paint-swatch.paint-swatch-active {
+  border-color: #ffffff;
+  box-shadow:
+    0 0 0 2px #0b0e14,
+    0 0 0 4px #54e0c7;
+}
+
+.paint-swatch:not(:disabled):active {
+  transform: scale(0.94);
+}
+
 /* Carousel category chips (G4): a short row of family pills under the
  * header, where the G1 Recenter pill used to sit, so a bigger catalog stays
  * browsable one part at a time. */

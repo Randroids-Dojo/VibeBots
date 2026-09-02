@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.300-workshop-tier-ladder";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.301-workshop-paint";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.301",
+      date: "2026-09-02",
+      title: "Paint your bot, and fight in your colours",
+      intro:
+        "Every bot wore the same category colours, and in the arena the two sides were orange and teal no matter who built them. A bot now takes a body paint and a trim from a small palette, keeps them in every fight, and a new stamp marks the first one you save in your own colours.",
+      changes: [
+        {
+          build,
+          text: "The Build sheet has a Paint section: eight swatches for the body (core and frame parts) and eight for the trim (wheel hubs). Weapons stay bare steel so a blade still reads as a blade. Clear paint puts every part back in its own finish, and Undo works on paint like anything else.",
+        },
+        {
+          build,
+          text: "In the arena a painted bot fights in its paint and a stock bot keeps its team colour; a thin ring under each bot in the team colour keeps the sides readable however they are painted. Paint rides inside share codes too.",
+        },
+        {
+          build,
+          text: "New stamp: Custom Job, for saving a bot wearing your own paint. It is cosmetic, like every stamp, and it counts a paint job you saved before the stamp existed.",
+        },
+      ],
+    },
     {
       version: "0.1.300",
       date: "2026-09-02",

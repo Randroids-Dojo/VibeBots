@@ -147,6 +147,18 @@ export const NEUTRAL_BEHAVIOR: BotBehavior = {
   patience: 0.5,
 };
 
+/**
+ * Cosmetic paint (G5): two palette ids, the body paint and the trim. The
+ * sim never reads it, so a painted bot and an unpainted one fight byte for
+ * byte the same; the renderer resolves the ids (src/lib/bot-paint.ts) and
+ * an unknown id leaves a part in its own look.
+ */
+export const botPaintSchema = z.object({
+  primary: z.string().min(1).max(24),
+  accent: z.string().min(1).max(24),
+});
+export type BotPaint = z.infer<typeof botPaintSchema>;
+
 export const botDesignSchema = z.object({
   name: z.string().min(1).max(60),
   parts: z
@@ -162,6 +174,8 @@ export const botDesignSchema = z.object({
    * server rejects an over-weight bot at match resolve too.
    */
   weightClass: z.string().min(1).optional(),
+  /** Cosmetic only (G5); see botPaintSchema. */
+  paint: botPaintSchema.optional(),
 });
 export type BotDesign = z.infer<typeof botDesignSchema>;
 

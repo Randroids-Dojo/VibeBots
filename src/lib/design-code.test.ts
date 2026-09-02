@@ -94,6 +94,7 @@ describe("design share codes", () => {
       ],
       behavior: { aggression: 0.8, flankBias: 0.2, patience: 0.5 },
       weightClass: "beetleweight",
+      paint: { primary: "cobalt", accent: "gold" },
     };
     const decoded = decodeDesignCode(encodeDesignCode(design));
     expect(decoded.ok).toBe(true);

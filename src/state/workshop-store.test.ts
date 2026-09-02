@@ -586,6 +586,31 @@ describe("G4 carousel categories", () => {
   });
 });
 
+describe("G5 paint", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("sets, changes, clears, and undoes paint without touching the parts", () => {
+    expect(store().design.paint).toBeUndefined();
+    store().setPaint({ primary: "cobalt", accent: "gold" });
+    expect(store().design.paint).toEqual({ primary: "cobalt", accent: "gold" });
+    expect(validateDesign(store().design).ok).toBe(true);
+    // Same paint again is a no-op (no history entry).
+    const before = store().history;
+    store().setPaint({ primary: "cobalt", accent: "gold" });
+    expect(store().history).toBe(before);
+    store().setPaint({ primary: "cobalt", accent: "slate" });
+    expect(store().design.paint?.accent).toBe("slate");
+    store().undo();
+    expect(store().design.paint?.accent).toBe("gold");
+    store().setPaint(undefined);
+    expect("paint" in store().design).toBe(false);
+    store().undo();
+    expect(store().design.paint).toEqual({ primary: "cobalt", accent: "gold" });
+  });
+});
+
 describe("G6 browseTo", () => {
   beforeEach(() => {
     store().reset();

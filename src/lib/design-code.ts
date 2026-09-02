@@ -37,6 +37,8 @@ interface CompactDesign {
   c: ConnectionTuple[];
   b?: BotDesign["behavior"];
   w?: string;
+  /** Paint as [body, trim] palette ids (G5). */
+  k?: [string, string];
 }
 
 const BASE64URL =
@@ -107,6 +109,7 @@ function compact(design: BotDesign): CompactDesign {
   const out: CompactDesign = { n: design.name, p, c };
   if (design.behavior) out.b = design.behavior;
   if (design.weightClass) out.w = design.weightClass;
+  if (design.paint) out.k = [design.paint.primary, design.paint.accent];
   return out;
 }
 
@@ -171,6 +174,18 @@ function expand(raw: unknown): BotDesign | null {
   if (value.w !== undefined) {
     if (typeof value.w !== "string") return null;
     design.weightClass = value.w;
+  }
+  if (value.k !== undefined) {
+    const k = value.k as unknown;
+    if (
+      !Array.isArray(k) ||
+      k.length !== 2 ||
+      typeof k[0] !== "string" ||
+      typeof k[1] !== "string"
+    ) {
+      return null;
+    }
+    design.paint = { primary: k[0], accent: k[1] };
   }
   return design;
 }

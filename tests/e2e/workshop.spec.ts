@@ -1922,6 +1922,60 @@ test(
   },
 );
 
+test(
+  "paint colours the bot on the bench and rides into the arena with the team ring (G5)",
+  ciCase("E2E-WORKSHOP-0042", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const paintOf = (key: "paintPrimary" | "paintAccent") =>
+      canvas.evaluate((c: HTMLCanvasElement, k: string) => c.dataset[k], key);
+    await expect.poll(() => paintOf("paintPrimary")).toBe("none");
+
+    // Pick a body colour: the trim defaults, then pick a trim too.
+    await openSheet(page);
+    const paint = page.getByRole("region", { name: "Paint" });
+    await paint.getByRole("button", { name: "Body paint Cobalt" }).click();
+    await expect(
+      paint.getByRole("button", { name: "Body paint Cobalt" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => paintOf("paintPrimary")).toBe("cobalt");
+    await expect.poll(() => paintOf("paintAccent")).toBe("slate");
+    await paint.getByRole("button", { name: "Trim paint Gold" }).click();
+    await expect.poll(() => paintOf("paintAccent")).toBe("gold");
+
+    // Paint is undoable and clearable.
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => paintOf("paintAccent")).toBe("slate");
+    await paint.getByRole("button", { name: "Clear paint" }).click();
+    await expect.poll(() => paintOf("paintPrimary")).toBe("none");
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => paintOf("paintPrimary")).toBe("cobalt");
+
+    // The painted bot fights in its paint; the stock opponent keeps its
+    // team colour, and both carry a team ring.
+    await collapseSheet(page);
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    const arena = page.locator("canvas").first();
+    await expect
+      .poll(() =>
+        arena.evaluate((c: HTMLCanvasElement) => c.dataset.botPaint1 ?? ""),
+      )
+      .toBe("cobalt:slate");
+    await expect
+      .poll(() =>
+        arena.evaluate((c: HTMLCanvasElement) => c.dataset.botPaint0 ?? ""),
+      )
+      .toBe("none");
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

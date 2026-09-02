@@ -31,9 +31,10 @@ import {
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import { paintedColor } from "@/lib/bot-paint";
 import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
 import { type BalanceReport, computeBalance } from "@/sim/balance";
-import { type PartInstance, partMergeLevel } from "@/sim/design";
+import { type BotPaint, type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, isQuarterTurned, type Placement } from "@/sim/layout";
 import {
   PART_CATALOG,
@@ -98,6 +99,7 @@ function PlacedPart({
   placement,
   selected,
   shadows,
+  paint,
   onActivate,
 }: {
   instance: PartInstance;
@@ -105,6 +107,8 @@ function PlacedPart({
   placement: Placement;
   selected: boolean;
   shadows: boolean;
+  /** The bot's cosmetic paint (G5); undefined leaves the part in its look. */
+  paint: BotPaint | undefined;
   onActivate: () => void;
 }) {
   const scaleRef = useRef<Group>(null);
@@ -117,6 +121,9 @@ function PlacedPart({
   // its geometry carries the two-tone vertex attribute.
   const look = partLook(def);
   const vertexColors = partVertexColors(def);
+  // Painted (G5): body paint on cores and structure, trim on wheel hubs,
+  // steel weapons untouched; no paint keeps the part's own look.
+  const color = paintedColor(def, paint, look.color);
   useFrame((_, dt) => {
     if (level > prevLevel.current) pulseT.current = 1;
     prevLevel.current = level;
@@ -138,7 +145,7 @@ function PlacedPart({
         mat.emissive.set("#ffffff");
         mat.emissiveIntensity = 0.35;
       } else {
-        mat.emissive.set(look.color);
+        mat.emissive.set(color);
         mat.emissiveIntensity = look.emissiveBoost;
       }
     }
@@ -165,11 +172,11 @@ function PlacedPart({
           {partGeometry(def)}
           <meshStandardMaterial
             ref={matRef}
-            color={look.color}
+            color={color}
             vertexColors={vertexColors}
             metalness={look.metalness}
             roughness={look.roughness}
-            emissive={look.color}
+            emissive={color}
             emissiveIntensity={look.emissiveBoost}
           />
         </mesh>
@@ -686,6 +693,14 @@ function WorkshopScene() {
   const viewResetNonce = useWorkshopStore((s) => s.viewResetNonce);
   const controlsRef = useRef<OrbitControlsRef | null>(null);
   const layout = computeLayout(design);
+  // Publish the applied paint so a test can read it off the DOM (canvas
+  // pixels are not readable through the WebGL/WebGPU fallback).
+  const glForPaint = useThree((state) => state.gl);
+  useEffect(() => {
+    const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+    dataset.paintPrimary = design.paint?.primary ?? "none";
+    dataset.paintAccent = design.paint?.accent ?? "none";
+  }, [glForPaint, design.paint]);
   const balance = useMemo(
     () => (balanceVisible ? computeBalance(design) : null),
     [balanceVisible, design],
@@ -1058,6 +1073,7 @@ function WorkshopScene() {
             placement={placement}
             selected={selected}
             shadows={shadows}
+            paint={design.paint}
             onActivate={() => select(selected ? null : instance.iid)}
           />
         );

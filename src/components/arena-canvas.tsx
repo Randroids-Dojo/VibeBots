@@ -5,6 +5,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,6 +14,7 @@ import {
   type Group,
   type InstancedMesh,
   Matrix4,
+  type Mesh,
   type MeshStandardMaterial,
   Quaternion,
   Vector3,
@@ -34,6 +36,7 @@ import {
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import { paintedColor } from "@/lib/bot-paint";
 import {
   ARENA_WALL_HALF_EXTENT,
   ARENA_WALL_HEIGHT,
@@ -77,7 +80,8 @@ const MAX_FRAME_DELTA = 0.25;
 const RESTART_DELAY_SECONDS = 4;
 
 const BOT_COLORS = ["#ff9f43", "#54e0c7"] as const;
-const BOT_COLORS_DESTROYED = ["#6b4a26", "#2a5a52"] as const;
+/** Hull colour of a destroyed part: the part's own base, charred. */
+const DESTROYED_DIM = 0.4;
 /** Rammer at index 1: its spike (front connector, -z) faces the enemy.
  * Exhibitions rotate through the stock matchups so every visit shows a
  * different clash; the rotation is deterministic per page load. */
@@ -296,6 +300,53 @@ function ArenaScene({
   // The active matchup: exhibitions rotate it per restart, and the part
   // meshes must render the same designs the sim is stepping.
   const [activeDesigns, setActiveDesigns] = useState(designs);
+  // Per-part base hull colours and the core key per bot, at design cadence
+  // (G5). A painted design wears its paint (body on core and structure,
+  // trim on wheel hubs, steel weapons untouched); an unpainted design
+  // keeps the team colour on every part so stock fighters stay legible.
+  const teamColors = useMemo(
+    () => [new Color(BOT_COLORS[0]), new Color(BOT_COLORS[1])] as const,
+    [],
+  );
+  const baseColors = useMemo(() => {
+    const map = new Map<string, Color>();
+    activeDesigns.forEach((design, botIndex) => {
+      for (const part of design.parts) {
+        const def = PART_CATALOG[part.partId];
+        if (!def) continue;
+        const hex = design.paint
+          ? paintedColor(def, design.paint, partLook(def).color)
+          : BOT_COLORS[botIndex];
+        map.set(`${botIndex}:${part.iid}`, new Color(hex));
+      }
+    });
+    return map;
+  }, [activeDesigns]);
+  const baseColorsRef = useRef(baseColors);
+  const coreKeys = useMemo(
+    () =>
+      activeDesigns.map((design, botIndex) => {
+        const core = design.parts.find(
+          (part) => PART_CATALOG[part.partId]?.category === "core",
+        );
+        return `${botIndex}:${core?.iid ?? "core"}`;
+      }),
+    [activeDesigns],
+  );
+  const coreKeysRef = useRef(coreKeys);
+  const ringRefs = useRef<(Mesh | null)[]>([null, null]);
+  const glForPaint = useThree((state) => state.gl);
+  useEffect(() => {
+    baseColorsRef.current = baseColors;
+    coreKeysRef.current = coreKeys;
+    // Publish each bot's paint so a test can read it off the DOM.
+    const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+    activeDesigns.forEach((design, botIndex) => {
+      dataset[`botPaint${botIndex}`] = design.paint
+        ? `${design.paint.primary}:${design.paint.accent}`
+        : "none";
+    });
+  }, [baseColors, coreKeys, activeDesigns, glForPaint]);
   const desiredCameraPositionRef = useRef(new Vector3(8, 5, 10));
   const desiredCameraLookAtRef = useRef(new Vector3(0, 1, 0));
   const projectedBotRef = useRef<[Vector3, Vector3]>([
@@ -473,19 +524,29 @@ function ArenaScene({
         if (material) {
           const part = bot.parts.get(iid);
           const destroyed = part?.destroyed ?? false;
+          // The part's base hull colour (G5): its paint when the design is
+          // painted, else the team colour. Precomputed at design cadence
+          // and copied here, so the frame loop allocates nothing.
+          const base = baseColorsRef.current.get(key) ?? teamColors[index];
           if (destroyed) {
-            material.color.set(BOT_COLORS_DESTROYED[index]);
+            material.color.copy(base).multiplyScalar(DESTROYED_DIM);
             material.emissiveIntensity = 0;
             material.roughness = 0.9;
           } else {
             const ratio =
               part && part.maxHealth > 0 ? part.health / part.maxHealth : 1;
             // Battle scars: darkening char as a part wears down.
-            material.color
-              .set(BOT_COLORS[index])
-              .multiplyScalar(0.45 + 0.55 * ratio);
+            material.color.copy(base).multiplyScalar(0.45 + 0.55 * ratio);
           }
         }
+      }
+      // The team ring (G5) rides under the core so a spectator can tell the
+      // sides apart even when both hulls wear paint.
+      const coreGroup = groupRefs.current.get(coreKeysRef.current[index]);
+      const ring = ringRefs.current[index];
+      if (coreGroup && ring) {
+        ring.position.x = coreGroup.position.x;
+        ring.position.z = coreGroup.position.z;
       }
     }
 
@@ -683,15 +744,41 @@ function ArenaScene({
         decay={1.6}
       />
       <StudioEnvironment intensity={features.environmentIntensity} />
+      {/* Team rings (G5): one flat ring per bot under its core, in the
+          team colour, so the sides read even when both hulls wear paint. */}
+      {([0, 1] as const).map((botIndex) => (
+        <mesh
+          key={`team-ring-${botIndex}`}
+          ref={(node) => {
+            ringRefs.current[botIndex] = node;
+          }}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.02, 0]}
+        >
+          <ringGeometry args={[0.58, 0.7, 40]} />
+          <meshBasicMaterial
+            color={BOT_COLORS[botIndex]}
+            transparent
+            opacity={0.8}
+            toneMapped={false}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
       {([0, 1] as const).map((botIndex) =>
         activeDesigns[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
           const def = PART_CATALOG[part.partId];
-          // Team colour stays the material colour (the frame loop keeps
-          // setting it for damage char); the part's own identity comes
-          // from its surface response and its baked two-tone vertex
-          // attribute (dark tread, bright tip, deck line) over that colour.
+          // The hull colour is the part's paint when the design is painted,
+          // else the team colour (the frame loop keeps setting it for damage
+          // char); the part's own identity comes from its surface response
+          // and its baked two-tone vertex attribute (dark tread, bright tip,
+          // deck line) over that colour.
           const look = partLook(def);
+          const design = activeDesigns[botIndex];
+          const hull = design.paint
+            ? paintedColor(def, design.paint, look.color)
+            : BOT_COLORS[botIndex];
           return (
             <group
               key={key}
@@ -709,11 +796,11 @@ function ArenaScene({
                   ref={(node) => {
                     materialRefs.current.set(key, node);
                   }}
-                  color={BOT_COLORS[botIndex]}
+                  color={hull}
                   vertexColors={partVertexColors(def)}
                   metalness={look.metalness}
                   roughness={look.roughness}
-                  emissive={BOT_COLORS[botIndex]}
+                  emissive={hull}
                   emissiveIntensity={look.emissiveBoost}
                 />
               </mesh>

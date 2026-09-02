@@ -11,6 +11,7 @@ import { create } from "zustand";
 import {
   type BotBehavior,
   type BotDesign,
+  type BotPaint,
   type Connection,
   DEFAULT_GEAR_RATIO,
   isGearableConnection,
@@ -423,6 +424,8 @@ export interface WorkshopState {
   setBehavior: (patch: Partial<BotBehavior>) => void;
   /** Declare (or clear) the design's weight class (F-228). Undoable. */
   setWeightClass: (classId: string | undefined) => void;
+  /** Set (or clear) the design's cosmetic paint (G5). Undoable. */
+  setPaint: (paint: BotPaint | undefined) => void;
   /** Set the drive gear ratio on every drive axle (F-229). Undoable. */
   setGearRatio: (ratio: number) => void;
   loadDesign: (design: BotDesign) => void;
@@ -716,6 +719,23 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       return next;
     });
     set({ ...withDesign(pushHistory(history, { ...design, connections })) });
+  },
+
+  setPaint: (paint) => {
+    const { history, design } = get();
+    const same =
+      (paint === undefined && design.paint === undefined) ||
+      (paint !== undefined &&
+        design.paint !== undefined &&
+        paint.primary === design.paint.primary &&
+        paint.accent === design.paint.accent);
+    if (same) return;
+    // Clearing drops the key so a saved design round-trips to exactly what
+    // it was before paint existed.
+    const next: BotDesign = { ...design };
+    if (paint === undefined) delete next.paint;
+    else next.paint = { primary: paint.primary, accent: paint.accent };
+    set({ ...withDesign(pushHistory(history, next)) });
   },
 
   setWeightClass: (classId) => {

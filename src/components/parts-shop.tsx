@@ -20,6 +20,13 @@ type ShopState =
   | { state: "unavailable" }
   | { state: "ready"; data: ShopData; notice: string | null };
 
+/** Shop headings by family, in the order the carousel chips use. */
+const SHOP_FAMILIES: readonly { category: string; label: string }[] = [
+  { category: "structure", label: "Frame" },
+  { category: "mobility", label: "Drive" },
+  { category: "weapon", label: "Weapon" },
+];
+
 const panelStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.92)",
   border: "1px solid #26304a",
@@ -159,41 +166,56 @@ export function PartsShop() {
         )}
       </p>
 
-      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem", opacity: 0.8 }}>
-        Robot parts
-      </h3>
-      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-        {data.catalog.map((part) => (
-          <li
-            key={part.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 8,
-            }}
-          >
-            <span style={{ fontSize: "0.9rem" }}>
-              {part.name}
-              <span style={{ opacity: 0.5 }}> ({part.category})</span>
-              {counts.get(part.id) ? (
-                <span style={{ color: "#54e0c7" }}>
-                  {" "}
-                  x{counts.get(part.id)}
-                </span>
-              ) : null}
-            </span>
-            <button
-              type="button"
-              onClick={() => void buy(part.id)}
-              disabled={data.emeralds < part.priceEmeralds}
-              style={buyButtonStyle(data.emeralds >= part.priceEmeralds)}
+      {/* Grouped by family (G4): with a ladder of wheels, plates, and
+          blades, a flat list stops reading as a catalog. The order inside a
+          family is the catalog's, which climbs each ladder. */}
+      {SHOP_FAMILIES.map((family) => {
+        const rows = data.catalog.filter(
+          (part) => part.category === family.category,
+        );
+        if (rows.length === 0) return null;
+        return (
+          <section key={family.category} aria-label={`${family.label} parts`}>
+            <h3
+              style={{ margin: "8px 0 6px", fontSize: "0.9rem", opacity: 0.8 }}
             >
-              {part.priceEmeralds} vibes
-            </button>
-          </li>
-        ))}
-      </ul>
+              {family.label}
+            </h3>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+              {rows.map((part) => (
+                <li
+                  key={part.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span style={{ fontSize: "0.9rem" }}>
+                    {part.name}
+                    {counts.get(part.id) ? (
+                      <span style={{ color: "#54e0c7" }}>
+                        {" "}
+                        x{counts.get(part.id)}
+                      </span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void buy(part.id)}
+                    disabled={data.emeralds < part.priceEmeralds}
+                    style={buyButtonStyle(data.emeralds >= part.priceEmeralds)}
+                    aria-label={`Buy ${part.name} for ${part.priceEmeralds} vibes`}
+                  >
+                    {part.priceEmeralds} vibes
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </aside>
   );
 }

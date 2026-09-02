@@ -1152,7 +1152,13 @@ test(
     await expect(shop).toBeVisible();
     await expect(shop.locator("p").first()).toContainText("20 vibes");
     const driveWheel = shop.locator("li").filter({ hasText: DRIVE_WHEEL.name });
-    await expect(driveWheel).toContainText(DRIVE_WHEEL.category);
+    // Rows sit under their family heading now (G4), not a category suffix.
+    await expect(
+      shop
+        .getByRole("region", { name: "Drive parts" })
+        .locator("li")
+        .filter({ hasText: DRIVE_WHEEL.name }),
+    ).toBeVisible();
     const buyDriveWheel = driveWheel.getByRole("button", {
       name: `${DRIVE_WHEEL.priceEmeralds} vibes`,
     });
@@ -1810,6 +1816,109 @@ test(
     await page.getByRole("button", { name: "Replay the first build" }).click();
     await expect(coach).toHaveAttribute("data-step", "place");
     await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+  },
+);
+
+test(
+  "the carousel chips step one family at a time and the shop lists by family (G4)",
+  ciCase("E2E-WORKSHOP-0041", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 200,
+          inventory: [
+            { part_id: DRIVE_WHEEL.id, count: 2 },
+            { part_id: "frame-plate", count: 1 },
+            { part_id: "ram-spike", count: 1 },
+          ],
+          catalog: [
+            {
+              id: "frame-plate",
+              name: "Frame Plate",
+              category: "structure",
+              priceEmeralds: 3,
+            },
+            {
+              id: "light-plate",
+              name: "Light Plate",
+              category: "structure",
+              priceEmeralds: 2,
+            },
+            {
+              id: "drive-wheel",
+              name: "Drive Wheel",
+              category: "mobility",
+              priceEmeralds: 6,
+            },
+            {
+              id: "grip-wheel",
+              name: "Grip Wheel",
+              category: "mobility",
+              priceEmeralds: 12,
+            },
+            {
+              id: "super-wheel",
+              name: "Super Wheel",
+              category: "mobility",
+              priceEmeralds: 20,
+            },
+            {
+              id: "lance",
+              name: "Lance",
+              category: "weapon",
+              priceEmeralds: 12,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const carousel = page.getByLabel("Part carousel");
+    const nameEl = carousel.getByTestId("carousel-part-name");
+    const chips = page.getByTestId("carousel-chips");
+    await expect(chips.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // Owned-only pool: three parts across three families. The Weapon chip
+    // pins the carousel to the one owned weapon; Next cannot leave it.
+    await chips.getByRole("button", { name: "Weapon" }).click();
+    await expect(nameEl).toHaveText("Ram Spike");
+    await carousel.getByRole("button", { name: "Next part" }).click();
+    await expect(nameEl).toHaveText("Ram Spike");
+    await chips.getByRole("button", { name: "Drive" }).click();
+    await expect(nameEl).toHaveText("Drive Wheel");
+    await chips.getByRole("button", { name: "Frame" }).click();
+    await expect(nameEl).toHaveText("Frame Plate");
+
+    // With unowned parts shown, the Drive family climbs the wheel ladder.
+    await page.getByRole("tab", { name: "Build" }).click();
+    await page.getByRole("button", { name: /Carousel:/ }).click();
+    await page.getByRole("tab", { name: "Build" }).click();
+    await chips.getByRole("button", { name: "Drive" }).click();
+    await selectCarouselPart(page, "Super Wheel");
+    await expect(nameEl).toHaveText("Super Wheel");
+    await carousel.getByRole("button", { name: "Next part" }).click();
+    await expect(nameEl).not.toHaveText("Super Wheel");
+    await expect
+      .poll(async () => (await nameEl.textContent())?.trim())
+      .toMatch(/Wheel|Drum/);
+
+    // The shop lists by family with the ladder in order.
+    await page.getByRole("tab", { name: "Shop" }).click();
+    const drive = page.getByRole("region", { name: "Drive parts" });
+    await expect(drive.getByRole("heading", { name: "Drive" })).toBeVisible();
+    await expect(drive.locator("li")).toHaveCount(3);
+    await expect(drive.locator("li").nth(0)).toContainText("Drive Wheel");
+    await expect(drive.locator("li").nth(2)).toContainText("Super Wheel");
+    await expect(
+      page.getByRole("region", { name: "Weapon parts" }).getByRole("button", {
+        name: "Buy Lance for 12 vibes",
+      }),
+    ).toBeVisible();
   },
 );
 

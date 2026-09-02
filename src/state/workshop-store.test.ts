@@ -5,6 +5,7 @@ import { DRIVE_WHEEL, PART_CATALOG, SAW_BLADE, SPIN_MOUNT } from "@/sim/parts";
 import {
   CAROUSEL_PART_IDS,
   CORE_PART_IDS,
+  carouselIdsFor,
   currentCoreId,
   findFreeConnectors,
   mirrorSlotFor,
@@ -549,6 +550,39 @@ describe("L mirror placement", () => {
     const left = axleSlots.find((s) => s.parentConnector === "axle-left");
     if (left) store().placeAtSlot(left);
     expect(store().design.parts).toHaveLength(2);
+  });
+});
+
+describe("G4 carousel categories", () => {
+  beforeEach(() => {
+    store().reset();
+    store().setBrowseCategory("all");
+  });
+
+  it("narrows the non-core catalog to one family and back", () => {
+    expect(carouselIdsFor("all")).toEqual(CAROUSEL_PART_IDS);
+    for (const category of ["structure", "mobility", "weapon"] as const) {
+      const ids = carouselIdsFor(category);
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) expect(PART_CATALOG[id].category).toBe(category);
+    }
+    // The three families partition the whole non-core catalog.
+    const union = new Set([
+      ...carouselIdsFor("structure"),
+      ...carouselIdsFor("mobility"),
+      ...carouselIdsFor("weapon"),
+    ]);
+    expect(union.size).toBe(CAROUSEL_PART_IDS.length);
+    expect(carouselIdsFor("all")).not.toContain("core-cube");
+  });
+
+  it("remembers the chosen chip and cycles inside it", () => {
+    store().setBrowseCategory("mobility");
+    expect(store().browseCategory).toBe("mobility");
+    store().setBrowsableIds(carouselIdsFor("mobility"));
+    expect(PART_CATALOG[store().browsePartId].category).toBe("mobility");
+    for (let i = 0; i < 6; i++) store().browseBy(1);
+    expect(PART_CATALOG[store().browsePartId].category).toBe("mobility");
   });
 });
 

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.299-workshop-parts-with-faces",
+      releaseNoticeId: "2026-09-02-0.1.300-workshop-tier-ladder",
       releaseSummary:
-        "Every part in the workshop looks like itself: Parts used to be coloured by category, so every plate was the same grey and every weapon the same red. Each part now has its own paint and a second tone baked into its shape, and the picker tells you in one line what a part is for.",
+        "Eight new parts, and a ladder to climb inside each family: The catalog was fourteen parts browsed one at a time. It is now twenty two, with a second and third rung on the wheels, a lighter plate, three new frame shapes, a lance, and a cleaver, and the picker and the shop are sorted by family so the ladder reads at a glance.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.299-workshop-parts-with-faces",
+      releaseNoticeId: "2026-09-02-0.1.300-workshop-tier-ladder",
       attempted: 2,
       sent: 1,
       expired: 1,

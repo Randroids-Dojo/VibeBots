@@ -67,7 +67,8 @@
         "src/state/workshop-store.ts",
         "src/sim/blueprints.ts",
         "src/components/part-look.ts",
-        "src/components/part-geometry.ts"
+        "src/components/part-geometry.ts",
+        "src/components/parts-shop.tsx"
       ],
       "testRefs": [
         "src/sim/layout.test.ts",

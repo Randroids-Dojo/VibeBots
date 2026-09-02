@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.299-workshop-parts-with-faces";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.300-workshop-tier-ladder";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.300",
+      date: "2026-09-02",
+      title: "Eight new parts, and a ladder to climb inside each family",
+      intro:
+        "The catalog was fourteen parts browsed one at a time. It is now twenty two, with a second and third rung on the wheels, a lighter plate, three new frame shapes, a lance, and a cleaver, and the picker and the shop are sorted by family so the ladder reads at a glance.",
+      changes: [
+        {
+          build,
+          text: "Grip Wheel and Super Wheel sit above the Drive Wheel: wider and heavier, then bigger and faster with a higher ride. Light Plate sits below the Frame Plate. Corner Block, Wedge Block, and Skid give a build new shapes to grow into. Lance reaches past the spike; Cleaver stands a heavy edge on a top mount.",
+        },
+        {
+          build,
+          text: "Family chips under the top bar (All, Frame, Drive, Weapon) narrow the carousel to one family, and the Shop lists its parts under the same headings with each ladder in order.",
+        },
+        {
+          build,
+          text: "A fourth blueprint, Wedge Lancer, shows the tier-two rungs on the low chassis.",
+        },
+      ],
+    },
     {
       version: "0.1.299",
       date: "2026-09-02",

@@ -790,6 +790,40 @@ button:focus-visible {
   background: #a82c2f;
 }
 
+/* Carousel category chips (G4): a short row of family pills under the
+ * header, where the G1 Recenter pill used to sit, so a bigger catalog stays
+ * browsable one part at a time. */
+.carousel-overlay-chips {
+  position: absolute;
+  top: 62px;
+  left: 16px;
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.carousel-chip {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-border);
+  background: rgb(var(--hud-surface-rgb) / 0.86);
+  color: var(--hud-text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.carousel-chip.carousel-chip-active {
+  background: #2f7d6b;
+  border-color: #54e0c7;
+  color: var(--hud-text);
+}
+
+.carousel-chip:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+}
+
 /* Build carousel arrows (N1): thumb-sized prev/next around the hero part,
  * so part selection is one part at a time instead of a scrolling list. */
 .carousel-arrow {
@@ -1029,6 +1063,13 @@ button:focus-visible {
     top: 60px;
     left: 12px;
     right: 12px;
+  }
+
+  /* The header is a full-width strip here, so the family chips drop just
+   * below it. */
+  .carousel-overlay-chips {
+    top: 116px;
+    left: 12px;
   }
 
   /* The selected-part inspector floats just above the collapsed sheet peek

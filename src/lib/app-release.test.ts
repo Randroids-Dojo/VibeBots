@@ -24,13 +24,28 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest parts-with-faces note complete", () => {
+  it("keeps the latest tier-ladder note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe(
-      "2026-09-02-0.1.299-workshop-parts-with-faces",
-    );
+    expect(release.noticeId).toBe("2026-09-02-0.1.300-workshop-tier-ladder");
+    expect(latestNote).toMatchObject({
+      version: "0.1.300",
+      title: "Eight new parts, and a ladder to climb inside each family",
+      intro:
+        "The catalog was fourteen parts browsed one at a time. It is now twenty two, with a second and third rung on the wheels, a lighter plate, three new frame shapes, a lance, and a cleaver, and the picker and the shop are sorted by family so the ladder reads at a glance.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Grip Wheel and Super Wheel sit above the Drive Wheel: wider and heavier, then bigger and faster with a higher ride. Light Plate sits below the Frame Plate. Corner Block, Wedge Block, and Skid give a build new shapes to grow into. Lance reaches past the spike; Cleaver stands a heavy edge on a top mount.",
+      "Family chips under the top bar (All, Frame, Drive, Weapon) narrow the carousel to one family, and the Shop lists its parts under the same headings with each ladder in order.",
+      "A fourth blueprint, Wedge Lancer, shows the tier-two rungs on the low chassis.",
+    ]);
+  });
+
+  it("keeps the archived parts-with-faces note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.299");
+
     expect(latestNote).toMatchObject({
       version: "0.1.299",
       title: "Every part in the workshop looks like itself",

@@ -318,6 +318,27 @@ function nextIid(design: BotDesign, partId: string): string {
   return `${partId}-${n}`;
 }
 
+export type BrowseCategory = "all" | "structure" | "mobility" | "weapon";
+
+/** The carousel's category chips, in display order, with their labels. */
+export const BROWSE_CATEGORIES: readonly {
+  id: BrowseCategory;
+  label: string;
+}[] = [
+  { id: "all", label: "All" },
+  { id: "structure", label: "Frame" },
+  { id: "mobility", label: "Drive" },
+  { id: "weapon", label: "Weapon" },
+];
+
+/** The non-core catalog narrowed to one family (or all of it). */
+export function carouselIdsFor(category: BrowseCategory): string[] {
+  if (category === "all") return CAROUSEL_PART_IDS;
+  return CAROUSEL_PART_IDS.filter(
+    (id) => PART_CATALOG[id]?.category === category,
+  );
+}
+
 export interface WorkshopState {
   history: EditorHistory<BotDesign>;
   design: BotDesign;
@@ -373,6 +394,13 @@ export interface WorkshopState {
   browseBy: (dir: number) => void;
   /** Show a named part in the carousel (G6 hands the player the wheel). */
   browseTo: (partId: string) => void;
+  /**
+   * Which family the carousel shows (G4): every non-core part, or one of
+   * structure, mobility, weapon. The panel folds this into the pool it
+   * hands setBrowsableIds, so browseBy cycles only that family.
+   */
+  browseCategory: BrowseCategory;
+  setBrowseCategory: (category: BrowseCategory) => void;
   /** Set the carousel's part pool; snaps the shown part back in when needed. */
   setBrowsableIds: (ids: string[]) => void;
   rotateBrowse: () => void;
@@ -414,6 +442,9 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   inspectNonce: 0,
   browsePartId: CAROUSEL_PART_IDS[0],
   browsableIds: CAROUSEL_PART_IDS,
+  browseCategory: "all",
+
+  setBrowseCategory: (category) => set({ browseCategory: category }),
   browseOrientation: 0,
   buildActive: true,
   browseDimmed: false,

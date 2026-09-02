@@ -262,6 +262,72 @@ export const PART_LOOKS: Record<string, PartLook> = {
     roughness: 0.22,
     emissiveBoost: 0.08,
   },
+  // Tier ladder wave one (G4): each rung reads as a step up from its
+  // family, not as a different family.
+  "grip-wheel": {
+    color: "#8d97a4",
+    region: "tread",
+    tone: 0.14,
+    metalness: 0.15,
+    roughness: 0.88,
+    emissiveBoost: 0,
+  },
+  "super-wheel": {
+    color: "#9aa5b3",
+    region: "tread",
+    tone: 0.13,
+    metalness: 0.2,
+    roughness: 0.82,
+    emissiveBoost: 0,
+  },
+  "light-plate": {
+    color: "#c9d1dc",
+    region: "deck",
+    tone: 1.08,
+    metalness: 0.6,
+    roughness: 0.48,
+    emissiveBoost: 0,
+  },
+  "corner-block": {
+    color: "#93a0b4",
+    region: "deck",
+    tone: 1.12,
+    metalness: 0.7,
+    roughness: 0.4,
+    emissiveBoost: 0,
+  },
+  "wedge-block": {
+    color: "#6f7d5a",
+    region: "front",
+    tone: 1.18,
+    metalness: 0.55,
+    roughness: 0.5,
+    emissiveBoost: 0,
+  },
+  skid: {
+    color: "#b3bcc8",
+    region: "deck",
+    tone: 0.85,
+    metalness: 0.75,
+    roughness: 0.35,
+    emissiveBoost: 0,
+  },
+  lance: {
+    color: "#e3e7ec",
+    region: "tip",
+    tone: 1.3,
+    metalness: 0.92,
+    roughness: 0.18,
+    emissiveBoost: 0.06,
+  },
+  cleaver: {
+    color: "#8f98a6",
+    region: "deck",
+    tone: 1.3,
+    metalness: 0.9,
+    roughness: 0.24,
+    emissiveBoost: 0.06,
+  },
 };
 
 /** The look for a part, falling back to its category so a part that is

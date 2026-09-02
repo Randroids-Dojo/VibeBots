@@ -58,8 +58,10 @@ import { PART_CATALOG, partMass } from "@/sim/parts";
 import type { MatchTeardown } from "@/sim/telemetry";
 import { enqueueStampAlertsFromResponse } from "@/state/stamp-alert-store";
 import {
+  BROWSE_CATEGORIES,
   CAROUSEL_PART_IDS,
   CORE_PART_IDS,
+  carouselIdsFor,
   currentCoreId,
   planMergeSelectedPart,
   planRotateSelected,
@@ -534,11 +536,16 @@ export function WorkshopPanel() {
   // player owns; with it on, or when ownership is unknown (sandbox/loading), it
   // is every non-core part. Push it into the store so browseBy cycles the same
   // list and the shown part snaps back in when the filter removes it.
+  const browseCategory = useWorkshopStore((s) => s.browseCategory);
+  const setBrowseCategory = useWorkshopStore((s) => s.setBrowseCategory);
   const browsableIds = useMemo(() => {
-    if (includeUnowned || inventory.state !== "ready") return CAROUSEL_PART_IDS;
+    // The category chip narrows the family first (G4), then the owned
+    // filter narrows to what the player has, so the two compose.
+    const family = carouselIdsFor(browseCategory);
+    if (includeUnowned || inventory.state !== "ready") return family;
     const counts = inventory.counts;
-    return CAROUSEL_PART_IDS.filter((id) => (counts.get(id) ?? 0) > 0);
-  }, [includeUnowned, inventory]);
+    return family.filter((id) => (counts.get(id) ?? 0) > 0);
+  }, [browseCategory, includeUnowned, inventory]);
   useEffect(() => {
     setBrowsableIds(browsableIds);
   }, [browsableIds, setBrowsableIds]);
@@ -856,8 +863,36 @@ export function WorkshopPanel() {
         }${browseInspectorDocked ? " carousel-overlay-raised" : ""}`}
         aria-label="Part carousel"
       >
+        {/* Category chips (G4): with a bigger catalog, one part at a time
+            needs a family to step through. Placed under the header, in the
+            spot the G1 pill used, where nothing else lives. */}
+        <div
+          className="carousel-overlay-chips"
+          role="toolbar"
+          aria-label="Part family"
+          data-testid="carousel-chips"
+        >
+          {BROWSE_CATEGORIES.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className={
+                browseCategory === entry.id
+                  ? "carousel-chip carousel-chip-active"
+                  : "carousel-chip"
+              }
+              aria-pressed={browseCategory === entry.id}
+              onClick={() => setBrowseCategory(entry.id)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
         <div className="carousel-overlay-name" data-testid="carousel-part-name">
-          {browseDef?.name ?? "No parts owned"}
+          {browseDef?.name ??
+            (browseCategory === "all"
+              ? "No parts owned"
+              : `No ${BROWSE_CATEGORIES.find((c) => c.id === browseCategory)?.label.toLowerCase()} parts owned`)}
         </div>
         <div className="carousel-overlay-arrows">
           <button

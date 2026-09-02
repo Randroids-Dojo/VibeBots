@@ -97,6 +97,76 @@ describe("M weapon and armor parts", () => {
   });
 });
 
+describe("tier ladder wave one (G4)", () => {
+  const TIER_IDS = [
+    "grip-wheel",
+    "super-wheel",
+    "light-plate",
+    "corner-block",
+    "wedge-block",
+    "skid",
+    "lance",
+    "cleaver",
+  ];
+
+  it("registers every wave-one part, all sold", () => {
+    for (const id of TIER_IDS) {
+      expect(PART_CATALOG[id], id).toBeDefined();
+      expect(PART_CATALOG[id].priceEmeralds, id).toBeGreaterThan(0);
+    }
+    expect(Object.keys(PART_CATALOG)).toHaveLength(25);
+  });
+
+  it("climbs the wheel ladder in mass, power, and price", () => {
+    const [standard, grip, sup] = [
+      "drive-wheel",
+      "grip-wheel",
+      "super-wheel",
+    ].map((id) => PART_CATALOG[id]);
+    expect(partMass(grip)).toBeGreaterThan(partMass(standard));
+    expect(partMass(sup)).toBeGreaterThan(partMass(grip));
+    expect(grip.powerDraw).toBeGreaterThan(standard.powerDraw);
+    expect(sup.powerDraw).toBeGreaterThan(grip.powerDraw);
+    expect(grip.priceEmeralds).toBeGreaterThan(standard.priceEmeralds);
+    expect(sup.priceEmeralds).toBeGreaterThan(grip.priceEmeralds);
+    // A tier-two part costs about two tier-one copies (question 2 default).
+    expect(grip.priceEmeralds).toBe(2 * standard.priceEmeralds);
+  });
+
+  it("keeps a wide wheel outboard of every core's flank", () => {
+    for (const wheelId of ["grip-wheel", "super-wheel"]) {
+      const wheel = PART_CATALOG[wheelId];
+      if (wheel.shape.type !== "cylinder") throw new Error("expected cylinder");
+      for (const coreId of ["core-cube", "wedge-core", "tower-core"]) {
+        const core = PART_CATALOG[coreId];
+        const stub = core.connectors.find((c) => c.id === "axle-right");
+        if (!stub || core.shape.type !== "cuboid")
+          throw new Error("core shape");
+        expect(
+          stub.position.x - wheel.shape.halfHeight,
+          `${wheelId} on ${coreId}`,
+        ).toBeGreaterThan(core.shape.hx);
+      }
+    }
+  });
+
+  it("puts the light plate below the frame plate and the lance past the spike", () => {
+    expect(partMass(PART_CATALOG["light-plate"])).toBeLessThan(
+      partMass(PART_CATALOG["frame-plate"]),
+    );
+    expect(PART_CATALOG["light-plate"].durability).toBeLessThan(
+      PART_CATALOG["frame-plate"].durability,
+    );
+    const spike = PART_CATALOG["ram-spike"];
+    const lance = PART_CATALOG.lance;
+    if (spike.shape.type !== "cuboid" || lance.shape.type !== "cuboid") {
+      throw new Error("expected cuboids");
+    }
+    expect(lance.shape.hz).toBeGreaterThan(spike.shape.hz);
+    expect(lance.durability).toBeLessThan(spike.durability);
+  });
+});
+
 describe("catalog blurbs", () => {
   it("gives every part a short, dash-free line about what it is for", () => {
     for (const part of Object.values(PART_CATALOG)) {

@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.304-workshop-debrief");
+    expect(release.noticeId).toBe("2026-09-02-0.1.305-workshop-phone-size");
     expect(latestNote).toMatchObject({
-      version: "0.1.304",
-      title: "After a test fight, the bench tells you what to change",
+      version: "0.1.305",
+      title: "The fight and the sparks read at phone size",
       intro:
-        "A test fight ended with a banner and a teardown sheet full of numbers, and nothing that said what to do about them. The fight now ends with a debrief: how it ended, the one or two things that decided it, and a button that takes you straight to the fix.",
+        "On a phone the arena opened so far out that the bots you painted were specks, and the sparks a drop throws were too small to see. The camera now frames a portrait fight over your bot's shoulder, and a drop's sparks are big enough to catch.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The debrief headline says how the fight ended (a knockout or a decision, and when), then names what decided it: a weapon that never connected, the part that went first and what took it, the part that soaked most of the damage, or the score that lost a decision.",
-      "Every lesson has a fix-it button: it drops you back on the bench with the right part in hand, the weak part selected with Merge in reach, or the Tune tab open.",
-      "The teardown sheet and the server verification are unchanged; the debrief reads the same inspection the sheet shows.",
+      "On a portrait screen the arena camera sits behind your bot, higher and closer, looking down the line at the opponent, so both bots fill the tall screen instead of shrinking to the edges. Landscape keeps the broadside shot.",
+      "A drop's spark burst is bigger and denser, so it reads at a glance on a phone.",
+      "No change to how fights play out; only where the camera stands and how the sparks look.",
     ]);
   });
 

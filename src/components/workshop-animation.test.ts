@@ -86,6 +86,11 @@ describe("workshop bench animation curves", () => {
     expect(sparkDrop(1)).toBeGreaterThan(sparkDrop(0.5));
     expect(sparkScale(0)).toBeGreaterThan(sparkScale(0.5));
     expect(sparkScale(1)).toBe(0);
+    // F-244: big enough to read in a portrait capture.
+    expect(sparkScale(0)).toBeGreaterThanOrEqual(0.025);
+    // And holds most of that size past the midpoint.
+    expect(sparkScale(0.5)).toBeGreaterThan(sparkScale(0) * 0.7);
+    expect(SPARK_COUNT).toBeGreaterThanOrEqual(18);
     expect(SPARK_SECONDS).toBeLessThan(1);
   });
 

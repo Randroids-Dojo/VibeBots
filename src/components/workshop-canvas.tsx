@@ -630,6 +630,10 @@ interface SparkBurst {
  * allocates nothing.
  */
 const SPARK_DIRECTIONS = sparkDirections(SPARK_COUNT);
+// Sparks are hot metal, not the part's paint (F-244): a wheel's own colour
+// is black rubber, which vanished against the bench. Placement sparks are
+// warm white; a merge keeps its gold.
+const SPARK_PLACE_COLOR = "#ffe3a3";
 
 function DropSparks({
   burst,
@@ -901,14 +905,31 @@ function WorkshopScene() {
     z: 0,
     color: "#ffffff",
   });
-  const sparkAt = useCallback((at: Vec3, color: string) => {
-    const b = burst.current;
-    b.t = 0;
-    b.x = at.x;
-    b.y = at.y;
-    b.z = at.z;
-    b.color = color;
-  }, []);
+  // The burst starts from the mount, slid toward the camera along its own
+  // view ray (F-244): same spot on screen, but drawn in front of whatever
+  // the mount sits behind (a far axle hides behind the core from the bench
+  // camera), so the sparks are seen and not just published.
+  // Far enough to clear the core (a unit across) from any bench angle.
+  const SPARK_TOWARD_CAMERA = 1.6;
+  const sparkCamera = useThree((state) => state.camera);
+  const sparkAt = useCallback(
+    (at: Vec3, color: string) => {
+      const b = burst.current;
+      let dx = sparkCamera.position.x - at.x;
+      let dy = sparkCamera.position.y - at.y;
+      let dz = sparkCamera.position.z - at.z;
+      const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+      dx = (dx / len) * SPARK_TOWARD_CAMERA;
+      dy = (dy / len) * SPARK_TOWARD_CAMERA;
+      dz = (dz / len) * SPARK_TOWARD_CAMERA;
+      b.t = 0;
+      b.x = at.x + dx;
+      b.y = at.y + dy;
+      b.z = at.z + dz;
+      b.color = color;
+    },
+    [sparkCamera],
+  );
 
   // Publish the applied paint so a test can read it off the DOM (canvas
   // pixels are not readable through the WebGL/WebGPU fallback).
@@ -1105,7 +1126,7 @@ function WorkshopScene() {
             placeAtSlot(target.slot);
             buzz(HAPTIC_PLACE);
             playWorkshopSfx("place");
-            sparkAt(target.placement.position, partLook(browseDef).color);
+            sparkAt(target.placement.position, SPARK_PLACE_COLOR);
           } else {
             mergePart(target.iid);
             buzz(HAPTIC_MERGE);
@@ -1142,7 +1163,6 @@ function WorkshopScene() {
     setMergePreviewLevel,
     toggleBrowseStats,
     sparkAt,
-    browseDef,
   ]);
 
   const projScratch = useRef(new Vector3());

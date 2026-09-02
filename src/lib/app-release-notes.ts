@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.304-workshop-debrief";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.305-workshop-phone-size";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.305",
+      date: "2026-09-02",
+      title: "The fight and the sparks read at phone size",
+      intro:
+        "On a phone the arena opened so far out that the bots you painted were specks, and the sparks a drop throws were too small to see. The camera now frames a portrait fight over your bot's shoulder, and a drop's sparks are big enough to catch.",
+      changes: [
+        {
+          build,
+          text: "On a portrait screen the arena camera sits behind your bot, higher and closer, looking down the line at the opponent, so both bots fill the tall screen instead of shrinking to the edges. Landscape keeps the broadside shot.",
+        },
+        {
+          build,
+          text: "A drop's spark burst is bigger and denser, so it reads at a glance on a phone.",
+        },
+        {
+          build,
+          text: "No change to how fights play out; only where the camera stands and how the sparks look.",
+        },
+      ],
+    },
     {
       version: "0.1.304",
       date: "2026-09-02",

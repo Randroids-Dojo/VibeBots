@@ -2192,6 +2192,86 @@ test(
   },
 );
 
+test(
+  "the fight reads at phone size: over the shoulder on portrait, broadside on landscape (F-245)",
+  ciCase("E2E-WORKSHOP-0046", "@functional"),
+  async ({ page }) => {
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    // The arena publishes its camera diagnostics on its own stage element,
+    // the one that carries the sim tick.
+    const stage = page.locator("[data-sim-tick]");
+    const read = (key: string) =>
+      stage.evaluate((el: HTMLElement, k: string) => el.dataset[k] ?? "", key);
+
+    // Portrait: the rig looks along the line from behind the player's bot,
+    // so both bots stay in frame and the player's bot spans at least a
+    // tenth of the viewport width through the countdown.
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    // The rig frames once both bots have rendered bounds, which can be
+    // after the countdown.
+    await expect
+      .poll(() => read("cameraMode"), { timeout: 20_000 })
+      .toBe("cinematic-follow");
+    await expect
+      .poll(() => read("botsInFrame"), { timeout: 20_000 })
+      .toBe("true");
+    await expect
+      .poll(async () => Number(await read("bot1ScreenSize")), {
+        timeout: 15_000,
+      })
+      .toBeGreaterThanOrEqual(0.1);
+    // Along the line means the bots separate up the screen, not across it.
+    await expect
+      .poll(
+        async () => {
+          const dx =
+            Number(await read("bot1ScreenX")) -
+            Number(await read("bot0ScreenX"));
+          const dy =
+            Number(await read("bot1ScreenY")) -
+            Number(await read("bot0ScreenY"));
+          return Math.abs(dy) - Math.abs(dx);
+        },
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(0);
+
+    // Landscape keeps the broadside shot: the bots separate across.
+    await page.getByRole("button", { name: "Back to build" }).click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    await expect
+      .poll(
+        async () => {
+          const dx =
+            Number(await read("bot1ScreenX")) -
+            Number(await read("bot0ScreenX"));
+          const dy =
+            Number(await read("bot1ScreenY")) -
+            Number(await read("bot0ScreenY"));
+          return Math.abs(dx) - Math.abs(dy);
+        },
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(0);
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

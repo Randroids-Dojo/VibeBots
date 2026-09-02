@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.304-workshop-debrief",
+      releaseNoticeId: "2026-09-02-0.1.305-workshop-phone-size",
       releaseSummary:
-        "After a test fight, the bench tells you what to change: A test fight ended with a banner and a teardown sheet full of numbers, and nothing that said what to do about them. The fight now ends with a debrief: how it ended, the one or two things that decided it, and a button that takes you straight to the fix.",
+        "The fight and the sparks read at phone size: On a phone the arena opened so far out that the bots you painted were specks, and the sparks a drop throws were too small to see. The camera now frames a portrait fight over your bot's shoulder, and a drop's sparks are big enough to catch.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.304-workshop-debrief",
+      releaseNoticeId: "2026-09-02-0.1.305-workshop-phone-size",
       attempted: 2,
       sent: 1,
       expired: 1,

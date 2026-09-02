@@ -194,8 +194,13 @@ await shot("garage-01-first-visit");
 await carouselTo("Drive Wheel");
 await pg.waitForTimeout(400);
 await dragHeroOntoCore();
+// The dataset read is quick; the capture right after it is the F-244
+// evidence, inside the burst's first tenth of a second on this machine.
 summary.sparkingRightAfterDrop = await canvasData("sparking");
 await shot("garage-02-drop-sparks");
+// A second frame a beat later: a screenshot of a live canvas takes a
+// tenth of a second or more, so two of them bracket the burst.
+await shot("garage-02b-drop-sparks-later");
 await pg.waitForTimeout(700);
 summary.titleAfterDrop = (
   await pg.locator(".workshop-header-title").textContent()

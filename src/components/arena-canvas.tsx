@@ -363,6 +363,7 @@ function ArenaScene({
     new Vector3(),
     new Vector3(),
   ]);
+  const projectedEdgeRef = useRef(new Vector3());
 
   const syncViews = useCallback((match: MatchState, hard: boolean) => {
     for (const [index, bot] of match.bots.entries()) {
@@ -570,6 +571,9 @@ function ArenaScene({
       { x: 0, z: 0 },
     ];
     let framedBots = 0;
+    // The player's bot's footprint, projected below so a test can read how
+    // big the fight is on screen (F-245).
+    let playerSpan = 0;
     for (const [index, bot] of match.bots.entries()) {
       const botIndex = index as 0 | 1;
       const botBounds = emptyArenaCameraBounds();
@@ -585,6 +589,12 @@ function ArenaScene({
       }
       if (!arenaCameraBoundsReady(botBounds)) continue;
       includeArenaCameraBounds(allBounds, botBounds);
+      if (botIndex === 1) {
+        playerSpan = Math.max(
+          botBounds.maxX - botBounds.minX,
+          botBounds.maxZ - botBounds.minZ,
+        );
+      }
       const center = arenaCameraBoundsCenter(botBounds);
       botCenters[botIndex] = {
         x: center.x,
@@ -594,7 +604,11 @@ function ArenaScene({
     }
 
     if (framedBots === 2 && arenaCameraBoundsReady(allBounds)) {
-      const frame = arenaCameraFrameForBounds(allBounds, botCenters);
+      const frame = arenaCameraFrameForBounds(
+        allBounds,
+        botCenters,
+        state.size.width / Math.max(1, state.size.height),
+      );
       desiredCameraLookAtRef.current.set(
         frame.targetX,
         frame.targetY,
@@ -651,6 +665,29 @@ function ArenaScene({
         );
         setDatasetNumber(cache, stage.dataset, "bot0ScreenX", bot0.x, 3);
         setDatasetNumber(cache, stage.dataset, "bot1ScreenX", bot1.x, 3);
+        setDatasetNumber(cache, stage.dataset, "bot0ScreenY", bot0.y, 3);
+        setDatasetNumber(cache, stage.dataset, "bot1ScreenY", bot1.y, 3);
+        // The player's bot's footprint as a fraction of the viewport width:
+        // its half-span pushed along world x and along world z from its
+        // centre, whichever projects wider.
+        const edge = projectedEdgeRef.current;
+        edge.set(
+          botCenters[1].x + playerSpan / 2,
+          frame.targetY,
+          botCenters[1].z,
+        );
+        edge.project(state.camera);
+        let halfWidth = Math.abs(edge.x - bot1.x);
+        edge.set(
+          botCenters[1].x,
+          frame.targetY,
+          botCenters[1].z + playerSpan / 2,
+        );
+        edge.project(state.camera);
+        halfWidth = Math.max(halfWidth, Math.abs(edge.x - bot1.x));
+        // NDC spans two units across the viewport, so a half-span in NDC
+        // is the full-span fraction of the width.
+        setDatasetNumber(cache, stage.dataset, "bot1ScreenSize", halfWidth, 3);
         setDatasetText(
           cache,
           stage.dataset,

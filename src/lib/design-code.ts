@@ -1,6 +1,7 @@
 import {
   type BotDesign,
   botDesignSchema,
+  botPaintSchema,
   type Connection,
   type PartInstance,
   validateDesign,
@@ -185,7 +186,11 @@ function expand(raw: unknown): BotDesign | null {
     ) {
       return null;
     }
-    design.paint = { primary: k[0], accent: k[1] };
+    // Only the fixed palette decodes; an unknown id is a bad code, not a
+    // bot that renders unpainted.
+    const paint = botPaintSchema.safeParse({ primary: k[0], accent: k[1] });
+    if (!paint.success) return null;
+    design.paint = paint.data;
   }
   return design;
 }

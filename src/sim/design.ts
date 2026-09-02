@@ -153,9 +153,25 @@ export const NEUTRAL_BEHAVIOR: BotBehavior = {
  * byte the same; the renderer resolves the ids (src/lib/bot-paint.ts) and
  * an unknown id leaves a part in its own look.
  */
+/** The fixed paint palette ids; the swatch table in src/lib/bot-paint.ts
+ *  carries their names and colours. The schema accepts nothing else, so a
+ *  stored or shared design can never carry a paint the renderer would
+ *  silently drop. */
+export const BOT_PAINT_IDS = [
+  "ember",
+  "crimson",
+  "cobalt",
+  "jade",
+  "violet",
+  "gold",
+  "slate",
+  "bone",
+] as const;
+export type BotPaintId = (typeof BOT_PAINT_IDS)[number];
+
 export const botPaintSchema = z.object({
-  primary: z.string().min(1).max(24),
-  accent: z.string().min(1).max(24),
+  primary: z.enum(BOT_PAINT_IDS),
+  accent: z.enum(BOT_PAINT_IDS),
 });
 export type BotPaint = z.infer<typeof botPaintSchema>;
 

@@ -614,8 +614,12 @@ describe("G5 paint", () => {
 
   it("sets, changes, clears, and undoes paint without touching the parts", () => {
     expect(store().design.paint).toBeUndefined();
+    const parts = store().design.parts;
+    const connections = store().design.connections;
     store().setPaint({ primary: "cobalt", accent: "gold" });
     expect(store().design.paint).toEqual({ primary: "cobalt", accent: "gold" });
+    expect(store().design.parts).toBe(parts);
+    expect(store().design.connections).toBe(connections);
     expect(validateDesign(store().design).ok).toBe(true);
     // Same paint again is a no-op (no history entry).
     const before = store().history;
@@ -629,6 +633,8 @@ describe("G5 paint", () => {
     expect("paint" in store().design).toBe(false);
     store().undo();
     expect(store().design.paint).toEqual({ primary: "cobalt", accent: "gold" });
+    expect(store().design.parts).toBe(parts);
+    expect(store().design.connections).toBe(connections);
   });
 });
 

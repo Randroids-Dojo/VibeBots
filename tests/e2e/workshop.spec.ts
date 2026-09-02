@@ -1962,6 +1962,15 @@ test(
         arena.evaluate((c: HTMLCanvasElement) => c.dataset.botPaint0 ?? ""),
       )
       .toBe("none");
+    // The team ring under each bot is published too: both present, in the
+    // two team colours, so the sides read however the hulls are painted.
+    const rings = await arena.evaluate((c: HTMLCanvasElement) => [
+      c.dataset.teamRing0 ?? "",
+      c.dataset.teamRing1 ?? "",
+    ]);
+    expect(rings[0]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(rings[1]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(rings[0]).not.toBe(rings[1]);
   },
 );
 

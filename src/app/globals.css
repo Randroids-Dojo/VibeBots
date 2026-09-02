@@ -366,11 +366,58 @@ button:focus-visible {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .workshop-meter-flash {
+    animation: none;
+  }
+}
+
 .workshop-budget-reason {
   margin: 0;
   font-size: 0.74rem;
   font-weight: 600;
   color: #ffd166;
+}
+
+/* Coach card (G6): one line of guidance for the first build, in the sheet's
+ * top strip above the thumb bar so it stays visible open or collapsed. */
+.workshop-coach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(84, 224, 199, 0.12);
+  border: 1px solid rgba(84, 224, 199, 0.45);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.workshop-coach-title {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: #54e0c7;
+  white-space: nowrap;
+}
+
+.workshop-coach-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--hud-text);
+}
+
+.workshop-coach-skip {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #344061;
+  background: var(--hud-border);
+  color: var(--hud-text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: none;
 }
 
 /* Thumb bar (G2): the build actions live in the sheet's top strip, always

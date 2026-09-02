@@ -1,4 +1,9 @@
-import { type BotDesign, gearPowerDraw, validateDesign } from "@/sim/design";
+import {
+  type BotDesign,
+  gearPowerDraw,
+  type Orientation,
+  validateDesign,
+} from "@/sim/design";
 import { PART_CATALOG, type PartDef, partMass } from "@/sim/parts";
 import {
   WEIGHT_CLASSES,
@@ -104,8 +109,13 @@ export function placementBlocker(
   design: BotDesign,
   part: PartDef,
   catalog: Record<string, PartDef> = PART_CATALOG,
+  orientation: Orientation = 0,
 ): PlacementBlocker | null {
-  if (validSlotsFor(design, part, catalog).length > 0) return null;
+  // Same orientation the drag commits with (rigid mounts honour it, axle
+  // mounts ignore it), so the reason can never disagree with the drop.
+  if (validSlotsFor(design, part, catalog, orientation).length > 0) {
+    return null;
+  }
   if (findFreeConnectors(design, part, catalog).length === 0) {
     return { kind: "mount" };
   }

@@ -371,6 +371,8 @@ export interface WorkshopState {
   recenterView: () => void;
   addPart: (partId: string) => void;
   browseBy: (dir: number) => void;
+  /** Show a named part in the carousel (G6 hands the player the wheel). */
+  browseTo: (partId: string) => void;
   /** Set the carousel's part pool; snaps the shown part back in when needed. */
   setBrowsableIds: (ids: string[]) => void;
   rotateBrowse: () => void;
@@ -455,6 +457,18 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
         selectedIid: null,
       };
     }),
+
+  browseTo: (partId) =>
+    set((s) =>
+      PART_CATALOG[partId] && PART_CATALOG[partId].category !== "core"
+        ? {
+            browsePartId: partId,
+            browseOrientation: 0,
+            selectedIid: null,
+            browseStatsOpen: false,
+          }
+        : s,
+    ),
 
   // The Build tab sets which parts the carousel offers (owned-only vs all).
   // Keep the shown part if it survives the filter; otherwise snap to the first
@@ -609,22 +623,36 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       inspectNonce: iid ? s.inspectNonce + 1 : s.inspectNonce,
     })),
 
+  // Undo and redo restore whole designs. When the restored design stands on
+  // a different chassis (a swap undone or redone), the view comes home the
+  // same way the forward swap brought it, so the camera never stays parked
+  // on a bot that is no longer on the bench.
   undo: () => {
-    const { history } = get();
+    const { history, design } = get();
     if (!canUndo(history)) return;
-    set({
-      ...withDesign(undoHistory(history)),
+    const next = undoHistory(history);
+    set((s) => ({
+      ...withDesign(next),
       selectedIid: null,
-    });
+      viewResetNonce:
+        currentCoreId(next.present) === currentCoreId(design)
+          ? s.viewResetNonce
+          : s.viewResetNonce + 1,
+    }));
   },
 
   redo: () => {
-    const { history } = get();
+    const { history, design } = get();
     if (!canRedo(history)) return;
-    set({
-      ...withDesign(redoHistory(history)),
+    const next = redoHistory(history);
+    set((s) => ({
+      ...withDesign(next),
       selectedIid: null,
-    });
+      viewResetNonce:
+        currentCoreId(next.present) === currentCoreId(design)
+          ? s.viewResetNonce
+          : s.viewResetNonce + 1,
+    }));
   },
 
   setName: (name) => {

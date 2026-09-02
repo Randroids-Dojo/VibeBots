@@ -1,9 +1,52 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.296-workshop-build-hud";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.298-workshop-first-build";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.298",
+      date: "2026-09-02",
+      title:
+        "Your first visit to the workshop starts with a bot, not a blank bench",
+      intro:
+        "New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
+      changes: [
+        {
+          build,
+          text: "A first-ever visit loads a bot that is one drag from done and hands you the missing wheel. Drag it onto the glowing mount and the bot is complete, even before you own a single part.",
+        },
+        {
+          build,
+          text: "The coach line follows you: after the wheel it points at Test fight, and after the fight it points at the Shop tab. Skip ends it at any time, and it never comes back unless you ask.",
+        },
+        {
+          build,
+          text: "Replay the first build lives in the Garage tab beside Reset, for showing someone else or for a fresh start.",
+        },
+      ],
+    },
+    {
+      version: "0.1.297",
+      date: "2026-09-02",
+      title: "Share a bot as a code or a link",
+      intro:
+        "A bot is data, so it can travel. The garage now hands you a short code and a link for the bot on your bench, and loads anyone else's from a paste or a link. Every saved bot in the garage shows its size and chassis at a glance.",
+      changes: [
+        {
+          build,
+          text: "The Share box in the Garage tab shows your bot's code and copies it, or a link that opens the workshop with the bot already loaded.",
+        },
+        {
+          build,
+          text: "Paste a code or a link into Load a code and the bot appears on your bench, checked through the same inspection a fight uses. A damaged or illegal code says so instead of loading.",
+        },
+        {
+          build,
+          text: "Saved designs in the garage list their part count and chassis, so you can tell your bots apart without loading each one.",
+        },
+      ],
+    },
     {
       version: "0.1.296",
       date: "2026-09-02",

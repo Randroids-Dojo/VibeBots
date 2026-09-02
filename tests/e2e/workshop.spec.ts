@@ -1,6 +1,19 @@
 import { expect, type Page, test } from "@playwright/test";
+import { WORKSHOP_GUIDE_DONE_KEY } from "../../src/components/workshop-onboarding";
 import { DRIVE_WHEEL } from "../../src/sim/parts";
 import { ciCase } from "./support/ci-case";
+
+// The guided first build (G6) opens a fresh browser on a three-part bot.
+// Every case in this file was written against the bare starter core, so
+// they all start with the guide already done; the one guide case below
+// clears the flag again in its own init script, which runs after this one.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript((key: string) => {
+    try {
+      localStorage.setItem(key, "1");
+    } catch {}
+  }, WORKSHOP_GUIDE_DONE_KEY);
+});
 
 // The Build tab shows one part at a time (N1 carousel); step Next until the
 // named part is in hand. Bounded so a missing part fails loudly.
@@ -740,9 +753,15 @@ test(
       page.getByRole("menuitem", { name: "Fight a rival" }),
     ).toBeVisible();
 
-    // A tap outside the menu closes it.
+    // A tap outside the menu closes it, and so does Escape, which hands
+    // focus back to the button that opened it.
     await page.mouse.click(196, 250);
     await expect(page.getByRole("menu")).toHaveCount(0);
+    await actions.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(actions).toBeFocused();
   },
 );
 
@@ -1507,14 +1526,34 @@ test(
     await expect.poll(() => read("cameraY")).toBeGreaterThan(0);
 
     // Place a wheel. Placement selects the part but is not a tap, so the
-    // view holds still under a building finger.
+    // whole pose (target and camera, all three axes) holds still under a
+    // building finger.
     await selectCarouselPart(page, "Drive Wheel");
     await expect
       .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
       .not.toBeUndefined();
+    const poseKeys = [
+      "cameraTargetX",
+      "cameraTargetY",
+      "cameraTargetZ",
+      "cameraX",
+      "cameraY",
+      "cameraZ",
+    ];
+    const readPose = async () => {
+      const pose: Record<string, number> = {};
+      for (const key of poseKeys) pose[key] = await read(key);
+      return pose;
+    };
+    const before = await readPose();
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    expect(Math.abs(await read("cameraTargetX"))).toBeLessThan(0.005);
+    await page.waitForTimeout(400);
+    const after = await readPose();
+    for (const key of poseKeys) {
+      expect(Math.abs(after[key] - before[key])).toBeLessThan(0.005);
+    }
+    expect(Math.abs(after.cameraTargetX)).toBeLessThan(0.005);
 
     // Recenter puts the target on the bot's bounds centre, which the wheel
     // has pulled off the core to one side, and the camera back in front.
@@ -1617,12 +1656,13 @@ test(
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
     await selectCarouselPart(page, "Spinner Bar");
-    await expect(reason).toHaveAttribute("data-blocker", "power");
-    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
+    // The flash is armed for 900ms when the block appears, so read it first.
     await expect(page.locator('[data-meter="power"]')).toHaveAttribute(
       "data-flash",
       "true",
     );
+    await expect(reason).toHaveAttribute("data-blocker", "power");
+    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
 
     // Declare Antweight: the weight meter takes the class name and ceiling,
     // and the hardened plate is refused on weight, not on a mount.
@@ -1634,6 +1674,142 @@ test(
     await selectCarouselPart(page, "Hardened Plate");
     await expect(reason).toHaveAttribute("data-blocker", "weight");
     await expect(reason).toContainText("over Antweight");
+  },
+);
+
+test(
+  "a share code carries the whole bot out of the garage and back in (G8)",
+  ciCase("E2E-WORKSHOP-0038", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+
+    // Load the Wedge Razor blueprint and read its code from the Share box.
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page
+      .getByRole("region", { name: "Blueprints" })
+      .getByRole("button", { name: /Wedge Razor/ })
+      .click();
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+    const share = page.getByRole("region", { name: "Share" });
+    await expect(share).toBeVisible();
+    const code = await share.getByTestId("share-code").inputValue();
+    expect(code.startsWith("VB1.")).toBe(true);
+    expect(code.length).toBeLessThan(600);
+
+    // Reset to the starter bot, then paste the code back in.
+    await page.getByRole("button", { name: "Reset to starter bot" }).click();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await share.getByTestId("share-import").fill(code);
+    await share.getByRole("button", { name: "Load bot" }).click();
+    await expect(share.getByTestId("share-import-ok")).toContainText(
+      "Loaded Wedge Razor",
+    );
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+    // A damaged code is refused with a reason, and the bot is untouched.
+    await share.getByTestId("share-import").fill("VB1.notacode!!");
+    await share.getByRole("button", { name: "Load bot" }).click();
+    await expect(share.getByTestId("share-import-error")).toContainText(
+      "damaged",
+    );
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+    // A share link opens the workshop with the bot loaded and drops the code
+    // from the address bar.
+    await page.goto(`/workshop?code=${encodeURIComponent(code)}`);
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => window.location.search))
+      .toBe("");
+  },
+);
+
+test(
+  "a first visit opens on a guided bot and the coach card follows the player (G6)",
+  ciCase("E2E-WORKSHOP-0039", "@functional"),
+  async ({ page }) => {
+    // Clear the done flag on the FIRST load only: init scripts run on every
+    // navigation, and a reload must see the flag the guide itself wrote.
+    await page.addInitScript((key: string) => {
+      try {
+        if (sessionStorage.getItem("e2e-guide-cleared")) return;
+        sessionStorage.setItem("e2e-guide-cleared", "1");
+        localStorage.removeItem(key);
+      } catch {}
+    }, WORKSHOP_GUIDE_DONE_KEY);
+    await page.setViewportSize({ width: 390, height: 760 });
+    // A brand-new player owns nothing; the guide's wheel must still place.
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 0, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const coach = page.getByTestId("coach-card");
+    await expect(coach).toHaveAttribute("data-step", "place");
+    await expect(coach).toContainText("Drag the wheel");
+    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+    await expect(page.getByTestId("carousel-part-name")).toHaveText(
+      "Drive Wheel",
+    );
+
+    // The first drag is the tutorial: the wheel lands on the free axle.
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
+    await expect(coach).toHaveAttribute("data-step", "fight");
+
+    // A test fight ends the second step; coming back shows the third.
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await page.getByRole("button", { name: "Back to build" }).click();
+    await expect(coach).toHaveAttribute("data-step", "shop");
+    await page.getByRole("tab", { name: "Shop" }).click();
+    await expect(coach).toHaveCount(0);
+
+    // Done is remembered: a reload opens on the plain starter bot.
+    await page.reload();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await expect(coach).toHaveCount(0);
+  },
+);
+
+test(
+  "the guided first build can be skipped and replayed from the garage (G6)",
+  ciCase("E2E-WORKSHOP-0040", "@functional"),
+  async ({ page }) => {
+    // Clear the done flag on the FIRST load only: init scripts run on every
+    // navigation, and a reload must see the flag the guide itself wrote.
+    await page.addInitScript((key: string) => {
+      try {
+        if (sessionStorage.getItem("e2e-guide-cleared")) return;
+        sessionStorage.setItem("e2e-guide-cleared", "1");
+        localStorage.removeItem(key);
+      } catch {}
+    }, WORKSHOP_GUIDE_DONE_KEY);
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    const coach = page.getByTestId("coach-card");
+    await expect(coach).toHaveAttribute("data-step", "place");
+    await coach.getByRole("button", { name: "Skip" }).click();
+    await expect(coach).toHaveCount(0);
+    await page.reload();
+    await expect(coach).toHaveCount(0);
+
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page.getByRole("button", { name: "Replay the first build" }).click();
+    await expect(coach).toHaveAttribute("data-step", "place");
+    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
   },
 );
 

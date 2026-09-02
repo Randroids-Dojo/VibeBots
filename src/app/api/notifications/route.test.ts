@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.296-workshop-build-hud",
+      releaseNoticeId: "2026-09-02-0.1.298-workshop-first-build",
       releaseSummary:
-        "Build with the budget in view and every action under your thumb: The workshop hid undo, redo, and the fights behind a menu, and told you a part would not fit by doing nothing. The bench now keeps its actions in reach and shows how much power and weight you have left as you build.",
+        "Your first visit to the workshop starts with a bot, not a blank bench: New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.296-workshop-build-hud",
+      releaseNoticeId: "2026-09-02-0.1.298-workshop-first-build",
       attempted: 2,
       sent: 1,
       expired: 1,

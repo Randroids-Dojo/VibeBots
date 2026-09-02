@@ -165,6 +165,29 @@ describe("placementBlocker", () => {
     expect(placementBlocker(TEST_BOT_DESIGN, HARDENED_PLATE)).toBeNull();
   });
 
+  it("reads the placement through the mount orientation the drag uses", () => {
+    // A quarter-turned plate on the core top is still legal, so the blocker
+    // stays null at every orientation; an axle part ignores orientation.
+    for (const orientation of [0, 90, 180, 270] as const) {
+      expect(
+        placementBlocker(
+          STARTER_DESIGN,
+          HARDENED_PLATE,
+          PART_CATALOG,
+          orientation,
+        ),
+      ).toBeNull();
+      expect(
+        placementBlocker(
+          TEST_BOT_DESIGN,
+          DRIVE_WHEEL,
+          PART_CATALOG,
+          orientation,
+        ),
+      ).toEqual({ kind: "mount" });
+    }
+  });
+
   it("covers every catalog part without throwing", () => {
     for (const part of Object.values(PART_CATALOG)) {
       const blocker = placementBlocker(TEST_BOT_DESIGN, part);

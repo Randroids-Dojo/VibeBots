@@ -584,9 +584,7 @@ test(
     await expect(dialog).toContainText(
       "Mobile Safari needs the Home Screen app before notifications can work.",
     );
-    await expect(dialog).toContainText(
-      "Safari does not let websites open that sheet automatically.",
-    );
+    await expect(dialog).toContainText("Tap Share, then Add to Home Screen.");
 
     await page.mouse.click(8, 8);
     await expect(dialog).not.toBeVisible();

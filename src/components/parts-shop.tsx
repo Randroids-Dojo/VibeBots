@@ -20,6 +20,25 @@ type ShopState =
   | { state: "unavailable" }
   | { state: "ready"; data: ShopData; notice: string | null };
 
+/**
+ * One family's rows, cheapest first: price climbs with tier by the
+ * catalog's own rule (a tier-two part costs about two tier-one copies), so
+ * price is the ladder order and the server's insertion order never is
+ * (the light plate was added after the frame plate it sits below). Ties
+ * fall back to the name so the order is stable.
+ */
+export function shopRowsFor<T extends CatalogEntry>(
+  catalog: readonly T[],
+  category: string,
+): T[] {
+  return catalog
+    .filter((part) => part.category === category)
+    .sort(
+      (a, b) =>
+        a.priceEmeralds - b.priceEmeralds || a.name.localeCompare(b.name),
+    );
+}
+
 /** Shop headings by family, in the order the carousel chips use. */
 const SHOP_FAMILIES: readonly { category: string; label: string }[] = [
   { category: "structure", label: "Frame" },
@@ -170,9 +189,7 @@ export function PartsShop() {
           blades, a flat list stops reading as a catalog. The order inside a
           family is the catalog's, which climbs each ladder. */}
       {SHOP_FAMILIES.map((family) => {
-        const rows = data.catalog.filter(
-          (part) => part.category === family.category,
-        );
+        const rows = shopRowsFor(data.catalog, family.category);
         if (rows.length === 0) return null;
         return (
           <section key={family.category} aria-label={`${family.label} parts`}>

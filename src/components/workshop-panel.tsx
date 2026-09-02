@@ -33,6 +33,7 @@ import {
   GUIDED_PART_ID,
   GUIDED_START_DESIGN,
   type GuideStep,
+  guideWheelCount,
   isWorkshopGuideDone,
   markWorkshopGuideDone,
   nextGuideStep,
@@ -419,17 +420,18 @@ export function WorkshopPanel() {
   // Each step ends when the bench shows it done: the wheel placed, a fight
   // started, the Shop opened. The rule is pure (nextGuideStep) so the order
   // and the exits are unit tested; this effect only observes.
+  const guideWheels = guideWheelCount(design);
   useEffect(() => {
     if (!guideStep || guideStep === "done") return;
     const next = nextGuideStep(guideStep, {
-      partCount: design.parts.length,
+      wheelCount: guideWheels,
       fightStarted: matchup !== null,
       shopOpened: tab === "shop",
     });
     if (next === guideStep) return;
     setGuideStep(next);
     if (next === "done") markWorkshopGuideDone();
-  }, [guideStep, design.parts.length, matchup, tab]);
+  }, [guideStep, guideWheels, matchup, tab]);
 
   const skipGuide = () => {
     setGuideStep("done");

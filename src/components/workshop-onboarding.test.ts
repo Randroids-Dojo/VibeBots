@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { validateDesign } from "@/sim/design";
+import { type BotDesign, validateDesign } from "@/sim/design";
 import { DRIVE_WHEEL } from "@/sim/parts";
 import { validSlotsFor } from "@/state/workshop-store";
 import {
   clearWorkshopGuideDone,
   GUIDE_CARDS,
-  GUIDED_COMPLETE_PART_COUNT,
   GUIDED_PART_ID,
   GUIDED_START_DESIGN,
+  GUIDED_WHEELS_WHEN_DONE,
   type GuideStorage,
+  guideWheelCount,
   isWorkshopGuideDone,
   markWorkshopGuideDone,
   nextGuideStep,
@@ -32,8 +33,8 @@ function memoryStorage(): GuideStorage & { data: Map<string, string> } {
 describe("guided first build", () => {
   it("starts from a valid bot that is exactly one wheel from done", () => {
     expect(validateDesign(GUIDED_START_DESIGN).ok).toBe(true);
-    expect(GUIDED_START_DESIGN.parts).toHaveLength(
-      GUIDED_COMPLETE_PART_COUNT - 1,
+    expect(guideWheelCount(GUIDED_START_DESIGN)).toBe(
+      GUIDED_WHEELS_WHEN_DONE - 1,
     );
     // The guided part has exactly one legal placement: the free left axle.
     const slots = validSlotsFor(GUIDED_START_DESIGN, DRIVE_WHEEL);
@@ -43,32 +44,63 @@ describe("guided first build", () => {
   });
 
   it("advances each step only on its own demonstration, never backward", () => {
-    const idle = { partCount: 3, fightStarted: false, shopOpened: false };
+    const idle = { wheelCount: 1, fightStarted: false, shopOpened: false };
     expect(nextGuideStep("place", idle)).toBe("place");
-    expect(nextGuideStep("place", { ...idle, partCount: 4 })).toBe("fight");
-    expect(nextGuideStep("fight", { ...idle, partCount: 4 })).toBe("fight");
+    expect(nextGuideStep("place", { ...idle, wheelCount: 2 })).toBe("fight");
+    expect(nextGuideStep("fight", { ...idle, wheelCount: 2 })).toBe("fight");
     expect(
-      nextGuideStep("fight", { ...idle, partCount: 4, fightStarted: true }),
+      nextGuideStep("fight", { ...idle, wheelCount: 2, fightStarted: true }),
     ).toBe("shop");
-    expect(nextGuideStep("shop", { ...idle, partCount: 4 })).toBe("shop");
+    expect(nextGuideStep("shop", { ...idle, wheelCount: 2 })).toBe("shop");
     expect(nextGuideStep("shop", { ...idle, shopOpened: true })).toBe("done");
     expect(nextGuideStep("done", idle)).toBe("done");
     // Removing the wheel after the fact does not reopen the place step.
-    expect(nextGuideStep("fight", { ...idle, partCount: 1 })).toBe("fight");
+    expect(nextGuideStep("fight", { ...idle, wheelCount: 0 })).toBe("fight");
+  });
+
+  it("does not end the place step on some other part", () => {
+    // A plate on the top mount raises the part count but not the wheel
+    // count: the glowing axle is still empty, so the step stays.
+    const withPlate: BotDesign = {
+      ...GUIDED_START_DESIGN,
+      parts: [
+        ...GUIDED_START_DESIGN.parts,
+        { iid: "plate", partId: "frame-plate" },
+      ],
+      connections: [
+        ...GUIDED_START_DESIGN.connections,
+        {
+          parentIid: "core",
+          parentConnector: "top",
+          childIid: "plate",
+          childConnector: "bottom",
+        },
+      ],
+    };
+    expect(validateDesign(withPlate).ok).toBe(true);
+    expect(withPlate.parts).toHaveLength(4);
+    expect(
+      nextGuideStep("place", {
+        wheelCount: guideWheelCount(withPlate),
+        fightStarted: false,
+        shopOpened: false,
+      }),
+    ).toBe("place");
   });
 
   it("lets a later demonstration clear the earlier steps in one pass", () => {
-    // A player who loads a blueprint and fights it has placed and fought.
+    // A player who loads a two-wheel blueprint and fights it has placed
+    // and fought.
     expect(
       nextGuideStep("place", {
-        partCount: 5,
+        wheelCount: 2,
         fightStarted: true,
         shopOpened: false,
       }),
     ).toBe("shop");
     expect(
       nextGuideStep("place", {
-        partCount: 5,
+        wheelCount: 2,
         fightStarted: true,
         shopOpened: true,
       }),

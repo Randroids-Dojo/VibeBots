@@ -80,7 +80,7 @@
       <dt>Why watched</dt><dd>framework; majors and minors both move App Router, Turbopack, and caching behavior.</dd>
       <dt>Source</dt><dd><a href="https://github.com/vercel/next.js/releases">next.js releases</a></dd>
       <dt>Pin format</dt><dd>npm exact version.</dd>
-      <dt>Currently pinned</dt><dd><code>16.3.1</code></dd>
+      <dt>Currently pinned</dt><dd><code>16.3.4</code></dd>
       <dt>Detect-new</dt><dd><code>npm view next dist-tags.latest</code></dd>
       <dt>Migration notes</dt><dd>
         <ul>
@@ -89,6 +89,7 @@
           <li>2026-07-22: the gate detected 16.2.11 over the pinned 16.2.10. Bump deferred: the remote session that detected it cannot fetch the VibeKit github dependency (403, repository outside the session's credential scope), so install, typecheck, tests, and build cannot run there. Tracked by <a href="FOLLOWUPS.html#F-217">F-217</a>; the gate re-fires in a capable environment.</li>
           <li>2026-07-23: a capable local environment installed 16.2.11. This patch contains security fixes only, so no codemod or application migration was required. F-217 remains open for remote-session credential restoration.</li>
           <li>2026-08-16: 16.2.11 to 16.3.1, a minor. No codemod was needed and no application change was required: <code>next typegen</code> regenerated route types cleanly, the production build succeeded, and the two things this ledger says to check after a Next bump both still behave, with <code>transpilePackages</code> still resolving the raw-TypeScript VibeKit and the dynamic <code>ssr: false</code> canvas imports still mounting (the critical e2e gate exercises the mine and workshop canvases and passed).</li>
+          <li>2026-09-01: 16.3.1 to 16.3.4, three patch releases. 16.3.2 is backported bug fixes (Turbopack chunk loading with an asset prefix, catch-all index routing, app-entry export validation scope). 16.3.3 is a security release with two critical advisories: unauthenticated remote code execution on Windows-hosted servers (GHSA-p293-qw3h-jr36) and in the image optimization API with AVIF inputs (GHSA-2xp9-vwfh-vxw4); 16.3.4 re-enables AVIF optimization after that fix and backports three small build fixes. Production runs on Vercel's Linux runtime and the app does not use the image optimizer, so exposure was low, but a pin must not sit on a version with a published critical advisory. No codemod and no application change: <code>next typegen</code> regenerated route types cleanly, the production build succeeded, the lockfile moved only <code>next</code> and its <code>sharp</code> dependency, and the critical e2e gate (mine and workshop canvases, the <code>transpilePackages</code> VibeKit resolution, and the dynamic <code>ssr: false</code> imports) passed.</li>
         </ul>
       </dd>
     </dl>

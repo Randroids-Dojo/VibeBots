@@ -35,7 +35,9 @@
         "src/components/workshop-camera.ts",
         "src/components/workshop-canvas.tsx",
         "src/components/workshop-panel.tsx",
-        "src/components/workshop-budget.ts"
+        "src/components/workshop-budget.ts",
+        "src/lib/design-code.ts",
+        "src/components/design-share.tsx"
       ],
       "testRefs": [
         "src/sim/design.test.ts",
@@ -45,7 +47,8 @@
         "tests/e2e/workshop.spec.ts",
         "src/sim/blueprints.test.ts",
         "src/components/workshop-camera.test.ts",
-        "src/components/workshop-budget.test.ts"
+        "src/components/workshop-budget.test.ts",
+        "src/lib/design-code.test.ts"
       ],
       "followupRefs": [
         "F-006"

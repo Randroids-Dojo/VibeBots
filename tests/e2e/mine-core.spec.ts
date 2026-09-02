@@ -870,10 +870,10 @@ test(
       undefined,
       { timeout: 5_000 },
     );
-    const { text: hintText, pointerEvents: hintPointerEvents } =
-      await hintRead.jsonValue();
-    expect(hintText).toContain("Pickaxe level 2 needed");
-    expect(hintPointerEvents).toBe("none");
+    const hintSeen = await hintRead.jsonValue();
+    expect(hintSeen).not.toBeNull();
+    expect(hintSeen?.text).toContain("Pickaxe level 2 needed");
+    expect(hintSeen?.pointerEvents).toBe("none");
     await expect(hint).toBeHidden({ timeout: 3_000 });
   },
 );

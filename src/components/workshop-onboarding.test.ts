@@ -80,7 +80,7 @@ describe("guided first build", () => {
       expect(GUIDE_CARDS[step].step).toBe(step);
       expect(GUIDE_CARDS[step].title.length).toBeGreaterThan(0);
       expect(GUIDE_CARDS[step].line.length).toBeGreaterThan(0);
-      expect(GUIDE_CARDS[step].line).not.toMatch(/[–—]/);
+      expect(GUIDE_CARDS[step].line).not.toMatch(/[\u2013\u2014]/);
     }
   });
 

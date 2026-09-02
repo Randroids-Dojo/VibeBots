@@ -1,4 +1,4 @@
-import type { BotPaint } from "@/sim/design";
+import type { BotPaint, BotPaintId } from "@/sim/design";
 import type { PartDef } from "@/sim/parts";
 
 /**
@@ -15,7 +15,7 @@ import type { PartDef } from "@/sim/parts";
  */
 
 export interface PaintSwatch {
-  id: string;
+  id: BotPaintId;
   name: string;
   /** sRGB hex, the material colour the swatch paints. */
   hex: string;

@@ -24,11 +24,29 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest share-codes note complete", () => {
+  it("keeps the latest first-build note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.297-workshop-share-codes");
+    expect(release.noticeId).toBe("2026-09-02-0.1.298-workshop-first-build");
+    expect(latestNote).toMatchObject({
+      version: "0.1.298",
+      title:
+        "Your first visit to the workshop starts with a bot, not a blank bench",
+      intro:
+        "New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A first-ever visit loads a bot that is one drag from done and hands you the missing wheel. Drag it onto the glowing mount and the bot is complete, even before you own a single part.",
+      "The coach line follows you: after the wheel it points at Test fight, and after the fight it points at the Shop tab. Skip ends it at any time, and it never comes back unless you ask.",
+      "Replay the first build lives in the Garage tab beside Reset, for showing someone else or for a fresh start.",
+    ]);
+  });
+
+  it("keeps the archived share-codes note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.297");
+
     expect(latestNote).toMatchObject({
       version: "0.1.297",
       title: "Share a bot as a code or a link",

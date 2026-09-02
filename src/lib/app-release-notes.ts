@@ -1,9 +1,31 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.297-workshop-share-codes";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.298-workshop-first-build";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.298",
+      date: "2026-09-02",
+      title:
+        "Your first visit to the workshop starts with a bot, not a blank bench",
+      intro:
+        "New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
+      changes: [
+        {
+          build,
+          text: "A first-ever visit loads a bot that is one drag from done and hands you the missing wheel. Drag it onto the glowing mount and the bot is complete, even before you own a single part.",
+        },
+        {
+          build,
+          text: "The coach line follows you: after the wheel it points at Test fight, and after the fight it points at the Shop tab. Skip ends it at any time, and it never comes back unless you ask.",
+        },
+        {
+          build,
+          text: "Replay the first build lives in the Garage tab beside Reset, for showing someone else or for a fresh start.",
+        },
+      ],
+    },
     {
       version: "0.1.297",
       date: "2026-09-02",

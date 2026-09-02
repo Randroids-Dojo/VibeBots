@@ -371,6 +371,8 @@ export interface WorkshopState {
   recenterView: () => void;
   addPart: (partId: string) => void;
   browseBy: (dir: number) => void;
+  /** Show a named part in the carousel (G6 hands the player the wheel). */
+  browseTo: (partId: string) => void;
   /** Set the carousel's part pool; snaps the shown part back in when needed. */
   setBrowsableIds: (ids: string[]) => void;
   rotateBrowse: () => void;
@@ -455,6 +457,18 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
         selectedIid: null,
       };
     }),
+
+  browseTo: (partId) =>
+    set((s) =>
+      PART_CATALOG[partId] && PART_CATALOG[partId].category !== "core"
+        ? {
+            browsePartId: partId,
+            browseOrientation: 0,
+            selectedIid: null,
+            browseStatsOpen: false,
+          }
+        : s,
+    ),
 
   // The Build tab sets which parts the carousel offers (owned-only vs all).
   // Keep the shown part if it survives the filter; otherwise snap to the first

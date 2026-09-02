@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.297-workshop-share-codes",
+      releaseNoticeId: "2026-09-02-0.1.298-workshop-first-build",
       releaseSummary:
-        "Share a bot as a code or a link: A bot is data, so it can travel. The garage now hands you a short code and a link for the bot on your bench, and loads anyone else's from a paste or a link. Every saved bot in the garage shows its size and chassis at a glance.",
+        "Your first visit to the workshop starts with a bot, not a blank bench: New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.297-workshop-share-codes",
+      releaseNoticeId: "2026-09-02-0.1.298-workshop-first-build",
       attempted: 2,
       sent: 1,
       expired: 1,

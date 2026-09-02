@@ -552,6 +552,25 @@ describe("L mirror placement", () => {
   });
 });
 
+describe("G6 browseTo", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("shows a named non-core part and ignores cores and unknown ids", () => {
+    store().browseTo("saw-blade");
+    expect(store().browsePartId).toBe("saw-blade");
+    store().rotateBrowse();
+    store().browseTo("drive-wheel");
+    expect(store().browsePartId).toBe("drive-wheel");
+    expect(store().browseOrientation).toBe(0);
+    store().browseTo("core-cube");
+    expect(store().browsePartId).toBe("drive-wheel");
+    store().browseTo("no-such-part");
+    expect(store().browsePartId).toBe("drive-wheel");
+  });
+});
+
 describe("G1 view reset nonce", () => {
   beforeEach(() => {
     store().reset();

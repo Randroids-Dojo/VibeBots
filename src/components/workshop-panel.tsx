@@ -27,6 +27,16 @@ import {
   meterFill,
   placementBlocker,
 } from "@/components/workshop-budget";
+import {
+  clearWorkshopGuideDone,
+  GUIDE_CARDS,
+  GUIDED_PART_ID,
+  GUIDED_START_DESIGN,
+  type GuideStep,
+  isWorkshopGuideDone,
+  markWorkshopGuideDone,
+  nextGuideStep,
+} from "@/components/workshop-onboarding";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { panelStyle, pillStyle } from "@/components/workshop-ui";
 import { decodeDesignCode } from "@/lib/design-code";
@@ -365,26 +375,73 @@ export function WorkshopPanel() {
     void prefetchDesigns();
   }, []);
 
+  // The guided first build (G6): null when not running, "done" once the
+  // three steps have been demonstrated or skipped.
+  const [guideStep, setGuideStep] = useState<GuideStep | null>(null);
+  const browseTo = useWorkshopStore((s) => s.browseTo);
+
   // A shared link (G8): /workshop?code=VB1.... opens with that bot loaded,
   // then drops the code from the address bar so a reload does not reload it
   // over whatever the player built since. A bad code is ignored here; the
-  // Garage's Load box is where a pasted code gets its error line.
+  // Garage's Load box is where a pasted code gets its error line. With no
+  // link, a first-ever visit opens on the guided bot instead (G6): a shared
+  // bot is its own first build, so a link also retires the guide.
   const loadDesignFromLink = useWorkshopStore((s) => s.loadDesign);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
-    if (!code) return;
-    const decoded = decodeDesignCode(code);
-    if (decoded.ok) loadDesignFromLink(decoded.design);
-    params.delete("code");
-    const rest = params.toString();
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`,
-    );
-  }, [loadDesignFromLink]);
+    if (code) {
+      const decoded = decodeDesignCode(code);
+      if (decoded.ok) {
+        loadDesignFromLink(decoded.design);
+        markWorkshopGuideDone();
+      }
+      params.delete("code");
+      const rest = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`,
+      );
+      return;
+    }
+    if (isWorkshopGuideDone()) return;
+    loadDesignFromLink(GUIDED_START_DESIGN);
+    setIncludeUnowned(true);
+    browseTo(GUIDED_PART_ID);
+    setGuideStep("place");
+  }, [loadDesignFromLink, browseTo]);
+
+  // Each step ends when the bench shows it done: the wheel placed, a fight
+  // started, the Shop opened. The rule is pure (nextGuideStep) so the order
+  // and the exits are unit tested; this effect only observes.
+  useEffect(() => {
+    if (!guideStep || guideStep === "done") return;
+    const next = nextGuideStep(guideStep, {
+      partCount: design.parts.length,
+      fightStarted: matchup !== null,
+      shopOpened: tab === "shop",
+    });
+    if (next === guideStep) return;
+    setGuideStep(next);
+    if (next === "done") markWorkshopGuideDone();
+  }, [guideStep, design.parts.length, matchup, tab]);
+
+  const skipGuide = () => {
+    setGuideStep("done");
+    markWorkshopGuideDone();
+  };
+
+  const replayGuide = () => {
+    clearWorkshopGuideDone();
+    loadDesignFromLink(GUIDED_START_DESIGN);
+    setIncludeUnowned(true);
+    browseTo(GUIDED_PART_ID);
+    setTab("build");
+    setSheetOpen(false);
+    setGuideStep("place");
+  };
 
   useEffect(() => {
     void refreshInventory();
@@ -595,9 +652,16 @@ export function WorkshopPanel() {
   // Gray the hero part in the canvas when the shop says you own none to
   // place (P3, user feedback), so an unplaceable part reads as unavailable.
   // Sandbox and still-loading states never dim (ownership is unknown).
+  // The guide's own wheel stays grabbable for a player who owns nothing
+  // yet: the first drag is the tutorial, and inventory is enforced at match
+  // resolve, exactly as it is for a loaded blueprint.
+  const guidedPartInHand =
+    guideStep === "place" && browsePartId === GUIDED_PART_ID;
   useEffect(() => {
-    setBrowseDimmed(inventory.state === "ready" && browseAvailable <= 0);
-  }, [inventory.state, browseAvailable, setBrowseDimmed]);
+    setBrowseDimmed(
+      inventory.state === "ready" && browseAvailable <= 0 && !guidedPartInHand,
+    );
+  }, [inventory.state, browseAvailable, guidedPartInHand, setBrowseDimmed]);
 
   // Flash the owned-count when a place or merge spends a copy of the part
   // currently in hand (Slice B, user feedback), so the drop reads as
@@ -962,6 +1026,30 @@ export function WorkshopPanel() {
               {sheetOpen ? "▼ see bot" : "▲ controls"}
             </span>
           </button>
+
+          {guideStep && guideStep !== "done" && (
+            <div
+              className="workshop-coach"
+              role="status"
+              data-testid="coach-card"
+              data-step={guideStep}
+            >
+              <span className="workshop-coach-title">
+                {GUIDE_CARDS[guideStep].title}
+              </span>
+              <span className="workshop-coach-line">
+                {GUIDE_CARDS[guideStep].line}
+              </span>
+              <button
+                type="button"
+                className="workshop-coach-skip"
+                onClick={guardTap(skipGuide)}
+                title="Skip the guided first build"
+              >
+                Skip
+              </button>
+            </div>
+          )}
 
           <div
             className="workshop-thumb-bar"
@@ -1411,9 +1499,14 @@ export function WorkshopPanel() {
               <DesignShare />
               <DesignSaves />
               <section style={panelStyle} aria-label="Danger zone">
-                <button type="button" onClick={reset}>
-                  Reset to starter bot
-                </button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" onClick={reset}>
+                    Reset to starter bot
+                  </button>
+                  <button type="button" onClick={replayGuide}>
+                    Replay the first build
+                  </button>
+                </div>
               </section>
             </>
           )}

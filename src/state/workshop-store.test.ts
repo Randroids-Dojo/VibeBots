@@ -572,9 +572,21 @@ describe("G1 view reset nonce", () => {
     // Same core again is a no-op, so the view does not jump either.
     store().setCore("wedge-core");
     expect(store().viewResetNonce).toBe(start + 2);
-    store().loadDesign(STARTER_DESIGN);
+    // Undoing the swap restores the cube bot: a different chassis, so the
+    // view comes home to it; redo swaps back and comes home again.
+    store().undo();
     expect(store().viewResetNonce).toBe(start + 3);
-    store().reset();
+    store().redo();
     expect(store().viewResetNonce).toBe(start + 4);
+    // Undoing a plain placement keeps the chassis, so the view holds.
+    store().undo();
+    store().placeAtSlot(validSlotsFor(store().design, DRIVE_WHEEL)[0]);
+    const beforePlacementUndo = store().viewResetNonce;
+    store().undo();
+    expect(store().viewResetNonce).toBe(beforePlacementUndo);
+    store().loadDesign(STARTER_DESIGN);
+    expect(store().viewResetNonce).toBe(beforePlacementUndo + 1);
+    store().reset();
+    expect(store().viewResetNonce).toBe(beforePlacementUndo + 2);
   });
 });

@@ -155,7 +155,7 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
   } else if (weaponDamage <= 0) {
     lessons.push({
       id: "no-hits",
-      text: `Your ${weapon.name} never connected. A longer reach or a spinner lands hits the ${weapon.name} cannot.`,
+      text: `Your ${weapon.name} never connected. A longer reach or a spinner can land hits that the ${weapon.name} cannot.`,
       action: {
         kind: "browse",
         partId: suggestWeapon(input.ownedPartIds, weapon.id),

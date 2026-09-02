@@ -39,7 +39,7 @@ describe("app release notes", () => {
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
       "Remove a part and it comes off the bot: it shrinks, fades, and drops away in a quarter second with a soft whoosh, instead of vanishing.",
       "Drop a part on a mount and a burst of sparks flies up from the join in the part's own colour, gold for a merge.",
-      "Merge a part with another copy still in your inventory and the inspector says Merge again with a three note chime, so a chain to Lv 3 is never missed.",
+      "Merge a part with another copy still in your inventory and the inspector says Merge again with a three-note chime, so a chain to Lv 3 is never missed.",
     ]);
   });
 

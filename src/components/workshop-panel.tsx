@@ -587,12 +587,15 @@ export function WorkshopPanel() {
   const mergeNonce = useWorkshopStore((s) => s.mergeNonce);
   const [chainCue, setChainCue] = useState(false);
   const lastMergeNonce = useRef(mergeNonce);
+  // The sound is chosen here too, once per merge from either path (the
+  // inspector button or a drop onto a twin): the chain recipe already
+  // carries the merge chime's notes, so playing both would stack them.
   useEffect(() => {
     if (mergeNonce === lastMergeNonce.current) return;
     lastMergeNonce.current = mergeNonce;
+    playWorkshopSfx(mergeEnabled ? "chain" : "merge");
     if (!mergeEnabled) return;
     setChainCue(true);
-    playWorkshopSfx("chain");
     const timer = setTimeout(() => setChainCue(false), 1600);
     return () => clearTimeout(timer);
   }, [mergeNonce, mergeEnabled]);
@@ -1379,7 +1382,6 @@ export function WorkshopPanel() {
                       onClick={() => {
                         mergeSelectedPart();
                         buzz(HAPTIC_MERGE);
-                        playWorkshopSfx("merge");
                       }}
                       disabled={!mergeEnabled}
                       title={

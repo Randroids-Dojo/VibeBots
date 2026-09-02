@@ -1109,7 +1109,8 @@ function WorkshopScene() {
           } else {
             mergePart(target.iid);
             buzz(HAPTIC_MERGE);
-            playWorkshopSfx("merge");
+            // The merge sound plays from the panel's merge-nonce effect, so
+            // a chain merge gets one recipe, not merge plus chain.
             sparkAt(target.placement.position, "#ffe08a");
           }
         }

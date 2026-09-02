@@ -12,7 +12,7 @@ import {
   SAW_BLADE,
   SPINNER_BAR,
 } from "@/sim/parts";
-import { STARTER_DESIGN } from "@/state/workshop-store";
+import { STARTER_DESIGN, validSlotsFor } from "@/state/workshop-store";
 import {
   blockerCopy,
   budgetReading,
@@ -166,26 +166,26 @@ describe("placementBlocker", () => {
   });
 
   it("reads the placement through the mount orientation the drag uses", () => {
-    // A quarter-turned plate on the core top is still legal, so the blocker
-    // stays null at every orientation; an axle part ignores orientation.
-    for (const orientation of [0, 90, 180, 270] as const) {
-      expect(
-        placementBlocker(
-          STARTER_DESIGN,
-          HARDENED_PLATE,
-          PART_CATALOG,
-          orientation,
-        ),
-      ).toBeNull();
-      expect(
-        placementBlocker(
-          TEST_BOT_DESIGN,
-          DRIVE_WHEEL,
-          PART_CATALOG,
-          orientation,
-        ),
-      ).toEqual({ kind: "mount" });
+    // Find a rigid placement whose legality flips with a quarter turn (a
+    // long part that clears the bot one way and overlaps it the other), so
+    // the assertion fails if the blocker ever stops passing the orientation.
+    const orientations = [0, 90, 180, 270] as const;
+    let sensitive = 0;
+    for (const design of [STARTER_DESIGN, TEST_BOT_DESIGN]) {
+      for (const part of Object.values(PART_CATALOG)) {
+        if (part.category === "core") continue;
+        const legal = orientations.map(
+          (o) => validSlotsFor(design, part, PART_CATALOG, o).length > 0,
+        );
+        for (const [index, o] of orientations.entries()) {
+          const blocker = placementBlocker(design, part, PART_CATALOG, o);
+          expect(blocker === null).toBe(legal[index]);
+        }
+        if (legal.some(Boolean) && legal.some((v) => !v)) sensitive += 1;
+      }
     }
+    // The loop above is only a proof if at least one pairing was sensitive.
+    expect(sensitive).toBeGreaterThan(0);
   });
 
   it("covers every catalog part without throwing", () => {

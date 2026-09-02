@@ -42,8 +42,13 @@ export const GUIDE_CARDS: Record<Exclude<GuideStep, "done">, GuideCard> = {
 /** The part the first step hands the player. */
 export const GUIDED_PART_ID = "drive-wheel";
 
-/** The number of parts the bench has once the guided wheel is on. */
-export const GUIDED_COMPLETE_PART_COUNT = 4;
+/**
+ * How many drive wheels the bench carries once the guided wheel is on: the
+ * start design has one, the player adds the second. Counting wheels rather
+ * than parts means placing some other part (a plate on the top mount)
+ * does not end the step while the glowing axle is still empty.
+ */
+export const GUIDED_WHEELS_WHEN_DONE = 2;
 
 /**
  * The Cube Rammer with its left wheel missing: a bot that is one obvious
@@ -78,24 +83,34 @@ export const GUIDED_START_DESIGN: BotDesign = {
 
 /** What the bench can observe to advance a step. */
 export interface GuideObservation {
-  partCount: number;
+  /** Drive wheels on the bot right now. */
+  wheelCount: number;
   fightStarted: boolean;
   shopOpened: boolean;
 }
 
+/** The observation the guide draws from a design: its drive-wheel count. */
+export function guideWheelCount(design: BotDesign): number {
+  let count = 0;
+  for (const part of design.parts) {
+    if (part.partId === GUIDED_PART_ID) count += 1;
+  }
+  return count;
+}
+
 /**
  * The step after an observation. Pure, so the order and the exit
- * conditions are unit tested: placing the wheel finishes "place", starting
+ * conditions are unit tested: placing the second wheel finishes "place", starting
  * any fight finishes "fight", opening the Shop tab finishes "shop". A step
  * never goes backward, and a later demonstration also clears earlier
- * steps (a player who loads a five-part blueprint has finished placing).
+ * steps (a player who loads a two-wheel blueprint has finished placing).
  */
 export function nextGuideStep(
   step: GuideStep,
   observed: GuideObservation,
 ): GuideStep {
   let current = step;
-  if (current === "place" && observed.partCount >= GUIDED_COMPLETE_PART_COUNT) {
+  if (current === "place" && observed.wheelCount >= GUIDED_WHEELS_WHEN_DONE) {
     current = "fight";
   }
   if (current === "fight" && observed.fightStarted) current = "shop";

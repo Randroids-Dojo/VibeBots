@@ -366,6 +366,12 @@ button:focus-visible {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .workshop-meter-flash {
+    animation: none;
+  }
+}
+
 .workshop-budget-reason {
   margin: 0;
   font-size: 0.74rem;

@@ -158,6 +158,7 @@ export function WorkshopPanel() {
   const [menuLift, setMenuLift] = useState(0);
   const panelsRef = useRef<HTMLDivElement | null>(null);
   const fightMenuRef = useRef<HTMLDivElement | null>(null);
+  const fightButtonRef = useRef<HTMLButtonElement | null>(null);
   const dragStripRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
   const removeHandleRef = useRef<HTMLButtonElement | null>(null);
@@ -246,6 +247,28 @@ export function WorkshopPanel() {
       return;
     }
     setSheetOpen((o) => !o);
+  };
+
+  // The thumb bar sits on the same drag surface as the tabs, so a drag
+  // that starts on a thumb button slides the sheet; the click the browser
+  // fires afterwards must not also undo, redo, flip Mirror, or open the
+  // roster. Same rule the tabs and the grip use.
+  const guardTap = (action: () => void) => () => {
+    if (suppressTapRef.current) {
+      suppressTapRef.current = false;
+      return;
+    }
+    action();
+  };
+
+  // Escape closes the fight roster and hands focus back to the button that
+  // opened it (window dismissal rule), whether focus sits on the button or
+  // on an item inside the roster.
+  const closeRosterOnEscape = (event: React.KeyboardEvent) => {
+    if (event.key !== "Escape" || !fightOpen) return;
+    event.preventDefault();
+    setFightOpen(false);
+    fightButtonRef.current?.focus();
   };
 
   const selectTab = (id: "build" | "tune" | "garage" | "shop") => {
@@ -508,7 +531,16 @@ export function WorkshopPanel() {
   // bot to place or merge (tap-to-place was removed as redundant).
   const activeCoreId = currentCoreId(design);
   const browseDef = PART_CATALOG[browsePartId];
-  const blocker = browseDef ? placementBlocker(design, browseDef) : null;
+  // validSlotsFor validates one candidate design per free connector, so
+  // the blocker is derived once per (design, part, orientation) rather
+  // than on every panel render (sheet drags and flash timers re-render).
+  const blocker = useMemo(
+    () =>
+      browseDef
+        ? placementBlocker(design, browseDef, PART_CATALOG, browseOrientation)
+        : null,
+    [design, browseDef, browseOrientation],
+  );
   const blockerKind = blocker?.kind ?? null;
   // The meter a blocked part would break flashes once when the block
   // appears (browsing to the part, or the bot changing under it), so the
@@ -521,7 +553,12 @@ export function WorkshopPanel() {
       ? `${browsePartId}:${blockerKind}`
       : null;
   useEffect(() => {
-    if (!flashKey) return;
+    if (!flashKey) {
+      // The block cleared (a part placed, a class changed): the meter must
+      // not stay red past the timer the cleanup below cancels.
+      setFlashMeter(null);
+      return;
+    }
     const meter = flashKey.endsWith(":power") ? "power" : "weight";
     setFlashMeter(meter);
     const timer = setTimeout(() => setFlashMeter(null), 900);
@@ -912,7 +949,7 @@ export function WorkshopPanel() {
             <button
               type="button"
               className="workshop-thumb-button"
-              onClick={undo}
+              onClick={guardTap(undo)}
               disabled={!canUndo(history)}
               title="Undo the last change"
             >
@@ -921,7 +958,7 @@ export function WorkshopPanel() {
             <button
               type="button"
               className="workshop-thumb-button"
-              onClick={redo}
+              onClick={guardTap(redo)}
               disabled={!canRedo(history)}
               title="Redo the undone change"
             >
@@ -935,7 +972,7 @@ export function WorkshopPanel() {
                   : "workshop-thumb-button"
               }
               aria-pressed={mirrorEnabled}
-              onClick={toggleMirror}
+              onClick={guardTap(toggleMirror)}
               title="Placing a part on a side mount also fills its mirror"
             >
               Mirror
@@ -945,13 +982,14 @@ export function WorkshopPanel() {
               className="workshop-thumb-button"
               aria-label="Recenter the view on the bot"
               title="Recenter the view"
-              onClick={recenterView}
+              onClick={guardTap(recenterView)}
             >
               Recenter
             </button>
             <div className="workshop-fight-menu" ref={fightMenuRef}>
               <button
                 type="button"
+                ref={fightButtonRef}
                 className="workshop-thumb-button workshop-thumb-primary"
                 aria-haspopup="true"
                 aria-expanded={fightOpen}
@@ -962,12 +1000,17 @@ export function WorkshopPanel() {
                     ? "Pick an opponent for a test fight"
                     : "Fix the inspection issues first"
                 }
-                onClick={() => setFightOpen((o) => !o)}
+                onClick={guardTap(() => setFightOpen((o) => !o))}
+                onKeyDown={closeRosterOnEscape}
               >
                 Test fight
               </button>
               {fightOpen && (
-                <div className="workshop-fight-menu-panel" role="menu">
+                <div
+                  className="workshop-fight-menu-panel"
+                  role="menu"
+                  onKeyDown={closeRosterOnEscape}
+                >
                   {REPLICA_OPPONENTS.map((opponent) => (
                     <button
                       key={opponent.id}

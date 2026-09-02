@@ -740,9 +740,15 @@ test(
       page.getByRole("menuitem", { name: "Fight a rival" }),
     ).toBeVisible();
 
-    // A tap outside the menu closes it.
+    // A tap outside the menu closes it, and so does Escape, which hands
+    // focus back to the button that opened it.
     await page.mouse.click(196, 250);
     await expect(page.getByRole("menu")).toHaveCount(0);
+    await actions.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(actions).toBeFocused();
   },
 );
 
@@ -1617,12 +1623,13 @@ test(
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
     await selectCarouselPart(page, "Spinner Bar");
-    await expect(reason).toHaveAttribute("data-blocker", "power");
-    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
+    // The flash is armed for 900ms when the block appears, so read it first.
     await expect(page.locator('[data-meter="power"]')).toHaveAttribute(
       "data-flash",
       "true",
     );
+    await expect(reason).toHaveAttribute("data-blocker", "power");
+    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
 
     // Declare Antweight: the weight meter takes the class name and ceiling,
     // and the hardened plate is refused on weight, not on a mount.

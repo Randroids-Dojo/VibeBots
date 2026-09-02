@@ -205,19 +205,31 @@ export const CORE_WEDGE: PartDef = {
 // More power and durability at the cost of mass and a higher CG. Five rigid
 // faces (top/front/back/left/right) for overhead weapons and lifters, plus the
 // two drive axles low for stability.
+//
+// F-249 (2026-09-02, SIM_VERSION 8): as first cut (a unit tall, axles two
+// tenths below centre) the brick never closed on anyone: its belly rode a
+// few hundredths off the floor and pitched into it under drive, so a tower
+// with wheels and a spike had zero pressure ticks and won nothing on the
+// fight ladder. Measured variants: mount height and density changed
+// nothing; raising the axles alone helped a little; shortening the body to
+// 0.8 with the axles a tenth below centre made the same spike build win
+// Brawler, Night Terror, Bulldozer, and Impaler (the cube build loses the
+// last two) and a lance build win four rungs as well. That is the edge the
+// tall chassis has: it shoves, and it carries five mounts and the most
+// power.
 export const CORE_TOWER: PartDef = {
   id: "tower-core",
   name: "Tower Core",
   blurb: "Tall heavy platform. Most power, five rigid mounts.",
   category: "core",
-  shape: { type: "cuboid", hx: 0.28, hy: 0.5, hz: 0.28 },
+  shape: { type: "cuboid", hx: 0.28, hy: 0.4, hz: 0.28 },
   density: 2.2,
   powerDraw: 0,
   powerSupply: 130,
   durability: 240,
   priceEmeralds: 0,
   connectors: [
-    { id: "top", kind: "rigid", position: { x: 0, y: 0.5, z: 0 } },
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.4, z: 0 } },
     { id: "front", kind: "rigid", position: { x: 0, y: 0.1, z: -0.28 } },
     { id: "back", kind: "rigid", position: { x: 0, y: 0.1, z: 0.28 } },
     { id: "left", kind: "rigid", position: { x: -0.28, y: 0.2, z: 0 } },
@@ -225,13 +237,13 @@ export const CORE_TOWER: PartDef = {
     {
       id: "axle-left",
       kind: "axle",
-      position: { x: -0.37, y: -0.2, z: 0 },
+      position: { x: -0.37, y: -0.1, z: 0 },
       axis: X_AXIS,
     },
     {
       id: "axle-right",
       kind: "axle",
-      position: { x: 0.37, y: -0.2, z: 0 },
+      position: { x: 0.37, y: -0.1, z: 0 },
       axis: X_AXIS,
     },
   ],

@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.309-workshop-ladder-top");
+    expect(release.noticeId).toBe("2026-09-02-0.1.310-tower-core");
     expect(latestNote).toMatchObject({
-      version: "0.1.309",
-      title: "A sixth rung on the fight ladder that punishes a lance",
+      version: "0.1.310",
+      title: "The Tower core can fight now",
       intro:
-        "Once a bot carried a lance it beat every stock fight, and the ladder stopped asking. Gravestone, a heavy bar spinner on a ballast tail, is the rung above that: it eats lance builds and falls to a tempered lance with a tail of its own, so the loop keeps going.",
+        "The tall chassis was a trap: it never closed on anyone, because its belly rode a hair off the floor and pitched into it under drive, so a tower build won nothing. It is shorter now and rides a tenth higher on its axles, and the same wheels and spike beat the two rungs a cube build cannot. Every recorded fight before this version is replayed on the new sim, so old verifications no longer match.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Gravestone joins the Test fight menu after Impaler with the hint punishes a lance: a heavy horizontal bar on the nose, a ballast block on the tail, patient and wide.",
-      "Measured before it went in, from the opponent seat: it beats the first build with a spike, a lance, or a tempered lance in its nose, and a tempered lance with a ballast tail beats it, so the top of the ladder has a counter you can buy from the new parts.",
-      "The picker's tooltip on each rung now says what beats it as well as what it punishes.",
+      "The Tower core is 0.8 tall instead of 1.0 and its axles sit a tenth below centre, so it moves: a tower with two wheels and a spike now beats Brawler, Night Terror, Bulldozer, and Impaler, and a lance build wins four rungs as well.",
+      "Its five mounts and its 130 power are unchanged; what it gains is the shove, which is what a heavy brick is for.",
+      "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before today shows as unverified until it is refought.",
     ]);
   });
 

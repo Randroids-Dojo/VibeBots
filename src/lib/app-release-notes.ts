@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.309-workshop-ladder-top";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.310-tower-core";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.310",
+      date: "2026-09-02",
+      title: "The Tower core can fight now",
+      intro:
+        "The tall chassis was a trap: it never closed on anyone, because its belly rode a hair off the floor and pitched into it under drive, so a tower build won nothing. It is shorter now and rides a tenth higher on its axles, and the same wheels and spike beat the two rungs a cube build cannot. Every recorded fight before this version is replayed on the new sim, so old verifications no longer match.",
+      changes: [
+        {
+          build,
+          text: "The Tower core is 0.8 tall instead of 1.0 and its axles sit a tenth below centre, so it moves: a tower with two wheels and a spike now beats Brawler, Night Terror, Bulldozer, and Impaler, and a lance build wins four rungs as well.",
+        },
+        {
+          build,
+          text: "Its five mounts and its 130 power are unchanged; what it gains is the shove, which is what a heavy brick is for.",
+        },
+        {
+          build,
+          text: "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before today shows as unverified until it is refought.",
+        },
+      ],
+    },
     {
       version: "0.1.309",
       date: "2026-09-02",

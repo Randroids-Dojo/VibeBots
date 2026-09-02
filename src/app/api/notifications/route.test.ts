@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.309-workshop-ladder-top",
+      releaseNoticeId: "2026-09-02-0.1.310-tower-core",
       releaseSummary:
-        "A sixth rung on the fight ladder that punishes a lance: Once a bot carried a lance it beat every stock fight, and the ladder stopped asking. Gravestone, a heavy bar spinner on a ballast tail, is the rung above that: it eats lance builds and falls to a tempered lance with a tail of its own, so the loop keeps going.",
+        "The Tower core can fight now: The tall chassis was a trap: it never closed on anyone, because its belly rode a hair off the floor and pitched into it under drive, so a tower build won nothing. It is shorter now and rides a tenth higher on its axles, and the same wheels and spike beat the two rungs a cube build cannot. Every recorded fight before this version is replayed on the new sim, so old verifications no longer match.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.309-workshop-ladder-top",
+      releaseNoticeId: "2026-09-02-0.1.310-tower-core",
       attempted: 2,
       sent: 1,
       expired: 1,

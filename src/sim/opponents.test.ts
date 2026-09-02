@@ -110,4 +110,25 @@ describe("fight ladder", () => {
     const counter = await resolveMatch([top.design, temperedTail]);
     expect(counter.status.over && counter.status.winner).toBe(1);
   }, 90_000);
+
+  it("gives the Tower core an edge of its own: it wins the two shove rungs the cube loses (F-249, measured)", async () => {
+    // The same two wheels and spike on the tall chassis. Before the
+    // reshape (SIM_VERSION 8) this build never closed on anyone.
+    const tower = {
+      ...rammer,
+      name: "Tower Rammer",
+      parts: rammer.parts.map((part) =>
+        part.iid === "core" ? { ...part, partId: "tower-core" } : part,
+      ),
+    };
+    expect(validateDesign(tower).ok).toBe(true);
+    const wins: string[] = [];
+    for (const rung of FIGHT_LADDER) {
+      const result = await resolveMatch([rung.design, tower]);
+      if (result.status.over && result.status.winner === 1) wins.push(rung.id);
+    }
+    expect(wins).toContain("bulldozer");
+    expect(wins).toContain("impaler");
+    expect(wins.length).toBeGreaterThanOrEqual(3);
+  }, 90_000);
 });

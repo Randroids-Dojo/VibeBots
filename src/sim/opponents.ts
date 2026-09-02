@@ -205,6 +205,60 @@ const replica = (id: string): ReplicaOpponent => {
   return found;
 };
 
+/**
+ * Gravestone (models Tombstone, H4): a heavy horizontal bar on the nose,
+ * drive wheels, a ballast tail, patient. Measured 2026-09-02 from the
+ * opponent seat as the rung above a lance build: it beats the Cube
+ * Rammer with a spike, a lance, or a tempered lance in its nose, and
+ * loses to a tempered lance with a ballast tail of its own, to a bar
+ * with a tail, and to a Bulldozer with a tail, so the rung has counters
+ * a player can buy.
+ */
+const GRAVESTONE: BotDesign = {
+  name: "Gravestone",
+  behavior: { aggression: 0.6, flankBias: 0.6, patience: 0.7 },
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+    { iid: "mount", partId: "spin-mount" },
+    { iid: "bar", partId: "spinner-bar" },
+    { iid: "tail", partId: "ballast-block" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front",
+      childIid: "mount",
+      childConnector: "base",
+    },
+    {
+      parentIid: "mount",
+      parentConnector: "spindle",
+      childIid: "bar",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "back",
+      childIid: "tail",
+      childConnector: "nose",
+    },
+  ],
+};
+
 export const FIGHT_LADDER: readonly FightRung[] = [
   {
     id: "brawler",
@@ -231,5 +285,14 @@ export const FIGHT_LADDER: readonly FightRung[] = [
   {
     ...replica("impaler"),
     hint: "punishes a spike",
+  },
+  {
+    id: "gravestone",
+    name: GRAVESTONE.name,
+    inspiredBy: "Tombstone",
+    blurb:
+      "A heavy bar on a ballast tail. Eats lances; a tempered lance with a tail of its own beats it.",
+    hint: "punishes a lance",
+    design: GRAVESTONE,
   },
 ];

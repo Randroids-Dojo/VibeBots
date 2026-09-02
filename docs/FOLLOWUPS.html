@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-250" data-f="F-250" data-priority="nice-to-have">
+    <h3>F-250: The debrief does not know the ladder</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-09-02 with the sixth rung. After a loss to Gravestone the debrief still speaks of reach, plates, and levers, while the measured counter is a tempered lance and a ballast tail; the rung's tooltip carries that advice instead. A debrief that knew which rung it just watched could name the counter the ladder test proves.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical; <code>MatchEndInfo</code> would need the opponent's rung id and the rules a per-rung counter line.</dd>
+      <dt>Unblock condition</dt><dd>Carry the rung id through the match end, add a lesson that names the rung's counter, and pin it in the debrief tests. Acceptance: a loss to each rung yields a lesson that names a part or a lever the ladder test proves beats that rung.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the sixth-rung slice. Dot <code>VibeBots-f-250-the-567cdd08</code>.</dd>
+    </dl>
+  </section>
   <section id="F-249" data-f="F-249" data-priority="nice-to-have">
     <h3>F-249: The Tower core wins none of the ladder fights</h3>
     <dl>

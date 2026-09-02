@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="workshop-ladder-top" data-date="2026-09-02">
+    <h3>A sixth rung on the fight ladder that punishes a lance build (H4, breadth and expression program)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/workshop-ladder-top</code>, stacked on <code>docs/workshop-audit-3</code> (PR #351).</dd>
+      <dt>PR</dt><dd>Pending. Dot <code>VibeBots-h4-a-sixth-1f0f4e67</code>.</dd>
+      <dt>Context</dt><dd>The closing audit (third pass, <code>docs/FUN_FACTOR_AUDIT.html</code>) named the top of the ladder as the next gap: once a build carried a lance it beat every stock fight and the loop stopped asking. Adding a stock opponent is pure data with no sim change, so it did not have to wait for the next program.</dd>
+      <dt>Changed</dt><dd><code>GRAVESTONE</code> in <code>src/sim/opponents.ts</code> (models Tombstone): a cube core on Drive Wheels, a Spin Mount with a Spinner Bar on the nose, a Ballast Block on the tail, aggression 0.6, flank 0.6, patience 0.7; sixth rung of <code>FIGHT_LADDER</code> with the hint <q>punishes a lance</q> and a blurb that names its counter. Measured in scratch <code>resolveMatch</code> runs (not committed), and measured twice: the first matrix put the candidates in the player seat, the spawn arrangement is not symmetric, and the saw-on-ballast design that won there loses to the plain spike build from the opponent seat, which the ladder test caught. From the opponent seat Gravestone beats the spike (564 to 28), the lance (329 to 259), and the tempered lance (309 to 38), and loses to a tempered lance with a ballast tail (409 to 249), to a bar with a tail, and to a Bulldozer with a tail; the strongest candidate, a tempered lance on ballast wheels with a tail, lost only narrowly to three builds and would have been a wall. The ladder test now pins six rungs, the first build losing the last three, the lance build beating Impaler and losing to Gravestone, and the tempered-lance-and-tail build beating Gravestone. Package 0.1.309 with a release note. <code>SIM_VERSION</code> stays 7.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. <code>pnpm typecheck</code> exit 0. <code>pnpm exec vitest run</code> on the opponents, bench, release, and notifications suites: exit 0 (206 tests; the ladder test now fights nine matches headlessly in under three seconds). <code>pnpm exec biome check</code> on every touched file exit 0. <code>pnpm build</code> exit 0. E2E against the build, serial: the H2 ladder case (seven items, Gravestone before the rival), the G9 debrief case, and the repinned release-note case, 3 of 3 (the ladder case reads seven items with Gravestone before the rival). Dash check (text files) and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>The rung's counter is named in its tooltip because the debrief does not know the ladder: after a loss to Gravestone the lessons still speak of reach, plates, and levers, not of a tempered lance and a tail. That gap is F-250. Every future opponent is measured from the opponent seat, index 0, the seat the workshop gives it. Rule 13 tip review: the full rotation was read; no tip names the roster, so no copy changed. Rule 14 stamp review: a ladder-climbed stamp still waits on match records naming the opponent.</dd>
+      <dt>GDD coverage</dt><dd>No row change; <code>docs/gdd/05-test-arena.html</code> ladder paragraph and build log updated.</dd>
+      <dt>Followups</dt><dd>F-250 raised (a ladder-aware debrief).</dd>
+    </dl>
+  </article>
   <article data-slice="workshop-audit-third-pass" data-date="2026-09-02">
     <h3>Third audit pass: the breadth and expression program closed, with the verdict against the session goal</h3>
     <dl>

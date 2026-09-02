@@ -28,18 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.308-workshop-wave-two");
+    expect(release.noticeId).toBe("2026-09-02-0.1.309-workshop-ladder-top");
     expect(latestNote).toMatchObject({
-      version: "0.1.308",
-      title:
-        "Three new parts: a ballast wheel, a tempered lance, and a ballast block",
+      version: "0.1.309",
+      title: "A sixth rung on the fight ladder that punishes a lance",
       intro:
-        "The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
+        "Once a bot carried a lance it beat every stock fight, and the ladder stopped asking. Gravestone, a heavy bar spinner on a ballast tail, is the rung above that: it eats lance builds and falls to a tempered lance with a tail of its own, so the loop keeps going.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats Bulldozer, the shove the stock wheels lose, and draws the blade fight; it does not save you from Impaler.",
-      "Tempered Lance: the lance, hardened, with reach that does not snap. On the first build it beats every rung of the ladder.",
-      "Ballast Block: a dense block for a tail or a deck. Mass wins a shove: on the first build's tail it beats four rungs of five. All three are additive; every recorded fight replays the same.",
+      "Gravestone joins the Test fight menu after Impaler with the hint punishes a lance: a heavy horizontal bar on the nose, a ballast block on the tail, patient and wide.",
+      "Measured before it went in, from the opponent seat: it beats the first build with a spike, a lance, or a tempered lance in its nose, and a tempered lance with a ballast tail beats it, so the top of the ladder has a counter you can buy from the new parts.",
+      "The picker's tooltip on each rung now says what beats it as well as what it punishes.",
     ]);
   });
 

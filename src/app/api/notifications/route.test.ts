@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.308-workshop-wave-two",
+      releaseNoticeId: "2026-09-02-0.1.309-workshop-ladder-top",
       releaseSummary:
-        "Three new parts: a ballast wheel, a tempered lance, and a ballast block: The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
+        "A sixth rung on the fight ladder that punishes a lance: Once a bot carried a lance it beat every stock fight, and the ladder stopped asking. Gravestone, a heavy bar spinner on a ballast tail, is the rung above that: it eats lance builds and falls to a tempered lance with a tail of its own, so the loop keeps going.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.308-workshop-wave-two",
+      releaseNoticeId: "2026-09-02-0.1.309-workshop-ladder-top",
       attempted: 2,
       sent: 1,
       expired: 1,

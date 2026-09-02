@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.308-workshop-wave-two";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.309-workshop-ladder-top";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.309",
+      date: "2026-09-02",
+      title: "A sixth rung on the fight ladder that punishes a lance",
+      intro:
+        "Once a bot carried a lance it beat every stock fight, and the ladder stopped asking. Gravestone, a heavy bar spinner on a ballast tail, is the rung above that: it eats lance builds and falls to a tempered lance with a tail of its own, so the loop keeps going.",
+      changes: [
+        {
+          build,
+          text: "Gravestone joins the Test fight menu after Impaler with the hint punishes a lance: a heavy horizontal bar on the nose, a ballast block on the tail, patient and wide.",
+        },
+        {
+          build,
+          text: "Measured before it went in, from the opponent seat: it beats the first build with a spike, a lance, or a tempered lance in its nose, and a tempered lance with a ballast tail beats it, so the top of the ladder has a counter you can buy from the new parts.",
+        },
+        {
+          build,
+          text: "The picker's tooltip on each rung now says what beats it as well as what it punishes.",
+        },
+      ],
+    },
     {
       version: "0.1.308",
       date: "2026-09-02",

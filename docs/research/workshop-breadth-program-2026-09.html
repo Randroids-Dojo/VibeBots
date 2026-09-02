@@ -46,8 +46,8 @@
   </section>
 
   <section id="h2">
-    <h3>H2: An opponent that punishes the first build</h3>
-    <p>The first bot every player makes is a cube with two wheels and a spike. A fourth stock opponent, an armoured hedgehog (cube core, hardened plates on every rigid mount, a hammer on top, patient, low flank), shrugs off spikes and wins on the card; the debrief's never-connected lesson already points at a spinner or a lance. Pure data in <code>REPLICA_OPPONENTS</code>, validated by the existing opponent tests, plus a bench check that it beats the Cube Rammer and loses to a saw build so the counter is real.</p>
+    <h3>H2: The roster becomes a ladder (measured)</h3>
+    <p>As first written this slice was an armoured hammer bot that would shrug off spikes. Measured before building (a headless <code>resolveMatch</code> matrix, 2026-09-02): every armoured variant, with drive, grip, or super wheels, a nose wedge, a hardened lid, and a hammer on the core or the lid, lost to the Cube Rammer, twice by knockout inside ten seconds; the damage model rewards reach and mobility, not plate. The same matrix showed the ladder already existed and was hidden: the Cube Rammer beats Brawler, Contagion, and Night Terror on the card, edges out to Bulldozer (176 to 173, a bench-only archetype the picker never offered), and loses decisively to Impaler (232 to 83); and a lance in the spike's place beats Impaler (270 to 32) and everything else, so the debrief's never-connected advice is right. The slice therefore ships <code>FIGHT_LADDER</code>: the five stock fights in measured order with a hint per rung, Bulldozer in the picker, and a unit test that fights the ladder and pins the outcomes so a sim change that flips them is caught. No new part and no armour archetype: that would need a damage model that rewards plate, which is F-247 territory.</p>
   </section>
 
   <section id="h3">

@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.306-workshop-levers");
+    expect(release.noticeId).toBe("2026-09-02-0.1.307-workshop-ladder");
     expect(latestNote).toMatchObject({
-      version: "0.1.306",
-      title: "The debrief teaches the levers, and one tap pulls them",
+      version: "0.1.307",
+      title: "The fight roster is a ladder, with a new rung in the middle",
       intro:
-        "Your bot has had three temperament sliders and gearing all along, but nothing in the game ever said when to touch them. The debrief now does: a decision lost off the front foot offers more aggression, a knockout taken in the pocket offers more patience, and one tap applies the change and shows you the slider.",
+        "The test fights were a list. They are a ladder now, easiest first for the bot you build first, each with a hint of what it asks, and Bulldozer, a low plow bot that only the bench used to fight, joins the picker as the rung between a fair fight and a punishing one.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Lose a decision while spending less of the fight closing in than your opponent and the debrief says so, with your front-foot share against theirs, and offers Raise aggression.",
-      "Get knocked out while giving far less damage than you took and the debrief says the bot stayed in the pocket and offers Raise patience, so it resets after a hit.",
-      "Each of those buttons applies the change (Undo takes it back) and opens Tune so you see the slider move before the next fight.",
+      "The Test fight menu lists Brawler, Contagion, Night Terror, Bulldozer, then Impaler, with a hint under each: warm-up, controls the floor, all blade, outshoves a spike, punishes a spike.",
+      "Bulldozer is new to the picker: low roller drums, an armour nose, and a plow that never lets go. It shoves harder than a spike and edges the first build on the card.",
+      "The order is measured, not guessed: the first build beats the first three rungs and loses to the last two, and the debrief's advice after a loss to Impaler, a longer reach, wins that fight.",
     ]);
   });
 

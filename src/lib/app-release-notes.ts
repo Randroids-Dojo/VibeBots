@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.306-workshop-levers";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.307-workshop-ladder";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.307",
+      date: "2026-09-02",
+      title: "The fight roster is a ladder, with a new rung in the middle",
+      intro:
+        "The test fights were a list. They are a ladder now, easiest first for the bot you build first, each with a hint of what it asks, and Bulldozer, a low plow bot that only the bench used to fight, joins the picker as the rung between a fair fight and a punishing one.",
+      changes: [
+        {
+          build,
+          text: "The Test fight menu lists Brawler, Contagion, Night Terror, Bulldozer, then Impaler, with a hint under each: warm-up, controls the floor, all blade, outshoves a spike, punishes a spike.",
+        },
+        {
+          build,
+          text: "Bulldozer is new to the picker: low roller drums, an armour nose, and a plow that never lets go. It shoves harder than a spike and edges the first build on the card.",
+        },
+        {
+          build,
+          text: "The order is measured, not guessed: the first build beats the first three rungs and loses to the last two, and the debrief's advice after a loss to Impaler, a longer reach, wins that fight.",
+        },
+      ],
+    },
     {
       version: "0.1.306",
       date: "2026-09-02",

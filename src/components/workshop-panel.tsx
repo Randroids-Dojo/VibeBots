@@ -49,7 +49,6 @@ import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
-  CPU_BRAWLER_DESIGN,
   MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   partInstanceDurability,
@@ -57,7 +56,7 @@ import {
   validateDesign,
 } from "@/sim/design";
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
-import { REPLICA_OPPONENTS } from "@/sim/opponents";
+import { FIGHT_LADDER } from "@/sim/opponents";
 import { PART_CATALOG, partMass } from "@/sim/parts";
 import type { MatchTeardown } from "@/sim/telemetry";
 import { enqueueStampAlertsFromResponse } from "@/state/stamp-alert-store";
@@ -1352,36 +1351,34 @@ export function WorkshopPanel() {
                   role="menu"
                   onKeyDown={closeRosterOnEscape}
                 >
-                  {REPLICA_OPPONENTS.map((opponent) => (
+                  {/* The ladder (H2): easiest first for the first build, each
+                      rung with a hint of what it asks. The Brawler keeps
+                      its old label. */}
+                  {FIGHT_LADDER.map((rung) => (
                     <button
-                      key={opponent.id}
+                      key={rung.id}
                       type="button"
                       role="menuitem"
                       className="workshop-fight-action"
+                      data-rung={rung.id}
                       onClick={() => {
                         setFightOpen(false);
                         setEndInfo(null);
                         setVerification({ state: "idle" });
-                        setMatchup([opponent.design, design]);
+                        setMatchup([rung.design, design]);
                       }}
-                      title={`${opponent.blurb} (in the style of ${opponent.inspiredBy})`}
+                      title={
+                        rung.inspiredBy
+                          ? `${rung.blurb} (in the style of ${rung.inspiredBy})`
+                          : rung.blurb
+                      }
                     >
-                      Fight {opponent.name}
+                      {rung.id === "brawler"
+                        ? "Test fight vs Brawler"
+                        : `Fight ${rung.name}`}
+                      <span className="workshop-fight-hint">{rung.hint}</span>
                     </button>
                   ))}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="workshop-fight-action"
-                    onClick={() => {
-                      setFightOpen(false);
-                      setEndInfo(null);
-                      setVerification({ state: "idle" });
-                      setMatchup([CPU_BRAWLER_DESIGN, design]);
-                    }}
-                  >
-                    Test fight vs Brawler
-                  </button>
                   <button
                     type="button"
                     role="menuitem"

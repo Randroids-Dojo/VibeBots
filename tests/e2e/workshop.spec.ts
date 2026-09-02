@@ -2293,6 +2293,39 @@ test(
   },
 );
 
+test(
+  "the fight roster is a ladder: easiest first, a hint per rung, and the missing rung fights (H2)",
+  ciCase("E2E-WORKSHOP-0047", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    const items = page.getByRole("menuitem");
+    await expect(items).toHaveCount(6);
+    const labels = await items.allTextContents();
+    expect(labels.map((text) => text.trim())).toEqual([
+      "Test fight vs Brawlerwarm-up",
+      "Fight Contagioncontrols the floor",
+      "Fight Night Terrorall blade",
+      "Fight Bulldozeroutshoves a spike",
+      "Fight Impalerpunishes a spike",
+      "Fight a rival",
+    ]);
+    // The rung that used to be bench-only fights from the picker.
+    await page.getByRole("menuitem", { name: "Fight Bulldozer" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    await expect(page.getByText("Bulldozer", { exact: true })).toBeVisible();
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

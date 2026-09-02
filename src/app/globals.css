@@ -521,6 +521,15 @@ button:focus-visible {
   background: #7aa8ff;
 }
 
+/* The rung hint under each ladder entry (H2). */
+.workshop-fight-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
 .workshop-fight-action:disabled {
   background: #161b28;
   color: #5a6378;

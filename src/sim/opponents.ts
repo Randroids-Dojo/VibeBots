@@ -1,4 +1,8 @@
-import type { BotDesign } from "./design";
+import {
+  type BotDesign,
+  CPU_BRAWLER_DESIGN,
+  CPU_BULLDOZER_DESIGN,
+} from "./design";
 
 /**
  * Replica opponents: stock CPU bots built to closely match specific iconic
@@ -169,5 +173,63 @@ export const REPLICA_OPPONENTS: ReplicaOpponent[] = [
     inspiredBy: "Vlad the Impaler",
     blurb: "Forward fork spikes. Relentless rammer.",
     design: IMPALER,
+  },
+];
+
+/**
+ * One rung of the fight ladder (H2, breadth and expression program): a
+ * stock opponent in the order the roster offers them, easiest first for
+ * the first build a player makes (the Cube Rammer: cube, two wheels, a
+ * spike). The order is measured, not guessed: opponents.test.ts fights
+ * the Cube Rammer up the ladder and pins that it beats the first three
+ * rungs, loses to the last two, and that the debrief's counter (a lance
+ * in the spike's place) beats the last rung. Bulldozer was a bench-only
+ * archetype until this; it is the missing rung between a fair fight and
+ * a punishing one.
+ */
+export interface FightRung {
+  id: string;
+  name: string;
+  /** One line for the picker's tooltip. */
+  blurb: string;
+  /** Two or three words under the name: what this rung asks of a build. */
+  hint: string;
+  /** The real BattleBot a replica models; house archetypes have none. */
+  inspiredBy?: string;
+  design: BotDesign;
+}
+
+const replica = (id: string): ReplicaOpponent => {
+  const found = REPLICA_OPPONENTS.find((opponent) => opponent.id === id);
+  if (!found) throw new Error(`no replica opponent ${id}`);
+  return found;
+};
+
+export const FIGHT_LADDER: readonly FightRung[] = [
+  {
+    id: "brawler",
+    name: CPU_BRAWLER_DESIGN.name,
+    blurb: "The stock brawler: a plate on top and nothing up front.",
+    hint: "warm-up",
+    design: CPU_BRAWLER_DESIGN,
+  },
+  {
+    ...replica("contagion"),
+    hint: "controls the floor",
+  },
+  {
+    ...replica("night-terror"),
+    hint: "all blade",
+  },
+  {
+    id: "bulldozer",
+    name: CPU_BULLDOZER_DESIGN.name,
+    blurb: "Low roller drums, an armour nose, and a plow that never lets go.",
+    hint: "outshoves a spike",
+    design: CPU_BULLDOZER_DESIGN,
+  },
+  {
+    ...replica("impaler"),
+    hint: "punishes a spike",
   },
 ];

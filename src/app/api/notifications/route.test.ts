@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.306-workshop-levers",
+      releaseNoticeId: "2026-09-02-0.1.307-workshop-ladder",
       releaseSummary:
-        "The debrief teaches the levers, and one tap pulls them: Your bot has had three temperament sliders and gearing all along, but nothing in the game ever said when to touch them. The debrief now does: a decision lost off the front foot offers more aggression, a knockout taken in the pocket offers more patience, and one tap applies the change and shows you the slider.",
+        "The fight roster is a ladder, with a new rung in the middle: The test fights were a list. They are a ladder now, easiest first for the bot you build first, each with a hint of what it asks, and Bulldozer, a low plow bot that only the bench used to fight, joins the picker as the rung between a fair fight and a punishing one.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.306-workshop-levers",
+      releaseNoticeId: "2026-09-02-0.1.307-workshop-ladder",
       attempted: 2,
       sent: 1,
       expired: 1,

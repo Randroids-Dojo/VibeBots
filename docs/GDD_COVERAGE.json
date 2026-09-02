@@ -206,13 +206,15 @@
         "src/components/workshop-panel.tsx",
         "src/components/arena-camera.ts",
         "src/components/arena-canvas.tsx",
-        "src/components/fight-debrief.ts"
+        "src/components/fight-debrief.ts",
+        "src/sim/opponents.ts"
       ],
       "testRefs": [
         "src/components/arena-camera.test.ts",
         "tests/e2e/arena.spec.ts",
         "tests/e2e/workshop.spec.ts",
-        "src/components/fight-debrief.test.ts"
+        "src/components/fight-debrief.test.ts",
+        "src/sim/opponents.test.ts"
       ],
       "followupRefs": []
     },

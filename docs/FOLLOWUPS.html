@@ -2757,6 +2757,15 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-248" data-f="F-248" data-priority="polish">
+    <h3>F-248: The bench camera controls connect to a null element when a fight starts right after load</h3>
+    <dl>
+      <dt>Context</dt><dd>Seen once, 2026-09-02, in the local e2e run for the fight ladder slice: the app's global error telemetry logged <code>Cannot read properties of null (reading 'addEventListener')</code> from drei <code>OrbitControls</code> <code>connect</code> inside a canvas <code>onCreated</code> on <code>/workshop</code>, while the new ladder case opened the roster and started a fight moments after the page loaded. No test failed and the fight ran; the workshop canvas was unmounting for the arena as its controls tried to attach to a renderer element that was already gone. Not seen in the earlier full workshop run, whose cases all wait on the bench before fighting.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Reproduce with the ladder case (E2E-WORKSHOP-0047) under a console-error assertion, then either defer the controls' connect until the renderer's element exists or unmount the controls before the canvas. Acceptance: the ladder case passes with a zero-console-error check like the program driver's.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the ladder slice (PR #349). Dot <code>VibeBots-f-248-orbitcontrols-14e8f44b</code>.</dd>
+    </dl>
+  </section>
   <section id="F-244" data-f="F-244" data-priority="polish">
     <h3>F-244: The drop sparks are not readable at phone size</h3>
     <dl>

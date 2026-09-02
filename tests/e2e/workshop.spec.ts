@@ -1907,8 +1907,12 @@ test(
       .poll(async () => (await nameEl.textContent())?.trim())
       .toMatch(/Wheel|Drum/);
 
-    // The shop lists by family with the ladder in order.
+    // The shop lists by family with the ladder in order, cheapest first
+    // even when the payload lists a lower rung after a higher one.
     await page.getByRole("tab", { name: "Shop" }).click();
+    const frame = page.getByRole("region", { name: "Frame parts" });
+    await expect(frame.locator("li").nth(0)).toContainText("Light Plate");
+    await expect(frame.locator("li").nth(1)).toContainText("Frame Plate");
     const drive = page.getByRole("region", { name: "Drive parts" });
     await expect(drive.getByRole("heading", { name: "Drive" })).toBeVisible();
     await expect(drive.locator("li")).toHaveCount(3);

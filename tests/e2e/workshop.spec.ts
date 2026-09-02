@@ -1637,6 +1637,57 @@ test(
   },
 );
 
+test(
+  "a share code carries the whole bot out of the garage and back in (G8)",
+  ciCase("E2E-WORKSHOP-0038", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+
+    // Load the Wedge Razor blueprint and read its code from the Share box.
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page
+      .getByRole("region", { name: "Blueprints" })
+      .getByRole("button", { name: /Wedge Razor/ })
+      .click();
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+    const share = page.getByRole("region", { name: "Share" });
+    await expect(share).toBeVisible();
+    const code = await share.getByTestId("share-code").inputValue();
+    expect(code.startsWith("VB1.")).toBe(true);
+    expect(code.length).toBeLessThan(600);
+
+    // Reset to the starter bot, then paste the code back in.
+    await page.getByRole("button", { name: "Reset to starter bot" }).click();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await share.getByTestId("share-import").fill(code);
+    await share.getByRole("button", { name: "Load bot" }).click();
+    await expect(share.getByTestId("share-import-ok")).toContainText(
+      "Loaded Wedge Razor",
+    );
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+    // A damaged code is refused with a reason, and the bot is untouched.
+    await share.getByTestId("share-import").fill("VB1.notacode!!");
+    await share.getByRole("button", { name: "Load bot" }).click();
+    await expect(share.getByTestId("share-import-error")).toContainText(
+      "damaged",
+    );
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+    // A share link opens the workshop with the bot loaded and drops the code
+    // from the address bar.
+    await page.goto(`/workshop?code=${encodeURIComponent(code)}`);
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => window.location.search))
+      .toBe("");
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

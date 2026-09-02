@@ -24,11 +24,28 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest build-hud note complete", () => {
+  it("keeps the latest share-codes note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.296-workshop-build-hud");
+    expect(release.noticeId).toBe("2026-09-02-0.1.297-workshop-share-codes");
+    expect(latestNote).toMatchObject({
+      version: "0.1.297",
+      title: "Share a bot as a code or a link",
+      intro:
+        "A bot is data, so it can travel. The garage now hands you a short code and a link for the bot on your bench, and loads anyone else's from a paste or a link. Every saved bot in the garage shows its size and chassis at a glance.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Share box in the Garage tab shows your bot's code and copies it, or a link that opens the workshop with the bot already loaded.",
+      "Paste a code or a link into Load a code and the bot appears on your bench, checked through the same inspection a fight uses. A damaged or illegal code says so instead of loading.",
+      "Saved designs in the garage list their part count and chassis, so you can tell your bots apart without loading each one.",
+    ]);
+  });
+
+  it("keeps the archived build-hud note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.296");
+
     expect(latestNote).toMatchObject({
       version: "0.1.296",
       title: "Build with the budget in view and every action under your thumb",

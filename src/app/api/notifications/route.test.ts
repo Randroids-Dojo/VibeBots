@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.296-workshop-build-hud",
+      releaseNoticeId: "2026-09-02-0.1.297-workshop-share-codes",
       releaseSummary:
-        "Build with the budget in view and every action under your thumb: The workshop hid undo, redo, and the fights behind a menu, and told you a part would not fit by doing nothing. The bench now keeps its actions in reach and shows how much power and weight you have left as you build.",
+        "Share a bot as a code or a link: A bot is data, so it can travel. The garage now hands you a short code and a link for the bot on your bench, and loads anyone else's from a paste or a link. Every saved bot in the garage shows its size and chassis at a glance.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.296-workshop-build-hud",
+      releaseNoticeId: "2026-09-02-0.1.297-workshop-share-codes",
       attempted: 2,
       sent: 1,
       expired: 1,

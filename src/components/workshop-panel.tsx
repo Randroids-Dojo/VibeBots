@@ -14,6 +14,7 @@ import type { MatchEndInfo } from "@/components/arena-canvas";
 import { BalanceReadout } from "@/components/balance-readout";
 import { BenchPanel } from "@/components/bench-panel";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
+import { DesignShare } from "@/components/design-share";
 import { GearingPanel } from "@/components/gearing-panel";
 import { MatchTeardownSheet } from "@/components/match-teardown";
 import { StampBookPopup } from "@/components/mine-stamp-book-popup";
@@ -28,6 +29,7 @@ import {
 } from "@/components/workshop-budget";
 import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { panelStyle, pillStyle } from "@/components/workshop-ui";
+import { decodeDesignCode } from "@/lib/design-code";
 import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
@@ -339,6 +341,27 @@ export function WorkshopPanel() {
     void prefetchShop();
     void prefetchDesigns();
   }, []);
+
+  // A shared link (G8): /workshop?code=VB1.... opens with that bot loaded,
+  // then drops the code from the address bar so a reload does not reload it
+  // over whatever the player built since. A bad code is ignored here; the
+  // Garage's Load box is where a pasted code gets its error line.
+  const loadDesignFromLink = useWorkshopStore((s) => s.loadDesign);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (!code) return;
+    const decoded = decodeDesignCode(code);
+    if (decoded.ok) loadDesignFromLink(decoded.design);
+    params.delete("code");
+    const rest = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`,
+    );
+  }, [loadDesignFromLink]);
 
   useEffect(() => {
     void refreshInventory();
@@ -1342,6 +1365,7 @@ export function WorkshopPanel() {
                   ))}
                 </div>
               </section>
+              <DesignShare />
               <DesignSaves />
               <section style={panelStyle} aria-label="Danger zone">
                 <button type="button" onClick={reset}>

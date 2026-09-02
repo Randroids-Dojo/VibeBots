@@ -8,7 +8,11 @@
  * the same fight always says the same thing.
  */
 import type { MatchEndReason, MatchScore } from "@/sim/combat";
-import { type BotBehavior, type BotDesign, NEUTRAL_BEHAVIOR } from "@/sim/design";
+import {
+  type BotBehavior,
+  type BotDesign,
+  NEUTRAL_BEHAVIOR,
+} from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
 

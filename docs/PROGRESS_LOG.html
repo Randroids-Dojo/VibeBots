@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="workshop-audit-second-pass" data-date="2026-09-02">
+    <h3>Second audit pass over the garage program with the first-minute fixes, the debrief, and the phone-size pass in place</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/workshop-audit-2</code>, stacked on <code>feature/workshop-phone-size</code> (PR #346).</dd>
+      <dt>PR</dt><dd>Pending. Dot <code>VibeBots-second-audit-pass-e92cdf7f</code>.</dd>
+      <dt>Context</dt><dd>The first audit (2026-09-02) said the workshop was short of the program's bar and named what stood in the way; three slices since (#344, #345, #346) addressed every named item. The session goal is a quality bar, so the honest thing is to re-ask the prompts rather than assume the fixes answered them.</dd>
+      <dt>Changed</dt><dd>The driver gained an opt-in step (<code>PLAYTEST_DEBRIEF=1</code>) that waits for the fight to end and captures the debrief, so the fight side has evidence of its own; the run's summary is saved as <code>playtest-summary-second-pass.json</code> and the capture as figure 14 on the session page. The audit article records the second pass: the first minute and the core loop at the bar, breadth and expression still short, with two program-sized followups F-246 (the hour-in surprise) and F-247 (skill expression on the bench).</dd>
+      <dt>Verification</dt><dd>The driver run with the debrief step against a production build of the stack's top (<code>1d29187a</code>): every promised feature present, zero console errors, the debrief read <q>You lost by decision at 1:00</q> with two lessons and two fix buttons, exit 0. Ledger tag balance, dash check (text files), and <code>git diff --check</code> clean. Docs and a script only.</dd>
+      <dt>Assumptions</dt><dd>The verdict is against the program's own bar as the research doc states it, on a local build; the Rule 12 production confirmation pass is still owed once the stack merges. Rule 13 and Rule 14: not applicable.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>F-246, F-247 (new).</dd>
+    </dl>
+  </article>
   <article data-slice="workshop-phone-size" data-date="2026-09-02">
     <h3>The fight and the sparks read at phone size (F-245, F-244)</h3>
     <dl>

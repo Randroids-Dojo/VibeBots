@@ -462,6 +462,30 @@ if (await expectVisible(firstOpponent, "first roster opponent")) {
     summary.arenaPaint.bot0,
     (v) => v === "none",
   );
+  // 10. The debrief (G9), when asked for: the fight runs to its end (up
+  // to the minute plus the countdown), then the card says what decided
+  // it and offers the fix.
+  if (process.env.PLAYTEST_DEBRIEF === "1") {
+    const debrief = pg.getByTestId("fight-debrief");
+    const seen = await debrief
+      .waitFor({ state: "visible", timeout: 110_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (seen) {
+      summary.debrief = {
+        headline: (
+          await debrief.locator(".fight-debrief-headline").textContent()
+        )?.trim(),
+        lessons: await debrief
+          .locator('[data-testid="debrief-lesson"] p')
+          .allTextContents(),
+        buttons: await debrief.locator("button").allTextContents(),
+      };
+      await shot("garage-14-debrief");
+    } else {
+      missing.push("debrief after the fight");
+    }
+  }
 }
 
 await b.close();

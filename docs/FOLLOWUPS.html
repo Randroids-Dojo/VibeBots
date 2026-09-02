@@ -924,6 +924,24 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-246" data-f="F-246" data-priority="nice-to-have">
+    <h3>F-246: The hour-in surprise: the catalog and the roster run out</h3>
+    <dl>
+      <dt>Context</dt><dd>Named by both 2026-09-02 audits in <code>docs/FUN_FACTOR_AUDIT.html</code>. Three rungs per family, four stock opponents plus a rival, and a debrief that at the top of the ladder can only say <q>Try a harder opponent</q>. A player an hour in has seen everything the bench can offer.</dd>
+      <dt>Blocker (if any)</dt><dd>Program-sized: a catalog wave (a fourth rung or a new family) and an opponent that punishes a specific build are design work with balance consequences, not a slice.</dd>
+      <dt>Unblock condition</dt><dd>A short research doc in the style of <code>docs/research/workshop-garage-program-2026-09.html</code> that picks the wave and the opponent, with the sim version impact stated. Acceptance: a returning player who has maxed one family has a new rung or family to buy and an opponent the debrief can name a counter for.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the second audit. Dot <code>VibeBots-f-246-the-d0f4be6f</code>.</dd>
+    </dl>
+  </section>
+  <section id="F-247" data-f="F-247" data-priority="nice-to-have">
+    <h3>F-247: Skill expression on the bench: two builds of the same parts fight the same</h3>
+    <dl>
+      <dt>Context</dt><dd>Named by both 2026-09-02 audits. Placement is the only lever besides gearing: mount choice and merge level decide a build, and the deterministic controller does the rest, so two players with the same parts converge on the same bot and the debrief can only point at parts and Tune.</dd>
+      <dt>Blocker (if any)</dt><dd>Design decision with a determinism contract behind it (Q-003): any new lever the sim reads changes results everywhere at once and bumps <code>SIM_VERSION</code>. F-234 (behaviour rules beyond the temperament sliders) is the closest existing thread.</dd>
+      <dt>Unblock condition</dt><dd>Pick one lever a build can vary that the sim reads and the debrief can advise on (a weapon angle, a behaviour rule, a weight bias), spec it in the GDD, and ship it with its debrief lesson. Acceptance: two valid builds of the same parts can fight differently by a choice the player made on the bench, and the debrief names it.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the second audit. Dot <code>VibeBots-f-247-skill-a72b3f5c</code>.</dd>
+    </dl>
+  </section>
   <section id="F-239" data-f="F-239" data-priority="nice-to-have">
     <h3>F-239: The server never states the post-match teardown</h3>
     <dl>

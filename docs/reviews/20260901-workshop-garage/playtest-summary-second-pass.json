@@ -1,0 +1,73 @@
+{
+  "coachCardOnFirstVisit": true,
+  "coachStep": "place",
+  "title": "My Bot: 2 parts",
+  "meters": {
+    "power": true,
+    "weight": true
+  },
+  "thumbBar": true,
+  "chips": {
+    "/weapon/i": {
+      "covered": null,
+      "click": "pointer"
+    },
+    "/drive/i (keyboard)": {
+      "pressed": "true"
+    },
+    "/weapon/i (keyboard)": {
+      "pressed": "true"
+    },
+    "/^all$/i": {
+      "covered": null,
+      "click": "pointer"
+    }
+  },
+  "sparkingRightAfterDrop": "1",
+  "titleAfterDrop": "My Bot: 4 parts",
+  "coachStepAfterDrop": "fight",
+  "sparkingLater": "0",
+  "rosterItems": [
+    "Fight Contagion",
+    "Fight Night Terror",
+    "Fight Impaler",
+    "Test fight vs Brawler",
+    "Fight a rival"
+  ],
+  "lanceBlurb": "Longer reach than the spike, and easier to snap.",
+  "paint": {
+    "primary": "cobalt",
+    "accent": "gold"
+  },
+  "shareCode": {
+    "prefix": "VB1.",
+    "length": 371
+  },
+  "titleAfterMergeDrop": "My Bot: 4 parts",
+  "chainCue": "Merge again to Lv 3",
+  "dissolve": {
+    "frames": "5",
+    "min": "0.200",
+    "stillDissolving": "0"
+  },
+  "titleAfterRemove": "My Bot: 3 parts",
+  "opponent": "Fight Contagion",
+  "arenaPaint": {
+    "bot0": "none",
+    "bot1": "cobalt:gold"
+  },
+  "debrief": {
+    "headline": "You lost by decision at 1:00",
+    "lessons": [
+      "Drive Wheel took 57% of the damage. A plate beside it spreads the load.",
+      "The judges scored it 145 to 96: fewer hits landed. More drive power closes the distance; see Tune."
+    ],
+    "buttons": [
+      "Browse plates",
+      "Open Tune"
+    ]
+  },
+  "consoleErrors": [],
+  "failedResponses": [],
+  "missing": []
+}

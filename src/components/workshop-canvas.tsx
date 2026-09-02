@@ -7,7 +7,14 @@ import {
   useFrame,
   useThree,
 } from "@react-three/fiber";
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentRef,
+  type RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   BufferAttribute,
   BufferGeometry,
@@ -26,11 +33,12 @@ import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
 import { type BalanceReport, computeBalance } from "@/sim/balance";
 import { type PartInstance, partMergeLevel } from "@/sim/design";
-import { computeLayout, type Placement } from "@/sim/layout";
+import { computeLayout, isQuarterTurned, type Placement } from "@/sim/layout";
 import {
   PART_CATALOG,
   type PartCategory,
   type PartDef,
+  shapeHalfExtents,
   type Vec3,
 } from "@/sim/parts";
 import {
@@ -57,6 +65,14 @@ import {
   PULSE_SECONDS,
   snapScale,
 } from "./workshop-animation";
+import {
+  boundsCenter,
+  DEFAULT_CAMERA_OFFSET,
+  defaultCameraPosition,
+  frameTarget,
+  glideFraction,
+  isSettled,
+} from "./workshop-camera";
 import { clientToNdc, groundFloorY, pickNearestSlot } from "./workshop-drag";
 import { playWorkshopSfx } from "./workshop-sfx";
 
@@ -502,6 +518,144 @@ function BalanceOverlay({
   );
 }
 
+type OrbitControlsRef = ComponentRef<typeof OrbitControls>;
+
+/**
+ * Bench camera rig (G1): glides the orbit target toward a tapped part so
+ * the part is framed without wrangling, and brings the whole view home
+ * (target on the bot's bounds centre, camera at the default front
+ * three-quarter offset) on a view reset. The math lives in
+ * workshop-camera.ts; this only applies it per frame with scratch vectors
+ * (frame-loop rule: no per-frame allocation) and publishes the live target
+ * and camera position to the canvas dataset so a test can prove the move.
+ */
+function CameraRig({
+  controlsRef,
+  layout,
+  selectedIid,
+  inspectNonce,
+  viewResetNonce,
+}: {
+  controlsRef: RefObject<OrbitControlsRef | null>;
+  layout: Map<string, Placement>;
+  selectedIid: string | null;
+  inspectNonce: number;
+  viewResetNonce: number;
+}) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const design = useWorkshopStore((s) => s.design);
+  const goalTarget = useRef(new Vector3());
+  const goalPosition = useRef(new Vector3());
+  // True while a reset is also gliding the camera itself back to the
+  // default offset; a tap-frame only pans (camera and target move together).
+  const resettingPosition = useRef(false);
+  const scratch = useRef(new Vector3());
+  const datasetCache = useRef<Record<string, number | string>>({});
+
+  // The bot's bounds centre from every part's two bounding corners, so a
+  // wide wheel counts for more than a spike. Design cadence, not frame.
+  const center = useMemo(() => {
+    const corners: Vec3[] = [];
+    for (const part of design.parts) {
+      const def = PART_CATALOG[part.partId];
+      const placement = layout.get(part.iid);
+      if (!def || !placement) continue;
+      const { hx, hy, hz } = shapeHalfExtents(def.shape);
+      const turned = isQuarterTurned(placement.rotation);
+      const ex = turned ? hz : hx;
+      const ez = turned ? hx : hz;
+      const p = placement.position;
+      corners.push({ x: p.x - ex, y: p.y - hy, z: p.z - ez });
+      corners.push({ x: p.x + ex, y: p.y + hy, z: p.z + ez });
+    }
+    return boundsCenter(corners);
+  }, [design, layout]);
+  const centerRef = useRef(center);
+  centerRef.current = center;
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const selectedRef = useRef(selectedIid);
+  selectedRef.current = selectedIid;
+
+  // A tap on a placed part (inspectNonce bumps only on taps, never on a
+  // placement or merge) frames that part. Keyed on the nonce alone so a
+  // drag-build never moves the view under the finger.
+  useEffect(() => {
+    if (inspectNonce === 0) return;
+    const iid = selectedRef.current;
+    const part = iid ? (layoutRef.current.get(iid)?.position ?? null) : null;
+    const goal = frameTarget(centerRef.current, part);
+    goalTarget.current.set(goal.x, goal.y, goal.z);
+    resettingPosition.current = false;
+  }, [inspectNonce]);
+
+  // A view reset (chassis swap, loaded design, reset, Recenter) glides the
+  // target to the bot's centre and the camera to the default offset. The
+  // mount pass (nonce 0) only seeds the goals: the camera starts there.
+  useEffect(() => {
+    const c = centerRef.current;
+    goalTarget.current.set(c.x, c.y, c.z);
+    const pos = defaultCameraPosition(c);
+    goalPosition.current.set(pos.x, pos.y, pos.z);
+    resettingPosition.current = viewResetNonce > 0;
+  }, [viewResetNonce]);
+
+  // A finger on the bench outranks a pending camera glide: dropping the
+  // position reset the moment an orbit starts keeps the view from fighting
+  // the drag. The target glide is a pan and may finish on its own.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const onStart = () => {
+      resettingPosition.current = false;
+    };
+    controls.addEventListener("start", onStart);
+    return () => controls.removeEventListener("start", onStart);
+  }, [controlsRef]);
+
+  useFrame((_, dt) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const fraction = glideFraction(dt);
+    const target = controls.target;
+    let moved = false;
+    if (!isSettled(target, goalTarget.current)) {
+      const step = scratch.current
+        .copy(goalTarget.current)
+        .sub(target)
+        .multiplyScalar(fraction);
+      target.add(step);
+      // A frame is a pan: the camera keeps its offset and moves with the
+      // target. During a reset the camera has its own goal below.
+      if (!resettingPosition.current) camera.position.add(step);
+      moved = true;
+    }
+    if (resettingPosition.current) {
+      if (isSettled(camera.position, goalPosition.current)) {
+        resettingPosition.current = false;
+      } else {
+        const step = scratch.current
+          .copy(goalPosition.current)
+          .sub(camera.position)
+          .multiplyScalar(fraction);
+        camera.position.add(step);
+        moved = true;
+      }
+    }
+    if (moved) controls.update();
+    const dataset = (gl.domElement as HTMLCanvasElement).dataset;
+    const cache = datasetCache.current;
+    setDatasetNumber(cache, dataset, "cameraTargetX", target.x, 3);
+    setDatasetNumber(cache, dataset, "cameraTargetY", target.y, 3);
+    setDatasetNumber(cache, dataset, "cameraTargetZ", target.z, 3);
+    setDatasetNumber(cache, dataset, "cameraX", camera.position.x, 2);
+    setDatasetNumber(cache, dataset, "cameraY", camera.position.y, 2);
+    setDatasetNumber(cache, dataset, "cameraZ", camera.position.z, 2);
+  });
+  return null;
+}
+
 function WorkshopScene() {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
@@ -515,6 +669,9 @@ function WorkshopScene() {
   const buildActive = useWorkshopStore((s) => s.buildActive);
   const browseDimmed = useWorkshopStore((s) => s.browseDimmed);
   const balanceVisible = useWorkshopStore((s) => s.balanceVisible);
+  const inspectNonce = useWorkshopStore((s) => s.inspectNonce);
+  const viewResetNonce = useWorkshopStore((s) => s.viewResetNonce);
+  const controlsRef = useRef<OrbitControlsRef | null>(null);
   const layout = computeLayout(design);
   const balance = useMemo(
     () => (balanceVisible ? computeBalance(design) : null),
@@ -805,6 +962,7 @@ function WorkshopScene() {
       <StudioEnvironment intensity={features.environmentIntensity} />
       {features.postBloom && webgpuBackend ? <ScenePostProcessing /> : null}
       <OrbitControls
+        ref={controlsRef}
         makeDefault
         enablePan={false}
         enableRotate={!grabbing}
@@ -815,6 +973,13 @@ function WorkshopScene() {
         // under the floor and see the camera-anchored hero part dip through
         // the grounding disc.
         maxPolarAngle={Math.PI * 0.56}
+      />
+      <CameraRig
+        controlsRef={controlsRef}
+        layout={layout}
+        selectedIid={selectedIid}
+        inspectNonce={inspectNonce}
+        viewResetNonce={viewResetNonce}
       />
       {/* Grounding disc under the build grid so the bot stops floating
           in the void; it also catches the key light's shadow. It tracks the
@@ -963,7 +1128,16 @@ export default function WorkshopCanvas({
   }, []);
   return (
     <Canvas
-      camera={{ position: [2.6, 1.8, 3.2], fov: 45 }}
+      // Front three-quarter (G1): every core's front is -z, so the camera
+      // sits on the -z side and the player sees the face of their bot.
+      camera={{
+        position: [
+          DEFAULT_CAMERA_OFFSET.x,
+          DEFAULT_CAMERA_OFFSET.y,
+          DEFAULT_CAMERA_OFFSET.z,
+        ],
+        fov: 45,
+      }}
       gl={createWebGPU}
       dpr={dpr}
       shadows

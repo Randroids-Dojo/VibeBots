@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Workshop Garage Program (2026-09)</title>
+</head>
+<body>
+
+<header>
+  <h1>Workshop Garage Program: Nuts and Bolts level bot building (2026-09)</h1>
+  <p>Status: plan written 2026-09-01 from a playtest of the shipped workshop at 390x760 and 1280x800; slices land one PR at a time in the order below.</p>
+</header>
+
+<section id="brief">
+  <h2>The brief and the bar</h2>
+  <p>Session goal: turn the BattleBot building into Banjo-Kazooie Nuts and Bolts level quality. The research appendices under this directory (<code>appendix-banjo-nuts-bolts.md</code>, <code>appendix-aaa-workshop-ux.md</code>) already say what that game got right: a Lego-not-glue editor with instant validity, a legible tier ladder of parts, one-tap build-test-tweak, a live weight and power budget, blueprints so nobody starts from nothing, and a vehicle that is visibly <em>yours</em>. Its cautionary tales (fiddly free camera, repetitive objectives, unfair physics) are already designed around: placement is connector-snapped, the sim is deterministic, and the bench measures instead of guessing.</p>
+  <p>The July overhaul (slices I to M) and the August tinkerer-depth program (F-225 to F-238) built the mechanics: three chassis, drag-to-place, drag-to-merge, mirror, blueprints, a seven-rule inspection, weight classes, balance, gearing, and a headless bench. What is missing is the <strong>garage feel</strong> that makes those mechanics read as a finished builder.</p>
+</section>
+
+<section id="playtest">
+  <h2>What the playtest showed (2026-09-01, package 0.1.294)</h2>
+  <ul>
+    <li><strong>You see the back of your bot.</strong> The default camera sits at +z looking toward the origin, and every core's front is -z. Loading the Wedge Razor blueprint shows an orange box with two wheels and a sliver of the plow behind it; the weapon, the whole point of the build, is hidden. There is no recenter and no camera move on selection.</li>
+    <li><strong>Parts have no identity.</strong> Every structure part is the same grey, every weapon the same red, every wheel the same teal. A hardened plate and a frame plate differ only in thickness; a saw and a spinner bar differ only in outline. Nothing on the bot is the player's own colour.</li>
+    <li><strong>The catalog is fourteen parts,</strong> browsed one at a time with prev and next. There is no way to see what exists, and no tier ladder to climb.</li>
+    <li><strong>The actions are hidden.</strong> Undo, Redo, and every fight live behind an "Actions" dropdown. The build tab's whole sheet content is two toggles (Chassis, Mirror, Carousel filter). The tune tab is where the depth lives (inspection, balance, gearing, bench), and it is a tab away with no live cue on the build screen.</li>
+    <li><strong>The budget is a word.</strong> The header says "valid" or "N issues". Power and mass are numbers on the tune tab. Nothing on the build screen shows how much room is left or flashes when a drop is refused.</li>
+    <li><strong>The bench is bare.</strong> A core, a hero part, a grid, and darkness. No first-visit guidance, no sense of a garage.</li>
+    <li><strong>What already works and stays:</strong> drag-to-place snap with idle attach markers, drag-to-merge with the gold banner, the bottom sheet, the chassis selector, blueprints, saves, the tune tab, and the test fight returning to the bench in one tap.</li>
+  </ul>
+</section>
+
+<section id="principles">
+  <h2>Principles for every slice</h2>
+  <ul>
+    <li><strong>Render-only art over unchanged colliders.</strong> No part shape changes. New parts are new colliders (additive data, <code>SIM_VERSION</code> unchanged). See <code>docs/PART_ART_PIPELINE.html</code>.</li>
+    <li><strong>DOM for words and numbers, canvas for the bot.</strong> No runtime 3D text (Rule 10). Meters, labels, and coach lines are DOM.</li>
+    <li><strong>Phone first.</strong> Every slice is validated at 390x760 with the sheet open and closed, then at desktop.</li>
+    <li><strong>No per-frame allocation</strong> in anything that touches <code>useFrame</code> (<code>.claude/rules/frame-loop-performance.md</code>).</li>
+    <li><strong>One consistent flow.</strong> No per-route or per-state branches in UX rules (Rule 7). The workshop's existing gesture grammar (grab, drag, drop; tap for stats) is kept, not replaced.</li>
+    <li><strong>Every slice ships its tests, its ledger entries, its GDD build-log line, and a Rule 13 tip review and Rule 14 stamp review.</strong></li>
+  </ul>
+</section>
+
+<section id="slices">
+  <h2>Slice plan, in order</h2>
+
+  <section id="g1">
+    <h3>G1: Face the bot. Front three-quarter camera, auto-frame, recenter</h3>
+    <p>Default camera moves to the front three-quarter (the -z side, slightly above), the same view every BattleBots promo shot uses. Tapping a placed part or dropping a new one glides the orbit target toward the part so it is framed without wrangling (Trailmakers autofocus; the number-one mobile 3D frustration in the research). A recenter control returns to the default framing. Camera motion is eased in <code>useFrame</code> with scratch vectors, published to the canvas dataset so a test can assert the move (Rule 10 motion proof). Files: <code>workshop-canvas.tsx</code>, <code>workshop-panel.tsx</code>, a pure <code>workshop-camera.ts</code> with unit tests for the framing math. E2E: default view shows the front (the plow of the Wedge Razor projects in front of the core in screen space), selection moves the target, recenter restores it.</p>
+  </section>
+
+  <section id="g2">
+    <h3>G2: The build HUD. Thumb bar, live budget meters, one-tap test fight</h3>
+    <p>A persistent bottom-corner thumb bar with Undo, Redo, Mirror, and Recenter, and a primary "Test fight" button that opens the stock roster (the Actions dropdown goes away). Two live meters in the header, power and weight, that fill as parts land and flash red with a one-line reason when a drop is refused or the inspection fails (AC6 and KSP budget feel). The weight meter shows the declared class ceiling when one is set. The pure meter model (<code>workshop-budget.ts</code>) is unit tested; the flash is a DOM class with a timed reset. E2E: meters read the numbers the inspection reads, a refused drop flashes the right meter, and the thumb bar undoes a placement.</p>
+  </section>
+
+  <section id="g3">
+    <h3>G3: Parts with faces. Per-part identity art and blurbs</h3>
+    <p>Render-only art pass in <code>part-geometry.ts</code> and a per-part surface table so each part reads as itself: tyres get a dark rubber band with a lighter hub, plates get rivet insets, the hardened plate a thicker chamfer and darker steel, the saw a bright ground rim, the spinner bar a dark bar with bright tips, cores an emissive window. No collider changes. Every part gains a one-line <code>blurb</code> in the catalog ("Thick armour deck. Heavy, tough, no power.") shown in the browse inspector with mass, HP, and power, so the picker teaches what a part is for. <code>part-geometry.test.ts</code> keeps the in-bounds and triangle budget gates; a new catalog test asserts every part has a blurb.</p>
+  </section>
+
+  <section id="g4">
+    <h3>G4: The tier ladder. Catalog wave one</h3>
+    <p>Additive parts in the families the game already has, priced by tier (question 2 in <code>docs/QUESTIONS_2026-09-01.html</code>): Grip Wheel and Super Wheel above the Drive Wheel; Light Plate below the Frame Plate; a Corner Block, a Wedge Block, and a Skid for structure; a Lance and a Cleaver for weapons. Each is a new collider (no existing shape moves), grounded in the BattleBots archetypes in <code>battlebots-design-reference.html</code>, with a geometry treatment from G3. The carousel gains category chips (All, Frame, Drive, Weapon) so a bigger catalog stays browsable one part at a time, and the shop lists by category. Blueprints gain a tier-two variant. Tests: catalog schema, blueprint validity, and an e2e for the category chips.</p>
+  </section>
+
+  <section id="g5">
+    <h3>G5: Paint. Primary and accent from a fixed palette</h3>
+    <p>The design carries optional cosmetic paint (<code>paint: { primary, accent }</code> as palette ids, zod optional, never read by the sim). Core and structure take the primary; weapons keep steel with an accent stripe; mobility stays rubber (question 1). A swatch row in the build sheet, applied in one tap, undoable. The arena renders each bot in its paint and keeps team identity on the HUD chips and a ground ring. Server schema accepts the field unchanged (it is on <code>botDesignSchema</code>). Tests: schema round-trip, a paint-aware material helper unit test, an e2e that paints a bot and sees the arena carry it.</p>
+  </section>
+
+  <section id="g6">
+    <h3>G6: The first build. Guided onboarding</h3>
+    <p>On a first-ever visit (a local flag, like the fp tutorial), the bench opens with the Cube Rammer loaded minus one wheel, the empty axle pulsing, and one coach line: drag the wheel onto the glowing mount. The second line points at Test fight; the third at the Shop (question 4). Returning players see their last design. Progressive disclosure: Mirror and the tune tab are not mentioned until a bot has three parts. Tests: store logic for the guided state, an e2e that completes the guided drag and sees the coach line advance.</p>
+  </section>
+
+  <section id="g7">
+    <h3>G7: Feel pass. Delete, chain merge, drop sparks</h3>
+    <p>Removing a part dissolves it with a short downward scale and a refund tick on the carousel count; a merge that immediately enables another merge (chain) gets a brighter banner and a rising two-note stinger; a drop sparks at the connector. All in the existing animation module with unit-tested curves; sounds through <code>workshop-sfx.ts</code>. E2E per Rule 10: pixels move.</p>
+  </section>
+
+  <section id="g8">
+    <h3>G8: Share codes and the garage gallery</h3>
+    <p>A design exports as a compact code (versioned, base64 of the validated design) and imports into the garage under a new name; the garage shows saved designs with their paint swatch and part count. Pure encode and decode with unit tests; an e2e that round-trips a code.</p>
+  </section>
+</section>
+
+<section id="sequencing">
+  <h2>Sequencing and gates</h2>
+  <p>G1 and G2 first: they change how the bench <em>reads</em> with no data change and unblock every later screenshot. G3 and G4 next: identity, then breadth. G5 and G6 give ownership and a first-run. G7 and G8 close the loop. After G4 and again after G6, run a scripted 390x760 playtest capture and record a Fun Factor Audit article. Each slice: branch from <code>origin/main</code>, verify with <code>pnpm verify --build</code> plus the workshop e2e, PR, bot review settled, merge, production check, close the Dot.</p>
+</section>
+
+</body>
+</html>

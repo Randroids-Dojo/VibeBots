@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-08-11-0.1.294-elevator-earned",
+      releaseNoticeId: "2026-09-01-0.1.295-workshop-face-the-bot",
       releaseSummary:
-        "The elevator is something you earn now, and it rides down: The elevator used to sit in the shop from minute one, selling a single rail row nobody needed yet. Now it is a goal: the stall stays boarded up until you have dug deep enough to want it, and the first purchase hands you a working shaft.",
+        "The workshop shows you the front of your bot: The bench camera used to sit behind the bot, so a build with a plow or a blade on the nose showed you its back. The view now opens on the front three-quarter, comes to a part when you tap it, and comes home on one button.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-08-11-0.1.294-elevator-earned",
+      releaseNoticeId: "2026-09-01-0.1.295-workshop-face-the-bot",
       attempted: 2,
       sent: 1,
       expired: 1,

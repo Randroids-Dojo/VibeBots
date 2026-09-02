@@ -24,11 +24,28 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest elevator-earned note complete", () => {
+  it("keeps the latest face-the-bot note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-08-11-0.1.294-elevator-earned");
+    expect(release.noticeId).toBe("2026-09-01-0.1.295-workshop-face-the-bot");
+    expect(latestNote).toMatchObject({
+      version: "0.1.295",
+      title: "The workshop shows you the front of your bot",
+      intro:
+        "The bench camera used to sit behind the bot, so a build with a plow or a blade on the nose showed you its back. The view now opens on the front three-quarter, comes to a part when you tap it, and comes home on one button.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The workshop opens facing the front of your bot, the same angle every fight camera favours, so the weapon you mount is the first thing you see.",
+      "Tap a placed part and the view glides toward it instead of leaving you to orbit and pinch. Building by drag never moves the camera under your finger.",
+      "A Recenter button under the top bar puts the whole bot back in frame after any amount of orbiting. Swapping the chassis or loading a blueprint recenters on its own.",
+    ]);
+  });
+
+  it("keeps the archived elevator-earned note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.294");
+
     expect(latestNote).toMatchObject({
       version: "0.1.294",
       title: "The elevator is something you earn now, and it rides down",

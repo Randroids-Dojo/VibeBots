@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-08-11-0.1.294-elevator-earned";
+export const RELEASE_NOTICE_ID = "2026-09-01-0.1.295-workshop-face-the-bot";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.295",
+      date: "2026-09-01",
+      title: "The workshop shows you the front of your bot",
+      intro:
+        "The bench camera used to sit behind the bot, so a build with a plow or a blade on the nose showed you its back. The view now opens on the front three-quarter, comes to a part when you tap it, and comes home on one button.",
+      changes: [
+        {
+          build,
+          text: "The workshop opens facing the front of your bot, the same angle every fight camera favours, so the weapon you mount is the first thing you see.",
+        },
+        {
+          build,
+          text: "Tap a placed part and the view glides toward it instead of leaving you to orbit and pinch. Building by drag never moves the camera under your finger.",
+        },
+        {
+          build,
+          text: "A Recenter button under the top bar puts the whole bot back in frame after any amount of orbiting. Swapping the chassis or loading a blueprint recenters on its own.",
+        },
+      ],
+    },
     {
       version: "0.1.294",
       date: "2026-08-11",

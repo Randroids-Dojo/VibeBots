@@ -594,6 +594,37 @@ button:focus-visible {
   background: #a82c2f;
 }
 
+/* Recenter (G1): a small pill under the Back button on the left edge, on the
+ * bench itself, so the view can come home with one tap after orbiting. It
+ * sits left of the header's column (which starts at 170px and wraps to two
+ * rows on a phone), so nothing in the header can cover it. */
+.workshop-recenter {
+  position: absolute;
+  top: 62px;
+  left: 16px;
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--hud-border);
+  border-radius: 999px;
+  background: rgb(var(--hud-surface-rgb) / 0.86);
+  color: var(--hud-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workshop-recenter:hover {
+  background: #303c5c;
+}
+
+.workshop-recenter:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+}
+
 /* Build carousel arrows (N1): thumb-sized prev/next around the hero part,
  * so part selection is one part at a time instead of a scrolling list. */
 .carousel-arrow {
@@ -818,6 +849,13 @@ button:focus-visible {
     top: 60px;
     left: 12px;
     right: 12px;
+  }
+
+  /* The header is a full-width strip here, so the Recenter pill drops just
+   * below it instead of sitting beside it. */
+  .workshop-recenter {
+    top: 110px;
+    left: 12px;
   }
 
   /* The selected-part inspector floats just above the collapsed sheet peek

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Questions: 2026-09-01 workshop quality session</title>
+</head>
+<body>
+
+<header>
+  <h1>Questions from the 2026-09-01 autonomous session</h1>
+  <p>Goal set for the session: turn the BattleBot building into Banjo-Kazooie Nuts and Bolts level quality. The program plan lives in <code>docs/research/workshop-garage-program-2026-09.html</code>. Everything below shipped or is shipping under a stated <strong>Recommended default</strong>; each entry says what changes if you answer differently. Ordered by how much the answer changes.</p>
+</header>
+
+<main>
+
+<section id="blocked">
+  <h2>Blocked on you: three green pull requests cannot be merged from this session</h2>
+  <p><strong>What happened.</strong> Every pull request this session opened reaches the same state: required checks green, CodeRabbit approved at the exact head, review threads resolved, and GitHub still reports <code>mergeStateStatus: BLOCKED</code>. A plain <code>gh pr merge --squash</code> is refused (<q>the base branch policy prohibits the merge</q>), the repository has auto-merge disabled (<code>enablePullRequestAutoMerge</code> is off), and the administrator override that the last two sessions used (<code>gh pr merge --admin</code>) was denied by this session's permission classifier. That leaves no merge path an autonomous session can take.</p>
+  <p><strong>Why it is blocked.</strong> The <code>AutoReview</code> ruleset on <code>main</code> has no required-status-check rule at all; its blocking rules are <code>code_scanning</code> (CodeQL, alerts threshold <q>errors and warnings</q>) and a <code>pull_request</code> rule with <code>require_extra_approval_for_unattributed_changes: true</code>. The second one is the likely cause: it demands an approval from someone other than the pusher whenever a commit's author is not attributed to a GitHub account. The commits are authored as <code>Randy Lutcavich &lt;randy@randroid.dev&gt;</code>; if that address is not verified on the <code>randroid88</code> account, every commit is <q>unattributed</q> and the rule can never be satisfied by a solo maintainer. This is also the standing mystery behind F-152 and F-183 (<q>make the main ruleset mergeable without administrator bypass</q>), which have been open since July.</p>
+  <p><strong>What you can do, in order of preference.</strong></p>
+  <ol>
+    <li>Add <code>randy@randroid.dev</code> as a verified email on the GitHub account (Settings, Emails), or switch the ruleset's <code>require_extra_approval_for_unattributed_changes</code> off. Either one should turn the three PRs mergeable without an override and closes F-152 and F-183 for good.</li>
+    <li>Or merge them yourself with the override, in this order, each with its prepared squash subject and body: <code>gh pr merge 332 --squash --admin</code> (the nightly spec fix), <code>gh pr merge 331 --squash --admin</code> (Next 16.3.4, security), <code>gh pr merge 333 --squash --admin</code> (fiber 9.7.0), then the workshop program PRs in G-order.</li>
+    <li>Or add a Bash permission rule allowing <code>gh pr merge</code> for this project so the next autonomous session can complete the loop.</li>
+  </ol>
+  <p><strong>What this session does meanwhile.</strong> Each later slice branches from the previous slice's branch (stacked pull requests, each targeting the one below it), so the program keeps moving and every PR stays small; GitHub retargets each to <code>main</code> as the one under it merges. The post-merge steps of the loop (main CI, production deploy check, backlog close with the merged SHA) are left for whoever merges; every PR body says exactly what to verify.</p>
+</section>
+
+<section id="needs-your-call">
+  <h2>Needs your call before the later slices</h2>
+
+  <section data-q="local-1">
+    <h3>1. Paint applies in the arena too, and weapons stay steel</h3>
+    <p><strong>The decision.</strong> The paint slice gives a bot a primary and an accent colour chosen from a fixed palette, stored on the design as cosmetic data. The core and structure parts take the paint; mobility parts stay rubber and weapons stay bare steel with an accent stripe, so the category language that combat readability depends on (what is a wheel, what is a blade) survives a paint job.</p>
+    <p><strong>Why it matters.</strong> The arena renders both bots in fixed team colours today (orange versus teal), which is how a spectator tells the sides apart. If painted bots fight in their own colours, two similar paint jobs could be hard to tell apart in a fight.</p>
+    <p><strong>Recommended default:</strong> painted bots fight in their paint, and the arena keeps the team colour on the HUD chips and on a thin ground ring under each bot, not on the hull. Say the word if you would rather the arena keep team hulls and paint stay a workshop-only thing.</p>
+  </section>
+
+  <section data-q="local-2">
+    <h3>2. The catalog grows as tiers of the parts that exist, sold at tier-scaled prices</h3>
+    <p><strong>The decision.</strong> Nuts and Bolts' breadth came from a legible tier ladder (Standard, Heavy, Super) across a small set of part families, not from hundreds of unrelated parts. The catalog slice adds tiers to the families the game already has (wheels, plates, structural blocks, spikes and blades) plus a few missing silhouettes (a corner block, a wedge block, a pole and a skid). Every new part is additive data: colliders are new, no existing collider moves, so <code>SIM_VERSION</code> does not change and no replay is invalidated. New parts are sold in the shop at prices scaled by tier.</p>
+    <p><strong>Why it matters.</strong> More parts means more things to buy with vibes, which changes how far a mining trip goes. It also interacts with the merge-level mechanic (question 3).</p>
+    <p><strong>Recommended default:</strong> ship the tiers and price them so a tier-two part costs about the same as two tier-one copies (which is what a merge to level two costs today), so the two progression paths stay comparable. If you want the economy left alone, the new parts can ship as discoverable-only (mine finds) instead of shop stock.</p>
+  </section>
+
+  <section data-q="local-3">
+    <h3>3. Merge levels stay; tiers are separate parts</h3>
+    <p><strong>The finding.</strong> The 2026-08-12 tinkerer pass logged F-230, which says the merge-level mechanic (Lv 1 to 3 by consuming duplicate copies) is an idle-game mechanic bolted onto a machine shop, and proposes materials instead. Nuts and Bolts' answer to the same problem is distinct tiered parts. Doing both at once would give the player two overlapping upgrade ladders.</p>
+    <p><strong>Recommended default:</strong> keep merge levels exactly as shipped (they are player-visible and inventory-backed) and add tiers as separate parts. F-230 stays open. If you would rather retire merge levels in favour of tiers, that is a migration slice with a durable marker (existing designs carry merge levels in saved JSON) and should be its own decision.</p>
+  </section>
+
+  <section data-q="local-4">
+    <h3>4. First visit: a blueprint on the bench, not a bare core</h3>
+    <p><strong>The decision.</strong> The strongest Nuts and Bolts lesson is that a blank bench intimidates. The onboarding slice makes a first-ever workshop visit open with the Cube Rammer blueprint already loaded and one wheel missing, with the empty axle glowing and a single coach line ("Drag the wheel onto the glowing mount"). Returning players see their last design as before. The starter design constant does not change, so tests and the Reset button still produce a bare core.</p>
+    <p><strong>Why it matters.</strong> A first-time player who has not mined yet owns no parts. The bench lets them build with unowned parts (inventory is only enforced at match resolve), so the guided first drag works, but their first test fight against a stock bot will refuse to verify on the server until they own the parts. The local test fight still runs.</p>
+    <p><strong>Recommended default:</strong> ship the guided first build as described, and make the first-visit coach line end by pointing at the Shop tab. If you would rather new players start with a small parts gift (two wheels and a spike) the way the mine starts with a support gift, say so and it becomes a server slice with a compatibility marker.</p>
+  </section>
+
+</section>
+
+<section id="findings">
+  <h2>Findings you should see, no answer strictly required</h2>
+
+  <section data-q="local-5">
+    <h3>5. The nightly Full E2E has been red for sixteen consecutive nights, and one of those failures was a real regression</h3>
+    <p><strong>The finding.</strong> Every completed scheduled run from 2026-08-17 to 2026-09-01 concluded failure. On the current tip (<code>cd9721c3</code>, thirteen nights) a stable core of ten shards fails every night (6, 7, 8, 9, 12, 17, 20, 21, 22, 26) with four more drifting in and out (5, 10, 11, 25). The pre-#329 tip (<code>7993ca5b</code>) failed a near-identical core, so most of it is the standing software-render family from Q-035, which you chose to leave in place on 2026-07-30.</p>
+    <p><strong>The regression.</strong> Shard 26 is new since #329. The menu copy cut removed the sentence "Safari does not let websites open that sheet automatically." from the Home Screen prompt, and E2E-RELEASE-NOTIFICATIONS-0008 still asserted it. That test fails deterministically on a hardware renderer too. It is fixed in this session's first PR by asserting the copy that shipped. Every other sampled nightly failure passed locally on hardware GL, which is the signature of the software-render family, not of a product defect.</p>
+    <p><strong>Why it still matters.</strong> The push gate runs only the critical functional subset, so a copy change that breaks a non-critical spec is invisible until the nightly, and the nightly is already red, so nobody sees it. This is exactly the hidden-regression cost Q-035 accepted. No change to your decision is assumed; this is the first concrete instance of the cost, on the record.</p>
+  </section>
+
+  <section data-q="local-6">
+    <h3>6. Two watched dependencies had new releases, one of them a security fix</h3>
+    <p><strong>The finding.</strong> The Dependency Upgrade Gate fired twice at session start: <code>next</code> 16.3.4 over the pinned 16.3.1, and <code>@react-three/fiber</code> 9.7.0 over 9.6.1. Next 16.3.3 carries two critical advisories (unauthenticated remote code execution on Windows-hosted servers, and in the image optimization API with AVIF files) and 16.3.4 re-enables AVIF optimization after that fix. Production runs on Vercel's Linux runtime and the app does not use the image optimizer, so exposure was low, but the pin should not sit on a version with a published critical advisory.</p>
+    <p><strong>What I did.</strong> Per the plan, both bumps are their own PRs and land before the feature program: Next first (security), then fiber. Fiber 9.7.0 is a reconciler hardening release (child reordering, pierced-prop reset, host-prop updates, react-dom event priorities); the canvases are the surface to smoke, and the critical e2e gate exercises both.</p>
+  </section>
+
+  <section data-q="local-7">
+    <h3>7. The HTML dots CLI has no Windows build</h3>
+    <p><strong>The finding.</strong> <code>dot-html</code> ships darwin-arm64 and linux-x86_64 binaries only, and the installer wants Zig for a source build, which this machine does not have. The task backlog is mandatory (AGENTS.md), so this session runs the Linux binary through WSL Ubuntu behind a two-line wrapper at <code>~/.local/bin/dot-html</code>. It reads and writes the same <code>.dots/</code> files. If you would rather have a native build, installing Zig via winget is the one-time cost.</p>
+  </section>
+
+  <section data-q="local-8">
+    <h3>8. Release-note cadence for the program</h3>
+    <p><strong>The finding.</strong> The package version and <code>src/lib/app-release-notes.ts</code> were last moved by the elevator slice (0.1.294). The seven tinkerer-depth slices that followed (#316 to #322) shipped player-facing changes with no version bump and no release note, so players were never told about the bench, weight classes, or gearing.</p>
+    <p><strong>Recommended default:</strong> each player-facing slice of this program bumps the patch version and adds a release note, and the release notice id moves with it, so the in-game notice reflects what actually shipped. The Rule 13 tip review runs with each bump. Say so if you would rather batch the notes into one entry per milestone.</p>
+  </section>
+
+</section>
+
+</main>
+
+</body>
+</html>

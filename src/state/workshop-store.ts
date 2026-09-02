@@ -362,6 +362,13 @@ export interface WorkshopState {
    */
   balanceVisible: boolean;
   toggleBalance: () => void;
+  /**
+   * Bumped whenever the bench view should return to its default framing
+   * (G1): a chassis swap, a loaded design, a reset, or the Recenter control.
+   * The canvas glides the camera back to the front three-quarter on it.
+   */
+  viewResetNonce: number;
+  recenterView: () => void;
   addPart: (partId: string) => void;
   browseBy: (dir: number) => void;
   /** Set the carousel's part pool; snaps the shown part back in when needed. */
@@ -412,6 +419,9 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   mergePreviewLevel: null,
   balanceVisible: false,
   mirrorEnabled: false,
+  viewResetNonce: 0,
+
+  recenterView: () => set((s) => ({ viewResetNonce: s.viewResetNonce + 1 })),
 
   toggleMirror: () => set((s) => ({ mirrorEnabled: !s.mirrorEnabled })),
 
@@ -489,11 +499,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       connections: [],
       ...(design.behavior ? { behavior: design.behavior } : {}),
     };
-    set({
+    set((s) => ({
       ...withDesign(pushHistory(history, next)),
       selectedIid: null,
       browseStatsOpen: false,
-    });
+      // A new chassis is a new bot: bring the view home to it.
+      viewResetNonce: s.viewResetNonce + 1,
+    }));
   },
 
   setMergePreviewLevel: (level) => set({ mergePreviewLevel: level }),
@@ -659,11 +671,12 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   },
 
   loadDesign: (design) =>
-    set({
+    set((s) => ({
       ...withDesign(createHistory<BotDesign>(design)),
       selectedIid: null,
       browseStatsOpen: false,
-    }),
+      viewResetNonce: s.viewResetNonce + 1,
+    })),
 
   reset: () =>
     set((s) => ({
@@ -676,5 +689,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       browseOrientation: 0,
       browseDimmed: false,
       browseStatsOpen: false,
+      viewResetNonce: s.viewResetNonce + 1,
     })),
 }));

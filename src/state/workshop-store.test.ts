@@ -551,3 +551,30 @@ describe("L mirror placement", () => {
     expect(store().design.parts).toHaveLength(2);
   });
 });
+
+describe("G1 view reset nonce", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("bumps on recenter, chassis swap, load, and reset, never on a placement", () => {
+    const start = store().viewResetNonce;
+    const wheelSlots = validSlotsFor(store().design, DRIVE_WHEEL);
+    store().placeAtSlot(wheelSlots[0]);
+    expect(store().viewResetNonce).toBe(start);
+    store().select("drive-wheel-1");
+    expect(store().viewResetNonce).toBe(start);
+
+    store().recenterView();
+    expect(store().viewResetNonce).toBe(start + 1);
+    store().setCore("wedge-core");
+    expect(store().viewResetNonce).toBe(start + 2);
+    // Same core again is a no-op, so the view does not jump either.
+    store().setCore("wedge-core");
+    expect(store().viewResetNonce).toBe(start + 2);
+    store().loadDesign(STARTER_DESIGN);
+    expect(store().viewResetNonce).toBe(start + 3);
+    store().reset();
+    expect(store().viewResetNonce).toBe(start + 4);
+  });
+});

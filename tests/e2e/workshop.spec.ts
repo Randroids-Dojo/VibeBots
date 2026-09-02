@@ -1464,6 +1464,78 @@ test(
   },
 );
 
+test(
+  "the bench faces the front of the bot, frames a tapped part, and recenters (G1)",
+  ciCase("E2E-WORKSHOP-0036", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const read = (key: string) =>
+      canvas.evaluate(
+        (c: HTMLCanvasElement, k: string) => Number(c.dataset[k] ?? "NaN"),
+        key,
+      );
+
+    // Front three-quarter: every core's front is -z, so the camera sits on
+    // the -z side (it used to sit at +z and show the back of the bot).
+    await expect.poll(() => read("cameraZ")).toBeLessThan(0);
+    await expect.poll(() => read("cameraY")).toBeGreaterThan(0);
+
+    // Place a wheel. Placement selects the part but is not a tap, so the
+    // view holds still under a building finger.
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    expect(Math.abs(await read("cameraTargetX"))).toBeLessThan(0.005);
+
+    // Recenter puts the target on the bot's bounds centre, which the wheel
+    // has pulled off the core to one side, and the camera back in front.
+    // The placed wheel is selected, so its handle position says which side
+    // it landed on; the core tap below stays on the other side of centre.
+    const wheelRight = (await read("selectedScreenX")) > 0.5;
+    const recenter = page.getByRole("button", {
+      name: "Recenter the view on the bot",
+    });
+    await recenter.click();
+    await expect
+      .poll(async () => Math.abs(await read("cameraTargetX")))
+      .toBeGreaterThan(0.05);
+    await expect.poll(() => read("cameraZ")).toBeLessThan(0);
+    // Let the glide settle before reading the reference point.
+    await page.waitForTimeout(700);
+    const centeredX = await read("cameraTargetX");
+
+    // Tap the core: a tap on a placed part frames it, so the target glides
+    // from the bounds centre most of the way back toward the core.
+    await page.mouse.click(wheelRight ? 172 : 218, 405);
+    await expect
+      .poll(() => read("cameraTargetX"))
+      .not.toBeCloseTo(centeredX, 2);
+    await page.waitForTimeout(700);
+    const framedX = await read("cameraTargetX");
+    expect(Math.abs(framedX)).toBeLessThan(Math.abs(centeredX));
+    expect(Math.abs(framedX - centeredX)).toBeGreaterThan(0.04);
+
+    // Recenter again returns to the same centre.
+    await recenter.click();
+    await expect.poll(() => read("cameraTargetX")).toBeCloseTo(centeredX, 2);
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

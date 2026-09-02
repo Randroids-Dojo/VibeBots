@@ -31,15 +31,19 @@ function memoryStorage(): GuideStorage & { data: Map<string, string> } {
 }
 
 describe("guided first build", () => {
-  it("starts from a valid bot that is exactly one wheel from done", () => {
+  it("starts from a valid bot that one mirrored wheel drop finishes", () => {
     expect(validateDesign(GUIDED_START_DESIGN).ok).toBe(true);
     expect(guideWheelCount(GUIDED_START_DESIGN)).toBe(
-      GUIDED_WHEELS_WHEN_DONE - 1,
+      GUIDED_WHEELS_WHEN_DONE - 2,
     );
-    // The guided part has exactly one legal placement: the free left axle.
+    // The guided part has exactly two legal placements, the two axles, so
+    // the one facing the camera (F-241) is among them and its mirror twin
+    // is the other.
     const slots = validSlotsFor(GUIDED_START_DESIGN, DRIVE_WHEEL);
-    expect(slots).toHaveLength(1);
-    expect(slots[0].parentConnector).toBe("axle-left");
+    expect(slots.map((slot) => slot.parentConnector).sort()).toEqual([
+      "axle-left",
+      "axle-right",
+    ]);
     expect(DRIVE_WHEEL.id).toBe(GUIDED_PART_ID);
   });
 
@@ -78,7 +82,7 @@ describe("guided first build", () => {
       ],
     };
     expect(validateDesign(withPlate).ok).toBe(true);
-    expect(withPlate.parts).toHaveLength(4);
+    expect(withPlate.parts).toHaveLength(3);
     expect(
       nextGuideStep("place", {
         wheelCount: guideWheelCount(withPlate),

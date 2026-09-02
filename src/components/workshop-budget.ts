@@ -149,6 +149,16 @@ export function blockerCopy(part: PartDef, blocker: PlacementBlocker): string {
   }
 }
 
+/**
+ * The reason line's neutral state (F-243): the line is always rendered so
+ * the header card never grows and shifts the family chips under a finger;
+ * when nothing blocks the browsed part it says where the part fits.
+ */
+export function fitCopy(part: PartDef, openMounts: number): string {
+  if (openMounts <= 0) return `No room for ${part.name} on any mount`;
+  return `${part.name} fits ${openMounts} ${openMounts === 1 ? "mount" : "mounts"}`;
+}
+
 /** Fill fraction for a meter, clamped so an overdraw reads as full. */
 export function meterFill(value: number, limit: number): number {
   if (!(limit > 0)) return 0;

@@ -24,6 +24,7 @@ import { TechInspection } from "@/components/tech-inspection";
 import {
   blockerCopy,
   budgetReading,
+  fitCopy,
   meterFill,
   placementBlocker,
 } from "@/components/workshop-budget";
@@ -68,6 +69,7 @@ import {
   planMergeSelectedPart,
   planRotateSelected,
   useWorkshopStore,
+  validSlotsFor,
 } from "@/state/workshop-store";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
@@ -177,6 +179,7 @@ export function WorkshopPanel() {
   const fightButtonRef = useRef<HTMLButtonElement | null>(null);
   const dragStripRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement | null>(null);
   const removeHandleRef = useRef<HTMLButtonElement | null>(null);
   const dragRef = useRef<{
     pointerId: number;
@@ -383,6 +386,7 @@ export function WorkshopPanel() {
   // three steps have been demonstrated or skipped.
   const [guideStep, setGuideStep] = useState<GuideStep | null>(null);
   const browseTo = useWorkshopStore((s) => s.browseTo);
+  const setMirror = useWorkshopStore((s) => s.setMirror);
 
   // A shared link (G8): /workshop?code=VB1.... opens with that bot loaded,
   // then drops the code from the address bar so a reload does not reload it
@@ -414,8 +418,12 @@ export function WorkshopPanel() {
     loadDesignFromLink(GUIDED_START_DESIGN);
     setIncludeUnowned(true);
     browseTo(GUIDED_PART_ID);
+    // Both axles glow and one drop fills both (F-241), so the guide turns
+    // Mirror on; the thumb bar shows it pressed and the player can turn
+    // it off like any setting.
+    setMirror(true);
     setGuideStep("place");
-  }, [loadDesignFromLink, browseTo]);
+  }, [loadDesignFromLink, browseTo, setMirror]);
 
   // Each step ends when the bench shows it done: the wheel placed, a fight
   // started, the Shop opened. The rule is pure (nextGuideStep) so the order
@@ -443,6 +451,7 @@ export function WorkshopPanel() {
     loadDesignFromLink(GUIDED_START_DESIGN);
     setIncludeUnowned(true);
     browseTo(GUIDED_PART_ID);
+    setMirror(true);
     setTab("build");
     setSheetOpen(false);
     setGuideStep("place");
@@ -617,13 +626,32 @@ export function WorkshopPanel() {
     const btn = removeHandleRef.current;
     const canvas = stageRef.current?.querySelector("canvas");
     if (!btn || !canvas) return;
+    const stage = stageRef.current;
+    // The header card floats over the top of the stage; the handle never
+    // rides up into it (F-242). Its bottom edge is measured once here and
+    // again on resize (the card's height is fixed: the reason line always
+    // renders and the chips live inside it), never per frame.
+    let headerFloor = 0;
+    const measure = () => {
+      const header = headerRef.current;
+      if (!header || !stage) return;
+      const stageTop = stage.getBoundingClientRect().top;
+      headerFloor = header.getBoundingClientRect().bottom - stageTop;
+    };
+    measure();
+    window.addEventListener("resize", measure);
     let raf = 0;
     const tick = () => {
       const x = Number.parseFloat(canvas.dataset.selectedScreenX ?? "");
       const y = Number.parseFloat(canvas.dataset.selectedScreenY ?? "");
-      if (Number.isFinite(x) && Number.isFinite(y)) {
+      if (Number.isFinite(x) && Number.isFinite(y) && stage) {
+        const yPx = y * stage.clientHeight;
+        // Half the handle's height plus a small gap under the card.
+        const minTop = headerFloor + 19;
+        const clamped = yPx < minTop;
         btn.style.left = `${x * 100}%`;
-        btn.style.top = `${y * 100}%`;
+        btn.style.top = `${clamped ? minTop : yPx}px`;
+        btn.dataset.clamped = clamped ? "true" : "false";
         btn.style.visibility = "visible";
       } else {
         btn.style.visibility = "hidden";
@@ -631,7 +659,10 @@ export function WorkshopPanel() {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", measure);
+    };
   }, [selectedIid, selectedRemovable]);
 
   // The build carousel (N1): one non-core part at a time, dragged onto the
@@ -649,6 +680,16 @@ export function WorkshopPanel() {
     [design, browseDef, browseOrientation],
   );
   const blockerKind = blocker?.kind ?? null;
+  // Where the browsed part fits when nothing blocks it (F-243): the reason
+  // line always shows one of the two, so the header never changes height.
+  const openMounts = useMemo(
+    () =>
+      browseDef && !blocker
+        ? validSlotsFor(design, browseDef, PART_CATALOG, browseOrientation)
+            .length
+        : 0,
+    [design, browseDef, browseOrientation, blocker],
+  );
   // The meter a blocked part would break flashes once when the block
   // appears (browsing to the part, or the bot changing under it), so the
   // refusal points at its own cause instead of a silent non-drop.
@@ -884,31 +925,6 @@ export function WorkshopPanel() {
         }${browseInspectorDocked ? " carousel-overlay-raised" : ""}`}
         aria-label="Part carousel"
       >
-        {/* Category chips (G4): with a bigger catalog, one part at a time
-            needs a family to step through. Placed under the header, in the
-            spot the G1 pill used, where nothing else lives. */}
-        <div
-          className="carousel-overlay-chips"
-          role="toolbar"
-          aria-label="Part family"
-          data-testid="carousel-chips"
-        >
-          {BROWSE_CATEGORIES.map((entry) => (
-            <button
-              key={entry.id}
-              type="button"
-              className={
-                browseCategory === entry.id
-                  ? "carousel-chip carousel-chip-active"
-                  : "carousel-chip"
-              }
-              aria-pressed={browseCategory === entry.id}
-              onClick={() => setBrowseCategory(entry.id)}
-            >
-              {entry.label}
-            </button>
-          ))}
-        </div>
         <div className="carousel-overlay-name" data-testid="carousel-part-name">
           {browseDef?.name ??
             (browseCategory === "all"
@@ -935,7 +951,7 @@ export function WorkshopPanel() {
         </div>
       </section>
 
-      <header className="workshop-header">
+      <header className="workshop-header" ref={headerRef}>
         <div className="workshop-header-row">
           <span className="workshop-header-title">
             {design.name}: {design.parts.length}{" "}
@@ -1024,16 +1040,48 @@ export function WorkshopPanel() {
             </span>
           </div>
         </section>
-        {browseDef && blocker && (
-          <p
-            className="workshop-budget-reason"
-            data-testid="budget-reason"
-            data-blocker={blocker.kind}
-            role="status"
-          >
-            {blockerCopy(browseDef, blocker)}
-          </p>
-        )}
+        <p
+          className={
+            blocker
+              ? "workshop-budget-reason"
+              : "workshop-budget-reason workshop-budget-reason-ok"
+          }
+          data-testid="budget-reason"
+          data-blocker={blocker?.kind ?? "none"}
+          role="status"
+        >
+          {browseDef
+            ? blocker
+              ? blockerCopy(browseDef, blocker)
+              : fitCopy(browseDef, openMounts)
+            : "Pick a part below to see where it fits"}
+        </p>
+        {/* Category chips (G4): with a bigger catalog, one part at a time
+            needs a family to step through. They are the header card's last
+            row (F-243): a fixed offset under the card put them beneath it
+            whenever the reason line showed. */}
+        <div
+          className="carousel-overlay-chips"
+          role="toolbar"
+          aria-label="Part family"
+          data-testid="carousel-chips"
+        >
+          {BROWSE_CATEGORIES.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className={
+                browseCategory === entry.id
+                  ? "carousel-chip carousel-chip-active"
+                  : "carousel-chip"
+              }
+              aria-pressed={browseCategory === entry.id}
+              onClick={() => setBrowseCategory(entry.id)}
+            >
+              {entry.label}
+            </button>
+          ))}
+        </div>
       </header>
 
       <div

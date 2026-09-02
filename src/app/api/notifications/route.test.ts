@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.302-workshop-feel",
+      releaseNoticeId: "2026-09-02-0.1.303-workshop-first-minute",
       releaseSummary:
-        "Parts come off with a dissolve, land with sparks, and a chain merge says so: The bench had the pop and the gold flash but not much else: a removed part blinked out, a dropped part just appeared, and the best moment in the workshop, a merge that can merge again, looked like any other. Each of those has its own beat now.",
+        "The guide's mount faces you, and the family chips stay in reach: The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.302-workshop-feel",
+      releaseNoticeId: "2026-09-02-0.1.303-workshop-first-minute",
       attempted: 2,
       sent: 1,
       expired: 1,

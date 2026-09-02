@@ -1291,7 +1291,7 @@ test(
 
     // One drag onto an axle fills both axles, so the bot gains two wheels.
     await dragHeroOntoCore(page);
-    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   },
 );
 
@@ -1754,7 +1754,7 @@ test(
     const coach = page.getByTestId("coach-card");
     await expect(coach).toHaveAttribute("data-step", "place");
     await expect(coach).toContainText("Drag the wheel");
-    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
     await expect(page.getByTestId("carousel-part-name")).toHaveText(
       "Drive Wheel",
     );
@@ -1800,7 +1800,7 @@ test(
     await page.getByRole("tab", { name: "Garage" }).click();
     await page.getByRole("button", { name: "Replay the first build" }).click();
     await expect(coach).toHaveAttribute("data-step", "place");
-    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   },
 );
 
@@ -2028,6 +2028,107 @@ test(
     await inspector.getByRole("button", { name: "Merge to Lv 3" }).click();
     await expect(inspector.getByText("Lv 3")).toBeVisible();
     await expect(page.getByTestId("chain-cue")).toHaveCount(0);
+  },
+);
+
+test(
+  "the first minute: the guided axles face the camera and fill together, the chips stay in reach under a reason line, and the remove handle stays off the header (G6) (F-241, F-243, F-242)",
+  ciCase("E2E-WORKSHOP-0044", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [
+            { part_id: DRIVE_WHEEL.id, count: 3 },
+            { part_id: "ram-spike", count: 1 },
+            { part_id: "frame-plate", count: 1 },
+          ],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas").first();
+    await expect(canvas).toBeVisible();
+    await expect(page.getByTestId("coach-card")).toHaveAttribute(
+      "data-step",
+      "place",
+    );
+
+    // F-241: the guided start has both axles empty and Mirror on, so the
+    // axle facing the camera glows in the frame and one drop over the bot
+    // fills both sides: two parts become four, the coach advances, and the
+    // selected wheel's published screen anchor is inside the frame.
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mirror" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
+    await expect(page.getByTestId("coach-card")).toHaveAttribute(
+      "data-step",
+      "fight",
+    );
+    const anchorX = () =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.selectedScreenX),
+      );
+    await expect.poll(anchorX).toBeGreaterThan(0.05);
+    await expect.poll(anchorX).toBeLessThan(0.95);
+
+    // F-243: both axles are full, so the reason line is up; the family
+    // chips sit under it inside the header card and a real pointer click
+    // still reaches them.
+    const reason = page.getByTestId("budget-reason");
+    await expect(reason).toHaveAttribute("data-blocker", "mount");
+    const chips = page.getByTestId("carousel-chips");
+    const weapon = chips.getByRole("button", { name: "Weapon" });
+    const hit = await weapon.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        r.left + r.width / 2,
+        r.top + r.height / 2,
+      );
+      return top === el || el.contains(top);
+    });
+    expect(hit).toBe(true);
+    await weapon.click();
+    const nameEl = page
+      .getByLabel("Part carousel")
+      .getByTestId("carousel-part-name");
+    await expect(nameEl).toHaveText("Ram Spike");
+    // The guided bot already wears a spike on its only spike mount, so the
+    // reason line stays up for it; a plate fits the free top mount and gets
+    // the neutral line instead, and the chip row stays reachable through
+    // both because the header's height does not change.
+    await expect(reason).toHaveAttribute("data-blocker", "mount");
+    await chips.getByRole("button", { name: "Frame" }).click();
+    await expect(nameEl).toHaveText("Frame Plate");
+    await expect(reason).toHaveAttribute("data-blocker", "none");
+    await expect(reason).toContainText("Frame Plate fits");
+
+    // F-242: with the sheet open the canvas is short and the selected wheel
+    // sits near the top of it; the remove handle stays below the header
+    // card instead of floating over it.
+    await openSheet(page);
+    const handle = page.getByRole("button", { name: /^Remove / });
+    await expect(handle).toBeVisible();
+    const header = page.locator(".workshop-header");
+    await expect
+      .poll(async () => {
+        const h = await handle.boundingBox();
+        const hd = await header.boundingBox();
+        if (!h || !hd) return -1;
+        return h.y - (hd.y + hd.height);
+      })
+      .toBeGreaterThanOrEqual(0);
   },
 );
 

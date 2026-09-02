@@ -632,6 +632,20 @@ describe("G5 paint", () => {
   });
 });
 
+describe("F-241 setMirror", () => {
+  it("sets mirror mode outright, either way, without a history entry", () => {
+    store().reset();
+    const before = store().history;
+    store().setMirror(true);
+    expect(store().mirrorEnabled).toBe(true);
+    store().setMirror(true);
+    expect(store().mirrorEnabled).toBe(true);
+    store().setMirror(false);
+    expect(store().mirrorEnabled).toBe(false);
+    expect(store().history).toBe(before);
+  });
+});
+
 describe("G6 browseTo", () => {
   beforeEach(() => {
     store().reset();

@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.302-workshop-feel";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.303-workshop-first-minute";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.303",
+      date: "2026-09-02",
+      title: "The guide's mount faces you, and the family chips stay in reach",
+      intro:
+        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed.",
+      changes: [
+        {
+          build,
+          text: "The guided first build starts with both axles empty and Mirror on: the glowing axle you can see takes the wheel and its twin fills at the same time, so the first drop finishes the bot where you can watch it.",
+        },
+        {
+          build,
+          text: "The family chips now live inside the header card under the reason line, which always shows (where a part fits, or why it will not), so the card never grows over the chips.",
+        },
+        {
+          build,
+          text: "The remove handle stays below the header card when the sheet is open instead of floating over it.",
+        },
+      ],
+    },
     {
       version: "0.1.302",
       date: "2026-09-02",

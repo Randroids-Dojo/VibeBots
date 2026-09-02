@@ -25,7 +25,7 @@ export const GUIDE_CARDS: Record<Exclude<GuideStep, "done">, GuideCard> = {
   place: {
     step: "place",
     title: "Finish the bot",
-    line: "Drag the wheel from below onto the glowing mount.",
+    line: "Drag the wheel from below onto a glowing axle. Mirror is on, so one wheel fills both sides.",
   },
   fight: {
     step: "fight",
@@ -43,35 +43,31 @@ export const GUIDE_CARDS: Record<Exclude<GuideStep, "done">, GuideCard> = {
 export const GUIDED_PART_ID = "drive-wheel";
 
 /**
- * How many drive wheels the bench carries once the guided wheel is on: the
- * start design has one, the player adds the second. Counting wheels rather
- * than parts means placing some other part (a plate on the top mount)
- * does not end the step while the glowing axle is still empty.
+ * How many drive wheels the bench carries once the guided drop is done: the
+ * start design has none and the mirrored drop adds two. Counting wheels
+ * rather than parts means placing some other part (a plate on the top
+ * mount) does not end the step while the glowing axles are still empty.
  */
 export const GUIDED_WHEELS_WHEN_DONE = 2;
 
 /**
- * The Cube Rammer with its left wheel missing: a bot that is one obvious
- * drag from done. The free left axle is the glowing mount. Left, not right,
- * on purpose: the bench camera sits on the bot's right (+x) side, so the
- * left axle projects nearer the screen centre than the fitted right wheel
- * does, and a drop over the bot lands on the mount rather than merging
- * into the wheel already there.
+ * The Cube Rammer with both wheels missing and Mirror on: a bot that is one
+ * drag from done. Both axles glow, the guide starts with Mirror on, and one
+ * wheel dropped on either axle fills both, so the bot completes where the
+ * player can watch it (F-241). Why not one wheel fitted and one axle free:
+ * the bench camera sits on the bot's right (+x) side, so a free right axle
+ * projects far from the screen centre while a wheel fitted on the left
+ * projects just behind the core, and a drop over the bot would merge into
+ * the hidden wheel instead of placing; a free left axle is the hidden one,
+ * so the guide pointed at a mount the player could not see.
  */
 export const GUIDED_START_DESIGN: BotDesign = {
   name: "My Bot",
   parts: [
     { iid: "core", partId: "core-cube" },
-    { iid: "wheel-r", partId: "drive-wheel" },
     { iid: "spike", partId: "ram-spike" },
   ],
   connections: [
-    {
-      parentIid: "core",
-      parentConnector: "axle-right",
-      childIid: "wheel-r",
-      childConnector: "hub",
-    },
     {
       parentIid: "core",
       parentConnector: "front",

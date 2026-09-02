@@ -28,18 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.302-workshop-feel");
+    expect(release.noticeId).toBe("2026-09-02-0.1.303-workshop-first-minute");
     expect(latestNote).toMatchObject({
-      version: "0.1.302",
-      title:
-        "Parts come off with a dissolve, land with sparks, and a chain merge says so",
+      version: "0.1.303",
+      title: "The guide's mount faces you, and the family chips stay in reach",
       intro:
-        "The bench had the pop and the gold flash but not much else: a removed part blinked out, a dropped part just appeared, and the best moment in the workshop, a merge that can merge again, looked like any other. Each of those has its own beat now.",
+        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Remove a part and it comes off the bot: it shrinks, fades, and drops away in a quarter second with a soft whoosh, instead of vanishing.",
-      "Drop a part on a mount and a burst of sparks flies up from the join in the part's own colour, gold for a merge.",
-      "Merge a part with another copy still in your inventory and the inspector says Merge again with a three note chime, so a chain to Lv 3 is never missed.",
+      "The guided first build starts with both axles empty and Mirror on: the glowing axle you can see takes the wheel and its twin fills at the same time, so the first drop finishes the bot where you can watch it.",
+      "The family chips now live inside the header card under the reason line, which always shows (where a part fits, or why it will not), so the card never grows over the chips.",
+      "The remove handle stays below the header card when the sheet is open instead of floating over it.",
     ]);
   });
 

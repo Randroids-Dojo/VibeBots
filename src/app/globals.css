@@ -379,6 +379,12 @@ button:focus-visible {
   color: #ffd166;
 }
 
+/* Nothing blocks the browsed part: the same line, in the muted voice, says
+ * where it fits (F-243). */
+.workshop-budget-reason-ok {
+  color: var(--hud-text-muted);
+}
+
 /* Coach card (G6): one line of guidance for the first build, in the sheet's
  * top strip above the thumb bar so it stays visible open or collapsed. */
 .workshop-coach {
@@ -865,14 +871,12 @@ button:focus-visible {
   transform: scale(0.94);
 }
 
-/* Carousel category chips (G4): a short row of family pills under the
- * header, where the G1 Recenter pill used to sit, so a bigger catalog stays
- * browsable one part at a time. */
+/* Carousel category chips (G4): a short row of family pills, the header
+ * card's last row (F-243), so a bigger catalog stays browsable one part at
+ * a time and the reason line above can never cover them. */
 .carousel-overlay-chips {
-  position: absolute;
-  top: 62px;
-  left: 16px;
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   pointer-events: auto;
 }
@@ -1138,13 +1142,6 @@ button:focus-visible {
     top: 60px;
     left: 12px;
     right: 12px;
-  }
-
-  /* The header is a full-width strip here, so the family chips drop just
-   * below it. */
-  .carousel-overlay-chips {
-    top: 116px;
-    left: 12px;
   }
 
   /* The selected-part inspector floats just above the collapsed sheet peek

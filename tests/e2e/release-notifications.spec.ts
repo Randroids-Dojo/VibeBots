@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("has its own beat now");
+    await expect(dialog).toContainText("slid the family chips out of reach");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "it shrinks, fades, and drops away",
+      "starts with both axles empty and Mirror on",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "a burst of sparks flies up from the join",
+      "The family chips now live inside the header card",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "the inspector says Merge again",
+      "The remove handle stays below the header card",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,10 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      [
+        "0.1.303",
+        "The guide's mount faces you, and the family chips stay in reach",
+      ],
       [
         "0.1.302",
         "Parts come off with a dissolve, land with sparks, and a chain merge says so",

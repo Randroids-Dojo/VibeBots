@@ -17,6 +17,7 @@ import {
   blockerCopy,
   budgetReading,
   designReady,
+  fitCopy,
   meterFill,
   placementBlocker,
 } from "./workshop-budget";
@@ -209,5 +210,15 @@ describe("meter helpers", () => {
     expect(
       designReady({ ...TEST_BOT_DESIGN, weightClass: "no-such-class" }),
     ).toBe(false);
+  });
+});
+
+describe("fitCopy", () => {
+  it("names the part and its open mounts, singular and plural", () => {
+    expect(fitCopy(DRIVE_WHEEL, 2)).toBe("Drive Wheel fits 2 mounts");
+    expect(fitCopy(DRIVE_WHEEL, 1)).toBe("Drive Wheel fits 1 mount");
+    expect(fitCopy(DRIVE_WHEEL, 0)).toBe(
+      "No room for Drive Wheel on any mount",
+    );
   });
 });

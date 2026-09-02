@@ -413,6 +413,8 @@ export interface WorkshopState {
   setCore: (coreId: string) => void;
   /** Mirror mode (L): a place on a core side connector also fills its twin. */
   mirrorEnabled: boolean;
+  /** Set mirror mode outright; the guided first build turns it on (F-241). */
+  setMirror: (enabled: boolean) => void;
   toggleMirror: () => void;
   setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
@@ -463,6 +465,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   recenterView: () => set((s) => ({ viewResetNonce: s.viewResetNonce + 1 })),
 
   toggleMirror: () => set((s) => ({ mirrorEnabled: !s.mirrorEnabled })),
+  setMirror: (enabled) => set({ mirrorEnabled: enabled }),
 
   addPart: (partId) => {
     const { history, design } = get();

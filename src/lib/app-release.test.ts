@@ -24,11 +24,30 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest first-build note complete", () => {
+  it("keeps the latest parts-with-faces note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.298-workshop-first-build");
+    expect(release.noticeId).toBe(
+      "2026-09-02-0.1.299-workshop-parts-with-faces",
+    );
+    expect(latestNote).toMatchObject({
+      version: "0.1.299",
+      title: "Every part in the workshop looks like itself",
+      intro:
+        "Parts used to be coloured by category, so every plate was the same grey and every weapon the same red. Each part now has its own paint and a second tone baked into its shape, and the picker tells you in one line what a part is for.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Wheels and drums are black rubber over a lighter hub, plates are light steel or gunmetal, the saw is bright ground steel over a dark arbor, and each core glows in its own warmth with a window band.",
+      "Tap a part in the carousel and its card now says what it is for, with its mass, hit points, and power beside the name.",
+      "In the arena your team colour stays on the hull, and the new tones keep every part readable from across the floor.",
+    ]);
+  });
+
+  it("keeps the archived first-build note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.298");
+
     expect(latestNote).toMatchObject({
       version: "0.1.298",
       title:

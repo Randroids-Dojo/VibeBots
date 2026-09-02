@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("one wheel missing");
+    await expect(dialog).toContainText("its own paint and a second tone");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "one drag from done",
+      "black rubber over a lighter hub",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "The coach line follows you",
+      "says what it is for",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "Replay the first build lives in the Garage tab",
+      "your team colour stays on the hull",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,7 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.299", "Every part in the workshop looks like itself"],
       [
         "0.1.298",
         "Your first visit to the workshop starts with a bot, not a blank bench",

@@ -65,7 +65,9 @@
         "src/sim/parts.ts",
         "src/sim/layout.ts",
         "src/state/workshop-store.ts",
-        "src/sim/blueprints.ts"
+        "src/sim/blueprints.ts",
+        "src/components/part-look.ts",
+        "src/components/part-geometry.ts"
       ],
       "testRefs": [
         "src/sim/layout.test.ts",
@@ -73,7 +75,9 @@
         "src/state/workshop-store.test.ts",
         "tests/e2e/workshop.spec.ts",
         "src/sim/blueprints.test.ts",
-        "src/sim/parts.test.ts"
+        "src/sim/parts.test.ts",
+        "src/components/part-look.test.ts",
+        "src/components/part-geometry.test.ts"
       ],
       "followupRefs": [
         "F-053"

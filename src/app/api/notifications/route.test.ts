@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.298-workshop-first-build",
+      releaseNoticeId: "2026-09-02-0.1.299-workshop-parts-with-faces",
       releaseSummary:
-        "Your first visit to the workshop starts with a bot, not a blank bench: New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
+        "Every part in the workshop looks like itself: Parts used to be coloured by category, so every plate was the same grey and every weapon the same red. Each part now has its own paint and a second tone baked into its shape, and the picker tells you in one line what a part is for.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.298-workshop-first-build",
+      releaseNoticeId: "2026-09-02-0.1.299-workshop-parts-with-faces",
       attempted: 2,
       sent: 1,
       expired: 1,

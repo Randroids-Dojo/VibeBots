@@ -2147,6 +2147,51 @@ test(
   },
 );
 
+test(
+  "a test fight ends with a debrief whose fix-it button lands on the bench with the fix in hand (G9)",
+  ciCase("E2E-WORKSHOP-0045", "@functional"),
+  async ({ page }) => {
+    // A weaponless bare core can only bump, so the fight ends with a loss
+    // (a knockout, or a decision at the minute) and the first lesson is
+    // the weapon one, whose fix-it browses a weapon the player does not
+    // own yet.
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await expect(page.getByText("My Bot: 1 part")).toBeVisible();
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Impaler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+
+    const debrief = page.getByTestId("fight-debrief");
+    await expect(debrief).toBeVisible({ timeout: 100_000 });
+    await expect(debrief.locator(".fight-debrief-headline")).toHaveText(
+      /^(You lost by (knockout|decision)|Draw by (knockout|decision)) at \d+:\d\d$/,
+    );
+    const lesson = debrief.locator('[data-lesson="no-hits"]');
+    await expect(lesson).toContainText("This bot has no weapon");
+
+    // The fix-it button leaves the arena and puts a weapon in hand, shown
+    // even though none is owned.
+    await lesson.getByRole("button", { name: "Pick a weapon" }).click();
+    await expect(
+      page.getByRole("button", { name: "Test fight" }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Part carousel").getByTestId("carousel-part-name"),
+    ).toHaveText("Lance");
+    await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

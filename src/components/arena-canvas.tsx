@@ -46,6 +46,8 @@ import {
 import {
   createMatch,
   freeMatch,
+  type MatchEndReason,
+  type MatchScore,
   type MatchState,
   stepMatch,
   teardownInputFrom,
@@ -258,6 +260,10 @@ export interface MatchEndInfo {
   tick: number;
   /** The inspection sheet for the fight that just ended. */
   teardown: MatchTeardown | null;
+  /** How it ended, for the debrief (G9): who, why, and the judges' card. */
+  winner: 0 | 1 | null;
+  reason: MatchEndReason;
+  scores: readonly [MatchScore, MatchScore] | null;
 }
 
 function ArenaScene({
@@ -662,13 +668,17 @@ function ArenaScene({
       const bannerEdge = match.status.over && !bannerShownRef.current;
       if (hudTick !== lastHudTickRef.current || bannerEdge) {
         lastHudTickRef.current = hudTick;
-        if (bannerEdge) {
+        if (bannerEdge && match.status.over) {
           bannerShownRef.current = true;
           const teardownInput = teardownInputFrom(match);
           onMatchEnd?.({
             hash: matchResultHash(match),
             tick: match.tick,
             teardown: teardownInput ? buildTeardown(teardownInput) : null,
+            winner: match.status.winner,
+            reason: match.status.reason,
+            scores:
+              match.status.reason === "timeout" ? match.status.scores : null,
           });
         }
         onHud(readHud(match));

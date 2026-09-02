@@ -205,12 +205,14 @@
       "implementationRefs": [
         "src/components/workshop-panel.tsx",
         "src/components/arena-camera.ts",
-        "src/components/arena-canvas.tsx"
+        "src/components/arena-canvas.tsx",
+        "src/components/fight-debrief.ts"
       ],
       "testRefs": [
         "src/components/arena-camera.test.ts",
         "tests/e2e/arena.spec.ts",
-        "tests/e2e/workshop.spec.ts"
+        "tests/e2e/workshop.spec.ts",
+        "src/components/fight-debrief.test.ts"
       ],
       "followupRefs": []
     },

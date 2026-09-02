@@ -87,6 +87,11 @@
 </section>
 
 <section id="sequencing">
+  <section id="g9">
+    <h3>G9: Debrief. The fight tells the builder what to change</h3>
+    <p>Added 2026-09-02 from the program audit, which found the fight side taught the builder nothing: a test fight ended with a banner and the teardown sheet's numbers. A debrief turns the teardown into a headline and one or two lessons with fix-it buttons (a weapon that never connected, the part that went first, the part that soaked the damage, a decision lost on the score, a win's weakest survivor), so build, test, learn, tweak closes as one loop. Pure rules over the existing teardown, unit tested; an e2e fights a bare core to its end and follows a fix-it button back to the bench.</p>
+  </section>
+
   <h2>Sequencing and gates</h2>
   <p>G1 and G2 first: they change how the bench <em>reads</em> with no data change and unblock every later screenshot. G3 and G4 next: identity, then breadth. G5 and G6 give ownership and a first-run. G7 and G8 close the loop. After G4 and again after G6, run a scripted 390x760 playtest capture and record a Fun Factor Audit article. Each slice: branch from <code>origin/main</code>, verify with <code>pnpm verify --build</code> plus the workshop e2e, PR, bot review settled, merge, production check, close the Dot.</p>
 </section>

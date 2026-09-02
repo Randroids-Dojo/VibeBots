@@ -796,6 +796,51 @@ button:focus-visible {
   background: #a82c2f;
 }
 
+/* Fight debrief (G9): the post-fight card that says what decided the fight
+ * and offers the fix. */
+.fight-debrief {
+  padding: 10px 12px;
+  border: 1px solid var(--hud-border);
+  border-radius: 10px;
+  background: rgb(var(--hud-surface-rgb) / 0.94);
+}
+
+.fight-debrief-headline {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.fight-debrief-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.fight-debrief-lesson p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.fight-debrief-fix {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #54e0c7;
+  background: #2f7d6b;
+  color: var(--hud-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fight-debrief-fix:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+}
+
 /* Chain cue (G7): the merge that can merge again gets a gold line that
  * pulses once, the bench's biggest beat. */
 .inspector-chain {

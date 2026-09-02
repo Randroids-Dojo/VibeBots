@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.303-workshop-first-minute";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.304-workshop-debrief";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.304",
+      date: "2026-09-02",
+      title: "After a test fight, the bench tells you what to change",
+      intro:
+        "A test fight ended with a banner and a teardown sheet full of numbers, and nothing that said what to do about them. The fight now ends with a debrief: how it ended, the one or two things that decided it, and a button that takes you straight to the fix.",
+      changes: [
+        {
+          build,
+          text: "The debrief headline says how the fight ended (a knockout or a decision, and when), then names what decided it: a weapon that never connected, the part that went first and what took it, the part that soaked most of the damage, or the score that lost a decision.",
+        },
+        {
+          build,
+          text: "Every lesson has a fix-it button: it drops you back on the bench with the right part in hand, the weak part selected with Merge in reach, or the Tune tab open.",
+        },
+        {
+          build,
+          text: "The teardown sheet and the server verification are unchanged; the debrief reads the same inspection the sheet shows.",
+        },
+      ],
+    },
     {
       version: "0.1.303",
       date: "2026-09-02",

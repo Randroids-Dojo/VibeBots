@@ -15,6 +15,7 @@ import { BalanceReadout } from "@/components/balance-readout";
 import { BenchPanel } from "@/components/bench-panel";
 import { DesignSaves, prefetchDesigns } from "@/components/design-saves";
 import { DesignShare } from "@/components/design-share";
+import { buildDebrief, type DebriefAction } from "@/components/fight-debrief";
 import { GearingPanel } from "@/components/gearing-panel";
 import { MatchTeardownSheet } from "@/components/match-teardown";
 import { StampBookPopup } from "@/components/mine-stamp-book-popup";
@@ -136,6 +137,11 @@ export function WorkshopPanel() {
   );
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
   const [endInfo, setEndInfo] = useState<MatchEndInfo | null>(null);
+  // The debrief (G9) outlives the exhibition rerun: the arena replays the
+  // fight after a linger and clears endInfo so a verdict never describes
+  // the wrong run, but the lesson from the last finished fight stays on
+  // screen until the player leaves the arena or takes a fix-it action.
+  const [debriefInfo, setDebriefInfo] = useState<MatchEndInfo | null>(null);
   const [teardownOpen, setTeardownOpen] = useState(false);
   const [rivalState, setRivalState] = useState<
     "idle" | "pending" | "none" | "error"
@@ -386,6 +392,7 @@ export function WorkshopPanel() {
   // three steps have been demonstrated or skipped.
   const [guideStep, setGuideStep] = useState<GuideStep | null>(null);
   const browseTo = useWorkshopStore((s) => s.browseTo);
+  const select = useWorkshopStore((s) => s.select);
   const setMirror = useWorkshopStore((s) => s.setMirror);
 
   // A shared link (G8): /workshop?code=VB1.... opens with that bot loaded,
@@ -764,6 +771,55 @@ export function WorkshopPanel() {
       : endInfo?.teardown
         ? { teardown: endInfo.teardown, official: false }
         : null;
+  // The debrief (G9): the same inspection, folded into a headline and the
+  // one or two lessons that decided the fight, each with a fix-it action.
+  const debrief = useMemo(() => {
+    if (!debriefInfo || !matchup) return null;
+    // The official teardown when the server agreed on this very run,
+    // else the local one from the run the debrief describes.
+    const teardown =
+      endInfo === debriefInfo && shownTeardown
+        ? shownTeardown.teardown
+        : debriefInfo.teardown;
+    if (!teardown) return null;
+    return buildDebrief({
+      teardown,
+      winner: debriefInfo.winner,
+      reason: debriefInfo.reason,
+      scores: debriefInfo.scores,
+      me: 1,
+      design: matchup[1],
+      ownedPartIds:
+        inventory.state === "ready"
+          ? [...inventory.counts]
+              .filter(([, count]) => count > 0)
+              .map(([id]) => id)
+          : undefined,
+    });
+  }, [debriefInfo, endInfo, matchup, shownTeardown, inventory]);
+  // A fix-it button leaves the arena and lands the player on the fix.
+  const applyDebriefAction = (action: DebriefAction) => {
+    setMatchup(null);
+    setEndInfo(null);
+    setDebriefInfo(null);
+    setVerification({ state: "idle" });
+    setTeardownOpen(false);
+    if (action.kind === "browse") {
+      setTab("build");
+      setIncludeUnowned(true);
+      browseTo(action.partId);
+      setSheetOpen(false);
+      return;
+    }
+    if (action.kind === "select") {
+      setTab("build");
+      select(action.iid);
+      setSheetOpen(true);
+      return;
+    }
+    setTab("tune");
+    setSheetOpen(true);
+  };
 
   if (matchup) {
     return (
@@ -776,6 +832,7 @@ export function WorkshopPanel() {
             // The exhibition loop reruns the fight; a verdict from the
             // previous run must not describe the new one.
             setEndInfo(info);
+            setDebriefInfo(info);
             setVerification({ state: "idle" });
             setTeardownOpen(false);
           }}
@@ -787,7 +844,7 @@ export function WorkshopPanel() {
             setTeardownOpen(false);
           }}
         />
-        {endInfo && (
+        {(endInfo || debriefInfo) && (
           <div
             style={{
               position: "absolute",
@@ -799,61 +856,102 @@ export function WorkshopPanel() {
               maxWidth: 260,
             }}
           >
-            <button
-              type="button"
-              onClick={verifyOnServer}
-              disabled={verification.state === "pending"}
-              style={{
-                background: "#26304a",
-                color: "#e6e8ee",
-                border: "1px solid #344061",
-                borderRadius: 8,
-                padding: "8px 16px",
-                cursor: "pointer",
-              }}
-            >
-              {verification.state === "pending"
-                ? "Asking the server..."
-                : "Verify result on server"}
-            </button>
-            {shownTeardown && (
-              <button
-                type="button"
-                data-testid="open-teardown"
-                aria-expanded={teardownOpen}
-                aria-controls="match-teardown-sheet"
-                onClick={() => setTeardownOpen((open) => !open)}
-                style={pillStyle({ large: true })}
+            {debrief && (
+              <section
+                className="fight-debrief"
+                data-testid="fight-debrief"
+                aria-label="Fight debrief"
               >
-                {teardownOpen ? "Hide teardown" : "Teardown"}
-              </button>
+                <h3 className="fight-debrief-headline">{debrief.headline}</h3>
+                {debrief.lessons.map((lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="fight-debrief-lesson"
+                    data-testid="debrief-lesson"
+                    data-lesson={lesson.id}
+                  >
+                    <p>{lesson.text}</p>
+                    {lesson.action && lesson.actionLabel && (
+                      <button
+                        type="button"
+                        className="fight-debrief-fix"
+                        onClick={() => {
+                          const action = lesson.action;
+                          if (action) applyDebriefAction(action);
+                        }}
+                      >
+                        {lesson.actionLabel}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </section>
             )}
-            {verification.state === "done" && (
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: "0.8rem",
-                  color: verification.agrees ? "#54e0c7" : "#ff6b6b",
-                }}
-              >
-                {verification.agrees
-                  ? "Official result matches."
-                  : "Mismatch: the server saw a different fight."}
-              </p>
-            )}
-            {verification.state === "done" && verification.record && (
-              <p
-                data-testid="match-record-chip"
-                style={{ margin: "4px 0 0", fontSize: "0.8rem", opacity: 0.85 }}
-              >
-                Record: {verification.record.wins}W {verification.record.losses}
-                L {verification.record.draws}D
-              </p>
-            )}
-            {verification.state === "error" && (
-              <p style={{ margin: 0, fontSize: "0.8rem", color: "#ff6b6b" }}>
-                Verification request failed.
-              </p>
+            {endInfo && (
+              <>
+                <button
+                  type="button"
+                  onClick={verifyOnServer}
+                  disabled={verification.state === "pending"}
+                  style={{
+                    background: "#26304a",
+                    color: "#e6e8ee",
+                    border: "1px solid #344061",
+                    borderRadius: 8,
+                    padding: "8px 16px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {verification.state === "pending"
+                    ? "Asking the server..."
+                    : "Verify result on server"}
+                </button>
+                {shownTeardown && (
+                  <button
+                    type="button"
+                    data-testid="open-teardown"
+                    aria-expanded={teardownOpen}
+                    aria-controls="match-teardown-sheet"
+                    onClick={() => setTeardownOpen((open) => !open)}
+                    style={pillStyle({ large: true })}
+                  >
+                    {teardownOpen ? "Hide teardown" : "Teardown"}
+                  </button>
+                )}
+                {verification.state === "done" && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "0.8rem",
+                      color: verification.agrees ? "#54e0c7" : "#ff6b6b",
+                    }}
+                  >
+                    {verification.agrees
+                      ? "Official result matches."
+                      : "Mismatch: the server saw a different fight."}
+                  </p>
+                )}
+                {verification.state === "done" && verification.record && (
+                  <p
+                    data-testid="match-record-chip"
+                    style={{
+                      margin: "4px 0 0",
+                      fontSize: "0.8rem",
+                      opacity: 0.85,
+                    }}
+                  >
+                    Record: {verification.record.wins}W{" "}
+                    {verification.record.losses}L {verification.record.draws}D
+                  </p>
+                )}
+                {verification.state === "error" && (
+                  <p
+                    style={{ margin: 0, fontSize: "0.8rem", color: "#ff6b6b" }}
+                  >
+                    Verification request failed.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
@@ -869,6 +967,7 @@ export function WorkshopPanel() {
           onClick={() => {
             setMatchup(null);
             setEndInfo(null);
+            setDebriefInfo(null);
             setVerification({ state: "idle" });
             setTeardownOpen(false);
           }}

@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.303-workshop-first-minute",
+      releaseNoticeId: "2026-09-02-0.1.304-workshop-debrief",
       releaseSummary:
-        "The guide's mount faces you, and the family chips stay in reach: The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed, and the remove handle no longer floats over the header when the sheet is open.",
+        "After a test fight, the bench tells you what to change: A test fight ended with a banner and a teardown sheet full of numbers, and nothing that said what to do about them. The fight now ends with a debrief: how it ended, the one or two things that decided it, and a button that takes you straight to the fix.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.303-workshop-first-minute",
+      releaseNoticeId: "2026-09-02-0.1.304-workshop-debrief",
       attempted: 2,
       sent: 1,
       expired: 1,

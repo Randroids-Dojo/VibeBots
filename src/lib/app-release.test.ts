@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.303-workshop-first-minute");
+    expect(release.noticeId).toBe("2026-09-02-0.1.304-workshop-debrief");
     expect(latestNote).toMatchObject({
-      version: "0.1.303",
-      title: "The guide's mount faces you, and the family chips stay in reach",
+      version: "0.1.304",
+      title: "After a test fight, the bench tells you what to change",
       intro:
-        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed, and the remove handle no longer floats over the header when the sheet is open.",
+        "A test fight ended with a banner and a teardown sheet full of numbers, and nothing that said what to do about them. The fight now ends with a debrief: how it ended, the one or two things that decided it, and a button that takes you straight to the fix.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The guided first build starts with both axles empty and Mirror on: the glowing axle you can see takes the wheel and its twin fills at the same time, so the first drop finishes the bot where you can watch it.",
-      "The family chips now live inside the header card under the reason line, which always shows (where a part fits, or why it will not), so the card never grows over the chips.",
-      "The remove handle stays below the header card when the sheet is open instead of floating over it.",
+      "The debrief headline says how the fight ended (a knockout or a decision, and when), then names what decided it: a weapon that never connected, the part that went first and what took it, the part that soaked most of the damage, or the score that lost a decision.",
+      "Every lesson has a fix-it button: it drops you back on the bench with the right part in hand, the weak part selected with Merge in reach, or the Tune tab open.",
+      "The teardown sheet and the server verification are unchanged; the debrief reads the same inspection the sheet shows.",
     ]);
   });
 

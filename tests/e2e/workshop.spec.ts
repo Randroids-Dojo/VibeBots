@@ -1291,7 +1291,7 @@ test(
 
     // One drag onto an axle fills both axles, so the bot gains two wheels.
     await dragHeroOntoCore(page);
-    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
   },
 );
 

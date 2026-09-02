@@ -482,6 +482,22 @@ if (await expectVisible(firstOpponent, "first roster opponent")) {
         buttons: await debrief.locator("button").allTextContents(),
       };
       await shot("garage-14-debrief");
+      // A visible card with nothing usable on it is not a debrief.
+      expectValue(
+        "debrief headline",
+        summary.debrief.headline,
+        (v) => typeof v === "string" && v.length > 0,
+      );
+      expectValue(
+        "debrief lessons",
+        summary.debrief.lessons,
+        (v) => Array.isArray(v) && v.length > 0 && v.every((t) => t.length > 0),
+      );
+      expectValue(
+        "debrief fix-it buttons",
+        summary.debrief.buttons,
+        (v) => Array.isArray(v) && v.length > 0,
+      );
     } else {
       missing.push("debrief after the fight");
     }

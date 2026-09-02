@@ -2739,6 +2739,24 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-244" data-f="F-244" data-priority="polish">
+    <h3>F-244: The drop sparks are not readable at phone size</h3>
+    <dl>
+      <dt>Context</dt><dd>Named as postponed polish in the 2026-09-02 Fun Factor Audit (<code>docs/FUN_FACTOR_AUDIT.html</code>). The canvas reports the burst in flight and the e2e proves it, but in a 390 wide capture taken right after the drop (<code>docs/reviews/20260901-workshop-garage/captures/garage-02-drop-sparks.png</code>) the fourteen motes are too small to see against the bench.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Grow the spark scale or count one step (<code>sparkScale</code>, <code>SPARK_COUNT</code> in <code>workshop-animation.ts</code>) and confirm in a portrait capture that the burst reads at a glance without a per-frame allocation. Acceptance: a screenshot within 100 milliseconds of a drop shows the burst.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program audit. Dot <code>VibeBots-f-244-make-d2370211</code>.</dd>
+    </dl>
+  </section>
+  <section id="F-245" data-f="F-245" data-priority="polish">
+    <h3>F-245: The arena opens too far out at portrait for the paint to read</h3>
+    <dl>
+      <dt>Context</dt><dd>Named as postponed polish in the 2026-09-02 Fun Factor Audit. In the test fight capture (<code>docs/reviews/20260901-workshop-garage/captures/garage-11-test-fight.png</code>) both bots are a few dozen pixels wide, so the body paint and trim the player just chose barely show in the fight the paint slice promised.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Open the arena camera closer on a portrait viewport (the framing logic in <code>src/components/arena-canvas.tsx</code>) while keeping both bots in frame through the countdown, then pull back as they separate. Acceptance: at 390x760 the player's bot spans at least a tenth of the viewport width at the countdown.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program audit. Dot <code>VibeBots-f-245-open-2f6587d7</code>.</dd>
+    </dl>
+  </section>
   <section id="F-242" data-f="F-242" data-priority="polish">
     <h3>F-242: The remove handle floats over the header card when the sheet is open</h3>
     <dl>

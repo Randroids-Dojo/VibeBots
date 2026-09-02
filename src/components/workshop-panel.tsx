@@ -1361,12 +1361,12 @@ export function WorkshopPanel() {
                       role="menuitem"
                       className="workshop-fight-action"
                       data-rung={rung.id}
-                      onClick={() => {
+                      onClick={guardTap(() => {
                         setFightOpen(false);
                         setEndInfo(null);
                         setVerification({ state: "idle" });
                         setMatchup([rung.design, design]);
-                      }}
+                      })}
                       title={
                         rung.inspiredBy
                           ? `${rung.blurb} (in the style of ${rung.inspiredBy})`

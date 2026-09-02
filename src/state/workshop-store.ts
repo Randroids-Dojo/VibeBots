@@ -609,22 +609,36 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       inspectNonce: iid ? s.inspectNonce + 1 : s.inspectNonce,
     })),
 
+  // Undo and redo restore whole designs. When the restored design stands on
+  // a different chassis (a swap undone or redone), the view comes home the
+  // same way the forward swap brought it, so the camera never stays parked
+  // on a bot that is no longer on the bench.
   undo: () => {
-    const { history } = get();
+    const { history, design } = get();
     if (!canUndo(history)) return;
-    set({
-      ...withDesign(undoHistory(history)),
+    const next = undoHistory(history);
+    set((s) => ({
+      ...withDesign(next),
       selectedIid: null,
-    });
+      viewResetNonce:
+        currentCoreId(next.present) === currentCoreId(design)
+          ? s.viewResetNonce
+          : s.viewResetNonce + 1,
+    }));
   },
 
   redo: () => {
-    const { history } = get();
+    const { history, design } = get();
     if (!canRedo(history)) return;
-    set({
-      ...withDesign(redoHistory(history)),
+    const next = redoHistory(history);
+    set((s) => ({
+      ...withDesign(next),
       selectedIid: null,
-    });
+      viewResetNonce:
+        currentCoreId(next.present) === currentCoreId(design)
+          ? s.viewResetNonce
+          : s.viewResetNonce + 1,
+    }));
   },
 
   setName: (name) => {

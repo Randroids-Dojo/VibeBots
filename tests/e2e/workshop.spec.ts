@@ -740,9 +740,15 @@ test(
       page.getByRole("menuitem", { name: "Fight a rival" }),
     ).toBeVisible();
 
-    // A tap outside the menu closes it.
+    // A tap outside the menu closes it, and so does Escape, which hands
+    // focus back to the button that opened it.
     await page.mouse.click(196, 250);
     await expect(page.getByRole("menu")).toHaveCount(0);
+    await actions.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(actions).toBeFocused();
   },
 );
 
@@ -1507,14 +1513,34 @@ test(
     await expect.poll(() => read("cameraY")).toBeGreaterThan(0);
 
     // Place a wheel. Placement selects the part but is not a tap, so the
-    // view holds still under a building finger.
+    // whole pose (target and camera, all three axes) holds still under a
+    // building finger.
     await selectCarouselPart(page, "Drive Wheel");
     await expect
       .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
       .not.toBeUndefined();
+    const poseKeys = [
+      "cameraTargetX",
+      "cameraTargetY",
+      "cameraTargetZ",
+      "cameraX",
+      "cameraY",
+      "cameraZ",
+    ];
+    const readPose = async () => {
+      const pose: Record<string, number> = {};
+      for (const key of poseKeys) pose[key] = await read(key);
+      return pose;
+    };
+    const before = await readPose();
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    expect(Math.abs(await read("cameraTargetX"))).toBeLessThan(0.005);
+    await page.waitForTimeout(400);
+    const after = await readPose();
+    for (const key of poseKeys) {
+      expect(Math.abs(after[key] - before[key])).toBeLessThan(0.005);
+    }
+    expect(Math.abs(after.cameraTargetX)).toBeLessThan(0.005);
 
     // Recenter puts the target on the bot's bounds centre, which the wheel
     // has pulled off the core to one side, and the camera back in front.
@@ -1617,12 +1643,13 @@ test(
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
     await selectCarouselPart(page, "Spinner Bar");
-    await expect(reason).toHaveAttribute("data-blocker", "power");
-    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
+    // The flash is armed for 900ms when the block appears, so read it first.
     await expect(page.locator('[data-meter="power"]')).toHaveAttribute(
       "data-flash",
       "true",
     );
+    await expect(reason).toHaveAttribute("data-blocker", "power");
+    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
 
     // Declare Antweight: the weight meter takes the class name and ceiling,
     // and the hardened plate is refused on weight, not on a mount.

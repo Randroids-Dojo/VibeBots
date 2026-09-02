@@ -571,12 +571,20 @@ function CameraRig({
     }
     return boundsCenter(corners);
   }, [design, layout]);
+  // The nonce effects below read the bench through refs so they fire only
+  // on a tap or a reset, never on a layout or selection change. The refs
+  // are written in effects (commit time), declared before the readers so
+  // they run first in the same commit; a write during render could
+  // survive a discarded render and aim the camera at a build that never
+  // committed.
   const centerRef = useRef(center);
-  centerRef.current = center;
   const layoutRef = useRef(layout);
-  layoutRef.current = layout;
   const selectedRef = useRef(selectedIid);
-  selectedRef.current = selectedIid;
+  useEffect(() => {
+    centerRef.current = center;
+    layoutRef.current = layout;
+    selectedRef.current = selectedIid;
+  }, [center, layout, selectedIid]);
 
   // A tap on a placed part (inspectNonce bumps only on taps, never on a
   // placement or merge) frames that part. Keyed on the nonce alone so a
@@ -603,7 +611,9 @@ function CameraRig({
 
   // A finger on the bench outranks a pending camera glide: dropping the
   // position reset the moment an orbit starts keeps the view from fighting
-  // the drag. The target glide is a pan and may finish on its own.
+  // the drag. The target glide is deliberately left to finish: it is a pan
+  // that moves camera and target together, so it cannot fight an orbit,
+  // and cutting it short would leave a tapped part half framed.
   useEffect(() => {
     const controls = controlsRef.current;
     if (!controls) return;

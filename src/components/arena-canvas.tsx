@@ -345,8 +345,12 @@ function ArenaScene({
       dataset[`botPaint${botIndex}`] = design.paint
         ? `${design.paint.primary}:${design.paint.accent}`
         : "none";
+      // And the team ring under each bot, which keeps the sides readable
+      // however the hulls are painted.
+      dataset[`teamRing${botIndex}`] =
+        `#${teamColors[botIndex].getHexString()}`;
     });
-  }, [baseColors, coreKeys, activeDesigns, glForPaint]);
+  }, [baseColors, coreKeys, activeDesigns, glForPaint, teamColors]);
   const desiredCameraPositionRef = useRef(new Vector3(8, 5, 10));
   const desiredCameraLookAtRef = useRef(new Vector3(0, 1, 0));
   const projectedBotRef = useRef<[Vector3, Vector3]>([
@@ -376,6 +380,10 @@ function ArenaScene({
   }, []);
 
   useEffect(() => {
+    // The parts and paint render from activeDesigns; keep it on the tuple
+    // the match boots from, or a new designs prop would step a new sim
+    // under the old bots until an exhibition restart.
+    setActiveDesigns(designs);
     const generation = ++generationRef.current;
     bootMatch(designs).then((run) => {
       if (generationRef.current !== generation) {

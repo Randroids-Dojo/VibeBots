@@ -55,6 +55,8 @@
       <dt>Assumptions</dt><dd>A minor with a clean typecheck, unit suite, build, and canvas smoke needs no migration work. The one behaviour change with a plausible reach into this code, the pierced-prop reset, would only show where a <code>position-x</code>-style prop is added and later removed on the same element; the workshop and arena e2e cover the trees that set such props.</dd>
       <dt>GDD coverage</dt><dd>No row change and no GDD entry: a dependency bump ships no player-facing behaviour. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
       <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
   <article data-slice="deps-next-16-3-4" data-date="2026-09-01">
     <h3>Next 16.3.1 to 16.3.4</h3>
     <dl>
@@ -66,6 +68,8 @@
       <dt>GDD coverage</dt><dd>No row change and no GDD entry: a dependency bump ships no player-facing behaviour. Mine tips reviewed with no copy change (Rule 13). Stamp review completed with none added (Rule 14).</dd>
       <dt>Followups</dt><dd>None new. The other half of the gate, <code>@react-three/fiber</code> 9.6.1 to 9.7.0, follows in its own PR.</dd>
       <dt>Scheduled Full E2E</dt><dd>Newest completed scheduled run <code>33492590757</code> (2026-09-01, head <code>cd9721c3</code>) is red, the sixteenth consecutive red night. Triaged before this slice, in the sibling branch <code>fix/nightly-spec-copy</code> (its own PR and progress entry): one deterministic regression (E2E-RELEASE-NOTIFICATIONS-0008 asserting a sentence the #329 copy cut removed) is fixed there, and the rest is the standing software-render family that Q-035 chose to leave in place. Nothing in this bump touches that set.</dd>
+    </dl>
+  </article>
   <article data-slice="nightly-spec-copy-regression" data-date="2026-09-01">
     <h3>Nightly Full E2E: the one deterministic red was a spec still asserting cut copy</h3>
     <dl>

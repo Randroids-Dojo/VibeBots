@@ -172,3 +172,24 @@ describe("design share codes", () => {
     }
   });
 });
+
+describe("paint in a share code", () => {
+  it("refuses an unknown paint id instead of decoding an unpainted bot", () => {
+    const painted: BotDesign = {
+      ...TEST_BOT_DESIGN,
+      paint: { primary: "cobalt", accent: "gold" },
+    };
+    const code = encodeDesignCode(painted);
+    const round = decodeDesignCode(code);
+    expect(round.ok && round.design.paint).toEqual({
+      primary: "cobalt",
+      accent: "gold",
+    });
+    // Tamper the tuple: an unknown paint id (still two strings).
+    const tampered = encodeDesignCode({
+      ...painted,
+      paint: { primary: "x" as never, accent: "gold" },
+    });
+    expect(decodeDesignCode(tampered).ok).toBe(false);
+  });
+});

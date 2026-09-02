@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { botDesignSchema, TEST_BOT_DESIGN } from "@/sim/design";
+import {
+  BOT_PAINT_IDS,
+  type BotPaint,
+  botDesignSchema,
+  TEST_BOT_DESIGN,
+} from "@/sim/design";
 import { PART_CATALOG } from "@/sim/parts";
 import {
   isKnownPaint,
@@ -28,7 +33,7 @@ describe("paint palette", () => {
   });
 
   it("paints the body and the trim, and leaves weapons as steel", () => {
-    const paint = { primary: "cobalt", accent: "gold" };
+    const paint = { primary: "cobalt", accent: "gold" } as const;
     const cobalt = paintSwatch("cobalt")?.hex;
     const gold = paintSwatch("gold")?.hex;
     expect(paintedColor(PART_CATALOG["core-cube"], paint, "#111111")).toBe(
@@ -52,12 +57,15 @@ describe("paint palette", () => {
     expect(
       paintedColor(
         PART_CATALOG["core-cube"],
-        { primary: "neon", accent: "jade" },
+        // A paint the schema would refuse, as an old save might carry.
+        { primary: "neon", accent: "jade" } as unknown as BotPaint,
         "#abcdef",
       ),
     ).toBe("#abcdef");
     expect(isKnownPaint(undefined)).toBe(false);
-    expect(isKnownPaint({ primary: "neon", accent: "jade" })).toBe(false);
+    expect(
+      isKnownPaint({ primary: "neon", accent: "jade" } as unknown as BotPaint),
+    ).toBe(false);
     expect(isKnownPaint({ primary: "ember", accent: "jade" })).toBe(true);
   });
 
@@ -68,9 +76,23 @@ describe("paint palette", () => {
     });
     expect(painted.success).toBe(true);
     expect(botDesignSchema.safeParse(TEST_BOT_DESIGN).success).toBe(true);
+    // An unknown id is refused even with a complete pair, and a half pair
+    // is refused even with known ids.
     expect(
-      botDesignSchema.safeParse({ ...TEST_BOT_DESIGN, paint: { primary: "x" } })
-        .success,
+      botDesignSchema.safeParse({
+        ...TEST_BOT_DESIGN,
+        paint: { primary: "x", accent: "jade" },
+      }).success,
     ).toBe(false);
+    expect(
+      botDesignSchema.safeParse({
+        ...TEST_BOT_DESIGN,
+        paint: { primary: "ember" },
+      }).success,
+    ).toBe(false);
+    // The swatch table and the schema name the same palette.
+    expect(PAINT_SWATCHES.map((swatch) => swatch.id)).toEqual([
+      ...BOT_PAINT_IDS,
+    ]);
   });
 });

@@ -2316,6 +2316,100 @@ test(
   },
 );
 
+test(
+  "catalog wave two: the new rungs sit in their ladders and the tempered lance mounts (H3)",
+  ciCase("E2E-WORKSHOP-0048", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 200,
+          inventory: [
+            { part_id: "tempered-lance", count: 1 },
+            { part_id: "ballast-wheel", count: 2 },
+            { part_id: "ballast-block", count: 1 },
+          ],
+          catalog: [
+            {
+              id: "drive-wheel",
+              name: "Drive Wheel",
+              category: "mobility",
+              priceEmeralds: 6,
+            },
+            {
+              id: "super-wheel",
+              name: "Super Wheel",
+              category: "mobility",
+              priceEmeralds: 20,
+            },
+            {
+              id: "ballast-wheel",
+              name: "Ballast Wheel",
+              category: "mobility",
+              priceEmeralds: 28,
+            },
+            {
+              id: "frame-plate",
+              name: "Frame Plate",
+              category: "structure",
+              priceEmeralds: 3,
+            },
+            {
+              id: "ballast-block",
+              name: "Ballast Block",
+              category: "structure",
+              priceEmeralds: 14,
+            },
+            {
+              id: "hardened-plate",
+              name: "Hardened Plate",
+              category: "structure",
+              priceEmeralds: 18,
+            },
+            {
+              id: "lance",
+              name: "Lance",
+              category: "weapon",
+              priceEmeralds: 12,
+            },
+            {
+              id: "tempered-lance",
+              name: "Tempered Lance",
+              category: "weapon",
+              priceEmeralds: 24,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // The shop lists each family cheapest first, so the new parts land on
+    // their rungs: the Ballast Wheel above the Super Wheel, the Ballast Block
+    // between the plates, the Tempered Lance above the Lance.
+    await page.getByRole("tab", { name: "Shop" }).click();
+    const drive = page.getByRole("region", { name: "Drive parts" });
+    await expect(drive.locator("li").last()).toContainText("Ballast Wheel");
+    const frame = page.getByRole("region", { name: "Frame parts" });
+    await expect(frame.locator("li").nth(1)).toContainText("Ballast Block");
+    const weapons = page.getByRole("region", { name: "Weapon parts" });
+    await expect(weapons.locator("li").last()).toContainText("Tempered Lance");
+
+    // Owned, the tempered lance is in the carousel and mounts on the nose.
+    await page.getByRole("tab", { name: "Build" }).click();
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Tempered Lance");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

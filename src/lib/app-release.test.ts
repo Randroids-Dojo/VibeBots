@@ -28,17 +28,18 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.307-workshop-ladder");
+    expect(release.noticeId).toBe("2026-09-02-0.1.308-workshop-wave-two");
     expect(latestNote).toMatchObject({
-      version: "0.1.307",
-      title: "The fight roster is a ladder, with a new rung in the middle",
+      version: "0.1.308",
+      title:
+        "Three new parts: a ballast wheel, a tempered lance, and a ballast block",
       intro:
-        "The test fights were a list. They are a ladder now, easiest first for the bot you build first, each with a hint of what it asks, and Bulldozer, a low plow bot that only the bench used to fight, joins the picker as the rung between a fair fight and a punishing one.",
+        "The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Test fight menu lists Brawler, Contagion, Night Terror, Bulldozer, then Impaler, with a hint under each: warm-up, controls the floor, all blade, outshoves a spike, punishes a spike.",
-      "Bulldozer is new to the picker: low roller drums, an armour nose, and a plow that never lets go. It shoves harder than a spike and edges the first build on the card.",
-      "The order is measured, not guessed: the first build beats the first three rungs and loses to the last two, and the debrief's advice after a loss to Impaler, a longer reach, wins that fight.",
+      "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats the two rungs the stock wheels lose to and loses the blade fight the stock wheels win.",
+      "Tempered Lance: the lance, hardened, with reach that does not snap. On the first build it beats every rung of the ladder.",
+      "Ballast Block: a dense block for a tail or a deck. Mass wins a shove: on the first build's tail it beats four rungs of five. All three are additive; every recorded fight replays the same.",
     ]);
   });
 

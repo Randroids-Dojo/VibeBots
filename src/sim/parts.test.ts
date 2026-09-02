@@ -114,7 +114,7 @@ describe("tier ladder wave one (G4)", () => {
       expect(PART_CATALOG[id], id).toBeDefined();
       expect(PART_CATALOG[id].priceEmeralds, id).toBeGreaterThan(0);
     }
-    expect(Object.keys(PART_CATALOG)).toHaveLength(25);
+    expect(Object.keys(PART_CATALOG)).toHaveLength(28);
   });
 
   it("climbs the wheel ladder in mass, power, and price", () => {

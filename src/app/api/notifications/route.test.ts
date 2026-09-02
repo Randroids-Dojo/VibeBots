@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.307-workshop-ladder",
+      releaseNoticeId: "2026-09-02-0.1.308-workshop-wave-two",
       releaseSummary:
-        "The fight roster is a ladder, with a new rung in the middle: The test fights were a list. They are a ladder now, easiest first for the bot you build first, each with a hint of what it asks, and Bulldozer, a low plow bot that only the bench used to fight, joins the picker as the rung between a fair fight and a punishing one.",
+        "Three new parts: a ballast wheel, a tempered lance, and a ballast block: The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.307-workshop-ladder",
+      releaseNoticeId: "2026-09-02-0.1.308-workshop-wave-two",
       attempted: 2,
       sent: 1,
       expired: 1,

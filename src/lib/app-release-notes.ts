@@ -1,9 +1,31 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.307-workshop-ladder";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.308-workshop-wave-two";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.308",
+      date: "2026-09-02",
+      title:
+        "Three new parts: a ballast wheel, a tempered lance, and a ballast block",
+      intro:
+        "The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
+      changes: [
+        {
+          build,
+          text: "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats the two rungs the stock wheels lose to and loses the blade fight the stock wheels win.",
+        },
+        {
+          build,
+          text: "Tempered Lance: the lance, hardened, with reach that does not snap. On the first build it beats every rung of the ladder.",
+        },
+        {
+          build,
+          text: "Ballast Block: a dense block for a tail or a deck. Mass wins a shove: on the first build's tail it beats four rungs of five. All three are additive; every recorded fight replays the same.",
+        },
+      ],
+    },
     {
       version: "0.1.307",
       date: "2026-09-02",

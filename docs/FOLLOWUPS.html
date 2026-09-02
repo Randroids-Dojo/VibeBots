@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-249" data-f="F-249" data-priority="nice-to-have">
+    <h3>F-249: The Tower core loses to every stock opponent</h3>
+    <dl>
+      <dt>Context</dt><dd>Measured 2026-09-02 while sizing catalog wave two (scratch <code>resolveMatch</code> runs, not committed): a Tower core with two drive wheels and a lance wins none of the five ladder fights (draws Brawler, loses the rest, two of them by a wide margin), and a ballast tail does not save it. The same wheels and lance on a cube core win most of the ladder. The tall core is a chassis choice the workshop offers as an equal and the sim punishes.</dd>
+      <dt>Blocker (if any)</dt><dd>Balance work with a sim version consequence: a change to the Tower core's shape, mass, or connector layout alters every recorded match that used it.</dd>
+      <dt>Unblock condition</dt><dd>Decide what the tall chassis is for (a mast weapon platform, a power reservoir) and give it one measured edge on the ladder; bump <code>SIM_VERSION</code> with it. Acceptance: a stock Tower build wins at least two ladder rungs the cube build does not.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during catalog wave two. Dot <code>VibeBots-f-249-the-c9065343</code>.</dd>
+    </dl>
+  </section>
   <section id="F-246" data-f="F-246" data-priority="nice-to-have">
     <h3>F-246: The hour-in surprise: the catalog and the roster run out</h3>
     <dl>

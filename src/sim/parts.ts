@@ -683,6 +683,58 @@ export const CLEAVER: PartDef = {
   ],
 };
 
+// Catalog wave two (H3, breadth and expression program): a fourth rung on
+// the wheels, a third rung on the spike line, and a structure part that is
+// not a rung. Additive: no existing part changes, so every recorded match
+// replays byte-identical and SIM_VERSION stays.
+export const BALLAST_WHEEL: PartDef = {
+  id: "ballast-wheel",
+  name: "Ballast Wheel",
+  category: "mobility",
+  shape: { type: "cylinder", halfHeight: 0.085, radius: 0.3, axis: "x" },
+  density: 3.2,
+  powerDraw: 30,
+  powerSupply: 0,
+  durability: 140,
+  priceEmeralds: 28,
+  blurb: "Low and heavy. Wins the shove, loses the sprint.",
+  connectors: [
+    { id: "hub", kind: "axle", position: { x: 0, y: 0, z: 0 }, axis: X_AXIS },
+  ],
+};
+export const TEMPERED_LANCE: PartDef = {
+  id: "tempered-lance",
+  name: "Tempered Lance",
+  category: "weapon",
+  shape: { type: "cuboid", hx: 0.04, hy: 0.04, hz: 0.36 },
+  density: 3.6,
+  powerDraw: 8,
+  powerSupply: 0,
+  durability: 200,
+  priceEmeralds: 24,
+  blurb: "The lance, hardened. Reach that does not snap.",
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.36 } },
+  ],
+};
+export const BALLAST_BLOCK: PartDef = {
+  id: "ballast-block",
+  name: "Ballast Block",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.14, hy: 0.1, hz: 0.14 },
+  density: 6,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 120,
+  priceEmeralds: 14,
+  blurb: "Dense block for a tail or a deck. Mass wins a shove.",
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.1, z: 0 } },
+    { id: "bottom", kind: "rigid", position: { x: 0, y: -0.1, z: 0 } },
+    { id: "nose", kind: "rigid", position: { x: 0, y: 0, z: -0.14 } },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -710,5 +762,8 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     SKID,
     LANCE,
     CLEAVER,
+    BALLAST_WHEEL,
+    TEMPERED_LANCE,
+    BALLAST_BLOCK,
   ].map((p) => [p.id, p]),
 );

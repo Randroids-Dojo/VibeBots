@@ -272,6 +272,14 @@ export const PART_LOOKS: Record<string, PartLook> = {
     roughness: 0.88,
     emissiveBoost: 0,
   },
+  "ballast-wheel": {
+    color: "#8f99a6",
+    region: "tread",
+    tone: 0.12,
+    metalness: 0.2,
+    roughness: 0.8,
+    emissiveBoost: 0,
+  },
   "super-wheel": {
     color: "#9aa5b3",
     region: "tread",
@@ -286,6 +294,14 @@ export const PART_LOOKS: Record<string, PartLook> = {
     tone: 1.08,
     metalness: 0.6,
     roughness: 0.48,
+    emissiveBoost: 0,
+  },
+  "ballast-block": {
+    color: "#4d5563",
+    region: "deck",
+    tone: 1.18,
+    metalness: 0.75,
+    roughness: 0.42,
     emissiveBoost: 0,
   },
   "corner-block": {
@@ -314,6 +330,14 @@ export const PART_LOOKS: Record<string, PartLook> = {
   },
   lance: {
     color: "#e3e7ec",
+    region: "tip",
+    tone: 1.3,
+    metalness: 0.92,
+    roughness: 0.18,
+    emissiveBoost: 0.06,
+  },
+  "tempered-lance": {
+    color: "#b7c6dc",
     region: "tip",
     tone: 1.3,
     metalness: 0.92,

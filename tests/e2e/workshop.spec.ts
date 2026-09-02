@@ -1513,14 +1513,34 @@ test(
     await expect.poll(() => read("cameraY")).toBeGreaterThan(0);
 
     // Place a wheel. Placement selects the part but is not a tap, so the
-    // view holds still under a building finger.
+    // whole pose (target and camera, all three axes) holds still under a
+    // building finger.
     await selectCarouselPart(page, "Drive Wheel");
     await expect
       .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
       .not.toBeUndefined();
+    const poseKeys = [
+      "cameraTargetX",
+      "cameraTargetY",
+      "cameraTargetZ",
+      "cameraX",
+      "cameraY",
+      "cameraZ",
+    ];
+    const readPose = async () => {
+      const pose: Record<string, number> = {};
+      for (const key of poseKeys) pose[key] = await read(key);
+      return pose;
+    };
+    const before = await readPose();
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    expect(Math.abs(await read("cameraTargetX"))).toBeLessThan(0.005);
+    await page.waitForTimeout(400);
+    const after = await readPose();
+    for (const key of poseKeys) {
+      expect(Math.abs(after[key] - before[key])).toBeLessThan(0.005);
+    }
+    expect(Math.abs(after.cameraTargetX)).toBeLessThan(0.005);
 
     // Recenter puts the target on the bot's bounds centre, which the wheel
     // has pulled off the core to one side, and the camera back in front.

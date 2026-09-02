@@ -18,8 +18,20 @@ describe("workshop sfx tones", () => {
     expect(snap.end).toBeLessThan(snap.start);
   });
 
+  it("makes a chain the merge chime plus one, and a remove fall", () => {
+    const merge = workshopSfxTones("merge");
+    const chain = workshopSfxTones("chain");
+    expect(chain.length).toBe(merge.length + 1);
+    expect(chain[0].start).toBe(merge[0].start);
+    expect(chain[2].start).toBeGreaterThan(chain[1].start);
+    expect(chain[2].delay).toBeGreaterThan(chain[1].delay);
+    const [whoosh] = workshopSfxTones("remove");
+    expect(whoosh.end).toBeLessThan(whoosh.start);
+    expect(workshopSfxTones("remove")).not.toEqual(workshopSfxTones("place"));
+  });
+
   it("keeps every tone short and quiet enough for UI feedback", () => {
-    for (const event of ["place", "merge"] as const) {
+    for (const event of ["place", "merge", "remove", "chain"] as const) {
       for (const step of workshopSfxTones(event)) {
         expect(step.len).toBeLessThanOrEqual(0.2);
         expect(step.gain).toBeLessThanOrEqual(0.15);

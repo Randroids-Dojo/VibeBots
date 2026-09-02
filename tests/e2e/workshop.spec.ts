@@ -1965,6 +1965,72 @@ test(
   },
 );
 
+test(
+  "a drop sparks, a removal dissolves, and a merge that can chain says so (G7)",
+  ciCase("E2E-WORKSHOP-0043", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const read = (key: string) =>
+      canvas.evaluate(
+        (c: HTMLCanvasElement, k: string) => c.dataset[k] ?? "",
+        key,
+      );
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+
+    // A drop sparks: the burst is in flight right after the placement and
+    // has died within a second.
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await expect.poll(() => read("sparking")).toBe("1");
+    await expect.poll(() => read("sparking"), { timeout: 3000 }).toBe("0");
+
+    // A removal dissolves: the ghost shrinks over several frames from full
+    // size to a fifth (Rule 10: observable movement, read from the trace
+    // the canvas publishes because the dissolve is over in a quarter
+    // second), then the ghost is gone.
+    await page.getByRole("button", { name: /^Remove / }).click();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await expect
+      .poll(async () => Number(await read("dissolveFrames")))
+      .toBeGreaterThan(2);
+    await expect
+      .poll(async () => Number(await read("dissolveMin")))
+      .toBeLessThan(0.25);
+    await expect.poll(() => read("dissolving"), { timeout: 3000 }).toBe("0");
+
+    // A merge with another copy still available celebrates the chain;
+    // the last merge to the cap does not.
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await openSheet(page);
+    const inspector = page.getByRole("region", { name: "Selected part" });
+    await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
+    await expect(page.getByTestId("chain-cue")).toContainText(
+      "Merge again to Lv 3",
+    );
+    await inspector.getByRole("button", { name: "Merge to Lv 3" }).click();
+    await expect(inspector.getByText("Lv 3")).toBeVisible();
+    await expect(page.getByTestId("chain-cue")).toHaveCount(0);
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

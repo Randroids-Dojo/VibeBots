@@ -44,3 +44,67 @@ export function advance(current: number, dt: number, seconds: number): number {
 export function decay(current: number, dt: number, seconds: number): number {
   return Math.max(0, current - dt / seconds);
 }
+
+/*
+ * Feel pass (G7): removal dissolves, drops spark, chains celebrate.
+ */
+
+/** How long a removed part takes to dissolve off the bench. */
+export const DISSOLVE_SECONDS = 0.28;
+/** How long a drop's spark burst lives. */
+export const SPARK_SECONDS = 0.45;
+/** Sparks per burst; the instanced mesh is sized to this once. */
+export const SPARK_COUNT = 14;
+
+/** A removed part shrinks from full size to a fifth as it goes. */
+export function dissolveScale(t: number): number {
+  return 1 - 0.8 * smoothstep(t);
+}
+
+/** And fades out on the same curve, fully gone at the end. */
+export function dissolveOpacity(t: number): number {
+  return 1 - smoothstep(t);
+}
+
+/** And drops a little, so it reads as falling off rather than popping. */
+export function dissolveSink(t: number): number {
+  return 0.12 * smoothstep(t);
+}
+
+/**
+ * Fixed spark directions: a golden-angle spiral over the upper hemisphere,
+ * so a burst is even, deterministic (tests can pin it), and needs no
+ * randomness at drop time.
+ */
+export function sparkDirections(
+  count: number = SPARK_COUNT,
+): { x: number; y: number; z: number }[] {
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const out: { x: number; y: number; z: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    // y from 0.25 to 0.95: every spark rises, none goes straight up.
+    const y = 0.25 + (0.7 * (i + 0.5)) / count;
+    const r = Math.sqrt(Math.max(0, 1 - y * y));
+    const a = i * golden;
+    out.push({ x: Math.cos(a) * r, y, z: Math.sin(a) * r });
+  }
+  return out;
+}
+
+/** Spark travel along its direction: fast out, then hanging as it dies. */
+export function sparkTravel(t: number): number {
+  const c = clamp01(t);
+  return 0.55 * (1 - (1 - c) * (1 - c));
+}
+
+/** Spark drop under gravity, applied to y after the travel. */
+export function sparkDrop(t: number): number {
+  const c = clamp01(t);
+  return 0.35 * c * c;
+}
+
+/** Spark size: full at birth, gone at the end. */
+export function sparkScale(t: number): number {
+  const c = clamp01(t);
+  return 0.06 * (1 - c) * (1 - c);
+}

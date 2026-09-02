@@ -586,6 +586,27 @@ describe("G4 carousel categories", () => {
   });
 });
 
+describe("G7 merge nonce", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("bumps on a merge by either path and never on a placement", () => {
+    const start = store().mergeNonce;
+    const slot = validSlotsFor(store().design, DRIVE_WHEEL)[0];
+    store().placeAtSlot(slot);
+    expect(store().mergeNonce).toBe(start);
+    store().mergePart(slot.iid);
+    expect(store().mergeNonce).toBe(start + 1);
+    store().select(slot.iid);
+    store().mergeSelectedPart();
+    expect(store().mergeNonce).toBe(start + 2);
+    // At the cap a merge is refused and the nonce holds.
+    store().mergeSelectedPart();
+    expect(store().mergeNonce).toBe(start + 2);
+  });
+});
+
 describe("G5 paint", () => {
   beforeEach(() => {
     store().reset();

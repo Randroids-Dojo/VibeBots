@@ -1,9 +1,31 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.301-workshop-paint";
+export const RELEASE_NOTICE_ID = "2026-09-02-0.1.302-workshop-feel";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.302",
+      date: "2026-09-02",
+      title:
+        "Parts come off with a dissolve, land with sparks, and a chain merge says so",
+      intro:
+        "The bench had the pop and the gold flash but not much else: a removed part blinked out, a dropped part just appeared, and the best moment in the workshop, a merge that can merge again, looked like any other. Each of those has its own beat now.",
+      changes: [
+        {
+          build,
+          text: "Remove a part and it comes off the bot: it shrinks, fades, and drops away in a quarter second with a soft whoosh, instead of vanishing.",
+        },
+        {
+          build,
+          text: "Drop a part on a mount and a burst of sparks flies up from the join in the part's own colour, gold for a merge.",
+        },
+        {
+          build,
+          text: "Merge a part with another copy still in your inventory and the inspector says Merge again with a three note chime, so a chain to Lv 3 is never missed.",
+        },
+      ],
+    },
     {
       version: "0.1.301",
       date: "2026-09-02",

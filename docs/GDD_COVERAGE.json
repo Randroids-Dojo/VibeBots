@@ -39,7 +39,9 @@
         "src/lib/design-code.ts",
         "src/components/design-share.tsx",
         "src/components/workshop-onboarding.ts",
-        "src/lib/bot-paint.ts"
+        "src/lib/bot-paint.ts",
+        "src/components/workshop-animation.ts",
+        "src/components/workshop-sfx.ts"
       ],
       "testRefs": [
         "src/sim/design.test.ts",
@@ -52,7 +54,9 @@
         "src/components/workshop-budget.test.ts",
         "src/lib/design-code.test.ts",
         "src/components/workshop-onboarding.test.ts",
-        "src/lib/bot-paint.test.ts"
+        "src/lib/bot-paint.test.ts",
+        "src/components/workshop-animation.test.ts",
+        "src/components/workshop-sfx.test.ts"
       ],
       "followupRefs": [
         "F-006"

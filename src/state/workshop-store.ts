@@ -426,6 +426,8 @@ export interface WorkshopState {
   setWeightClass: (classId: string | undefined) => void;
   /** Set (or clear) the design's cosmetic paint (G5). Undoable. */
   setPaint: (paint: BotPaint | undefined) => void;
+  /** Bumped on every merge, either path, so the panel can celebrate a chain (G7). */
+  mergeNonce: number;
   /** Set the drive gear ratio on every drive axle (F-229). Undoable. */
   setGearRatio: (ratio: number) => void;
   loadDesign: (design: BotDesign) => void;
@@ -456,6 +458,7 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   balanceVisible: false,
   mirrorEnabled: false,
   viewResetNonce: 0,
+  mergeNonce: 0,
 
   recenterView: () => set((s) => ({ viewResetNonce: s.viewResetNonce + 1 })),
 
@@ -604,11 +607,12 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     const { history, design } = get();
     const next = planMergeSelectedPart(design, iid);
     if (!next) return;
-    set({
+    set((s) => ({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,
       browseStatsOpen: false,
-    });
+      mergeNonce: s.mergeNonce + 1,
+    }));
   },
 
   removeSelected: () => {
@@ -638,7 +642,10 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     const { history, design, selectedIid } = get();
     const next = planMergeSelectedPart(design, selectedIid);
     if (!next) return;
-    set({ ...withDesign(pushHistory(history, next)) });
+    set((s) => ({
+      ...withDesign(pushHistory(history, next)),
+      mergeNonce: s.mergeNonce + 1,
+    }));
   },
 
   rotateSelected: () => {

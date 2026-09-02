@@ -10,6 +10,7 @@ import {
 import {
   type ComponentRef,
   type RefObject,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -19,6 +20,8 @@ import {
   BufferAttribute,
   BufferGeometry,
   type Group,
+  type InstancedMesh,
+  Matrix4,
   type MeshStandardMaterial,
   type PerspectiveCamera,
   Vector3,
@@ -61,10 +64,20 @@ import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
 import {
   advance,
+  DISSOLVE_SECONDS,
   decay,
+  dissolveOpacity,
+  dissolveScale,
+  dissolveSink,
   MOUNT_SECONDS,
   PULSE_SECONDS,
+  SPARK_COUNT,
+  SPARK_SECONDS,
   snapScale,
+  sparkDirections,
+  sparkDrop,
+  sparkScale,
+  sparkTravel,
 } from "./workshop-animation";
 import {
   boundsCenter,
@@ -531,6 +544,153 @@ function BalanceOverlay({
 type OrbitControlsRef = ComponentRef<typeof OrbitControls>;
 
 /**
+ * A part on its way out (G7): removal used to blink the part away. The
+ * scene keeps a ghost of a removed part for a beat and dissolves it,
+ * smaller, fainter, and a little lower, so a removal reads as the part
+ * coming off the bot rather than an error. Owns its own timer in a ref;
+ * the scale, opacity, and sink curves are pure and unit tested.
+ */
+interface LeavingPart {
+  key: string;
+  def: PartDef;
+  placement: Placement;
+  color: string;
+}
+
+function DissolvingPart({
+  part,
+  onDone,
+  publish,
+}: {
+  part: LeavingPart;
+  onDone: (key: string) => void;
+  /** Publishes the live scale so a test can watch the dissolve move. */
+  publish: (scale: number) => void;
+}) {
+  const groupRef = useRef<Group>(null);
+  const matRef = useRef<MeshStandardMaterial>(null);
+  const t = useRef(0);
+  const done = useRef(false);
+  useFrame((_, dt) => {
+    if (done.current) return;
+    t.current = advance(t.current, dt, DISSOLVE_SECONDS);
+    const scale = dissolveScale(t.current);
+    const group = groupRef.current;
+    if (group) {
+      group.scale.setScalar(scale);
+      group.position.y = part.placement.position.y - dissolveSink(t.current);
+    }
+    if (matRef.current) matRef.current.opacity = dissolveOpacity(t.current);
+    publish(scale);
+    if (t.current >= 1) {
+      done.current = true;
+      onDone(part.key);
+    }
+  });
+  const { position, rotation } = part.placement;
+  const look = partLook(part.def);
+  return (
+    <group
+      ref={groupRef}
+      position={[position.x, position.y, position.z]}
+      quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
+    >
+      <mesh rotation={shapeRotation(part.def.shape)}>
+        {partGeometry(part.def)}
+        <meshStandardMaterial
+          ref={matRef}
+          color={part.color}
+          vertexColors={partVertexColors(part.def)}
+          metalness={look.metalness}
+          roughness={look.roughness}
+          transparent
+          opacity={1}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/** Where and in what colour the next spark burst fires. */
+interface SparkBurst {
+  t: number;
+  x: number;
+  y: number;
+  z: number;
+  color: string;
+}
+
+/**
+ * Drop sparks (G7): one instanced draw of a few small fullbright motes
+ * that fly up and out from the mount a part just snapped onto (in the
+ * part's colour, gold for a merge) and die within half a second. The
+ * directions are a fixed table, the burst state lives in a ref, and the
+ * frame loop writes matrices into the one instanced mesh, so a drop
+ * allocates nothing.
+ */
+const SPARK_DIRECTIONS = sparkDirections(SPARK_COUNT);
+
+function DropSparks({
+  burst,
+  publish,
+}: {
+  burst: RefObject<SparkBurst>;
+  publish: (active: boolean) => void;
+}) {
+  const instRef = useRef<InstancedMesh>(null);
+  const matrix = useRef(new Matrix4());
+  const wasActive = useRef(false);
+  useFrame((_, dt) => {
+    const inst = instRef.current;
+    const b = burst.current;
+    if (!inst) return;
+    const active = b.t < 1;
+    if (active) {
+      b.t = advance(b.t, dt, SPARK_SECONDS);
+      const travel = sparkTravel(b.t);
+      const drop = sparkDrop(b.t);
+      const scale = sparkScale(b.t);
+      for (let i = 0; i < SPARK_COUNT; i++) {
+        const d = SPARK_DIRECTIONS[i];
+        matrix.current.makeScale(scale, scale, scale);
+        matrix.current.setPosition(
+          b.x + d.x * travel,
+          b.y + d.y * travel - drop,
+          b.z + d.z * travel,
+        );
+        inst.setMatrixAt(i, matrix.current);
+      }
+      inst.count = SPARK_COUNT;
+      inst.instanceMatrix.needsUpdate = true;
+    } else if (wasActive.current) {
+      inst.count = 0;
+    }
+    if (active !== wasActive.current) {
+      wasActive.current = active;
+      publish(active);
+    }
+  });
+  return (
+    <instancedMesh
+      ref={instRef}
+      args={[undefined, undefined, SPARK_COUNT]}
+      count={0}
+      frustumCulled={false}
+    >
+      <sphereGeometry args={[1, 6, 5]} />
+      <meshBasicMaterial
+        color={burst.current.color}
+        toneMapped={false}
+        transparent
+        opacity={0.9}
+        depthWrite={false}
+      />
+    </instancedMesh>
+  );
+}
+
+/**
  * Bench camera rig (G1): glides the orbit target toward a tapped part so
  * the part is framed without wrangling, and brings the whole view home
  * (target on the bot's bounds centre, camera at the default front
@@ -693,9 +853,96 @@ function WorkshopScene() {
   const viewResetNonce = useWorkshopStore((s) => s.viewResetNonce);
   const controlsRef = useRef<OrbitControlsRef | null>(null);
   const layout = computeLayout(design);
+  // Feel-pass trace for tests (G7): dissolve frames and minimum, spark state.
+  const feelCache = useRef<Record<string, number | string>>({});
+  // Removal dissolve (G7): diff the placed parts against the last commit;
+  // any that vanished become ghosts that shrink and fade off the bench.
+  const [leaving, setLeaving] = useState<LeavingPart[]>([]);
+  const prevPartsRef = useRef(
+    new Map<string, { def: PartDef; placement: Placement }>(),
+  );
+  useEffect(() => {
+    const prev = prevPartsRef.current;
+    const next = new Map<string, { def: PartDef; placement: Placement }>();
+    const committed = computeLayout(design);
+    for (const part of design.parts) {
+      const def = PART_CATALOG[part.partId];
+      const placement = committed.get(part.iid);
+      if (def && placement) next.set(part.iid, { def, placement });
+    }
+    const gone: LeavingPart[] = [];
+    for (const [iid, entry] of prev) {
+      if (next.has(iid)) continue;
+      gone.push({
+        key: `${iid}:${leaveSerial.current++}`,
+        def: entry.def,
+        placement: entry.placement,
+        color: paintedColor(entry.def, design.paint, partLook(entry.def).color),
+      });
+    }
+    prevPartsRef.current = next;
+    if (gone.length > 0) {
+      // A new dissolve starts: reset the published trace so a test reads
+      // this removal's motion, not an earlier one's.
+      feelCache.current.dissolveFrames = 0;
+      feelCache.current.dissolveMin = 1;
+      setLeaving((list) => [...list, ...gone]);
+    }
+  }, [design]);
+  const leaveSerial = useRef(0);
+  const removeLeaving = useCallback((key: string) => {
+    setLeaving((list) => list.filter((entry) => entry.key !== key));
+  }, []);
+  // Drop sparks (G7): a burst at the mount a part just landed on.
+  const burst = useRef<SparkBurst>({
+    t: 1,
+    x: 0,
+    y: 0,
+    z: 0,
+    color: "#ffffff",
+  });
+  const sparkAt = useCallback((at: Vec3, color: string) => {
+    const b = burst.current;
+    b.t = 0;
+    b.x = at.x;
+    b.y = at.y;
+    b.z = at.z;
+    b.color = color;
+  }, []);
+
   // Publish the applied paint so a test can read it off the DOM (canvas
   // pixels are not readable through the WebGL/WebGPU fallback).
   const glForPaint = useThree((state) => state.gl);
+  // The feel pass publishes its motion too: how many parts are dissolving,
+  // the live scale of the newest one, and whether sparks are in flight.
+  useEffect(() => {
+    const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+    dataset.dissolving = String(leaving.length);
+  }, [glForPaint, leaving.length]);
+  // A dissolve is over in a quarter second, too fast for a test to sample
+  // live, so the trace it leaves is what gets published: how many frames
+  // the newest ghost animated and the smallest scale it reached.
+  const publishDissolve = useCallback(
+    (scale: number) => {
+      const cache = feelCache.current;
+      const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+      const frames = (Number(cache.dissolveFrames) || 0) + 1;
+      cache.dissolveFrames = frames;
+      dataset.dissolveFrames = String(frames);
+      const min = Math.min(Number(cache.dissolveMin) || 1, scale);
+      cache.dissolveMin = min;
+      setDatasetNumber(cache, dataset, "dissolveMin", min, 3);
+    },
+    [glForPaint],
+  );
+  const publishSparks = useCallback(
+    (active: boolean) => {
+      (glForPaint.domElement as HTMLCanvasElement).dataset.sparking = active
+        ? "1"
+        : "0";
+    },
+    [glForPaint],
+  );
   useEffect(() => {
     const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
     dataset.paintPrimary = design.paint?.primary ?? "none";
@@ -858,10 +1105,12 @@ function WorkshopScene() {
             placeAtSlot(target.slot);
             buzz(HAPTIC_PLACE);
             playWorkshopSfx("place");
+            sparkAt(target.placement.position, partLook(browseDef).color);
           } else {
             mergePart(target.iid);
             buzz(HAPTIC_MERGE);
             playWorkshopSfx("merge");
+            sparkAt(target.placement.position, "#ffe08a");
           }
         }
       } else {
@@ -891,6 +1140,8 @@ function WorkshopScene() {
     camera,
     setMergePreviewLevel,
     toggleBrowseStats,
+    sparkAt,
+    browseDef,
   ]);
 
   const projScratch = useRef(new Vector3());
@@ -1060,6 +1311,15 @@ function WorkshopScene() {
             />
           ),
         )}
+      <DropSparks burst={burst} publish={publishSparks} />
+      {leaving.map((part) => (
+        <DissolvingPart
+          key={part.key}
+          part={part}
+          onDone={removeLeaving}
+          publish={publishDissolve}
+        />
+      ))}
       {design.parts.map((instance) => {
         const def = PART_CATALOG[instance.partId];
         const placement = layout.get(instance.iid);

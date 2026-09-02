@@ -790,6 +790,41 @@ button:focus-visible {
   background: #a82c2f;
 }
 
+/* Chain cue (G7): the merge that can merge again gets a gold line that
+ * pulses once, the bench's biggest beat. */
+.inspector-chain {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #ffe08a;
+  color: #0b0e14;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  animation: inspector-chain-pulse 1.6s ease-out;
+}
+
+@keyframes inspector-chain-pulse {
+  0% {
+    transform: scale(0.94);
+    box-shadow: 0 0 0 0 rgba(255, 224, 138, 0.9);
+  }
+  30% {
+    transform: scale(1.04);
+    box-shadow: 0 0 18px 4px rgba(255, 224, 138, 0.55);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 224, 138, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector-chain {
+    animation: none;
+  }
+}
+
 /* Paint swatches (G5): two rows of colour buttons in the Build sheet. */
 .paint-row {
   display: flex;

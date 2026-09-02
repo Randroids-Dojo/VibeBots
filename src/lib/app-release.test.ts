@@ -28,17 +28,18 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.301-workshop-paint");
+    expect(release.noticeId).toBe("2026-09-02-0.1.302-workshop-feel");
     expect(latestNote).toMatchObject({
-      version: "0.1.301",
-      title: "Paint your bot, and fight in your colours",
+      version: "0.1.302",
+      title:
+        "Parts come off with a dissolve, land with sparks, and a chain merge says so",
       intro:
-        "Every bot wore the same category colours, and in the arena the two sides were orange and teal no matter who built them. A bot now takes a body paint and a trim from a small palette, keeps them in every fight, and a new stamp marks the first one you save in your own colours.",
+        "The bench had the pop and the gold flash but not much else: a removed part blinked out, a dropped part just appeared, and the best moment in the workshop, a merge that can merge again, looked like any other. Each of those has its own beat now.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Build sheet has a Paint section: eight swatches for the body (core and frame parts) and eight for the trim (wheel hubs). Weapons stay bare steel so a blade still reads as a blade. Clear paint puts every part back in its own finish, and Undo works on paint like anything else.",
-      "In the arena a painted bot fights in its paint and a stock bot keeps its team colour; a thin ring under each bot in the team colour keeps the sides readable however they are painted. Paint rides inside share codes too.",
-      "New stamp: Custom Job, for saving a bot wearing your own paint. It is cosmetic, like every stamp, and it counts a paint job you saved before the stamp existed.",
+      "Remove a part and it comes off the bot: it shrinks, fades, and drops away in a quarter second with a soft whoosh, instead of vanishing.",
+      "Drop a part on a mount and a burst of sparks flies up from the join in the part's own colour, gold for a merge.",
+      "Merge a part with another copy still in your inventory and the inspector says Merge again with a three note chime, so a chain to Lv 3 is never missed.",
     ]);
   });
 

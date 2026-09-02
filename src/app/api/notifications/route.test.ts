@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.301-workshop-paint",
+      releaseNoticeId: "2026-09-02-0.1.302-workshop-feel",
       releaseSummary:
-        "Paint your bot, and fight in your colours: Every bot wore the same category colours, and in the arena the two sides were orange and teal no matter who built them. A bot now takes a body paint and a trim from a small palette, keeps them in every fight, and a new stamp marks the first one you save in your own colours.",
+        "Parts come off with a dissolve, land with sparks, and a chain merge says so: The bench had the pop and the gold flash but not much else: a removed part blinked out, a dropped part just appeared, and the best moment in the workshop, a merge that can merge again, looked like any other. Each of those has its own beat now.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.301-workshop-paint",
+      releaseNoticeId: "2026-09-02-0.1.302-workshop-feel",
       attempted: 2,
       sent: 1,
       expired: 1,

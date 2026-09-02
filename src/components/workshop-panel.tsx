@@ -581,6 +581,22 @@ export function WorkshopPanel() {
     (inventory.state === "ready" && selectedAvailableAfterUse > 0);
   const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
 
+  // Chain cue (G7): a merge that leaves another merge available is the
+  // best moment on the bench, so it gets its own beat: a brighter line in
+  // the inspector and a three-note stinger, once per merge.
+  const mergeNonce = useWorkshopStore((s) => s.mergeNonce);
+  const [chainCue, setChainCue] = useState(false);
+  const lastMergeNonce = useRef(mergeNonce);
+  useEffect(() => {
+    if (mergeNonce === lastMergeNonce.current) return;
+    lastMergeNonce.current = mergeNonce;
+    if (!mergeEnabled) return;
+    setChainCue(true);
+    playWorkshopSfx("chain");
+    const timer = setTimeout(() => setChainCue(false), 1600);
+    return () => clearTimeout(timer);
+  }, [mergeNonce, mergeEnabled]);
+
   // Tapping a placed part focuses its stats: jump to the Build tab and open the
   // sheet so the selected-part panel (level, HP, Merge, Rotate) is on screen.
   // Keyed on the tap nonce, not selectedIid, so placing or merging a part while
@@ -853,6 +869,7 @@ export function WorkshopPanel() {
           onClick={() => {
             removeSelected();
             buzz(HAPTIC_REMOVE);
+            playWorkshopSfx("remove");
           }}
         >
           <span aria-hidden="true">✕</span>
@@ -1337,6 +1354,15 @@ export function WorkshopPanel() {
                         </span>
                       </div>
                     )}
+                  {chainCue && mergeEnabled && (
+                    <p
+                      className="inspector-chain"
+                      data-testid="chain-cue"
+                      role="status"
+                    >
+                      {`Merge again to Lv ${selectedMergeLevel + 1}`}
+                    </p>
+                  )}
                   <div className="inspector-actions">
                     <button
                       type="button"

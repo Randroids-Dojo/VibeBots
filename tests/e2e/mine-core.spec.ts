@@ -848,12 +848,32 @@ test(
     await page.goto("/mine");
     await dismissReleaseNotes(page);
     await expect(page.locator("canvas")).toBeVisible();
-    await pressMineKey(page, "ArrowDown");
-
+    await awaitMineSceneReady(page);
+    // The hint unmounts itself 1.8 seconds after the gated hit, so press
+    // without the helper's cadence wait and read the text and the computed
+    // pointer-events in one in-page poll the moment the hint exists. Three
+    // separate assertions after a cadence wait left the last one a few
+    // hundred milliseconds of hint life, which a slow runner lost (the
+    // 2026-09-02 scheduled run found "element(s) not found" on the CSS
+    // check after the text check had passed).
+    await page.keyboard.press("ArrowDown");
     const hint = page.locator(".mine-pickaxe-gate-hint");
-    await expect(hint).toBeVisible();
-    await expect(hint).toContainText("Pickaxe level 2 needed");
-    await expect(hint).toHaveCSS("pointer-events", "none");
+    const hintRead = await page.waitForFunction(
+      () => {
+        const el = document.querySelector(".mine-pickaxe-gate-hint");
+        if (!el) return null;
+        return {
+          text: el.textContent ?? "",
+          pointerEvents: getComputedStyle(el).pointerEvents,
+        };
+      },
+      undefined,
+      { timeout: 5_000 },
+    );
+    const { text: hintText, pointerEvents: hintPointerEvents } =
+      await hintRead.jsonValue();
+    expect(hintText).toContain("Pickaxe level 2 needed");
+    expect(hintPointerEvents).toBe("none");
     await expect(hint).toBeHidden({ timeout: 3_000 });
   },
 );

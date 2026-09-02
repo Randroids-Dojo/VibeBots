@@ -5,11 +5,14 @@
 <h1>Workshop garage program playtest</h1>
 <p>Scripted local capture run for the program gate in
 <code>docs/research/workshop-garage-program-2026-09.html</code> (package 0.1.302, the top of
-the stacked branches G1 to G7 plus the share codes slice, at PR #341 and above).
+the stacked branches G1 to G7 plus the share codes slice: <code>feature/workshop-feel-pass</code>
+at <code>fc28f070</code>, PR #341).
 Driver: <code>scripts/playtest-garage.mjs</code> at Android portrait (390x760) against a local
 production build; the shop and saves endpoints simulated at the API boundary (no Postgres
 locally), the client, canvas, and sheet are the real build. Captured manually (no VibeReview
-CLI session), per the manual-capture provision in AGENTS.md Rule 12. The driver's JSON
+CLI session: the standalone binary at <code>../VibeReview/.build/reinstall/vibereview</code> does
+not exist on the Windows machine this session ran on), per the manual-capture provision in
+AGENTS.md Rule 12; every screenshot is the driver's own. The driver's JSON
 summary is <code>playtest-summary.json</code> beside this page.</p>
 <ol>
   <li><figure><img src="captures/garage-01-first-visit.png" alt="First visit" width="390"><figcaption>First visit: the guided bot on the front three-quarter camera, live Power and Weight meters, family chips, the coach card, and the thumb bar.</figcaption></figure></li>

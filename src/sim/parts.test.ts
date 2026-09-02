@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { createArenaWorld } from "./arena";
 import { assembleBot } from "./assembly";
 import { type BotDesign, validateDesign } from "./design";
-import { HARDENED_PLATE, PART_CATALOG, partMass, SPINNER_BAR } from "./parts";
+import {
+  HARDENED_PLATE,
+  PART_CATALOG,
+  partDefSchema,
+  partMass,
+  SPINNER_BAR,
+} from "./parts";
 
 // A cube bot carrying both new parts: a hardened plate on the deck and a
 // spinner bar on a spin mount, plus two drive wheels.
@@ -88,5 +94,26 @@ describe("M weapon and armor parts", () => {
     } finally {
       world.free();
     }
+  });
+});
+
+describe("catalog blurbs", () => {
+  it("gives every part a short, dash-free line about what it is for", () => {
+    for (const part of Object.values(PART_CATALOG)) {
+      expect(part.blurb.trim().length, part.id).toBeGreaterThan(0);
+      expect(part.blurb.length, part.id).toBeLessThan(71);
+      // Player-facing copy: no em-dashes, en-dashes, or hyphens.
+      expect(part.blurb, part.id).not.toMatch(/[\u2013\u2014-]/);
+      expect(partDefSchema.safeParse(part).success, part.id).toBe(true);
+    }
+  });
+
+  it("requires the blurb in the schema", () => {
+    const { blurb: _blurb, ...missing } = PART_CATALOG["core-cube"];
+    expect(partDefSchema.safeParse(missing).success).toBe(false);
+    expect(
+      partDefSchema.safeParse({ ...PART_CATALOG["core-cube"], blurb: "" })
+        .success,
+    ).toBe(false);
   });
 });

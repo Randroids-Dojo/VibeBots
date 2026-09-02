@@ -629,8 +629,12 @@ button:focus-visible {
   max-width: 340px;
   transform: translateX(-50%);
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
+  /* Tight rows: the chip carries the part's blurb (G3) at the height it
+   * had before it (about 108px), so it never creeps up over the hero
+   * part's tap point on portrait (the carousel tests tap the hero at
+   * 545px and the chip's top must stay below that, fonts aside). */
+  gap: 5px;
+  padding: 8px 14px;
   background: rgb(var(--hud-surface-rgb) / 0.95);
   border: 1px solid #344061;
   border-radius: 12px;
@@ -932,6 +936,21 @@ button:focus-visible {
   margin: 0;
   font-size: 0.78rem;
   opacity: 0.75;
+}
+
+/* The part's one-line purpose (G3) sits under the name with the stats
+ * packed directly beneath it, one block, so the docked inspector keeps
+ * its old height and the hero tray still clears it on portrait (F-052). */
+.inspector-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-blurb {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  opacity: 0.9;
 }
 
 /* Spend cue for the carousel owned-count (Slice B): a quick gold pop when a

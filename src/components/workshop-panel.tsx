@@ -42,7 +42,7 @@ import {
 } from "@/sim/design";
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
 import { REPLICA_OPPONENTS } from "@/sim/opponents";
-import { PART_CATALOG } from "@/sim/parts";
+import { PART_CATALOG, partMass } from "@/sim/parts";
 import type { MatchTeardown } from "@/sim/telemetry";
 import { enqueueStampAlertsFromResponse } from "@/state/stamp-alert-store";
 import {
@@ -1126,6 +1126,7 @@ export function WorkshopPanel() {
                       Lv {selectedMergeLevel}
                     </span>
                   </div>
+                  <p className="inspector-blurb">{selectedDef.blurb}</p>
                   {selectedDef.category !== "core" &&
                     selectedDurability !== null && (
                       <div className="inspector-durability">
@@ -1373,9 +1374,14 @@ export function WorkshopPanel() {
               </span>
             ) : null}
           </div>
-          <p className="inspector-stats">
-            {`${browseDef.category} · ${browseDef.durability} HP · ${browseDef.powerDraw} power`}
-          </p>
+          {/* What the part is for (G3), then its figures: the picker
+              teaches the catalog one part at a time. */}
+          <div className="inspector-copy">
+            <p className="inspector-blurb">{browseDef.blurb}</p>
+            <p className="inspector-stats">
+              {`${browseDef.category} · mass ${partMass(browseDef).toFixed(2)} · ${browseDef.durability} HP · ${browseDef.powerDraw} power`}
+            </p>
+          </div>
           <div className="inspector-actions">
             <button
               type="button"

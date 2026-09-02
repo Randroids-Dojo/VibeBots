@@ -73,6 +73,10 @@ export type PartCategory = z.infer<typeof partCategorySchema>;
 export const partDefSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  /** One line telling a player what the part is for, shown in the
+   * workshop's part inspector. Player-facing copy: plain words, no
+   * dashes, at most 70 characters (parts.test.ts holds the gate). */
+  blurb: z.string().min(1),
   category: partCategorySchema,
   shape: partShapeSchema,
   density: z.number().positive(),
@@ -132,6 +136,7 @@ const X_AXIS: Vec3 = { x: 1, y: 0, z: 0 };
 export const CORE_CUBE: PartDef = {
   id: "core-cube",
   name: "Cube Core",
+  blurb: "Balanced starter chassis. Six mounts, steady power.",
   category: "core",
   shape: { type: "cuboid", hx: 0.3, hy: 0.3, hz: 0.3 },
   density: 2,
@@ -169,6 +174,7 @@ export const CORE_CUBE: PartDef = {
 export const CORE_WEDGE: PartDef = {
   id: "wedge-core",
   name: "Wedge Core",
+  blurb: "Low and wide. Runs inverted, feeds a front weapon.",
   category: "core",
   shape: { type: "cuboid", hx: 0.42, hy: 0.18, hz: 0.34 },
   density: 2,
@@ -202,6 +208,7 @@ export const CORE_WEDGE: PartDef = {
 export const CORE_TOWER: PartDef = {
   id: "tower-core",
   name: "Tower Core",
+  blurb: "Tall heavy platform. Most power, five rigid mounts.",
   category: "core",
   shape: { type: "cuboid", hx: 0.28, hy: 0.5, hz: 0.28 },
   density: 2.2,
@@ -233,6 +240,7 @@ export const CORE_TOWER: PartDef = {
 export const FRAME_PLATE: PartDef = {
   id: "frame-plate",
   name: "Frame Plate",
+  blurb: "Light deck plate. Extends the stack for cheap.",
   category: "structure",
   shape: { type: "cuboid", hx: 0.3, hy: 0.05, hz: 0.3 },
   density: 1.5,
@@ -249,6 +257,7 @@ export const FRAME_PLATE: PartDef = {
 export const DRIVE_WHEEL: PartDef = {
   id: "drive-wheel",
   name: "Drive Wheel",
+  blurb: "Rubber drive wheel. One per axle, lifts the belly.",
   category: "mobility",
   // Radius must clear the core's half-height (0.3) so wheels, not the
   // chassis belly, carry the bot, but must NOT protrude far past the core
@@ -267,6 +276,7 @@ export const DRIVE_WHEEL: PartDef = {
 export const RAM_SPIKE: PartDef = {
   id: "ram-spike",
   name: "Ram Spike",
+  blurb: "Forward spike. Reach and a hard point, cheap to run.",
   category: "weapon",
   shape: { type: "cuboid", hx: 0.05, hy: 0.05, hz: 0.2 },
   density: 3,
@@ -282,6 +292,7 @@ export const RAM_SPIKE: PartDef = {
 export const CROSS_FRAME: PartDef = {
   id: "cross-frame",
   name: "Cross Frame",
+  blurb: "Four side mounts on one deck. Builds out wide.",
   category: "structure",
   // Stays inside the wheels (inner edge x 0.31) when stacked on the core.
   shape: { type: "cuboid", hx: 0.3, hy: 0.08, hz: 0.3 },
@@ -303,6 +314,7 @@ export const CROSS_FRAME: PartDef = {
 export const SENSOR_HEAD: PartDef = {
   id: "sensor-head",
   name: "Sensor Head",
+  blurb: "Light glass dome. Adds character, not strength.",
   category: "structure",
   shape: { type: "ball", radius: 0.18 },
   density: 1,
@@ -318,6 +330,7 @@ export const SENSOR_HEAD: PartDef = {
 export const PLOW_BLADE: PartDef = {
   id: "plow-blade",
   name: "Plow Blade",
+  blurb: "Wide low pusher. Shoves with its mass, soaks hits.",
   category: "weapon",
   // A wide, low pusher: less reach than the spike but a broad face that
   // lands hits across the whole frontal arc and shoves with its mass.
@@ -335,6 +348,7 @@ export const PLOW_BLADE: PartDef = {
 export const HAMMER_HEAD: PartDef = {
   id: "hammer-head",
   name: "Hammer Head",
+  blurb: "Dense iron ball. Hits hard, rides top heavy.",
   category: "weapon",
   // Dense ball on a short mount: top-heavy, hits hard, punishes builds
   // that cannot keep their nose on the target.
@@ -352,6 +366,7 @@ export const HAMMER_HEAD: PartDef = {
 export const ARMOR_WEDGE: PartDef = {
   id: "armor-wedge",
   name: "Armor Wedge",
+  blurb: "Sacrificial nose plate. Soaks frontal hits.",
   category: "structure",
   // Thick sacrificial nose plate: cheap durability that soaks frontal
   // hits before they reach the core.
@@ -370,6 +385,7 @@ export const ARMOR_WEDGE: PartDef = {
 export const ROLLER_DRUM: PartDef = {
   id: "roller-drum",
   name: "Roller Drum",
+  blurb: "Wide drum on one axle. Stable, hungry for power.",
   category: "mobility",
   // A wide single drum: one axle carries the whole side, trading the
   // wheel's agility for a low, stable tracked silhouette. The hub sits
@@ -405,6 +421,7 @@ export const ROLLER_DRUM: PartDef = {
 export const MAST_POLE: PartDef = {
   id: "mast-pole",
   name: "Mast Pole",
+  blurb: "Tall light spar. Silhouette, not strength.",
   category: "structure",
   // A tall light spar for character builds: banners, heads, and high
   // sensors ride on it; it adds silhouette, not strength.
@@ -423,6 +440,7 @@ export const MAST_POLE: PartDef = {
 export const SPIN_MOUNT: PartDef = {
   id: "spin-mount",
   name: "Spin Mount",
+  blurb: "Spindle housing. Bolts a saw or bar to a mount.",
   category: "structure",
   // A stout housing whose forward stub is a constant-velocity axle: the
   // mount for saw weapons. The rear face bolts flush to a rigid
@@ -449,6 +467,7 @@ export const SPIN_MOUNT: PartDef = {
 export const SAW_BLADE: PartDef = {
   id: "saw-blade",
   name: "Saw Blade",
+  blurb: "Thin spinning disc. Rim speed does the damage.",
   category: "weapon",
   // A thin face-on blade spinning about the forward axis: the rim meets
   // the enemy at every hull height, and rim speed times mass is what
@@ -478,6 +497,7 @@ export const SAW_BLADE: PartDef = {
 export const HARDENED_PLATE: PartDef = {
   id: "hardened-plate",
   name: "Hardened Plate",
+  blurb: "Thick armor deck. Heavy, tough, no power.",
   category: "structure",
   shape: { type: "cuboid", hx: 0.28, hy: 0.08, hz: 0.28 },
   density: 3.6,
@@ -498,6 +518,7 @@ export const HARDENED_PLATE: PartDef = {
 export const SPINNER_BAR: PartDef = {
   id: "spinner-bar",
   name: "Spinner Bar",
+  blurb: "Heavy steel bar. Hits hardest, drinks power.",
   category: "weapon",
   shape: { type: "cuboid", hx: 0.28, hy: 0.06, hz: 0.08 },
   density: 6.5,

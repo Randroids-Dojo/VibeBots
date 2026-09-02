@@ -26,10 +26,11 @@ import {
   includeArenaCameraBounds,
   includeArenaCameraPoint,
 } from "@/components/arena-camera";
+import { partLook } from "@/components/part-look";
 import {
-  CATEGORY_SURFACE,
   createWebGPU,
   partGeometry,
+  partVertexColors,
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
@@ -686,7 +687,11 @@ function ArenaScene({
         activeDesigns[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
           const def = PART_CATALOG[part.partId];
-          const surface = CATEGORY_SURFACE[def.category];
+          // Team colour stays the material colour (the frame loop keeps
+          // setting it for damage char); the part's own identity comes
+          // from its surface response and its baked two-tone vertex
+          // attribute (dark tread, bright tip, deck line) over that colour.
+          const look = partLook(def);
           return (
             <group
               key={key}
@@ -699,16 +704,17 @@ function ArenaScene({
                 castShadow
                 receiveShadow
               >
-                {partGeometry(def.shape, def.category)}
+                {partGeometry(def)}
                 <meshStandardMaterial
                   ref={(node) => {
                     materialRefs.current.set(key, node);
                   }}
                   color={BOT_COLORS[botIndex]}
-                  metalness={surface.metalness}
-                  roughness={surface.roughness}
+                  vertexColors={partVertexColors(def)}
+                  metalness={look.metalness}
+                  roughness={look.roughness}
                   emissive={BOT_COLORS[botIndex]}
-                  emissiveIntensity={surface.emissiveBoost}
+                  emissiveIntensity={look.emissiveBoost}
                 />
               </mesh>
             </group>

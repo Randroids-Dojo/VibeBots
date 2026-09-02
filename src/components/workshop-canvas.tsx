@@ -23,10 +23,11 @@ import {
   type PerspectiveCamera,
   Vector3,
 } from "three";
+import { CATEGORY_LOOK, partLook } from "@/components/part-look";
 import {
-  CATEGORY_SURFACE,
   createWebGPU,
   partGeometry,
+  partVertexColors,
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
@@ -36,7 +37,6 @@ import { type PartInstance, partMergeLevel } from "@/sim/design";
 import { computeLayout, isQuarterTurned, type Placement } from "@/sim/layout";
 import {
   PART_CATALOG,
-  type PartCategory,
   type PartDef,
   shapeHalfExtents,
   type Vec3,
@@ -76,13 +76,6 @@ import {
 import { clientToNdc, groundFloorY, pickNearestSlot } from "./workshop-drag";
 import { playWorkshopSfx } from "./workshop-sfx";
 
-const CATEGORY_COLORS: Record<PartCategory, string> = {
-  core: "#ff9f43",
-  structure: "#a3b1cc",
-  mobility: "#54e0c7",
-  weapon: "#ff6b6b",
-};
-
 // Stable pip keys (one per merge level) so the level markers never key on
 // a bare array index. Length covers MAX_PART_MERGE_LEVEL.
 const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
@@ -120,7 +113,10 @@ function PlacedPart({
   const pulseT = useRef(0);
   const level = partMergeLevel(instance);
   const prevLevel = useRef(level);
-  const surface = CATEGORY_SURFACE[def.category];
+  // The part's own face (G3): base paint, surface response, and whether
+  // its geometry carries the two-tone vertex attribute.
+  const look = partLook(def);
+  const vertexColors = partVertexColors(def);
   useFrame((_, dt) => {
     if (level > prevLevel.current) pulseT.current = 1;
     prevLevel.current = level;
@@ -142,8 +138,8 @@ function PlacedPart({
         mat.emissive.set("#ffffff");
         mat.emissiveIntensity = 0.35;
       } else {
-        mat.emissive.set(CATEGORY_COLORS[def.category]);
-        mat.emissiveIntensity = surface.emissiveBoost;
+        mat.emissive.set(look.color);
+        mat.emissiveIntensity = look.emissiveBoost;
       }
     }
   });
@@ -166,14 +162,15 @@ function PlacedPart({
           castShadow={shadows}
           receiveShadow={shadows}
         >
-          {partGeometry(def.shape, def.category)}
+          {partGeometry(def)}
           <meshStandardMaterial
             ref={matRef}
-            color={CATEGORY_COLORS[def.category]}
-            metalness={surface.metalness}
-            roughness={surface.roughness}
-            emissive={CATEGORY_COLORS[def.category]}
-            emissiveIntensity={surface.emissiveBoost}
+            color={look.color}
+            vertexColors={vertexColors}
+            metalness={look.metalness}
+            roughness={look.roughness}
+            emissive={look.color}
+            emissiveIntensity={look.emissiveBoost}
           />
         </mesh>
       </group>
@@ -288,11 +285,11 @@ function HeroPart({
       2,
     );
   });
-  const surface = CATEGORY_SURFACE[def.category];
+  const look = partLook(def);
   // Owned-out (P3): render the part gray and non-glowing so it reads as
   // "you have none", and swallow the grab so an unavailable part cannot be
   // dragged onto the bot.
-  const color = dimmed ? "#8b93a6" : CATEGORY_COLORS[def.category];
+  const color = dimmed ? "#8b93a6" : look.color;
   return (
     <group
       ref={anchorRef}
@@ -302,17 +299,22 @@ function HeroPart({
       }}
     >
       <group ref={spinRef} scale={dragging ? 0.72 : 0.65}>
-        <mesh rotation={shapeRotation(def.shape)}>
-          {partGeometry(def.shape, def.category)}
+        {/* Keyed on the part so stepping the carousel builds a fresh
+            material: a two-tone part and a plain one differ in
+            vertexColors, which three only reads when the material is
+            compiled. */}
+        <mesh key={def.id} rotation={shapeRotation(def.shape)}>
+          {partGeometry(def)}
           <meshStandardMaterial
             color={color}
-            metalness={surface.metalness}
-            roughness={dimmed ? 0.95 : surface.roughness}
+            vertexColors={partVertexColors(def)}
+            metalness={look.metalness}
+            roughness={dimmed ? 0.95 : look.roughness}
             transparent={dimmed}
             opacity={dimmed ? 0.72 : 1}
             emissive={color}
             emissiveIntensity={
-              dimmed ? 0.12 : surface.emissiveBoost + (dragging ? 0.4 : 0.18)
+              dimmed ? 0.12 : look.emissiveBoost + (dragging ? 0.4 : 0.18)
             }
           />
         </mesh>
@@ -352,17 +354,17 @@ function DragGhost({
     }
   });
   const { position, rotation } = placement;
-  const surface = CATEGORY_SURFACE[def.category];
+  const look = partLook(def);
   // Merge targets read gold (matching the W4 merge language); place targets
   // read in the part's own colour and go white-hot when they are the snap.
-  const color = merge ? "#ffe08a" : CATEGORY_COLORS[def.category];
+  const color = merge ? "#ffe08a" : look.color;
   const emissive = merge
     ? active
       ? "#fff0b0"
       : "#ffe08a"
     : active
       ? "#ffffff"
-      : CATEGORY_COLORS[def.category];
+      : look.color;
   return (
     <group
       ref={groupRef}
@@ -370,12 +372,13 @@ function DragGhost({
       quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
     >
       <mesh rotation={shapeRotation(def.shape)}>
-        {partGeometry(def.shape, def.category)}
+        {partGeometry(def)}
         <meshStandardMaterial
           ref={matRef}
           color={color}
-          metalness={surface.metalness}
-          roughness={surface.roughness}
+          vertexColors={partVertexColors(def)}
+          metalness={look.metalness}
+          roughness={look.roughness}
           transparent
           opacity={active ? 0.85 : merge ? 0.32 : 0.22}
           depthWrite={active}
@@ -1010,7 +1013,7 @@ function WorkshopScene() {
         <IdleSlotMarker
           key={`idle:${slot.key}`}
           position={slot.placement.position}
-          color={CATEGORY_COLORS[browseDef.category]}
+          color={CATEGORY_LOOK[browseDef.category].color}
         />
       ))}
       {dragging &&

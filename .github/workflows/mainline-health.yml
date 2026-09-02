@@ -1,0 +1,174 @@
+# Mainline red/green tripwire.
+#
+# Adopted 2026-09-02 from the Cannonball-Vibe continuous-mainline contract
+# (that repo's ADR-0025). Policy text: docs/WORKING_AGREEMENT.html
+# (Mainline Integration) and docs/CI_WORKFLOW.html (Mainline Health
+# Tripwire).
+#
+# NOTE: the `workflows:` filter below matches each watched workflow's
+# `name:` field, not its filename. Renaming a watched workflow silently
+# detaches this watcher. Update both together.
+name: Mainline health
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - Browser Runtime
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Evaluation mode; simulate modes use the red-main-test label
+        type: choice
+        default: evaluate
+        options:
+          - evaluate
+          - simulate-failure
+          - simulate-success
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: mainline-health
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    name: Evaluate mainline health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'evaluate' }}
+      TRIGGER_EVENT: ${{ github.event_name }}
+      TRIGGER_RUN_NAME: ${{ github.event.workflow_run.name }}
+      TRIGGER_RUN_EVENT: ${{ github.event.workflow_run.event }}
+      TRIGGER_RUN_URL: ${{ github.event.workflow_run.html_url }}
+      TRIGGER_RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+    steps:
+      - name: Evaluate watched signals and update the red-main issue
+        run: |
+          set -euo pipefail
+
+          # Simulate modes exercise the issue lifecycle without touching the
+          # real signal label.
+          if [ "$MODE" = "evaluate" ]; then
+            LABEL="red-main"
+          else
+            LABEL="red-main-test"
+          fi
+          TITLE="Red main: mainline workflow failure"
+          gh label create "$LABEL" --repo "$REPO" --color B60205 \
+            --description "Mainline is failing; fix forward before new work" \
+            --force
+
+          # Full state evaluation on every trigger (race-proof): the verdict
+          # comes from the latest effective completed run of every watched
+          # signal on main, never from the triggering event alone.
+          #
+          # Signals. Each is "<workflow file>|<event filter>|<cancelled policy>":
+          #   ci.yml push               required gate on the merged tip. A
+          #                             cancelled run was superseded by a
+          #                             newer push, so it is skipped.
+          #   ci.yml schedule/dispatch  the Full E2E matrix. Push runs never
+          #                             execute it, so it is evaluated apart
+          #                             from the push signal, and a cancelled
+          #                             conclusion is RED (a shard that ran
+          #                             out of its job budget, F-131).
+          #   browser-runtime.yml push  pinned browser image; path-filtered,
+          #                             so it is usually vacuously green.
+          SIGNALS="ci.yml|push|skip ci.yml|schedule,workflow_dispatch|red browser-runtime.yml|push|skip"
+          RED=0
+          FAILING=""
+          GREEN_DETAIL=""
+          if [ "$MODE" = "simulate-failure" ]; then
+            RED=1
+            FAILING="- simulated failure (workflow_dispatch mode=simulate-failure)"
+          elif [ "$MODE" = "simulate-success" ]; then
+            RED=0
+          else
+            for signal in $SIGNALS; do
+              wf="${signal%%|*}"
+              rest="${signal#*|}"
+              events="${rest%%|*}"
+              cancelled_policy="${rest#*|}"
+              RUNS='[]'
+              for ev in ${events//,/ }; do
+                # Server-side event filter: the Full E2E events are rare, so
+                # a client-side select over the mixed default page would
+                # silently return nothing (docs/CI_WORKFLOW.html, F-047).
+                PAGE=$(gh run list --repo "$REPO" --workflow "$wf" \
+                  --branch main --event "$ev" --status completed --limit 5 \
+                  --json conclusion,url,headSha,event,createdAt 2>/dev/null || echo '[]')
+                RUNS=$(jq -c -n --argjson a "$RUNS" --argjson b "$PAGE" '$a + $b')
+              done
+              if [ "$cancelled_policy" = "skip" ]; then
+                FILTER='select(.conclusion != "cancelled" and .conclusion != "skipped" and .conclusion != "stale")'
+              else
+                FILTER='select(.conclusion != "skipped" and .conclusion != "stale")'
+              fi
+              EFFECTIVE=$(echo "$RUNS" | jq -c \
+                "[.[] | $FILTER] | sort_by(.createdAt) | reverse | .[0] // empty")
+              [ -z "$EFFECTIVE" ] && continue  # no runs yet: vacuously green
+              CONCLUSION=$(echo "$EFFECTIVE" | jq -r '.conclusion')
+              URL=$(echo "$EFFECTIVE" | jq -r '.url')
+              SHA=$(echo "$EFFECTIVE" | jq -r '.headSha')
+              EVENT=$(echo "$EFFECTIVE" | jq -r '.event')
+              case "$CONCLUSION" in
+                failure|timed_out|action_required|cancelled)
+                  RED=1
+                  FAILING="${FAILING}- \`$wf\` ($EVENT) is $CONCLUSION at \`$SHA\`: $URL"$'\n'
+                  ;;
+                *)
+                  GREEN_DETAIL="${GREEN_DETAIL}- \`$wf\` ($EVENT): $URL"$'\n'
+                  ;;
+              esac
+            done
+          fi
+
+          OPEN_ISSUE=$(gh issue list --repo "$REPO" --label "$LABEL" \
+            --state open --json number --jq '.[0].number // empty')
+
+          if [ "$RED" = "1" ]; then
+            if [ -z "$OPEN_ISSUE" ]; then
+              BODY="Mainline is red. Per AGENTS.md Rule 5 (Mainline health and repair), repair preempts all new slice selection. Fix forward only: never revert, never force-push, never bypass-merge.
+
+          Failing signals:
+          $FAILING
+          A red Full E2E signal (schedule or dispatch) clears only when a later run that actually completed the matrix is green: re-dispatch it after the fix with \`gh workflow run CI -f full_e2e=true\` rather than waiting for the nightly cron. Known Full E2E flakes are listed in docs/CI_WORKFLOW.html; a flake-only red still needs that green re-run to close this issue.
+
+          This issue is maintained by the Mainline health workflow and closes automatically when every watched signal's latest completed run on main is green."
+              gh issue create --repo "$REPO" --title "$TITLE" \
+                --label "$LABEL" --body "$BODY"
+            else
+              # Append one comment per red completion of a watched workflow.
+              if { [ "$TRIGGER_EVENT" = "workflow_run" ] && \
+                   { [ "$TRIGGER_RUN_CONCLUSION" = "failure" ] || \
+                     [ "$TRIGGER_RUN_CONCLUSION" = "timed_out" ] || \
+                     [ "$TRIGGER_RUN_CONCLUSION" = "cancelled" ]; }; } || \
+                 [ "$MODE" = "simulate-failure" ]; then
+                if [ "$MODE" = "simulate-failure" ]; then
+                  COMMENT="Still red (simulated)."
+                else
+                  COMMENT="Still red: \`$TRIGGER_RUN_NAME\` ($TRIGGER_RUN_EVENT) concluded $TRIGGER_RUN_CONCLUSION: $TRIGGER_RUN_URL"
+                fi
+                gh issue comment "$OPEN_ISSUE" --repo "$REPO" --body "$COMMENT"
+              fi
+            fi
+          else
+            if [ -n "$OPEN_ISSUE" ]; then
+              if [ "$MODE" = "simulate-success" ]; then
+                CLOSE_BODY="Mainline is green again (simulated)."
+              else
+                CLOSE_BODY="Mainline is green again. Latest completed runs:
+          $GREEN_DETAIL"
+              fi
+              gh issue close "$OPEN_ISSUE" --repo "$REPO" --comment "$CLOSE_BODY"
+            fi
+          fi

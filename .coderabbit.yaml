@@ -1,0 +1,7 @@
+# CodeRabbit is retired under the continuous-mainline contract
+# (docs/WORKING_AGREEMENT.html, Mainline Integration, 2026-09-02): no review
+# may gate a merge. This config stops automatic reviews while the app remains
+# installed, so a stale changes-requested state can never hold auto-merge.
+reviews:
+  auto_review:
+    enabled: false

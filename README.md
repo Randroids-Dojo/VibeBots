@@ -192,8 +192,9 @@ vars, and public and server deprecated after redirect env vars unset.
 - `AGENTS.md`: rules for all agentic tools working in this repo
 - `docs/gdd/`: the Game Design Document (source of truth for what VibeBots is)
 - `docs/research/account-sync-google-signin.html`, `docs/research/account-sync-clerk-vercel-setup.html`, `docs/research/account-link-vibekit-extraction.html`: optional Google sign-in design, Clerk setup checklist, and VibeKit extraction contract
-- `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts
-- `docs/CI_WORKFLOW.html`: parallel CI, critical smoke, full smoke, and superseded-run policy
+- `docs/IMPLEMENTATION_PLAN.html`, `docs/WORKING_AGREEMENT.html`: the loop and process contracts (Mainline Integration records the continuous-mainline decision: auto-merge on the required gate, post-merge tripwires, fix-forward repair)
+- `docs/CI_WORKFLOW.html`: parallel CI, critical smoke, full smoke, the mainline health tripwire, and superseded-run policy
+- `docs/MAINLINE_REVIEW_LOG.html`: post-merge adversarial review cursor (replaces pre-merge bot review)
 - `docs/ci-rewrite-prompt.md`, `docs/CI_REWRITE_OWNER_QUESTIONS.html`: staged CI migration design and owner decisions that would otherwise pause it
 - `src/lib/app-release-notes.ts`: player-facing release notes shown in game (`docs/RELEASE_NOTES.html` is a frozen pre-0.1.259 archive, not maintained)
 - `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`: continuity ledgers

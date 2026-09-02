@@ -904,6 +904,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-240" data-f="F-240" data-priority="nice-to-have">
+    <h3>F-240: Watch the production deploy in the mainline health tripwire</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-09-02 by the continuous-mainline adoption. <code>.github/workflows/mainline-health.yml</code> watches the <code>CI</code> and <code>Browser Runtime</code> workflows on <code>main</code>, but the Vercel production deploy is reported through GitHub deployment statuses, not a workflow run, so a failed production build is invisible to the <code>red-main</code> issue. The gap is covered by hand: Rule 5 step 2 reads the production deployment for the <code>origin/main</code> head at every session start. Cannonball-Vibe has no deploy target, so its contract had nothing to port here.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. The workflow needs a <code>deployment_status</code> trigger and a fourth signal that reads the newest production deployment for <code>main</code> and treats <code>failure</code> or <code>error</code> as red; the open question is whether a deployment that never reports (Vercel outage) should read as red or as vacuously green like a workflow with no runs.</dd>
+      <dt>Unblock condition</dt><dd>Ready now. Acceptance: a failed production deployment for the <code>main</code> head opens or comments on the <code>red-main</code> issue within one evaluation, a subsequent successful deployment closes it, the two simulate modes still pass, and the session-start deploy check in Rule 5 step 2 is retired in the same PR.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised by the 2026-09-02 continuous-mainline adoption slice.</dd>
+    </dl>
+  </section>
+
   <section id="F-239" data-f="F-239" data-priority="nice-to-have">
     <h3>F-239: The server never states the post-match teardown</h3>
     <dl>

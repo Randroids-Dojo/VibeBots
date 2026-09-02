@@ -15,39 +15,35 @@
   <h2>Loop Contract</h2>
   <p>Every slice follows the same loop:</p>
   <ol>
-    <li>Read <code>AGENTS.md</code>, <code>README.md</code>, this plan, <code>docs/WORKING_AGREEMENT.html</code>, the relevant <code>docs/gdd/</code> files, <code>docs/PROGRESS_LOG.html</code>, <code>docs/OPEN_QUESTIONS.html</code>, <code>docs/FOLLOWUPS.html</code>, <code>docs/GDD_COVERAGE.json</code>, <code>docs/DEPENDENCY_LEDGER.html</code>, <code>docs/CI_WORKFLOW.html</code> when touching CI, verification, or release process, and the active backlog.</li>
-    <li><strong>Run the Dependency Upgrade Gate</strong> (see below). If a watched dep is out of date, the upgrade is the next slice unless step 1 of slice selection (broken main / red CI) takes over.</li>
+    <li>Read <code>AGENTS.md</code>, <code>README.md</code>, this plan, <code>docs/WORKING_AGREEMENT.html</code>, the relevant <code>docs/gdd/</code> files, <code>docs/PROGRESS_LOG.html</code>, <code>docs/OPEN_QUESTIONS.html</code>, <code>docs/FOLLOWUPS.html</code>, <code>docs/GDD_COVERAGE.json</code>, <code>docs/DEPENDENCY_LEDGER.html</code>, <code>docs/MAINLINE_REVIEW_LOG.html</code>, <code>docs/CI_WORKFLOW.html</code> when touching CI, verification, or release process, and the active backlog.</li>
+    <li><strong>Check mainline health.</strong> <code>gh issue list --label red-main --state open</code>, plus the production deployment status for the <code>origin/main</code> head. If main is red, the repair is this session's slice and nothing else is picked until the issue closes (fix forward only).</li>
+    <li><strong>Run the Dependency Upgrade Gate</strong> (see below). If a watched dep is out of date, the upgrade is the next slice unless step 2 (red main) takes over.</li>
+    <li><strong>Run the post-merge adversarial review</strong> when the cursor in <code>docs/MAINLINE_REVIEW_LOG.html</code> is behind <code>origin/main</code>: review every squash commit since the cursor, file findings as followups or open questions, confirm merged PRs' backlog items carry their PR numbers, and append a log entry.</li>
     <li>Pick the highest-priority unblocked task from this plan, coverage gaps, followups, the qualitative-gate docs, and the active backlog.</li>
-    <li>Create one branch for one PR-sized slice.</li>
+    <li><strong>Claim it.</strong> Check for an existing claim (open PRs and remote branches naming the id or slug), then create one branch for one PR-sized slice from fresh <code>origin/main</code>, push it, and open a draft PR whose body starts with <code>Claims: F-NNN</code> (or the Q-id, or <code>none</code> plus a one-line scope).</li>
     <li>Build the slice completely using existing code patterns.</li>
     <li>Add or update tests for the touched behavior.</li>
-    <li>Update continuity docs and the GDD coverage ledger.</li>
-    <li>Run local verification.</li>
-    <li><strong>Re-run the Dependency Upgrade Gate</strong> before opening the PR. If a watched dep landed a new release while the slice was in flight, defer it to a separate PR (do not bundle into this one); log the bump as the next slice.</li>
-    <li>Open a PR.</li>
-    <li>Inspect review comments and threaded inline comments.</li>
-    <li>Fix actionable feedback, reply when useful, resolve threads.</li>
-    <li>After every push to the PR branch, wait for any configured bot reviewer to finish its review pass, then re-inspect reviews and threaded comments. The wait is settled only when the required parallel CI gate from <code>docs/CI_WORKFLOW.html</code> is green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. If no fresh bot review appears after that, record that no new bot feedback was posted after the push.</li>
-    <li>Wait for the required parallel CI gate and preview deploy to pass. Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it.</li>
-    <li>Merge only when green and bot review has settled after the latest push.</li>
-    <li>Pull <code>main</code>, verify the current remote tip's required parallel CI gate and production deploy, smoke test production.</li>
-    <li>Close the backlog item with the PR number and verification evidence.</li>
-    <li>Immediately start the next slice.</li>
+    <li>Update continuity docs and the GDD coverage ledger, and close the backlog item with the PR number in the same diff.</li>
+    <li>Run local verification (<code>pnpm verify</code>, <code>--build</code> for runtime-affecting slices). Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it; the merge gate does not run it.</li>
+    <li><strong>Re-run the Dependency Upgrade Gate</strong> before marking the PR ready. If a watched dep landed a new release while the slice was in flight, defer it to a separate PR (do not bundle into this one); log the bump as the next slice.</li>
+    <li>Mark the PR ready and arm auto-merge with a validated squash subject and body (<code>gh pr merge &lt;number&gt; --auto --squash</code>). The five required parallel CI contexts are the only merge gate. Do not wait for the merge, the preview deploy, or a bot review.</li>
+    <li>If a human leaves review comments on the open PR, fix what is valid, reply when useful, resolve threads, and re-arm auto-merge if it dropped.</li>
+    <li>Immediately start the next slice at step 1. Step 2 of that pass is where a merge that broke <code>main</code> becomes visible.</li>
   </ol>
-  <p>Do not stop after planning, after opening a PR, or after merging. If a task is blocked, log the blocker in <code>docs/OPEN_QUESTIONS.html</code> or <code>docs/FOLLOWUPS.html</code>, update the backlog item, and move to the next unblocked slice.</p>
-  <p>If <code>origin/main</code> advances during monitoring and the slice commit is contained in the newer remote history, stop waiting on superseded runs and verify the newest remote tip instead. If the newer tip does not contain the slice commit, reconcile before claiming the work shipped.</p>
+  <p>Do not stop after planning, after opening a PR, or after arming auto-merge. If a task is blocked, log the blocker in <code>docs/OPEN_QUESTIONS.html</code> or <code>docs/FOLLOWUPS.html</code>, update the backlog item, and move to the next unblocked slice.</p>
+  <p>The standing decision behind this loop is <code>docs/WORKING_AGREEMENT.html</code> §<a href="WORKING_AGREEMENT.html#mainline-integration">Mainline Integration</a>. Its owner-side prerequisites (ruleset and auto-merge settings) are tracked as Q-038; until they are executed, step 12 falls back to merging on green yourself, still with no bot wait.</p>
 </section>
 
 <section id="dependency-upgrade-gate">
   <h2>Dependency Upgrade Gate</h2>
   <p>Run at two points in the loop:</p>
   <ul>
-    <li><strong>After step 16</strong> (just landed on fresh <code>main</code>), before picking the next slice.</li>
-    <li><strong>Before step 10</strong> (opening a PR), to catch new releases that landed while the slice was in flight.</li>
+    <li><strong>At step 3</strong> (session start on fresh <code>main</code>, after the mainline health check), before picking the next slice.</li>
+    <li><strong>At step 11</strong> (before marking the PR ready), to catch new releases that landed while the slice was in flight.</li>
   </ul>
   <p>Read <code>docs/DEPENDENCY_LEDGER.html</code>. For every watched dep, run its <strong>Detect-new</strong> command and compare against the ledger's <strong>Currently pinned</strong> value. If a newer release exists:</p>
   <ol>
-    <li>The upgrade IS the next slice unless slice selection priority 1 (red CI / broken main) takes over.</li>
+    <li>The upgrade IS the next slice unless slice selection priority 1 (red main) takes over.</li>
     <li>Follow the per-dep procedure in <code>docs/DEPENDENCY_LEDGER.html</code> §<a href="DEPENDENCY_LEDGER.html#upgrade-procedure">Upgrade procedure</a>: branch, bump, type-check, test, build, smoke, PR.</li>
     <li>If the upgrade requires a migration that cannot land in one PR, abort the bump, log an <code>F-NNN</code> followup for the migration work, and continue with the prior pin. Add a Dot for the migration work.</li>
     <li>The bump PR updates the ledger's <strong>Currently pinned</strong> line in the same diff that bumps the package manifest. The two must move together.</li>
@@ -59,7 +55,7 @@
   <h2>Slice Selection</h2>
   <p>Priority order:</p>
   <ol>
-    <li>Broken <code>main</code>, red required parallel CI gate, broken deploy, or failing required checks.</li>
+    <li>Red main: an open <code>red-main</code> issue (any watched mainline signal red, including the nightly Full E2E matrix), a failed production deploy for the <code>origin/main</code> head, or a red required gate on the merged tip. Repair is fix-forward through a PR.</li>
     <li><strong>Pending dependency upgrades from <code>docs/DEPENDENCY_LEDGER.html</code>.</strong></li>
     <li>Active P0 or P1 backlog items.</li>
     <li>Open <code>docs/OPEN_QUESTIONS.html</code> entries that block implementation and have enough information to resolve.</li>
@@ -78,15 +74,12 @@
   <ul>
     <li>Code, docs, tests, and coverage ledger match the implemented behavior.</li>
     <li>Required local verification passes.</li>
-    <li>PR is open and all actionable review comments are handled.</li>
-    <li>Bot review has finished after the latest push, or no fresh bot feedback appeared after the settled wait.</li>
-    <li>The required parallel CI gate and preview deploy are green.</li>
-    <li>PR is merged.</li>
-    <li>Local <code>main</code> is updated from remote.</li>
-    <li>The current remote tip's required parallel CI gate and production deploy are green.</li>
-    <li>Production smoke test passes or a blocker is logged.</li>
-    <li>The backlog item or followup is closed with the PR number and verification.</li>
+    <li>The claim PR is ready (not draft), any human review comments are handled, and auto-merge is armed with a validated squash subject and body (or, while Q-038 is open, the PR was merged on green by the session).</li>
+    <li>The required parallel CI gate is green on the PR head. Auto-merge lands it; the session does not wait.</li>
+    <li>The backlog item or followup is closed with the PR number and verification in the slice's own diff.</li>
+    <li>If the merge turned <code>main</code> red before the session ended, the repair slice is also done. Otherwise the next session's health check owns it.</li>
   </ul>
+  <p>Merge, deploy, and production smoke are no longer waited on inside the slice. The mainline health tripwire and the next session's step 2 own them.</p>
 </section>
 
 <section id="project-closure">

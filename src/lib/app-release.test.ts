@@ -33,10 +33,10 @@ describe("app release notes", () => {
       version: "0.1.311",
       title: "The debrief knows the ladder",
       intro:
-        "Lose to a rung on the fight ladder and the debrief now opens with the counter the ladder test proves beats it, and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
+        "Lose to a rung on the fight ladder, or draw with it, and the debrief now opens with the counter the ladder test proves beats it (unless your bot already carries it), and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "After a loss to a ladder rung, the first lesson names the counter: a Ram Spike and two Drive Wheels for the first three rungs, the Tower Core for Bulldozer, a Lance for Impaler, and a Tempered Lance with a Ballast Block tail for Gravestone.",
+      "After a loss or a draw to a ladder rung, when the bot does not already carry the counter, the first lesson names it: a Ram Spike and two Drive Wheels for the first three rungs, the Tower Core for Bulldozer, a Lance for Impaler, and a Tempered Lance with a Ballast Block tail for Gravestone.",
       "Browse the part from the debrief: the button leaves the arena and lands on it in the carousel, owned or not.",
       "A bot with no weapon still hears the weapon lesson first, now with the rung's counter in it; a bot that already carries the counter hears why it lost instead.",
     ]);

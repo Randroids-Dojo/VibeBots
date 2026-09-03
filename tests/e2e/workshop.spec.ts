@@ -2033,9 +2033,13 @@ test(
     await expect(
       page.getByText("My Bot: 1 part", { exact: false }),
     ).toBeVisible();
+    // Two frames is the floor, not three: a software renderer can land the
+    // quarter-second dissolve on exactly two frames (the functional-only
+    // matrix did, 2026-09-03), and two frames plus the min-scale check
+    // below still prove the shrink rather than a single swap.
     await expect
       .poll(async () => Number(await read("dissolveFrames")))
-      .toBeGreaterThan(2);
+      .toBeGreaterThanOrEqual(2);
     await expect
       .poll(async () => Number(await read("dissolveMin")))
       .toBeLessThan(0.25);

@@ -86,6 +86,15 @@
 <section id="audit-log">
   <h2>Audit log</h2>
 
+  <article data-audit-date="2026-09-03" data-audit-state="workshop-breadth-program-addendum-2">
+    <h3>Audit 2026-09-03, second addendum: the lever the sim did not read (F-247), and the last two polish items (versions 0.1.311 and 0.1.312, PRs #355 to #358, unmerged stack)</h3>
+    <p>Source: the rules match tests in <code>src/sim/rules.test.ts</code> (a hold rule takes away the starter build's win over the weaponless brawler; an empty list is byte-identical to no list) and the goldens (13 of 13 with rules absent). The first addendum left F-247 open as the one named gap without a slice behind it. It has one now.</p>
+    <ul>
+      <li><strong>Skill expression on the bench.</strong> A design carries up to three when-then rules from fixed lists, read by the controller before its usual steering; two builds of the same parts now fight differently by a choice made on the bench, and the debrief names it (the back-off rule after a weapon went down). The choice of lever and its alternatives are Q-034, shipped under the recommended default.</li>
+      <li><strong>The rest of the list.</strong> The debrief knows the ladder (#356): a loss to a rung leads with the counter the ladder test proves. A fight started before the bench renderer is ready no longer throws (#355). The goldens update script works on Windows (#357).</li>
+      <li><strong>Verdict, restated once more.</strong> Every gap the three audits named is closed in the stack, F-247 included. What separates the workshop from Nuts and Bolts is volume: more families, arenas, opponents, and rule vocabulary, each a content program with no failing slice behind it. The one open followup from this stretch is a stamp for the first rule (F-252), which needs a server-side source. The stack is the owner's to merge; the Rule 12 confirmation pass on production follows the merges.</li>
+    </ul>
+  </article>
   <article data-audit-date="2026-09-02" data-audit-state="workshop-breadth-program-addendum">
     <h3>Audit 2026-09-02, addendum to the third pass: the two named gaps closed (sixth rung, Tower core; versions 0.1.309 and 0.1.310, PRs #353 and #354, unmerged stack)</h3>
     <p>Source: the ladder test's measured outcomes (<code>src/sim/opponents.test.ts</code>, pinned) and the scratch <code>resolveMatch</code> matrices recorded in <code>docs/research/workshop-breadth-program-2026-09.html#h4</code> and <code>#h5</code>. The third pass named two gaps between the workshop and the session goal and said they were the next program. Both are closed in the stack, so this addendum re-states the verdict.</p>

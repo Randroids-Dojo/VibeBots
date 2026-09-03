@@ -29,6 +29,7 @@ import {
   Vector3,
 } from "three/webgpu";
 import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
+import { createGuardedEvents } from "@/components/canvas-events";
 import { startFramesWhenSettled } from "@/components/compile-gate";
 import { createWebGPU } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
@@ -2188,6 +2189,7 @@ export default function BunkerFpCanvas({
       dpr={[1, features.maxDpr]}
       frameloop={frameloop}
       gl={createWebGPU}
+      events={createGuardedEvents}
       shadows={false}
     >
       <FallbackDprCap />

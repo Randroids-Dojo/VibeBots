@@ -31,6 +31,7 @@ import {
   PerspectiveCamera,
 } from "three/webgpu";
 import { CanvasDrawCallProbe } from "@/components/canvas-draw-call-probe";
+import { createGuardedEvents } from "@/components/canvas-events";
 import { startFramesWhenSettled } from "@/components/compile-gate";
 import {
   clampMineCameraZoom,
@@ -2766,6 +2767,7 @@ export default function MineCanvas(props: MineCanvasProps) {
       dpr={[1, features.maxDpr]}
       frameloop={frameloop}
       gl={createWebGPU}
+      events={createGuardedEvents}
       shadows={features.shadows ? "soft" : false}
     >
       <FallbackDprCap />

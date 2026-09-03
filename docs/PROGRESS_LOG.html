@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="canvas-events-guard" data-date="2026-09-03">
+    <h3>A fight started before the bench renderer is ready no longer throws: the canvases connect their pointer events only to an element that exists (F-248)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/workshop-controls-null-element</code>, stacked on <code>feature/workshop-tower-core</code> (PR #354).</dd>
+      <dt>PR</dt><dd>Pending. Dot <code>VibeBots-f-248-orbitcontrols-14e8f44b</code>.</dd>
+      <dt>Context</dt><dd>F-248, seen once in the ladder slice's e2e run: <code>Cannot read properties of null (reading 'addEventListener')</code> when a fight started moments after the workshop loaded. The followup's acceptance was the ladder case passing under a zero-console-error check.</dd>
+      <dt>Changed</dt><dd>Read the fiber first instead of the controls: the Canvas awaits the renderer factory (WebGPU init is async, and so is the fallback to WebGL2 on a machine without it), and only then runs its created-callback, which connects the pointer events to the wrapper div. If the canvas unmounted while that init was pending, the div ref is already null and the fiber's own <code>connect</code> calls <code>addEventListener</code> on it; the controls named in the followup were a bystander. Reproduced on demand with a Playwright script that answers the adapter request with null after a second and a half (the renderer then falls back to WebGL2 exactly as it does without WebGPU): one page error per run, every run. The fix is <code>createGuardedEvents</code> in <code>src/components/canvas-events.ts</code>, the fiber's own pointer-event manager with one guard (connecting to no element is a no-op), passed as the <code>events</code> prop of all five WebGPU canvases (workshop bench, arena, mine, holodeck, bunker), because the same race exists in each direction between any two of them. Nothing is lost by skipping the connect: the canvas that would have received the events is gone. Unit test: the guard connects a real element the way the fiber does and treats null as nothing to connect. E2E: the ladder case (E2E-WORKSHOP-0047) now fails on any page error or console error beyond resource-load lines, and a new case (E2E-WORKSHOP-0049) makes the race deterministic with the slow adapter, starts a fight, leaves the arena as fast, and asserts no error.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. Reproduction before the fix (scratch Playwright driver, slow adapter, local build): 1 page error per run, 2 of 2 runs; after: 0 across 3 runs. <code>pnpm typecheck</code> exit 0. <code>pnpm exec vitest run src/components/canvas-events.test.ts</code>: 2 of 2. <code>pnpm exec biome check .</code> exit 0. <code>pnpm build</code> exit 0. E2E against the build, serial: the whole workshop file, 48 passed and 1 skipped (the file's conditional case), then the ladder case and the new case again under a list reporter, 2 of 2. Dash check (text files) and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>The orphan root the fiber still renders after the guarded connect (its scene, and a renderer that is never disposed) is an upstream leak in the same race and is left as is: it happens once per race, the fiber removed the root from its loop before, and disposing the renderer from inside the factory would run the fiber's configure against a lost context. No version bump: nothing player-facing changed. Rule 13 tip review: no version bump, no copy changed. Rule 14 stamp review: a crash fix, no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>F-248 resolved by this PR.</dd>
+    </dl>
+  </article>
   <article data-slice="tower-core" data-date="2026-09-02">
     <h3>The Tower core can fight: shorter, riding higher, and the sim version is 8 (H5, breadth and expression program)</h3>
     <dl>

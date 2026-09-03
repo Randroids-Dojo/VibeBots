@@ -79,6 +79,21 @@ async function tapHero(page: Page) {
 // The fight roster lives behind the thumb bar's "Test fight" button (G2);
 // undo, redo, mirror, and recenter are plain buttons beside it. Open the
 // roster (idempotent) before clicking one of its menu items.
+// Page errors and console errors from the moment of the call on, minus the
+// resource-load lines the local storage-offline sandbox produces (a 503 from
+// the saves list, which the client handles).
+function collectPageErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(`pageerror: ${String(error)}`));
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    const text = message.text();
+    if (text.startsWith("Failed to load resource")) return;
+    errors.push(`console: ${text}`);
+  });
+  return errors;
+}
+
 async function openActions(page: Page) {
   const btn = page.getByRole("button", { name: "Test fight" });
   if ((await btn.getAttribute("aria-expanded")) !== "true") {
@@ -2293,6 +2308,7 @@ test(
         json: { emeralds: 20, inventory: [], catalog: [] },
       });
     });
+    const errors = collectPageErrors(page);
     await page.goto("/workshop");
     await expect(page.locator("canvas")).toBeVisible();
     await openActions(page);
@@ -2314,6 +2330,52 @@ test(
       page.getByRole("button", { name: "Back to build" }),
     ).toBeVisible();
     await expect(page.getByText("Bulldozer", { exact: true })).toBeVisible();
+    // A fight started moments after load once logged a null addEventListener
+    // from the bench canvas unmounting mid-init (F-248); the case now fails
+    // on any page error or console error.
+    await page.waitForTimeout(500);
+    expect(errors).toEqual([]);
+  },
+);
+
+test(
+  "a fight started before the bench renderer is ready leaves no error behind, and neither does leaving the arena as fast (F-248)",
+  ciCase("E2E-WORKSHOP-0049", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    // The renderer awaits the adapter request during init, so a slow null
+    // answer keeps each canvas initialising for a second and a half and then
+    // falls back to WebGL2 exactly as a machine without WebGPU does. That
+    // makes the race deterministic: the bench unmounts for the arena, and the
+    // arena unmounts for the bench, while their inits are still pending.
+    await page.addInitScript((ms: number) => {
+      Object.defineProperty(navigator, "gpu", {
+        configurable: true,
+        value: {
+          requestAdapter: () =>
+            new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+        },
+      });
+    }, 1500);
+    const errors = collectPageErrors(page);
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Bulldozer" }).click();
+    const back = page.getByRole("button", { name: "Back to build" });
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(
+      page.getByRole("button", { name: "Test fight" }),
+    ).toBeVisible();
+    // Both pending inits resolve within the delay; give them the time.
+    await page.waitForTimeout(2500);
+    expect(errors).toEqual([]);
   },
 );
 

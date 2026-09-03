@@ -28,6 +28,7 @@ import {
   includeArenaCameraBounds,
   includeArenaCameraPoint,
 } from "@/components/arena-camera";
+import { createGuardedEvents } from "@/components/canvas-events";
 import { partLook } from "@/components/part-look";
 import {
   createWebGPU,
@@ -961,6 +962,7 @@ export default function ArenaCanvas({
       <Canvas
         camera={{ position: [8, 5, 10], fov: 42 }}
         gl={createWebGPU}
+        events={createGuardedEvents}
         shadows={features.shadows ? "soft" : false}
       >
         <FallbackDprCap />

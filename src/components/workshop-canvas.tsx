@@ -26,6 +26,7 @@ import {
   type PerspectiveCamera,
   Vector3,
 } from "three";
+import { createGuardedEvents } from "@/components/canvas-events";
 import { CATEGORY_LOOK, partLook } from "@/components/part-look";
 import {
   createWebGPU,
@@ -1453,6 +1454,7 @@ export default function WorkshopCanvas({
         fov: 45,
       }}
       gl={createWebGPU}
+      events={createGuardedEvents}
       dpr={dpr}
       shadows
     >

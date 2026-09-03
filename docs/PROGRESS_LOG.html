@@ -43,6 +43,19 @@
       <dt>Followups</dt><dd>None new. F-132 and F-224 remain the owners of the render family.</dd>
     </dl>
   </article>
+  <article data-slice="gamepad-back-stall-followup" data-date="2026-09-03">
+    <h3>File the gamepad-back helper stall as a confirmed flake (F-254)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/gamepad-back-stall-followup</code>, from <code>origin/main</code> at <code>86af7dfc</code>.</dd>
+      <dt>PR</dt><dd>#361. Dot <code>VibeBots-f-254-the-87914755</code>.</dd>
+      <dt>Context</dt><dd>Docs only. The known-flake candidate in <code>docs/CI_WORKFLOW.html</code> asked for a repeat to confirm it; the landing's own push run on main gave the third sighting (Runtime Shadow pinned, the mine-account-sync dismissal case, the same helper stall). Under the mainline contract the tripwire reads the required gate, so it did not add a red, but the stall now has a followup with an acceptance instead of a footnote.</dd>
+      <dt>Changed</dt><dd><code>docs/FOLLOWUPS.html</code> F-254 (the helper, the three sightings, the acceptance: twenty green software-rendered runs of each case); the known-flake sentence in <code>docs/CI_WORKFLOW.html</code> names the third sighting and F-254.</dd>
+      <dt>Verification</dt><dd>Dash check and <code>git diff --check</code> clean; ledger balance counted. No code changed.</dd>
+      <dt>Assumptions</dt><dd>Filed rather than fixed because the repair is a Playwright helper rewrite that wants twenty software-rendered runs to prove, which is its own slice.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>F-254 raised.</dd>
+    </dl>
+  </article>
   <article data-slice="bench-rules" data-date="2026-09-03">
     <h3>Rules on the bench: a lever the sim reads that two builds of the same parts can set differently (F-247, F-234)</h3>
     <dl>

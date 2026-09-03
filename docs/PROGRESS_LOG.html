@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="g7-dissolve-frames-slow-renderers" data-date="2026-09-03">
+    <h3>Let the drop-and-dissolve case accept a two-frame dissolve on a software renderer</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/g7-dissolve-frames-slow-renderers</code>, from <code>origin/main</code> at <code>48314757</code>.</dd>
+      <dt>PR</dt><dd>Pending.</dd>
+      <dt>Context</dt><dd>The first functional-only Full E2E dispatch on main (run 33758473647) had two red shards. One was E2E-WORKSHOP-0043 (G7: a drop sparks, a removal dissolves, a chain says so): the dissolve trace counted exactly two frames where the case demanded more than two. The dissolve is over in a quarter second, so on SwiftShader two frames is a legitimate outcome; the case had passed the all-cases dispatch an hour earlier with different shard neighbours. The other red was the mine credits-from-settings case, whose Open settings button never became clickable inside the timeout (the Q-035 stall signature), first sighting on that case.</dd>
+      <dt>Changed</dt><dd>The G7 case accepts two or more dissolve frames; the min-scale assertion that follows (the ghost reaches a fifth of its size) is the proof of motion Rule 10 asks for, and two frames plus that minimum still show a shrink rather than a single swap. <code>docs/CI_WORKFLOW.html</code> lists the credits case as a known-flake candidate pending a second sighting.</dd>
+      <dt>Verification</dt><dd>Test-only change; the case passed on the stack's own CI and locally at the old threshold, and the new threshold is looser only by one frame. The next matrix dispatch is the proof. Dash check and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>A one-frame dissolve would still fail, which is the right floor: one frame is a swap, not motion.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>None new; the credits case is a candidate in the known-flake list, not a followup yet.</dd>
+    </dl>
+  </article>
   <article data-slice="full-e2e-functional-only" data-date="2026-09-03">
     <h3>Scope the hosted Full E2E matrix to the functional cases, so the nightly can be green (red-main #360)</h3>
     <dl>

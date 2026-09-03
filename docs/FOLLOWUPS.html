@@ -980,7 +980,7 @@
       <dt>Blocker (if any)</dt><dd>Design decision with a determinism contract behind it (Q-003): any new lever the sim reads changes results everywhere at once and bumps <code>SIM_VERSION</code>. F-234 (behaviour rules beyond the temperament sliders) is the closest existing thread.</dd>
       <dt>Unblock condition</dt><dd>Pick one lever a build can vary that the sim reads and the debrief can advise on (a weapon angle, a behaviour rule, a weight bias), spec it in the GDD, and ship it with its debrief lesson. Acceptance: two valid builds of the same parts can fight differently by a choice the player made on the bench, and the debrief names it.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the second audit. Dot <code>VibeBots-f-247-skill-a72b3f5c</code>.</dd>
-      <dt>Resolved</dt><dd>PR #RULES_PR (bench rules: a when-then list the sim reads; Q-034 records the choice)</dd>
+      <dt>Resolved</dt><dd>PR #358 (bench rules: a when-then list the sim reads; Q-034 records the choice)</dd>
     </dl>
   </section>
   <section id="F-239" data-f="F-239" data-priority="nice-to-have">
@@ -1048,7 +1048,7 @@
       <dt>Blocker (if any)</dt><dd>None. The constraint is determinism: rules must evaluate from sim state only, in a fixed order, with no wall-clock or <code>Math.random</code>.</dd>
       <dt>Unblock condition</dt><dd>Ready: add an ordered condition/action rule array to <code>BotDesign</code>, evaluate it in <code>runControllers</code> before the existing steering falls through, and default an empty list to today's exact behavior so old designs stay hash-identical. Bumps <code>SIM_VERSION</code> only if evaluation changes neutral output. Acceptance: a rule list changes an observable outcome in a unit test, an empty list reproduces the current golden vectors byte for byte, and the workshop can author rules without free text.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
-      <dt>Resolved</dt><dd>PR #RULES_PR (the rule list shipped with the bench rules slice; its three acceptance lines hold: a rule changes an outcome in a unit test, an empty list reproduces the goldens, the workshop authors rules without free text)</dd>
+      <dt>Resolved</dt><dd>PR #358 (the rule list shipped with the bench rules slice; its three acceptance lines hold: a rule changes an outcome in a unit test, an empty list reproduces the goldens, the workshop authors rules without free text)</dd>
     </dl>
   </section>
 

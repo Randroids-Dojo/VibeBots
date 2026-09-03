@@ -2793,7 +2793,7 @@
       <dt>Blocker (if any)</dt><dd>None.</dd>
       <dt>Unblock condition</dt><dd>Reproduce with the ladder case (E2E-WORKSHOP-0047) under a console-error assertion, then either defer the controls' connect until the renderer's element exists or unmount the controls before the canvas. Acceptance: the ladder case passes with a zero-console-error check like the program driver's.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the ladder slice (PR #349). Dot <code>VibeBots-f-248-orbitcontrols-14e8f44b</code>.</dd>
-      <dt>Resolved</dt><dd>PR #F248_PR (the canvases connect pointer events only to an element that exists; the race was the fiber's, not the controls')</dd>
+      <dt>Resolved</dt><dd>PR #355 (the canvases connect pointer events only to an element that exists; the race was the fiber's, not the controls')</dd>
     </dl>
   </section>
   <section id="F-244" data-f="F-244" data-priority="polish">

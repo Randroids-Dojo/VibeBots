@@ -21,6 +21,7 @@ import type { MineCell } from "@/sim/mine";
 import { DEFAULT_GEAR, hitsFor, oreReserveAt } from "@/sim/mine";
 import { useHolodeckStore } from "@/state/holodeck-store";
 import { CanvasDrawCallProbe } from "./canvas-draw-call-probe";
+import { createGuardedEvents } from "./canvas-events";
 import { StartFramesWhenCompiled } from "./compile-gate";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import { FallbackDprCap } from "./fallback-dpr-cap";
@@ -611,6 +612,7 @@ export default function HolodeckCanvas() {
         // stall on the way in from the mine.
         frameloop={frameloop}
         gl={createWebGPU}
+        events={createGuardedEvents}
         shadows={features.shadows ? "soft" : false}
       >
         <FallbackDprCap />

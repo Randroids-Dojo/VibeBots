@@ -69,6 +69,7 @@ function makeAchievementSql({
             elevator_speed_level: 1,
             parts_owned: 0,
             has_maxed_design: false,
+            has_painted_design: false,
             bunker_dug: dug,
             bunker_footprint: dug === null ? null : footprint,
             mine_diff: [],

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Workshop garage program playtest (2026-09-02)</title></head>
+<body>
+<h1>Workshop garage program playtest</h1>
+<p>Scripted local capture run for the program gate in
+<code>docs/research/workshop-garage-program-2026-09.html</code> (package 0.1.302, the top of
+the stacked branches G1 to G7 plus the share codes slice: <code>feature/workshop-feel-pass</code>
+at <code>fc28f070</code>, PR #341).
+Driver: <code>scripts/playtest-garage.mjs</code> at Android portrait (390x760) against a local
+production build; the shop and saves endpoints simulated at the API boundary (no Postgres
+locally), the client, canvas, and sheet are the real build. Captured manually (no VibeReview
+CLI session: the standalone binary at <code>../VibeReview/.build/reinstall/vibereview</code> does
+not exist on the Windows machine this session ran on), per the manual-capture provision in
+AGENTS.md Rule 12; every screenshot is the driver's own. The driver's JSON
+summary is <code>playtest-summary.json</code> beside this page.</p>
+<ol>
+  <li><figure><img src="captures/garage-01-first-visit.png" alt="First visit" width="390"><figcaption>First visit: the guided bot on the front three-quarter camera, live Power and Weight meters, family chips, the coach card, and the thumb bar.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-02-drop-sparks.png" alt="Right after the drop" width="390"><figcaption>Right after the guided drop: the wheel landed on the far axle, the meters moved, the reason line appeared, and the burst was in flight (read from the canvas, not visible at this size).</figcaption></figure></li>
+  <li><figure><img src="captures/garage-03-after-drop.png" alt="After the drop" width="390"><figcaption>Seven hundred milliseconds later: the coach card advanced to the fight step; the remove handle sits on the new wheel.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-04-fight-roster.png" alt="Fight roster" width="390"><figcaption>The fight roster off the thumb bar's Test fight button.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-05-weapon-chip-lance.png" alt="Weapon chip" width="390"><figcaption>Weapon family chip active, the Lance in hand on the turntable.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-05b-lance-blurb.png" alt="Lance blurb" width="390"><figcaption>A tap on the hero opens its blurb and stats.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-06-paint-sheet.png" alt="Paint sheet" width="390"><figcaption>The Paint section: cobalt body, gold trim.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-07-painted-bot.png" alt="Painted bot" width="390"><figcaption>The painted bot on the bench.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-08-share.png" alt="Share code" width="390"><figcaption>The Garage's Share section with this bot's code.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-09-chain-merge.png" alt="Chain merge cue" width="390"><figcaption>A wheel dropped onto a full axle merges; a copy still in stock brings up Merge again to Lv 3.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-10-remove-dissolve.png" alt="Removal" width="390"><figcaption>Right after Remove: the ghost dissolves (trace read from the canvas).</figcaption></figure></li>
+  <li><figure><img src="captures/garage-11-test-fight.png" alt="Test fight" width="390"><figcaption>Test fight against Contagion: the painted bot in its paint, team rings under both.</figcaption></figure></li>
+</ol>
+<h2>Phone-size pass (2026-09-02, package 0.1.305, F-244 and F-245)</h2>
+<p>Same driver against a production build of <code>feature/workshop-phone-size</code> after the audit's two postponed polish items shipped.</p>
+<ol>
+  <li><figure><img src="captures/garage-12-drop-sparks-phone-size.png" alt="Sparks after a drop" width="390"><figcaption>The first capture frame after the guided drop: eighteen warm sparks around the core, started clear of it.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-12b-drop-sparks-phone-size-later.png" alt="Sparks gone a frame later" width="390"><figcaption>The next frame: the burst is over.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-13-test-fight-phone-size.png" alt="Portrait test fight" width="390"><figcaption>Portrait test fight over the player's shoulder: both bots fill the tall screen, the paint reads.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-14-debrief.png" alt="Fight debrief" width="390"><figcaption>The debrief after the fight ran to the minute: a decision lost, the wheel that soaked the damage, the judges' card, and a button to each fix. Summary in <code>playtest-summary-second-pass.json</code>.</figcaption></figure></li>
+</ol>
+<h2>Third pass (2026-09-02, package 0.1.308, the breadth and expression program)</h2>
+<p>Same driver with the debrief step against a production build of <code>feature/workshop-wave-two</code> at <code>391e7bd5</code>. Summary in <code>playtest-summary-third-pass.json</code>.</p>
+<ol>
+  <li><figure><img src="captures/garage-15-fight-ladder.png" alt="Fight ladder" width="390"><figcaption>The Test fight menu as a ladder: five stock rungs in measured order with a hint under each, then the rival.</figcaption></figure></li>
+  <li><figure><img src="captures/garage-16-debrief-levers.png" alt="Debrief with a lever" width="390"><figcaption>The debrief after a fight to the minute, its lessons now able to pull a temperament lever in one tap.</figcaption></figure></li>
+</ol>
+</body>
+</html>

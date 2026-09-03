@@ -1,9 +1,390 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-08-11-0.1.294-elevator-earned";
+export const RELEASE_NOTICE_ID = "2026-09-03-0.1.312-bench-rules";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.312",
+      date: "2026-09-03",
+      title: "Rules on the bench",
+      intro:
+        "Your bot has three temperament sliders and gearing; now it has rules too. On the Tune tab, up to three lines of when this, do that, from fixed lists: when my weapon is down, back off; when their weapon is down, charge; when the clock is in its last third, hold still. The first rule that holds decides the move, every tick, and a bot with no rules fights exactly as before.",
+      changes: [
+        {
+          build,
+          text: "Rules: up to three when-then lines on the Tune tab, from fixed lists (five conditions, three actions), checked in order every tick; the first that holds decides the move.",
+        },
+        {
+          build,
+          text: "The debrief offers one: lose after your weapon went down and the bot fought on without it, and the lesson adds the rule that backs off in that spot.",
+        },
+        {
+          build,
+          text: "Share codes carry rules, and a bot with no rules fights exactly as it did, so nothing already recorded changes.",
+        },
+      ],
+    },
+    {
+      version: "0.1.311",
+      date: "2026-09-03",
+      title: "The debrief knows the ladder",
+      intro:
+        "Lose to a rung on the fight ladder, or draw with it, and the debrief now opens with the counter the ladder test proves beats it (unless your bot already carries it), and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
+      changes: [
+        {
+          build,
+          text: "After a loss or a draw to a ladder rung, when the bot does not already carry the counter, the first lesson names it: a Ram Spike and two Drive Wheels for the first three rungs, the Tower Core for Bulldozer, a Lance for Impaler, and a Tempered Lance with a Ballast Block tail for Gravestone.",
+        },
+        {
+          build,
+          text: "Browse the part from the debrief: the button leaves the arena and lands on it in the carousel, owned or not.",
+        },
+        {
+          build,
+          text: "A bot with no weapon still hears the weapon lesson first, now with the rung's counter in it; a bot that already carries the counter hears why it lost instead.",
+        },
+      ],
+    },
+    {
+      version: "0.1.310",
+      date: "2026-09-02",
+      title: "The Tower core can fight now",
+      intro:
+        "The tall chassis was a trap: it never closed on anyone, because its belly rode a hair off the floor and pitched into it under drive, so a tower build won nothing. It is shorter now and rides a tenth higher on its axles, and the same wheels and spike beat the two rungs a cube build cannot. Every recorded fight before this version is replayed on the new sim, so old verifications no longer match.",
+      changes: [
+        {
+          build,
+          text: "The Tower core is 0.8 tall instead of 1.0 and its axles sit a tenth below centre, so it moves: a tower with two wheels and a spike now beats Brawler, Night Terror, Bulldozer, and Impaler, and a lance build wins four rungs as well.",
+        },
+        {
+          build,
+          text: "Its five mounts and its 130 power are unchanged; what it gains is the shove, which is what a heavy brick is for.",
+        },
+        {
+          build,
+          text: "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before September 2, 2026 shows as unverified until it is refought.",
+        },
+      ],
+    },
+    {
+      version: "0.1.309",
+      date: "2026-09-02",
+      title: "A sixth rung on the fight ladder that punishes a lance",
+      intro:
+        "Once a bot carried a lance it beat every stock fight, and the ladder stopped asking. Gravestone, a heavy bar spinner on a ballast tail, is the rung above that: it eats lance builds and falls to a tempered lance with a tail of its own, so the loop keeps going.",
+      changes: [
+        {
+          build,
+          text: "Gravestone joins the Test fight menu after Impaler with the hint punishes a lance: a heavy horizontal bar on the nose, a ballast block on the tail, patient and wide.",
+        },
+        {
+          build,
+          text: "Measured before it went in, from the opponent seat: it beats the first build with a spike, a lance, or a tempered lance in its nose, and a tempered lance with a ballast tail beats it, so the top of the ladder has a counter you can buy from the new parts.",
+        },
+        {
+          build,
+          text: "The picker's tooltip on each rung now says what beats it as well as what it punishes.",
+        },
+      ],
+    },
+    {
+      version: "0.1.308",
+      date: "2026-09-02",
+      title:
+        "Three new parts: a ballast wheel, a tempered lance, and a ballast block",
+      intro:
+        "The catalog stopped at three rungs per family. Catalog wave two adds a heavy wheel above the Super Wheel, a hardened lance above the Lance, and a dense block for a tail, each measured against the fight ladder before it went on sale, so a bot that has maxed a family has somewhere left to go and a reason to go there.",
+      changes: [
+        {
+          build,
+          text: "Ballast Wheel: low and heavy, it wins the shove and loses the sprint. On the first build it beats Bulldozer, the shove the stock wheels lose, and draws the blade fight; it does not save you from Impaler.",
+        },
+        {
+          build,
+          text: "Tempered Lance: the lance, hardened, with reach that does not snap. On the first build it beats every rung of the ladder.",
+        },
+        {
+          build,
+          text: "Ballast Block: a dense block for a tail or a deck. Mass wins a shove: on the first build's tail it beats four rungs of five. All three are additive; every recorded fight replays the same.",
+        },
+      ],
+    },
+    {
+      version: "0.1.307",
+      date: "2026-09-02",
+      title: "The fight roster is a ladder, with a new rung in the middle",
+      intro:
+        "The test fights were a list. They are a ladder now, easiest first for the bot you build first, each with a hint of what it asks, and Bulldozer, a low plow bot that only the bench used to fight, joins the picker as the rung between a fair fight and a punishing one.",
+      changes: [
+        {
+          build,
+          text: "The Test fight menu lists Brawler, Contagion, Night Terror, Bulldozer, then Impaler, with a hint under each: warm-up, controls the floor, all blade, outshoves a spike, punishes a spike.",
+        },
+        {
+          build,
+          text: "Bulldozer is new to the picker: low roller drums, an armour nose, and a plow that never lets go. It shoves harder than a spike and edges the first build on the card.",
+        },
+        {
+          build,
+          text: "The order is measured, not guessed: the first build beats the first three rungs and loses to the last two, and the debrief's advice after a loss to Impaler, a longer reach, wins that fight.",
+        },
+      ],
+    },
+    {
+      version: "0.1.306",
+      date: "2026-09-02",
+      title: "The debrief teaches the levers, and one tap pulls them",
+      intro:
+        "Your bot has had three temperament sliders and gearing all along, but nothing in the game ever said when to touch them. The debrief now does: a decision lost off the front foot offers more aggression, a knockout taken in the pocket offers more patience, and one tap applies the change and shows you the slider.",
+      changes: [
+        {
+          build,
+          text: "Lose a decision while spending less of the fight closing in than your opponent and the debrief says so, with your front-foot share against theirs, and offers Raise aggression.",
+        },
+        {
+          build,
+          text: "Get knocked out while giving far less damage than you took and the debrief says the bot stayed in the pocket and offers Raise patience, so it resets after a hit.",
+        },
+        {
+          build,
+          text: "Each of those buttons applies the change (Undo takes it back) and opens Tune so you see the slider move before the next fight.",
+        },
+      ],
+    },
+    {
+      version: "0.1.305",
+      date: "2026-09-02",
+      title: "The fight and the sparks read at phone size",
+      intro:
+        "On a phone the arena opened so far out that the bots you painted were specks, and the sparks a drop throws were too small to see. The camera now frames a portrait fight over your bot's shoulder, and a drop's sparks are big enough to catch.",
+      changes: [
+        {
+          build,
+          text: "On a portrait screen the arena camera sits behind your bot, higher and closer, looking down the line at the opponent, so both bots fill the tall screen instead of shrinking to the edges. Landscape keeps the broadside shot.",
+        },
+        {
+          build,
+          text: "A drop's spark burst is bigger and denser, so it reads at a glance on a phone.",
+        },
+        {
+          build,
+          text: "No change to how fights play out; only where the camera stands and how the sparks look.",
+        },
+      ],
+    },
+    {
+      version: "0.1.304",
+      date: "2026-09-02",
+      title: "After a test fight, the bench tells you what to change",
+      intro:
+        "A test fight ended with a banner and a teardown sheet full of numbers, and nothing that said what to do about them. The fight now ends with a debrief: how it ended, the one or two things that decided it, and a button that takes you straight to the fix.",
+      changes: [
+        {
+          build,
+          text: "The debrief headline says how the fight ended (a knockout or a decision, and when), then names what decided it: a weapon that never connected, the part that went first and what took it, the part that soaked most of the damage, or the score that lost a decision.",
+        },
+        {
+          build,
+          text: "Every lesson has a fix-it button: it drops you back on the bench with the right part in hand, the weak part selected with Merge in reach, or the Tune tab open.",
+        },
+        {
+          build,
+          text: "The teardown sheet and the server verification are unchanged; the debrief reads the same inspection the sheet shows.",
+        },
+      ],
+    },
+    {
+      version: "0.1.303",
+      date: "2026-09-02",
+      title: "The guide's mount faces you, and the family chips stay in reach",
+      intro:
+        "The playtest of the new workshop found two things in the first minute: the guide pointed at a mount hidden behind the core, and the amber reason line under the meters slid the family chips out of reach. Both are fixed, and the remove handle no longer floats over the header when the sheet is open.",
+      changes: [
+        {
+          build,
+          text: "The guided first build starts with both axles empty and Mirror on: the glowing axle you can see takes the wheel and its twin fills at the same time, so the first drop finishes the bot where you can watch it.",
+        },
+        {
+          build,
+          text: "The family chips now live inside the header card under the reason line, which always shows (where a part fits, or why it will not), so the card never grows over the chips.",
+        },
+        {
+          build,
+          text: "The remove handle stays below the header card when the sheet is open instead of floating over it.",
+        },
+      ],
+    },
+    {
+      version: "0.1.302",
+      date: "2026-09-02",
+      title:
+        "Parts come off with a dissolve, land with sparks, and a chain merge says so",
+      intro:
+        "The bench had the pop and the gold flash but not much else: a removed part blinked out, a dropped part just appeared, and the best moment in the workshop, a merge that can merge again, looked like any other. Each of those has its own beat now.",
+      changes: [
+        {
+          build,
+          text: "Remove a part and it comes off the bot: it shrinks, fades, and drops away in a quarter second with a soft whoosh, instead of vanishing.",
+        },
+        {
+          build,
+          text: "Drop a part on a mount and a burst of sparks flies up from the join in the part's own colour, gold for a merge.",
+        },
+        {
+          build,
+          text: "Merge a part with another copy still in your inventory and the inspector says Merge again with a three-note chime, so a chain to Lv 3 is never missed.",
+        },
+      ],
+    },
+    {
+      version: "0.1.301",
+      date: "2026-09-02",
+      title: "Paint your bot, and fight in your colours",
+      intro:
+        "Every bot wore the same category colours, and in the arena the two sides were orange and teal no matter who built them. A bot now takes a body paint and a trim from a small palette, keeps them in every fight, and a new stamp marks the first one you save in your own colours.",
+      changes: [
+        {
+          build,
+          text: "The Build sheet has a Paint section: eight swatches for the body (core and frame parts) and eight for the trim (wheel hubs). Weapons stay bare steel so a blade still reads as a blade. Clear paint puts every part back in its own finish, and Undo works on paint like anything else.",
+        },
+        {
+          build,
+          text: "In the arena a painted bot fights in its paint and a stock bot keeps its team colour; a thin ring under each bot in the team colour keeps the sides readable however they are painted. Paint rides inside share codes too.",
+        },
+        {
+          build,
+          text: "New stamp: Custom Job, for saving a bot wearing your own paint. It is cosmetic, like every stamp, and it counts a paint job you saved before the stamp existed.",
+        },
+      ],
+    },
+    {
+      version: "0.1.300",
+      date: "2026-09-02",
+      title: "Eight new parts, and a ladder to climb inside each family",
+      intro:
+        "The catalog was fourteen parts browsed one at a time. It is now twenty two, with a second and third rung on the wheels, a lighter plate, three new frame shapes, a lance, and a cleaver, and the picker and the shop are sorted by family so the ladder reads at a glance.",
+      changes: [
+        {
+          build,
+          text: "Grip Wheel and Super Wheel sit above the Drive Wheel: wider and heavier, then bigger and faster with a higher ride. Light Plate sits below the Frame Plate. Corner Block, Wedge Block, and Skid give a build new shapes to grow into. Lance reaches past the spike; Cleaver stands a heavy edge on a top mount.",
+        },
+        {
+          build,
+          text: "Family chips under the top bar (All, Frame, Drive, Weapon) narrow the carousel to one family, and the Shop lists its parts under the same headings with each ladder in order.",
+        },
+        {
+          build,
+          text: "A fourth blueprint, Wedge Lancer, shows the tier-two rungs on the low chassis.",
+        },
+      ],
+    },
+    {
+      version: "0.1.299",
+      date: "2026-09-02",
+      title: "Every part in the workshop looks like itself",
+      intro:
+        "Parts used to be coloured by category, so every plate was the same grey and every weapon the same red. Each part now has its own paint and a second tone baked into its shape, and the picker tells you in one line what a part is for.",
+      changes: [
+        {
+          build,
+          text: "Wheels and drums are black rubber over a lighter hub, plates are light steel or gunmetal, the saw is bright ground steel over a dark arbor, and each core glows in its own warmth with a window band.",
+        },
+        {
+          build,
+          text: "Tap a part in the carousel and its card now says what it is for, with its mass, hit points, and power beside the name.",
+        },
+        {
+          build,
+          text: "In the arena your team colour stays on the hull, and the new tones keep every part readable from across the floor.",
+        },
+      ],
+    },
+    {
+      version: "0.1.298",
+      date: "2026-09-02",
+      title:
+        "Your first visit to the workshop starts with a bot, not a blank bench",
+      intro:
+        "New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
+      changes: [
+        {
+          build,
+          text: "A first-ever visit loads a bot that is one drag from done and hands you the missing wheel. Drag it onto the glowing mount and the bot is complete, even before you own a single part.",
+        },
+        {
+          build,
+          text: "The coach line follows you: after the wheel it points at Test fight, and after the fight it points at the Shop tab. Skip ends it at any time, and it never comes back unless you ask.",
+        },
+        {
+          build,
+          text: "The Garage tab has a Replay the first build button beside Reset, for showing someone else or for a fresh start.",
+        },
+      ],
+    },
+    {
+      version: "0.1.297",
+      date: "2026-09-02",
+      title: "Share a bot as a code or a link",
+      intro:
+        "A bot is data, so it can travel. The garage now hands you a short code and a link for the bot on your bench, and loads anyone else's from a paste or a link. Every saved bot in the garage shows its size and chassis at a glance.",
+      changes: [
+        {
+          build,
+          text: "The Share box in the Garage tab shows your bot's code and copies it, or a link that opens the workshop with the bot already loaded.",
+        },
+        {
+          build,
+          text: "Paste a code or a link into Load a code and the bot appears on your bench, checked through the same inspection a fight uses. A damaged or illegal code says so instead of loading.",
+        },
+        {
+          build,
+          text: "Saved designs in the garage list their part count and chassis, so you can tell your bots apart without loading each one.",
+        },
+      ],
+    },
+    {
+      version: "0.1.296",
+      date: "2026-09-02",
+      title: "Build with the budget in view and every action under your thumb",
+      intro:
+        "The workshop hid undo, redo, and the fights behind a menu, and told you a part would not fit by doing nothing. The bench now keeps its actions in reach and shows how much power and weight you have left as you build.",
+      changes: [
+        {
+          build,
+          text: "Power and weight meters sit in the top bar and fill as parts land. Declare a weight class and the weight meter takes that ceiling; leave it open and it reads against the lightest class your bot fits.",
+        },
+        {
+          build,
+          text: "When the part in hand has nowhere to go, the bar says why in one line: no free mount, how much more power it needs, or how far over your class it would land. The meter it would break flashes.",
+        },
+        {
+          build,
+          text: "Undo, Redo, Mirror, Recenter, and Test fight live in a thumb bar at the top of the bottom sheet, visible whether the sheet is open or closed. The fight roster opens straight from Test fight.",
+        },
+      ],
+    },
+    {
+      version: "0.1.295",
+      date: "2026-09-01",
+      title: "The workshop shows you the front of your bot",
+      intro:
+        "The bench camera used to sit behind the bot, so a build with a plow or a blade on the nose showed you its back. The view now opens on the front three-quarter, comes to a part when you tap it, and comes home on one button.",
+      changes: [
+        {
+          build,
+          text: "The workshop opens facing the front of your bot, the same angle every fight camera favours, so the weapon you mount is the first thing you see.",
+        },
+        {
+          build,
+          text: "Tap a placed part and the view glides toward it instead of leaving you to orbit and pinch. Building by drag never moves the camera under your finger.",
+        },
+        {
+          build,
+          text: "A Recenter button under the top bar puts the whole bot back in frame after any amount of orbiting. Swapping the chassis or loading a blueprint recenters on its own.",
+        },
+      ],
+    },
     {
       version: "0.1.294",
       date: "2026-08-11",

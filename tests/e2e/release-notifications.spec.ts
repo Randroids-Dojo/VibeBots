@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("hands you a working shaft");
+    await expect(dialog).toContainText("now it has rules too");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "locked until a banked trip has reached depth 24",
+      "up to three when-then lines on the Tune tab",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "twenty-row starter shaft",
+      "The debrief offers one",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "ride to the bottom of your rail",
+      "Share codes carry rules",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,42 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.312", "Rules on the bench"],
+      ["0.1.311", "The debrief knows the ladder"],
+      ["0.1.310", "The Tower core can fight now"],
+      ["0.1.309", "A sixth rung on the fight ladder that punishes a lance"],
+      [
+        "0.1.308",
+        "Three new parts: a ballast wheel, a tempered lance, and a ballast block",
+      ],
+      [
+        "0.1.307",
+        "The fight roster is a ladder, with a new rung in the middle",
+      ],
+      ["0.1.306", "The debrief teaches the levers, and one tap pulls them"],
+      ["0.1.305", "The fight and the sparks read at phone size"],
+      ["0.1.304", "After a test fight, the bench tells you what to change"],
+      [
+        "0.1.303",
+        "The guide's mount faces you, and the family chips stay in reach",
+      ],
+      [
+        "0.1.302",
+        "Parts come off with a dissolve, land with sparks, and a chain merge says so",
+      ],
+      ["0.1.301", "Paint your bot, and fight in your colours"],
+      ["0.1.300", "Eight new parts, and a ladder to climb inside each family"],
+      ["0.1.299", "Every part in the workshop looks like itself"],
+      [
+        "0.1.298",
+        "Your first visit to the workshop starts with a bot, not a blank bench",
+      ],
+      ["0.1.297", "Share a bot as a code or a link"],
+      [
+        "0.1.296",
+        "Build with the budget in view and every action under your thumb",
+      ],
+      ["0.1.295", "The workshop shows you the front of your bot"],
       ["0.1.294", "The elevator is something you earn now, and it rides down"],
       ["0.1.293", "The mine's icons are one set now"],
       ["0.1.292", "One row of tools, one button for what you can do"],
@@ -583,9 +619,7 @@ test(
     await expect(dialog).toContainText(
       "Mobile Safari needs the Home Screen app before notifications can work.",
     );
-    await expect(dialog).toContainText(
-      "Safari does not let websites open that sheet automatically.",
-    );
+    await expect(dialog).toContainText("Tap Share, then Add to Home Screen.");
 
     await page.mouse.click(8, 8);
     await expect(dialog).not.toBeVisible();

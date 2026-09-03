@@ -44,6 +44,26 @@
 <section id="blocks-release">
   <h2>Blocks Release</h2>
 
+  <section id="F-243" data-f="F-243" data-priority="blocks-release">
+    <h3>F-243: The budget reason line covers the family chips</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 in the workshop garage program playtest (<code>docs/reviews/20260901-workshop-garage/session.html</code>, captures 02, 03, and 05). The header card grows a third line when the reason line shows (<q>No room for Drive Wheel on any mount</q>), and the family chips sit at a fixed offset under the two-line header, so the card covers the chip row: the driver read <code>workshop-budget-reason</code> at the Weapon chip's centre and a real pointer click on the chip timed out. The reason line shows whenever the browsed part has no slot, which on a finished bot is most of the time, so the chips are unreachable exactly when a player would use them to browse another family.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Lay the chips out relative to the header's real height (flow them under the card, or reserve the reason line's height in the card so it never grows). Acceptance: with a reason line showing, every chip's centre reports the chip from <code>elementFromPoint</code> and a pointer click on it filters the carousel; pinned in the workshop e2e.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program playtest. Dot <code>VibeBots-f-243-keep-addbd46a</code>.</dd>
+      <dt>Resolved</dt><dd>PR #344</dd>
+    </dl>
+  </section>
+  <section id="F-241" data-f="F-241" data-priority="blocks-release">
+    <h3>F-241: The guided first build's free axle faces away from the camera</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 in the workshop garage program playtest (<code>docs/reviews/20260901-workshop-garage/session.html</code>, captures 01 to 03). The guided start design leaves the left axle free and the coach card says <q>Drag the wheel from below onto the glowing mount</q>, but the G1 camera sits at +x, so the free mount is behind the core from the player's point of view and its glow is not in the frame; after the drop the new wheel is a sliver peeking out behind the core. The first thing the guide asks a new player to do points at something they cannot see.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Either free the camera-facing axle in <code>GUIDED_START_DESIGN</code> (and keep the drag landing on it in the G6 e2e), or frame the camera toward the free mount when the coach's place step opens. Acceptance: on a fresh visit the glowing mount is inside the frame with no camera input, and the placed wheel is fully visible after the drop.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program playtest. Dot <code>VibeBots-f-241-turn-895c7d00</code>.</dd>
+      <dt>Resolved</dt><dd>PR #344</dd>
+    </dl>
+  </section>
   <section id="F-223" data-f="F-223" data-priority="polish">
     <h3>F-223: Skip the browser matrix for documentation-only diffs</h3>
     <dl>
@@ -904,6 +924,65 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-252" data-f="F-252" data-priority="nice-to-have">
+    <h3>F-252: A stamp for the first bench rule</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-09-03 with the bench rules (F-247). Authoring a first rule is a first-use moment of the kind Rule 14 asks stamps for, and the Rules panel is where a tinkerer discovers the bot can be told what to do without its weapon.</dd>
+      <dt>Blocker (if any)</dt><dd>A stamp needs a durable progress source; a design's rules are client state until a verified fight carries them, so the count has to come from the match route (a verified result whose player design has rules) rather than the bench.</dd>
+      <dt>Unblock condition</dt><dd>Record on the server that a verified match ran with at least one rule on the player's design, add the stamp in <code>src/lib/achievements.ts</code> with its test, and show it in the Stamp Book. Acceptance: the stamp lands after the first verified fight with a rule, never from the bench alone.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-03 during the bench rules slice. Dot <code>VibeBots-f-252-a-d957cd8f</code>.</dd>
+    </dl>
+  </section>
+  <section id="F-251" data-f="F-251" data-priority="nice-to-have">
+    <h3>F-251: The goldens update script exits 1 on Windows with no message</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 while stepping the sim version to 8 for the Tower core. <code>pnpm test:goldens:update -- --reason ...</code> exits 1 and prints nothing, because <code>scripts/update-goldens.mjs</code> calls <code>spawnSync("pnpm", ...)</code> without a shell and <code>pnpm</code> is a <code>.cmd</code> shim on Windows, so the spawn fails with a null status that the script turns into exit 1. The runner itself works: <code>VIBEBOTS_GOLDEN_REASON=... VIBEBOTS_UPDATE_GOLDENS=1 pnpm exec vitest run --config vitest.goldens.config.ts tests/goldens/update-runner.test.ts</code> regenerated the vectors and the manifest. The manifest the runner writes also needs <code>biome check --write</code> afterwards, because it prints one-element arrays across lines and the Quality gate wants them on one.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Spawn with <code>shell: true</code> or resolve <code>pnpm.cmd</code> on win32, print the spawn error when the status is null, and format the manifest after writing it. Acceptance: the documented command regenerates the goldens on Windows and leaves a clean <code>biome check</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the Tower core slice (PR #354). Dot <code>VibeBots-f-251-the-ca5efaa4</code>.</dd>
+      <dt>Resolved</dt><dd>PR #357 (the script starts pnpm through a shell on win32, prints a spawn that never started, and formats what the runner wrote)</dd>
+    </dl>
+  </section>
+  <section id="F-250" data-f="F-250" data-priority="nice-to-have">
+    <h3>F-250: The debrief does not know the ladder</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-09-02 with the sixth rung. After a loss to Gravestone the debrief still speaks of reach, plates, and levers, while the measured counter is a tempered lance and a ballast tail; the rung's tooltip carries that advice instead. A debrief that knew which rung it just watched could name the counter the ladder test proves.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical; <code>MatchEndInfo</code> would need the opponent's rung id and the rules a per-rung counter line.</dd>
+      <dt>Unblock condition</dt><dd>Carry the rung id through the match end, add a lesson that names the rung's counter, and pin it in the debrief tests. Acceptance: a loss to each rung yields a lesson that names a part or a lever the ladder test proves beats that rung.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the sixth-rung slice. Dot <code>VibeBots-f-250-the-567cdd08</code>.</dd>
+      <dt>Resolved</dt><dd>PR #356 (each rung carries its measured counter; a loss to it leads the debrief with that part)</dd>
+    </dl>
+  </section>
+  <section id="F-249" data-f="F-249" data-priority="nice-to-have">
+    <h3>F-249: The Tower core wins none of the ladder fights</h3>
+    <dl>
+      <dt>Context</dt><dd>Measured 2026-09-02 while sizing catalog wave two (scratch <code>resolveMatch</code> runs, not committed): a Tower core with two drive wheels and a lance wins none of the five ladder fights (draws Brawler, loses the rest, two of them by a wide margin), and a ballast tail does not save it. The same wheels and lance on a cube core win most of the ladder. The tall core is a chassis choice the workshop offers as an equal and the sim punishes.</dd>
+      <dt>Blocker (if any)</dt><dd>Balance work with a sim version consequence: a change to the Tower core's shape, mass, or connector layout alters every recorded match that used it.</dd>
+      <dt>Unblock condition</dt><dd>Decide what the tall chassis is for (a mast weapon platform, a power reservoir) and give it one measured edge on the ladder; bump <code>SIM_VERSION</code> with it. Acceptance: a stock Tower build wins at least two ladder rungs the cube build does not.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during catalog wave two. Dot <code>VibeBots-f-249-the-c9065343</code>.</dd>
+      <dt>Resolved</dt><dd>PR #354 (the Tower core reshaped, sim version 8)</dd>
+    </dl>
+  </section>
+  <section id="F-246" data-f="F-246" data-priority="nice-to-have">
+    <h3>F-246: The hour-in surprise: the catalog and the roster run out</h3>
+    <dl>
+      <dt>Context</dt><dd>Named by both 2026-09-02 audits in <code>docs/FUN_FACTOR_AUDIT.html</code>. Three rungs per family, four stock opponents plus a rival, and a debrief that at the top of the ladder can only say <q>Try a harder opponent</q>. A player an hour in has seen everything the bench can offer.</dd>
+      <dt>Blocker (if any)</dt><dd>Program-sized: a catalog wave (a fourth rung or a new family) and an opponent that punishes a specific build are design work with balance consequences, not a slice.</dd>
+      <dt>Unblock condition</dt><dd>A short research doc in the style of <code>docs/research/workshop-garage-program-2026-09.html</code> that picks the wave and the opponent, with the sim version impact stated. Acceptance: a returning player who has maxed one family has a new rung or family to buy and an opponent the debrief can name a counter for.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the second audit. Dot <code>VibeBots-f-246-the-d0f4be6f</code>.</dd>
+      <dt>Resolved</dt><dd>PR #350 (the catalog wave) with PR #349 (the ladder rung)</dd>
+    </dl>
+  </section>
+  <section id="F-247" data-f="F-247" data-priority="nice-to-have">
+    <h3>F-247: Skill expression on the bench: two builds of the same parts fight the same</h3>
+    <dl>
+      <dt>Context</dt><dd>Named by both 2026-09-02 audits. Placement is the only lever besides gearing: mount choice and merge level decide a build, and the deterministic controller does the rest, so two players with the same parts converge on the same bot and the debrief can only point at parts and Tune.</dd>
+      <dt>Blocker (if any)</dt><dd>Design decision with a determinism contract behind it (Q-003): any new lever the sim reads changes results everywhere at once and bumps <code>SIM_VERSION</code>. F-234 (behaviour rules beyond the temperament sliders) is the closest existing thread.</dd>
+      <dt>Unblock condition</dt><dd>Pick one lever a build can vary that the sim reads and the debrief can advise on (a weapon angle, a behaviour rule, a weight bias), spec it in the GDD, and ship it with its debrief lesson. Acceptance: two valid builds of the same parts can fight differently by a choice the player made on the bench, and the debrief names it.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the second audit. Dot <code>VibeBots-f-247-skill-a72b3f5c</code>.</dd>
+      <dt>Resolved</dt><dd>PR #358 (bench rules: a when-then list the sim reads; Q-039 records the choice)</dd>
+    </dl>
+  </section>
   <section id="F-240" data-f="F-240" data-priority="nice-to-have">
     <h3>F-240: Watch the production deploy in the mainline health tripwire</h3>
     <dl>
@@ -979,6 +1058,7 @@
       <dt>Blocker (if any)</dt><dd>None. The constraint is determinism: rules must evaluate from sim state only, in a fixed order, with no wall-clock or <code>Math.random</code>.</dd>
       <dt>Unblock condition</dt><dd>Ready: add an ordered condition/action rule array to <code>BotDesign</code>, evaluate it in <code>runControllers</code> before the existing steering falls through, and default an empty list to today's exact behavior so old designs stay hash-identical. Bumps <code>SIM_VERSION</code> only if evaluation changes neutral output. Acceptance: a rule list changes an observable outcome in a unit test, an empty list reproduces the current golden vectors byte for byte, and the workshop can author rules without free text.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+      <dt>Resolved</dt><dd>PR #358 (the rule list shipped with the bench rules slice; its three acceptance lines hold: a rule changes an outcome in a unit test, an empty list reproduces the goldens, the workshop authors rules without free text)</dd>
     </dl>
   </section>
 
@@ -2729,6 +2809,55 @@
 <section id="polish">
   <h2>Polish</h2>
 
+  <section id="F-248" data-f="F-248" data-priority="polish">
+    <h3>F-248: The bench camera controls connect to a null element when a fight starts right after load</h3>
+    <dl>
+      <dt>Context</dt><dd>Seen once, 2026-09-02, in the local e2e run for the fight ladder slice: the app's global error telemetry logged <code>Cannot read properties of null (reading 'addEventListener')</code> from drei <code>OrbitControls</code> <code>connect</code> inside a canvas <code>onCreated</code> on <code>/workshop</code>, while the new ladder case opened the roster and started a fight moments after the page loaded. No test failed and the fight ran; the workshop canvas was unmounting for the arena as its controls tried to attach to a renderer element that was already gone. Not seen in the earlier full workshop run, whose cases all wait on the bench before fighting.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Reproduce with the ladder case (E2E-WORKSHOP-0047) under a console-error assertion, then either defer the controls' connect until the renderer's element exists or unmount the controls before the canvas. Acceptance: the ladder case passes with a zero-console-error check like the program driver's.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the ladder slice (PR #349). Dot <code>VibeBots-f-248-orbitcontrols-14e8f44b</code>.</dd>
+      <dt>Resolved</dt><dd>PR #355 (the canvases connect pointer events only to an element that exists; the race was the fiber's, not the controls')</dd>
+    </dl>
+  </section>
+  <section id="F-244" data-f="F-244" data-priority="polish">
+    <h3>F-244: The drop sparks are not readable at phone size</h3>
+    <dl>
+      <dt>Context</dt><dd>Named as postponed polish in the 2026-09-02 Fun Factor Audit (<code>docs/FUN_FACTOR_AUDIT.html</code>). The canvas reports the burst in flight and the e2e proves it, but in a 390 wide capture taken right after the drop (<code>docs/reviews/20260901-workshop-garage/captures/garage-02-drop-sparks.png</code>) the fourteen motes are too small to see against the bench.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Grow the spark scale or count one step (<code>sparkScale</code>, <code>SPARK_COUNT</code> in <code>workshop-animation.ts</code>) and confirm in a portrait capture that the burst reads at a glance without a per-frame allocation. Acceptance: a screenshot within 100 milliseconds of a drop shows the burst.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program audit. Dot <code>VibeBots-f-244-make-d2370211</code>.</dd>
+      <dt>Resolved</dt><dd>PR #346</dd>
+    </dl>
+  </section>
+  <section id="F-245" data-f="F-245" data-priority="polish">
+    <h3>F-245: The arena opens too far out at portrait for the paint to read</h3>
+    <dl>
+      <dt>Context</dt><dd>Named as postponed polish in the 2026-09-02 Fun Factor Audit. In the test fight capture (<code>docs/reviews/20260901-workshop-garage/captures/garage-11-test-fight.png</code>) both bots are a few dozen pixels wide, so the body paint and trim the player just chose barely show in the fight the paint slice promised.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Open the arena camera closer on a portrait viewport (the framing logic in <code>src/components/arena-canvas.tsx</code>) while keeping both bots in frame through the countdown, then pull back as they separate. Acceptance: at 390x760 the player's bot spans at least a tenth of the viewport width at the countdown.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program audit. Dot <code>VibeBots-f-245-open-2f6587d7</code>.</dd>
+      <dt>Resolved</dt><dd>PR #346</dd>
+    </dl>
+  </section>
+  <section id="F-242" data-f="F-242" data-priority="polish">
+    <h3>F-242: The remove handle floats over the header card when the sheet is open</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 in the workshop garage program playtest (<code>docs/reviews/20260901-workshop-garage/session.html</code>, capture 09). With the sheet open the canvas is short, the selected part sits near the top of it, and the remove handle (a screen-space button anchored to the part) is drawn over the header card's reason line. It stays tappable, but it reads as a stray control on the header.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Clamp the handle's anchor inside the canvas rect, or hide it while the sheet is open (the inspector's own Remove button covers the action there). Acceptance: the handle's rect never intersects the header card in the workshop e2e with the sheet open.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the program playtest. Dot <code>VibeBots-f-242-keep-71bce339</code>.</dd>
+      <dt>Resolved</dt><dd>PR #344</dd>
+    </dl>
+  </section>
+  <section id="F-253" data-f="F-253" data-priority="polish">
+    <h3>F-253: The tall-menu perf e2e fails under four local workers and passes serially</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-02 while running the whole workshop e2e file locally at four workers for the G3 and G6 slices. E2E-WORKSHOP-0025 ("bot clears a tall menu after it loads, and re-opening does not blink (perf)", <code>tests/e2e/workshop.spec.ts</code>) failed once in each four-worker run and passed two of two serial repeats each time. It measures a re-open blink window, so four CPU-shared browsers make its timing miss. CI runs one worker per shard, where it has not failed, so it is a local-parallelism artifact of the same kind <code>docs/CI_WORKFLOW.html</code> records for two-worker shards.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Either widen the case's blink window with a reason written next to it, or mark the case <code>@soak</code> so a parallel local run skips it, or make the local runner default to one worker for the workshop file. Acceptance: the whole workshop file passes at the local default worker count three times in a row.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the workshop garage program (G3, PR #338; also seen on G6, PR #337). Dot <code>VibeBots-f-240-make-45187b28</code>.</dd>
+    </dl>
+  </section>
   <section id="F-211" data-f="F-211" data-priority="polish">
     <h3>F-211: Reject AI attribution in repository metadata</h3>
     <dl>

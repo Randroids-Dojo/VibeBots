@@ -447,6 +447,15 @@ const STAMP_PICTOGRAMS: Record<
       </g>
     </g>
   ),
+  "tools-custom-job": ({ accent }) => (
+    <g>
+      {/* A paint roller over a fresh stripe. */}
+      <rect x="18" y="16" width="20" height="10" rx="3" />
+      <path d="M38 21 h6 v8 h-8 v6" />
+      <rect x="33" y="35" width="6" height="12" rx="2" />
+      <path d="M14 50 h36" stroke={accent} strokeWidth="4" />
+    </g>
+  ),
   "survival-roof-rescue": ({ accent }) => (
     <g>
       {/* Condemned ceiling line held up by a plank prop. */}

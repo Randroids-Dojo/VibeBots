@@ -75,9 +75,19 @@ export function arenaCameraBoundsCenter(bounds: ArenaCameraBounds): {
   };
 }
 
+/**
+ * Below this width-to-height ratio the viewport is portrait and the rig
+ * frames over the player's shoulder (F-245): a broadside shot on a tall
+ * screen has to back off until both bots fit its narrow width and they
+ * read as specks, while a shot along the line between them puts their
+ * separation into the screen's height instead, from much closer.
+ */
+export const ARENA_PORTRAIT_ASPECT = 1;
+
 export function arenaCameraFrameForBounds(
   bounds: ArenaCameraBounds,
   botCenters: [{ x: number; z: number }, { x: number; z: number }],
+  aspect = 16 / 9,
 ): ArenaCameraFrame {
   const spanX = bounds.maxX - bounds.minX;
   const spanY = bounds.maxY - bounds.minY;
@@ -94,12 +104,27 @@ export function arenaCameraFrameForBounds(
   const dx = botCenters[1].x - botCenters[0].x;
   const dz = botCenters[1].z - botCenters[0].z;
   const center = arenaCameraBoundsCenter(bounds);
+  const alongLine = Math.atan2(dx, dz);
+
+  if (aspect < ARENA_PORTRAIT_ASPECT) {
+    // Over the player's shoulder (bot 1 is the player's in every workshop
+    // fight): the rig sits behind it, higher, and closer, looking down
+    // the line at the opponent, so the separation runs up the screen.
+    return {
+      targetX: center.x,
+      targetY: Math.max(0.8, center.y),
+      targetZ: center.z,
+      yaw: alongLine,
+      height: Math.min(9, Math.max(4.2, 3.6 + horizontalSpan * 0.24)),
+      distance: Math.min(18, Math.max(5.5, framingDistance * 0.7)),
+    };
+  }
 
   return {
     targetX: center.x,
     targetY: Math.max(0.8, center.y),
     targetZ: center.z,
-    yaw: Math.atan2(dx, dz) + Math.PI / 2,
+    yaw: alongLine + Math.PI / 2,
     height: Math.min(7.5, Math.max(3.2, 2.9 + horizontalSpan * 0.14)),
     distance: Math.min(24, Math.max(6.5, framingDistance * 1.05)),
   };

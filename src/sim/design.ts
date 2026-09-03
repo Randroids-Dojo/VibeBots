@@ -147,6 +147,61 @@ export const NEUTRAL_BEHAVIOR: BotBehavior = {
   patience: 0.5,
 };
 
+/**
+ * Bench rules (F-234, F-247): up to three "when X, do Y" lines the
+ * controller checks in order every tick before its usual steering. The
+ * first rule whose condition holds decides that tick's move. A design
+ * without rules, or with an empty list, takes exactly the path it took
+ * before rules existed, so stored results stay valid and the sim version
+ * does not move. Conditions read sim state only, in a fixed order.
+ */
+export const RULE_CONDITIONS = [
+  "weapon-down",
+  "enemy-weapon-down",
+  "enemy-immobile",
+  "core-hurt",
+  "clock-late",
+] as const;
+export const RULE_ACTIONS = ["disengage", "charge", "hold"] as const;
+export type RuleCondition = (typeof RULE_CONDITIONS)[number];
+export type RuleAction = (typeof RULE_ACTIONS)[number];
+export const botRuleSchema = z.object({
+  when: z.enum(RULE_CONDITIONS),
+  act: z.enum(RULE_ACTIONS),
+});
+export type BotRule = z.infer<typeof botRuleSchema>;
+export const MAX_DESIGN_RULES = 3;
+/** Core health below this fraction counts as hurt (the core-hurt rule). */
+export const CORE_HURT_RATIO = 0.4;
+
+/**
+ * Cosmetic paint (G5): two palette ids, the body paint and the trim. The
+ * sim never reads it, so a painted bot and an unpainted one fight byte for
+ * byte the same; the renderer resolves the ids (src/lib/bot-paint.ts) and
+ * an unknown id leaves a part in its own look.
+ */
+/** The fixed paint palette ids; the swatch table in src/lib/bot-paint.ts
+ *  carries their names and colours. The schema accepts nothing else, so a
+ *  stored or shared design can never carry a paint the renderer would
+ *  silently drop. */
+export const BOT_PAINT_IDS = [
+  "ember",
+  "crimson",
+  "cobalt",
+  "jade",
+  "violet",
+  "gold",
+  "slate",
+  "bone",
+] as const;
+export type BotPaintId = (typeof BOT_PAINT_IDS)[number];
+
+export const botPaintSchema = z.object({
+  primary: z.enum(BOT_PAINT_IDS),
+  accent: z.enum(BOT_PAINT_IDS),
+});
+export type BotPaint = z.infer<typeof botPaintSchema>;
+
 export const botDesignSchema = z.object({
   name: z.string().min(1).max(60),
   parts: z
@@ -155,6 +210,8 @@ export const botDesignSchema = z.object({
     .max(MAX_DESIGN_PARTS * 2),
   connections: z.array(connectionSchema).max(MAX_DESIGN_PARTS * 2),
   behavior: botBehaviorSchema.optional(),
+  /** Bench rules, first match wins; absent or empty means none (F-247). */
+  rules: z.array(botRuleSchema).max(MAX_DESIGN_RULES).optional(),
   /**
    * Declared weight class id (F-228). Optional: an undeclared design is
    * unclassed and unconstrained, so every design that validated before
@@ -162,6 +219,8 @@ export const botDesignSchema = z.object({
    * server rejects an over-weight bot at match resolve too.
    */
   weightClass: z.string().min(1).optional(),
+  /** Cosmetic only (G5); see botPaintSchema. */
+  paint: botPaintSchema.optional(),
 });
 export type BotDesign = z.infer<typeof botDesignSchema>;
 

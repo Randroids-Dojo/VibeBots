@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { type BotDesign, botDesignSchema } from "@/sim/design";
+import { PART_CATALOG } from "@/sim/parts";
 import { useWorkshopStore } from "@/state/workshop-store";
 
 interface SavedDesign {
@@ -128,6 +129,20 @@ export function DesignSaves() {
     }
   };
 
+  // One line of identity per saved bot (G8 gallery): how big it is and
+  // what it stands on, read from the saved JSON without loading it.
+  const summarize = (saved: SavedDesign): string | null => {
+    const parsed = botDesignSchema.safeParse(saved.design);
+    if (!parsed.success) return null;
+    const design = parsed.data as BotDesign;
+    const core = design.parts.find(
+      (p) => PART_CATALOG[p.partId]?.category === "core",
+    );
+    const coreName = core ? PART_CATALOG[core.partId].name : "no core";
+    const n = design.parts.length;
+    return `${n} ${n === 1 ? "part" : "parts"}, ${coreName}`;
+  };
+
   const load = (saved: SavedDesign) => {
     const parsed = botDesignSchema.safeParse(saved.design);
     if (!parsed.success) {
@@ -190,6 +205,7 @@ export function DesignSaves() {
               <button
                 type="button"
                 onClick={() => load(saved)}
+                data-testid="garage-saved"
                 style={{
                   background: "none",
                   border: "none",
@@ -197,9 +213,22 @@ export function DesignSaves() {
                   cursor: "pointer",
                   padding: 0,
                   fontSize: "0.85rem",
+                  textAlign: "left",
                 }}
               >
                 {saved.name}
+                {summarize(saved) && (
+                  <span
+                    data-testid="garage-saved-summary"
+                    style={{
+                      marginLeft: 8,
+                      fontSize: "0.72rem",
+                      opacity: 0.65,
+                    }}
+                  >
+                    {summarize(saved)}
+                  </span>
+                )}
               </button>
             </li>
           ))}

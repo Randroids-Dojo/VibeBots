@@ -73,6 +73,10 @@ export type PartCategory = z.infer<typeof partCategorySchema>;
 export const partDefSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  /** One line telling a player what the part is for, shown in the
+   * workshop's part inspector. Player-facing copy: plain words, no
+   * dashes, at most 70 characters (parts.test.ts holds the gate). */
+  blurb: z.string().min(1),
   category: partCategorySchema,
   shape: partShapeSchema,
   density: z.number().positive(),
@@ -132,6 +136,7 @@ const X_AXIS: Vec3 = { x: 1, y: 0, z: 0 };
 export const CORE_CUBE: PartDef = {
   id: "core-cube",
   name: "Cube Core",
+  blurb: "Balanced starter chassis. Six mounts, steady power.",
   category: "core",
   shape: { type: "cuboid", hx: 0.3, hy: 0.3, hz: 0.3 },
   density: 2,
@@ -169,6 +174,7 @@ export const CORE_CUBE: PartDef = {
 export const CORE_WEDGE: PartDef = {
   id: "wedge-core",
   name: "Wedge Core",
+  blurb: "Low and wide. Runs inverted, feeds a front weapon.",
   category: "core",
   shape: { type: "cuboid", hx: 0.42, hy: 0.18, hz: 0.34 },
   density: 2,
@@ -199,18 +205,31 @@ export const CORE_WEDGE: PartDef = {
 // More power and durability at the cost of mass and a higher CG. Five rigid
 // faces (top/front/back/left/right) for overhead weapons and lifters, plus the
 // two drive axles low for stability.
+//
+// F-249 (2026-09-02, SIM_VERSION 8): as first cut (a unit tall, axles two
+// tenths below centre) the brick never closed on anyone: its belly rode a
+// few hundredths off the floor and pitched into it under drive, so a tower
+// with wheels and a spike had zero pressure ticks and won nothing on the
+// fight ladder. Measured variants: mount height and density changed
+// nothing; raising the axles alone helped a little; shortening the body to
+// 0.8 with the axles a tenth below centre made the same spike build win
+// Brawler, Night Terror, Bulldozer, and Impaler (the cube build loses the
+// last two) and a lance build win four rungs as well. That is the edge the
+// tall chassis has: it shoves, and it carries five mounts and the most
+// power.
 export const CORE_TOWER: PartDef = {
   id: "tower-core",
   name: "Tower Core",
+  blurb: "Tall heavy platform. Most power, five rigid mounts.",
   category: "core",
-  shape: { type: "cuboid", hx: 0.28, hy: 0.5, hz: 0.28 },
+  shape: { type: "cuboid", hx: 0.28, hy: 0.4, hz: 0.28 },
   density: 2.2,
   powerDraw: 0,
   powerSupply: 130,
   durability: 240,
   priceEmeralds: 0,
   connectors: [
-    { id: "top", kind: "rigid", position: { x: 0, y: 0.5, z: 0 } },
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.4, z: 0 } },
     { id: "front", kind: "rigid", position: { x: 0, y: 0.1, z: -0.28 } },
     { id: "back", kind: "rigid", position: { x: 0, y: 0.1, z: 0.28 } },
     { id: "left", kind: "rigid", position: { x: -0.28, y: 0.2, z: 0 } },
@@ -218,13 +237,13 @@ export const CORE_TOWER: PartDef = {
     {
       id: "axle-left",
       kind: "axle",
-      position: { x: -0.37, y: -0.2, z: 0 },
+      position: { x: -0.37, y: -0.1, z: 0 },
       axis: X_AXIS,
     },
     {
       id: "axle-right",
       kind: "axle",
-      position: { x: 0.37, y: -0.2, z: 0 },
+      position: { x: 0.37, y: -0.1, z: 0 },
       axis: X_AXIS,
     },
   ],
@@ -233,6 +252,7 @@ export const CORE_TOWER: PartDef = {
 export const FRAME_PLATE: PartDef = {
   id: "frame-plate",
   name: "Frame Plate",
+  blurb: "Light deck plate. Extends the stack for cheap.",
   category: "structure",
   shape: { type: "cuboid", hx: 0.3, hy: 0.05, hz: 0.3 },
   density: 1.5,
@@ -249,6 +269,7 @@ export const FRAME_PLATE: PartDef = {
 export const DRIVE_WHEEL: PartDef = {
   id: "drive-wheel",
   name: "Drive Wheel",
+  blurb: "Rubber drive wheel. One per axle, lifts the belly.",
   category: "mobility",
   // Radius must clear the core's half-height (0.3) so wheels, not the
   // chassis belly, carry the bot, but must NOT protrude far past the core
@@ -267,6 +288,7 @@ export const DRIVE_WHEEL: PartDef = {
 export const RAM_SPIKE: PartDef = {
   id: "ram-spike",
   name: "Ram Spike",
+  blurb: "Forward spike. Reach and a hard point, cheap to run.",
   category: "weapon",
   shape: { type: "cuboid", hx: 0.05, hy: 0.05, hz: 0.2 },
   density: 3,
@@ -282,6 +304,7 @@ export const RAM_SPIKE: PartDef = {
 export const CROSS_FRAME: PartDef = {
   id: "cross-frame",
   name: "Cross Frame",
+  blurb: "Four side mounts on one deck. Builds out wide.",
   category: "structure",
   // Stays inside the wheels (inner edge x 0.31) when stacked on the core.
   shape: { type: "cuboid", hx: 0.3, hy: 0.08, hz: 0.3 },
@@ -303,6 +326,7 @@ export const CROSS_FRAME: PartDef = {
 export const SENSOR_HEAD: PartDef = {
   id: "sensor-head",
   name: "Sensor Head",
+  blurb: "Light glass dome. Adds character, not strength.",
   category: "structure",
   shape: { type: "ball", radius: 0.18 },
   density: 1,
@@ -318,6 +342,7 @@ export const SENSOR_HEAD: PartDef = {
 export const PLOW_BLADE: PartDef = {
   id: "plow-blade",
   name: "Plow Blade",
+  blurb: "Wide low pusher. Shoves with its mass, soaks hits.",
   category: "weapon",
   // A wide, low pusher: less reach than the spike but a broad face that
   // lands hits across the whole frontal arc and shoves with its mass.
@@ -335,6 +360,7 @@ export const PLOW_BLADE: PartDef = {
 export const HAMMER_HEAD: PartDef = {
   id: "hammer-head",
   name: "Hammer Head",
+  blurb: "Dense iron ball. Hits hard, rides top heavy.",
   category: "weapon",
   // Dense ball on a short mount: top-heavy, hits hard, punishes builds
   // that cannot keep their nose on the target.
@@ -352,6 +378,7 @@ export const HAMMER_HEAD: PartDef = {
 export const ARMOR_WEDGE: PartDef = {
   id: "armor-wedge",
   name: "Armor Wedge",
+  blurb: "Sacrificial nose plate. Soaks frontal hits.",
   category: "structure",
   // Thick sacrificial nose plate: cheap durability that soaks frontal
   // hits before they reach the core.
@@ -370,6 +397,7 @@ export const ARMOR_WEDGE: PartDef = {
 export const ROLLER_DRUM: PartDef = {
   id: "roller-drum",
   name: "Roller Drum",
+  blurb: "Wide drum on one axle. Stable, hungry for power.",
   category: "mobility",
   // A wide single drum: one axle carries the whole side, trading the
   // wheel's agility for a low, stable tracked silhouette. The hub sits
@@ -405,6 +433,7 @@ export const ROLLER_DRUM: PartDef = {
 export const MAST_POLE: PartDef = {
   id: "mast-pole",
   name: "Mast Pole",
+  blurb: "Tall light spar. Silhouette, not strength.",
   category: "structure",
   // A tall light spar for character builds: banners, heads, and high
   // sensors ride on it; it adds silhouette, not strength.
@@ -423,6 +452,7 @@ export const MAST_POLE: PartDef = {
 export const SPIN_MOUNT: PartDef = {
   id: "spin-mount",
   name: "Spin Mount",
+  blurb: "Spindle housing. Bolts a saw or bar to a mount.",
   category: "structure",
   // A stout housing whose forward stub is a constant-velocity axle: the
   // mount for saw weapons. The rear face bolts flush to a rigid
@@ -449,6 +479,7 @@ export const SPIN_MOUNT: PartDef = {
 export const SAW_BLADE: PartDef = {
   id: "saw-blade",
   name: "Saw Blade",
+  blurb: "Thin spinning disc. Rim speed does the damage.",
   category: "weapon",
   // A thin face-on blade spinning about the forward axis: the rim meets
   // the enemy at every hull height, and rim speed times mass is what
@@ -478,6 +509,7 @@ export const SAW_BLADE: PartDef = {
 export const HARDENED_PLATE: PartDef = {
   id: "hardened-plate",
   name: "Hardened Plate",
+  blurb: "Thick armor deck. Heavy, tough, no power.",
   category: "structure",
   shape: { type: "cuboid", hx: 0.28, hy: 0.08, hz: 0.28 },
   density: 3.6,
@@ -498,6 +530,7 @@ export const HARDENED_PLATE: PartDef = {
 export const SPINNER_BAR: PartDef = {
   id: "spinner-bar",
   name: "Spinner Bar",
+  blurb: "Heavy steel bar. Hits hardest, drinks power.",
   category: "weapon",
   shape: { type: "cuboid", hx: 0.28, hy: 0.06, hz: 0.08 },
   density: 6.5,
@@ -513,6 +546,204 @@ export const SPINNER_BAR: PartDef = {
       position: { x: 0, y: 0, z: 0.06 },
       axis: { x: 0, y: 0, z: 1 },
     },
+  ],
+};
+
+// Tier ladder, catalog wave one (G4, workshop garage program). Nuts and
+// Bolts got its breadth from a legible ladder inside a few part families,
+// not from hundreds of unrelated parts. Every part below is additive: a
+// new collider, no existing shape moves, SIM_VERSION stays put. Prices
+// follow the question-2 default: a tier-two part costs about two tier-one
+// copies, which is what a merge to level two costs today.
+
+// Wheels widen and grow. A wider tread is heavier and holds a shove; a
+// bigger radius covers more ground per shaft turn and lifts the ride
+// height, which the balance readout shows as a higher centre of mass.
+// halfHeight 0.085 keeps the inner face outboard of every core's flank
+// (cube 0.3 from a 0.39 stub, wedge 0.42 from 0.51, tower 0.28 from 0.37).
+export const GRIP_WHEEL: PartDef = {
+  id: "grip-wheel",
+  name: "Grip Wheel",
+  category: "mobility",
+  shape: { type: "cylinder", halfHeight: 0.085, radius: 0.34, axis: "x" },
+  density: 1.4,
+  powerDraw: 24,
+  powerSupply: 0,
+  durability: 100,
+  priceEmeralds: 12,
+  blurb: "Wider tread. Holds a shove, costs a little power.",
+  connectors: [
+    { id: "hub", kind: "axle", position: { x: 0, y: 0, z: 0 }, axis: X_AXIS },
+  ],
+};
+
+export const SUPER_WHEEL: PartDef = {
+  id: "super-wheel",
+  name: "Super Wheel",
+  category: "mobility",
+  shape: { type: "cylinder", halfHeight: 0.085, radius: 0.4, axis: "x" },
+  density: 1.5,
+  powerDraw: 30,
+  powerSupply: 0,
+  durability: 130,
+  priceEmeralds: 20,
+  blurb: "Big and fast. Taller ride, higher centre of mass.",
+  connectors: [
+    { id: "hub", kind: "axle", position: { x: 0, y: 0, z: 0 }, axis: X_AXIS },
+  ],
+};
+
+// Structure: a lighter deck below the frame plate, and three silhouettes
+// the catalog lacked (a block that turns a corner, a low nose, a runner).
+export const LIGHT_PLATE: PartDef = {
+  id: "light-plate",
+  name: "Light Plate",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.3, hy: 0.03, hz: 0.3 },
+  density: 1.0,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 60,
+  priceEmeralds: 2,
+  blurb: "Thin deck. Light, cheap, dents easily.",
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.03, z: 0 } },
+    { id: "bottom", kind: "rigid", position: { x: 0, y: -0.03, z: 0 } },
+  ],
+};
+
+export const CORNER_BLOCK: PartDef = {
+  id: "corner-block",
+  name: "Corner Block",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.12, hy: 0.12, hz: 0.12 },
+  density: 1.5,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 90,
+  priceEmeralds: 5,
+  blurb: "Small block with mounts on four faces. Turns a corner.",
+  connectors: [
+    { id: "base", kind: "rigid", position: { x: 0, y: -0.12, z: 0 } },
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.12, z: 0 } },
+    { id: "front", kind: "rigid", position: { x: 0, y: 0, z: -0.12 } },
+    { id: "side", kind: "rigid", position: { x: 0.12, y: 0, z: 0 } },
+  ],
+};
+
+export const WEDGE_BLOCK: PartDef = {
+  id: "wedge-block",
+  name: "Wedge Block",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.25, hy: 0.1, hz: 0.25 },
+  density: 1.8,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 120,
+  priceEmeralds: 6,
+  blurb: "Low nose block. Gets under a rival and takes the hit.",
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.25 } },
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.1, z: 0 } },
+  ],
+};
+
+export const SKID: PartDef = {
+  id: "skid",
+  name: "Skid",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.06, hy: 0.04, hz: 0.3 },
+  density: 1.2,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 50,
+  priceEmeralds: 3,
+  blurb: "A runner that props a corner so it cannot tip.",
+  connectors: [{ id: "top", kind: "rigid", position: { x: 0, y: 0.04, z: 0 } }],
+};
+
+// Weapons: reach above the spike, and a standing edge for a top mount.
+export const LANCE: PartDef = {
+  id: "lance",
+  name: "Lance",
+  category: "weapon",
+  shape: { type: "cuboid", hx: 0.04, hy: 0.04, hz: 0.32 },
+  density: 3.2,
+  powerDraw: 6,
+  powerSupply: 0,
+  durability: 120,
+  priceEmeralds: 12,
+  blurb: "Longer reach than the spike, and easier to snap.",
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.32 } },
+  ],
+};
+
+export const CLEAVER: PartDef = {
+  id: "cleaver",
+  name: "Cleaver",
+  category: "weapon",
+  shape: { type: "cuboid", hx: 0.04, hy: 0.2, hz: 0.22 },
+  density: 5,
+  powerDraw: 10,
+  powerSupply: 0,
+  durability: 160,
+  priceEmeralds: 14,
+  blurb: "A standing edge. Heavy, hits hard, sits high.",
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: -0.2, z: 0 } },
+  ],
+};
+
+// Catalog wave two (H3, breadth and expression program): a fourth rung on
+// the wheels, a third rung on the spike line, and a structure part that is
+// not a rung. Additive: no existing part changes, so every recorded match
+// replays byte-identical and SIM_VERSION stays.
+export const BALLAST_WHEEL: PartDef = {
+  id: "ballast-wheel",
+  name: "Ballast Wheel",
+  category: "mobility",
+  shape: { type: "cylinder", halfHeight: 0.085, radius: 0.31, axis: "x" },
+  density: 3.2,
+  powerDraw: 30,
+  powerSupply: 0,
+  durability: 140,
+  priceEmeralds: 28,
+  blurb: "Low and heavy. Wins the shove, loses the sprint.",
+  connectors: [
+    { id: "hub", kind: "axle", position: { x: 0, y: 0, z: 0 }, axis: X_AXIS },
+  ],
+};
+export const TEMPERED_LANCE: PartDef = {
+  id: "tempered-lance",
+  name: "Tempered Lance",
+  category: "weapon",
+  shape: { type: "cuboid", hx: 0.04, hy: 0.04, hz: 0.36 },
+  density: 3.6,
+  powerDraw: 8,
+  powerSupply: 0,
+  durability: 200,
+  priceEmeralds: 24,
+  blurb: "The lance, hardened. Reach that does not snap.",
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.36 } },
+  ],
+};
+export const BALLAST_BLOCK: PartDef = {
+  id: "ballast-block",
+  name: "Ballast Block",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.14, hy: 0.1, hz: 0.14 },
+  density: 6,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 120,
+  priceEmeralds: 14,
+  blurb: "Dense block for a tail or a deck. Mass wins a shove.",
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.1, z: 0 } },
+    { id: "bottom", kind: "rigid", position: { x: 0, y: -0.1, z: 0 } },
+    { id: "nose", kind: "rigid", position: { x: 0, y: 0, z: -0.14 } },
   ],
 };
 
@@ -535,5 +766,16 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     SAW_BLADE,
     HARDENED_PLATE,
     SPINNER_BAR,
+    GRIP_WHEEL,
+    SUPER_WHEEL,
+    LIGHT_PLATE,
+    CORNER_BLOCK,
+    WEDGE_BLOCK,
+    SKID,
+    LANCE,
+    CLEAVER,
+    BALLAST_WHEEL,
+    TEMPERED_LANCE,
+    BALLAST_BLOCK,
   ].map((p) => [p.id, p]),
 );

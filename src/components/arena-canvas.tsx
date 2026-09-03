@@ -5,6 +5,7 @@ import {
   type RefObject,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -13,6 +14,7 @@ import {
   type Group,
   type InstancedMesh,
   Matrix4,
+  type Mesh,
   type MeshStandardMaterial,
   Quaternion,
   Vector3,
@@ -26,13 +28,16 @@ import {
   includeArenaCameraBounds,
   includeArenaCameraPoint,
 } from "@/components/arena-camera";
+import { createGuardedEvents } from "@/components/canvas-events";
+import { partLook } from "@/components/part-look";
 import {
-  CATEGORY_SURFACE,
   createWebGPU,
   partGeometry,
+  partVertexColors,
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import { paintedColor } from "@/lib/bot-paint";
 import {
   ARENA_WALL_HALF_EXTENT,
   ARENA_WALL_HEIGHT,
@@ -42,6 +47,8 @@ import {
 import {
   createMatch,
   freeMatch,
+  type MatchEndReason,
+  type MatchScore,
   type MatchState,
   stepMatch,
   teardownInputFrom,
@@ -76,7 +83,8 @@ const MAX_FRAME_DELTA = 0.25;
 const RESTART_DELAY_SECONDS = 4;
 
 const BOT_COLORS = ["#ff9f43", "#54e0c7"] as const;
-const BOT_COLORS_DESTROYED = ["#6b4a26", "#2a5a52"] as const;
+/** Hull colour of a destroyed part: the part's own base, charred. */
+const DESTROYED_DIM = 0.4;
 /** Rammer at index 1: its spike (front connector, -z) faces the enemy.
  * Exhibitions rotate through the stock matchups so every visit shows a
  * different clash; the rotation is deterministic per page load. */
@@ -253,6 +261,10 @@ export interface MatchEndInfo {
   tick: number;
   /** The inspection sheet for the fight that just ended. */
   teardown: MatchTeardown | null;
+  /** How it ended, for the debrief (G9): who, why, and the judges' card. */
+  winner: 0 | 1 | null;
+  reason: MatchEndReason;
+  scores: readonly [MatchScore, MatchScore] | null;
 }
 
 function ArenaScene({
@@ -295,12 +307,64 @@ function ArenaScene({
   // The active matchup: exhibitions rotate it per restart, and the part
   // meshes must render the same designs the sim is stepping.
   const [activeDesigns, setActiveDesigns] = useState(designs);
+  // Per-part base hull colours and the core key per bot, at design cadence
+  // (G5). A painted design wears its paint (body on core and structure,
+  // trim on wheel hubs, steel weapons untouched); an unpainted design
+  // keeps the team colour on every part so stock fighters stay legible.
+  const teamColors = useMemo(
+    () => [new Color(BOT_COLORS[0]), new Color(BOT_COLORS[1])] as const,
+    [],
+  );
+  const baseColors = useMemo(() => {
+    const map = new Map<string, Color>();
+    activeDesigns.forEach((design, botIndex) => {
+      for (const part of design.parts) {
+        const def = PART_CATALOG[part.partId];
+        if (!def) continue;
+        const hex = design.paint
+          ? paintedColor(def, design.paint, partLook(def).color)
+          : BOT_COLORS[botIndex];
+        map.set(`${botIndex}:${part.iid}`, new Color(hex));
+      }
+    });
+    return map;
+  }, [activeDesigns]);
+  const baseColorsRef = useRef(baseColors);
+  const coreKeys = useMemo(
+    () =>
+      activeDesigns.map((design, botIndex) => {
+        const core = design.parts.find(
+          (part) => PART_CATALOG[part.partId]?.category === "core",
+        );
+        return `${botIndex}:${core?.iid ?? "core"}`;
+      }),
+    [activeDesigns],
+  );
+  const coreKeysRef = useRef(coreKeys);
+  const ringRefs = useRef<(Mesh | null)[]>([null, null]);
+  const glForPaint = useThree((state) => state.gl);
+  useEffect(() => {
+    baseColorsRef.current = baseColors;
+    coreKeysRef.current = coreKeys;
+    // Publish each bot's paint so a test can read it off the DOM.
+    const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+    activeDesigns.forEach((design, botIndex) => {
+      dataset[`botPaint${botIndex}`] = design.paint
+        ? `${design.paint.primary}:${design.paint.accent}`
+        : "none";
+      // And the team ring under each bot, which keeps the sides readable
+      // however the hulls are painted.
+      dataset[`teamRing${botIndex}`] =
+        `#${teamColors[botIndex].getHexString()}`;
+    });
+  }, [baseColors, coreKeys, activeDesigns, glForPaint, teamColors]);
   const desiredCameraPositionRef = useRef(new Vector3(8, 5, 10));
   const desiredCameraLookAtRef = useRef(new Vector3(0, 1, 0));
   const projectedBotRef = useRef<[Vector3, Vector3]>([
     new Vector3(),
     new Vector3(),
   ]);
+  const projectedEdgeRef = useRef(new Vector3());
 
   const syncViews = useCallback((match: MatchState, hard: boolean) => {
     for (const [index, bot] of match.bots.entries()) {
@@ -324,6 +388,10 @@ function ArenaScene({
   }, []);
 
   useEffect(() => {
+    // The parts and paint render from activeDesigns; keep it on the tuple
+    // the match boots from, or a new designs prop would step a new sim
+    // under the old bots until an exhibition restart.
+    setActiveDesigns(designs);
     const generation = ++generationRef.current;
     bootMatch(designs).then((run) => {
       if (generationRef.current !== generation) {
@@ -472,19 +540,29 @@ function ArenaScene({
         if (material) {
           const part = bot.parts.get(iid);
           const destroyed = part?.destroyed ?? false;
+          // The part's base hull colour (G5): its paint when the design is
+          // painted, else the team colour. Precomputed at design cadence
+          // and copied here, so the frame loop allocates nothing.
+          const base = baseColorsRef.current.get(key) ?? teamColors[index];
           if (destroyed) {
-            material.color.set(BOT_COLORS_DESTROYED[index]);
+            material.color.copy(base).multiplyScalar(DESTROYED_DIM);
             material.emissiveIntensity = 0;
             material.roughness = 0.9;
           } else {
             const ratio =
               part && part.maxHealth > 0 ? part.health / part.maxHealth : 1;
             // Battle scars: darkening char as a part wears down.
-            material.color
-              .set(BOT_COLORS[index])
-              .multiplyScalar(0.45 + 0.55 * ratio);
+            material.color.copy(base).multiplyScalar(0.45 + 0.55 * ratio);
           }
         }
+      }
+      // The team ring (G5) rides under the core so a spectator can tell the
+      // sides apart even when both hulls wear paint.
+      const coreGroup = groupRefs.current.get(coreKeysRef.current[index]);
+      const ring = ringRefs.current[index];
+      if (coreGroup && ring) {
+        ring.position.x = coreGroup.position.x;
+        ring.position.z = coreGroup.position.z;
       }
     }
 
@@ -494,6 +572,9 @@ function ArenaScene({
       { x: 0, z: 0 },
     ];
     let framedBots = 0;
+    // The player's bot's footprint, projected below so a test can read how
+    // big the fight is on screen (F-245).
+    let playerSpan = 0;
     for (const [index, bot] of match.bots.entries()) {
       const botIndex = index as 0 | 1;
       const botBounds = emptyArenaCameraBounds();
@@ -509,6 +590,12 @@ function ArenaScene({
       }
       if (!arenaCameraBoundsReady(botBounds)) continue;
       includeArenaCameraBounds(allBounds, botBounds);
+      if (botIndex === 1) {
+        playerSpan = Math.max(
+          botBounds.maxX - botBounds.minX,
+          botBounds.maxZ - botBounds.minZ,
+        );
+      }
       const center = arenaCameraBoundsCenter(botBounds);
       botCenters[botIndex] = {
         x: center.x,
@@ -518,7 +605,11 @@ function ArenaScene({
     }
 
     if (framedBots === 2 && arenaCameraBoundsReady(allBounds)) {
-      const frame = arenaCameraFrameForBounds(allBounds, botCenters);
+      const frame = arenaCameraFrameForBounds(
+        allBounds,
+        botCenters,
+        state.size.width / Math.max(1, state.size.height),
+      );
       desiredCameraLookAtRef.current.set(
         frame.targetX,
         frame.targetY,
@@ -575,6 +666,26 @@ function ArenaScene({
         );
         setDatasetNumber(cache, stage.dataset, "bot0ScreenX", bot0.x, 3);
         setDatasetNumber(cache, stage.dataset, "bot1ScreenX", bot1.x, 3);
+        setDatasetNumber(cache, stage.dataset, "bot0ScreenY", bot0.y, 3);
+        setDatasetNumber(cache, stage.dataset, "bot1ScreenY", bot1.y, 3);
+        // The player's bot's footprint as a fraction of the viewport width:
+        // its half-span pushed along world x and along world z from its
+        // centre, whichever projects wider.
+        const edge = projectedEdgeRef.current;
+        const half = playerSpan / 2;
+        let halfWidth = 0;
+        // Both ends of both axes: under perspective the edge nearer the
+        // camera projects wider, and which end that is depends on the rig.
+        for (let k = 0; k < 4; k++) {
+          const ox = k === 0 ? half : k === 1 ? -half : 0;
+          const oz = k === 2 ? half : k === 3 ? -half : 0;
+          edge.set(botCenters[1].x + ox, frame.targetY, botCenters[1].z + oz);
+          edge.project(state.camera);
+          halfWidth = Math.max(halfWidth, Math.abs(edge.x - bot1.x));
+        }
+        // NDC spans two units across the viewport, so a half-span in NDC
+        // is the full-span fraction of the width.
+        setDatasetNumber(cache, stage.dataset, "bot1ScreenSize", halfWidth, 3);
         setDatasetText(
           cache,
           stage.dataset,
@@ -592,13 +703,17 @@ function ArenaScene({
       const bannerEdge = match.status.over && !bannerShownRef.current;
       if (hudTick !== lastHudTickRef.current || bannerEdge) {
         lastHudTickRef.current = hudTick;
-        if (bannerEdge) {
+        if (bannerEdge && match.status.over) {
           bannerShownRef.current = true;
           const teardownInput = teardownInputFrom(match);
           onMatchEnd?.({
             hash: matchResultHash(match),
             tick: match.tick,
             teardown: teardownInput ? buildTeardown(teardownInput) : null,
+            winner: match.status.winner,
+            reason: match.status.reason,
+            scores:
+              match.status.reason === "timeout" ? match.status.scores : null,
           });
         }
         onHud(readHud(match));
@@ -682,11 +797,41 @@ function ArenaScene({
         decay={1.6}
       />
       <StudioEnvironment intensity={features.environmentIntensity} />
+      {/* Team rings (G5): one flat ring per bot under its core, in the
+          team colour, so the sides read even when both hulls wear paint. */}
+      {([0, 1] as const).map((botIndex) => (
+        <mesh
+          key={`team-ring-${botIndex}`}
+          ref={(node) => {
+            ringRefs.current[botIndex] = node;
+          }}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.02, 0]}
+        >
+          <ringGeometry args={[0.58, 0.7, 40]} />
+          <meshBasicMaterial
+            color={BOT_COLORS[botIndex]}
+            transparent
+            opacity={0.8}
+            toneMapped={false}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
       {([0, 1] as const).map((botIndex) =>
         activeDesigns[botIndex].parts.map((part) => {
           const key = `${botIndex}:${part.iid}`;
           const def = PART_CATALOG[part.partId];
-          const surface = CATEGORY_SURFACE[def.category];
+          // The hull colour is the part's paint when the design is painted,
+          // else the team colour (the frame loop keeps setting it for damage
+          // char); the part's own identity comes from its surface response
+          // and its baked two-tone vertex attribute (dark tread, bright tip,
+          // deck line) over that colour.
+          const look = partLook(def);
+          const design = activeDesigns[botIndex];
+          const hull = design.paint
+            ? paintedColor(def, design.paint, look.color)
+            : BOT_COLORS[botIndex];
           return (
             <group
               key={key}
@@ -699,16 +844,17 @@ function ArenaScene({
                 castShadow
                 receiveShadow
               >
-                {partGeometry(def.shape, def.category)}
+                {partGeometry(def)}
                 <meshStandardMaterial
                   ref={(node) => {
                     materialRefs.current.set(key, node);
                   }}
-                  color={BOT_COLORS[botIndex]}
-                  metalness={surface.metalness}
-                  roughness={surface.roughness}
-                  emissive={BOT_COLORS[botIndex]}
-                  emissiveIntensity={surface.emissiveBoost}
+                  color={hull}
+                  vertexColors={partVertexColors(def)}
+                  metalness={look.metalness}
+                  roughness={look.roughness}
+                  emissive={hull}
+                  emissiveIntensity={look.emissiveBoost}
                 />
               </mesh>
             </group>
@@ -816,6 +962,7 @@ export default function ArenaCanvas({
       <Canvas
         camera={{ position: [8, 5, 10], fov: 42 }}
         gl={createWebGPU}
+        events={createGuardedEvents}
         shadows={features.shadows ? "soft" : false}
       >
         <FallbackDprCap />

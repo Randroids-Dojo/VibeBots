@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { BLUEPRINTS } from "./blueprints";
 import { validateDesign } from "./design";
-import { REPLICA_OPPONENTS } from "./opponents";
+import { FIGHT_LADDER, REPLICA_OPPONENTS } from "./opponents";
 import { PART_CATALOG } from "./parts";
+import { resolveMatch } from "./resolve";
 
 describe("replica opponents", () => {
   it("has unique ids and models a distinct real bot each", () => {
@@ -24,4 +26,130 @@ describe("replica opponents", () => {
       expect(opponent.design.parts.length).toBeGreaterThanOrEqual(4);
     });
   }
+});
+
+describe("fight ladder", () => {
+  const rammer = BLUEPRINTS[0].design;
+
+  it("lists every rung once, valid, with a hint, easiest first", () => {
+    expect(rammer.name).toBe("Cube Rammer");
+    const ids = FIGHT_LADDER.map((rung) => rung.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual([
+      "brawler",
+      "contagion",
+      "night-terror",
+      "bulldozer",
+      "impaler",
+      "gravestone",
+    ]);
+    for (const rung of FIGHT_LADDER) {
+      expect(validateDesign(rung.design).ok).toBe(true);
+      expect(rung.hint.length).toBeGreaterThan(0);
+      expect(rung.blurb.length).toBeGreaterThan(0);
+    }
+    // Every replica is on the ladder, so nothing the picker used to
+    // offer went missing.
+    for (const opponent of REPLICA_OPPONENTS) {
+      expect(ids).toContain(opponent.id);
+    }
+  });
+
+  it("is a real ladder for the first build, and the debrief's counter climbs it (H2, measured)", async () => {
+    // The sim is deterministic, so these are facts about the build, not
+    // odds: the Cube Rammer beats the first three rungs on the card and
+    // loses to the last two.
+    const outcomes: boolean[] = [];
+    for (const rung of FIGHT_LADDER) {
+      const result = await resolveMatch([rung.design, rammer]);
+      expect(result.status.over).toBe(true);
+      outcomes.push(result.status.over && result.status.winner === 1);
+    }
+    expect(outcomes).toEqual([true, true, true, false, false, false]);
+    // The debrief's never-connected lesson sends a spike build to a
+    // longer reach; a lance in the spike's place beats Impaler and then
+    // meets the top rung, which beats it (H4), so the ladder keeps asking.
+    const lanced = {
+      ...rammer,
+      name: "Cube Lancer",
+      parts: rammer.parts.map((part) =>
+        part.iid === "spike" ? { ...part, partId: "lance" } : part,
+      ),
+    };
+    expect(validateDesign(lanced).ok).toBe(true);
+    const impaler = FIGHT_LADDER[4];
+    expect(impaler.id).toBe("impaler");
+    const overImpaler = await resolveMatch([impaler.design, lanced]);
+    expect(overImpaler.status.over && overImpaler.status.winner).toBe(1);
+    const top = FIGHT_LADDER[FIGHT_LADDER.length - 1];
+    expect(top.id).toBe("gravestone");
+    const lancerAtTop = await resolveMatch([top.design, lanced]);
+    expect(lancerAtTop.status.over && lancerAtTop.status.winner).toBe(0);
+    // And the top rung's counter is a build a player can buy from wave
+    // two: the tempered lance in the nose and a ballast block on the tail.
+    const temperedTail = {
+      ...rammer,
+      name: "Tempered Tail",
+      parts: [
+        ...rammer.parts.map((part) =>
+          part.iid === "spike" ? { ...part, partId: "tempered-lance" } : part,
+        ),
+        { iid: "tail", partId: "ballast-block" },
+      ],
+      connections: [
+        ...rammer.connections,
+        {
+          parentIid: "core",
+          parentConnector: "back",
+          childIid: "tail",
+          childConnector: "nose",
+        },
+      ],
+    };
+    expect(validateDesign(temperedTail).ok).toBe(true);
+    const counter = await resolveMatch([top.design, temperedTail]);
+    expect(counter.status.over && counter.status.winner).toBe(1);
+  }, 90_000);
+
+  it("names a counter per rung that the catalog sells and the measured cases above use (F-250)", () => {
+    const counters = Object.fromEntries(
+      FIGHT_LADDER.map((rung) => [rung.id, rung.counter.partId]),
+    );
+    expect(counters).toEqual({
+      brawler: "ram-spike",
+      contagion: "ram-spike",
+      "night-terror": "ram-spike",
+      bulldozer: "tower-core",
+      impaler: "lance",
+      gravestone: "tempered-lance",
+    });
+    for (const rung of FIGHT_LADDER) {
+      expect(PART_CATALOG[rung.counter.partId]).toBeDefined();
+      expect(rung.counter.text).toContain(rung.name);
+      expect(rung.counter.text).toContain(
+        PART_CATALOG[rung.counter.partId].name,
+      );
+    }
+  });
+
+  it("gives the Tower core an edge of its own: it wins the two shove rungs the cube loses (F-249, measured)", async () => {
+    // The same two wheels and spike on the tall chassis. Before the
+    // reshape (SIM_VERSION 7) this build never closed on anyone.
+    const tower = {
+      ...rammer,
+      name: "Tower Rammer",
+      parts: rammer.parts.map((part) =>
+        part.iid === "core" ? { ...part, partId: "tower-core" } : part,
+      ),
+    };
+    expect(validateDesign(tower).ok).toBe(true);
+    const wins: string[] = [];
+    for (const rung of FIGHT_LADDER) {
+      const result = await resolveMatch([rung.design, tower]);
+      if (result.status.over && result.status.winner === 1) wins.push(rung.id);
+    }
+    expect(wins).toContain("bulldozer");
+    expect(wins).toContain("impaler");
+    expect(wins.length).toBeGreaterThanOrEqual(3);
+  }, 90_000);
 });

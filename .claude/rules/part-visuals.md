@@ -20,8 +20,8 @@ paths:
 <h2>Where art lives</h2>
 
 <ul>
-  <li>All part geometry is built in <code>src/components/part-geometry.ts</code> (pure three, no JSX, node-testable) and dispatched by the shared <code>partGeometry(shape, category)</code> in <code>part-visuals.tsx</code>. One edit there upgrades all four render call sites (workshop <code>PlacedPart</code> / <code>HeroPart</code> / <code>DragGhost</code> and the arena).</li>
-  <li>Materials stay <code>meshStandardMaterial</code> so the emissive selection glow and merge gold-flash refs keep working. <code>CATEGORY_SURFACE</code> holds the per-category metalness / roughness / emissive. Do NOT re-add <code>flatShading</code>: it recomputes facet normals in-shader and erases the baked fillet normals the geometry carries.</li>
+  <li>All part geometry is built in <code>src/components/part-geometry.ts</code> (pure three, no JSX, node-testable) and dispatched by the shared <code>partGeometry(def)</code> in <code>part-visuals.tsx</code>. One edit there upgrades all four render call sites (workshop <code>PlacedPart</code> / <code>HeroPart</code> / <code>DragGhost</code> and the arena).</li>
+  <li>Materials stay <code>meshStandardMaterial</code> so the emissive selection glow and merge gold-flash refs keep working. <code>src/components/part-look.ts</code> holds each part's base colour, metalness, roughness, emissive boost, and accent (a tone region plus a linear multiplier baked into the geometry as a vertex <code>color</code> attribute, so two tones still cost one material). <code>partLook(def)</code> falls back to <code>CATEGORY_LOOK</code> for an unknown id. Keep tones within [0, 1.5]. Do NOT re-add <code>flatShading</code>: it recomputes facet normals in-shader and erases the baked fillet normals the geometry carries.</li>
 </ul>
 
 <h2>Invariants you must keep</h2>

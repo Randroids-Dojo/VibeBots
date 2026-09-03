@@ -46,7 +46,8 @@ export type AchievementMetric =
   | "matchWins"
   | "chassisFought"
   | "partsMaxed"
-  | "sawMatchWins";
+  | "sawMatchWins"
+  | "designsPainted";
 
 export interface AchievementStats {
   sales: number;
@@ -79,6 +80,8 @@ export interface AchievementStats {
   partsMaxed: number;
   /** Verified wins by a design carrying a saw blade. */
   sawMatchWins: number;
+  /** 1 once any saved design carries a paint job (G5). */
+  designsPainted: number;
 }
 
 export interface AchievementSnapshot {
@@ -129,6 +132,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   chassisFought: 0,
   partsMaxed: 0,
   sawMatchWins: 0,
+  designsPainted: 0,
 };
 
 export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
@@ -511,6 +515,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 1,
   },
   {
+    id: "tools-custom-job",
+    category: "tools",
+    title: "Custom Job",
+    description: "Save a bot wearing your own paint.",
+    stamp: "CJ",
+    metric: "designsPainted",
+    target: 1,
+  },
+  {
     id: "battle-first-blood",
     category: "battle",
     title: "First Blood",
@@ -584,6 +597,9 @@ export function mergeAchievementStats(
     chassisFought: Math.max(current.chassisFought, patch.chassisFought ?? 0),
     partsMaxed: Math.max(current.partsMaxed, patch.partsMaxed ?? 0),
     sawMatchWins: current.sawMatchWins + (patch.sawMatchWins ?? 0),
+    // Derived from the saved designs (a painted design exists or not), so
+    // it merges as a high-water mark rather than a sum.
+    designsPainted: Math.max(current.designsPainted, patch.designsPainted ?? 0),
   };
 }
 

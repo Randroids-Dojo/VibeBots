@@ -11,9 +11,12 @@ import { create } from "zustand";
 import {
   type BotBehavior,
   type BotDesign,
+  type BotPaint,
+  type BotRule,
   type Connection,
   DEFAULT_GEAR_RATIO,
   isGearableConnection,
+  MAX_DESIGN_RULES,
   MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   type Orientation,
@@ -318,6 +321,27 @@ function nextIid(design: BotDesign, partId: string): string {
   return `${partId}-${n}`;
 }
 
+export type BrowseCategory = "all" | "structure" | "mobility" | "weapon";
+
+/** The carousel's category chips, in display order, with their labels. */
+export const BROWSE_CATEGORIES: readonly {
+  id: BrowseCategory;
+  label: string;
+}[] = [
+  { id: "all", label: "All" },
+  { id: "structure", label: "Frame" },
+  { id: "mobility", label: "Drive" },
+  { id: "weapon", label: "Weapon" },
+];
+
+/** The non-core catalog narrowed to one family (or all of it). */
+export function carouselIdsFor(category: BrowseCategory): string[] {
+  if (category === "all") return CAROUSEL_PART_IDS;
+  return CAROUSEL_PART_IDS.filter(
+    (id) => PART_CATALOG[id]?.category === category,
+  );
+}
+
 export interface WorkshopState {
   history: EditorHistory<BotDesign>;
   design: BotDesign;
@@ -362,8 +386,24 @@ export interface WorkshopState {
    */
   balanceVisible: boolean;
   toggleBalance: () => void;
+  /**
+   * Bumped whenever the bench view should return to its default framing
+   * (G1): a chassis swap, a loaded design, a reset, or the Recenter control.
+   * The canvas glides the camera back to the front three-quarter on it.
+   */
+  viewResetNonce: number;
+  recenterView: () => void;
   addPart: (partId: string) => void;
   browseBy: (dir: number) => void;
+  /** Show a named part in the carousel (G6 hands the player the wheel). */
+  browseTo: (partId: string) => void;
+  /**
+   * Which family the carousel shows (G4): every non-core part, or one of
+   * structure, mobility, weapon. The panel folds this into the pool it
+   * hands setBrowsableIds, so browseBy cycles only that family.
+   */
+  browseCategory: BrowseCategory;
+  setBrowseCategory: (category: BrowseCategory) => void;
   /** Set the carousel's part pool; snaps the shown part back in when needed. */
   setBrowsableIds: (ids: string[]) => void;
   rotateBrowse: () => void;
@@ -375,6 +415,8 @@ export interface WorkshopState {
   setCore: (coreId: string) => void;
   /** Mirror mode (L): a place on a core side connector also fills its twin. */
   mirrorEnabled: boolean;
+  /** Set mirror mode outright; the guided first build turns it on (F-241). */
+  setMirror: (enabled: boolean) => void;
   toggleMirror: () => void;
   setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
@@ -384,8 +426,16 @@ export interface WorkshopState {
   rotateSelected: () => void;
   setName: (name: string) => void;
   setBehavior: (patch: Partial<BotBehavior>) => void;
+  /** Replace the bench rules (F-247); an empty list clears the field. Undoable. */
+  setRules: (rules: readonly BotRule[]) => void;
+  /** Append one rule unless it is already there or the list is full. Undoable. */
+  addRule: (rule: BotRule) => void;
   /** Declare (or clear) the design's weight class (F-228). Undoable. */
   setWeightClass: (classId: string | undefined) => void;
+  /** Set (or clear) the design's cosmetic paint (G5). Undoable. */
+  setPaint: (paint: BotPaint | undefined) => void;
+  /** Bumped on every merge, either path, so the panel can celebrate a chain (G7). */
+  mergeNonce: number;
   /** Set the drive gear ratio on every drive axle (F-229). Undoable. */
   setGearRatio: (ratio: number) => void;
   loadDesign: (design: BotDesign) => void;
@@ -405,6 +455,9 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   inspectNonce: 0,
   browsePartId: CAROUSEL_PART_IDS[0],
   browsableIds: CAROUSEL_PART_IDS,
+  browseCategory: "all",
+
+  setBrowseCategory: (category) => set({ browseCategory: category }),
   browseOrientation: 0,
   buildActive: true,
   browseDimmed: false,
@@ -412,8 +465,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   mergePreviewLevel: null,
   balanceVisible: false,
   mirrorEnabled: false,
+  viewResetNonce: 0,
+  mergeNonce: 0,
+
+  recenterView: () => set((s) => ({ viewResetNonce: s.viewResetNonce + 1 })),
 
   toggleMirror: () => set((s) => ({ mirrorEnabled: !s.mirrorEnabled })),
+  setMirror: (enabled) => set({ mirrorEnabled: enabled }),
 
   addPart: (partId) => {
     const { history, design } = get();
@@ -445,6 +503,18 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
         selectedIid: null,
       };
     }),
+
+  browseTo: (partId) =>
+    set((s) =>
+      PART_CATALOG[partId] && PART_CATALOG[partId].category !== "core"
+        ? {
+            browsePartId: partId,
+            browseOrientation: 0,
+            selectedIid: null,
+            browseStatsOpen: false,
+          }
+        : s,
+    ),
 
   // The Build tab sets which parts the carousel offers (owned-only vs all).
   // Keep the shown part if it survives the filter; otherwise snap to the first
@@ -489,11 +559,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       connections: [],
       ...(design.behavior ? { behavior: design.behavior } : {}),
     };
-    set({
+    set((s) => ({
       ...withDesign(pushHistory(history, next)),
       selectedIid: null,
       browseStatsOpen: false,
-    });
+      // A new chassis is a new bot: bring the view home to it.
+      viewResetNonce: s.viewResetNonce + 1,
+    }));
   },
 
   setMergePreviewLevel: (level) => set({ mergePreviewLevel: level }),
@@ -544,11 +616,12 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     const { history, design } = get();
     const next = planMergeSelectedPart(design, iid);
     if (!next) return;
-    set({
+    set((s) => ({
       ...withDesign(pushHistory(history, next)),
       selectedIid: iid,
       browseStatsOpen: false,
-    });
+      mergeNonce: s.mergeNonce + 1,
+    }));
   },
 
   removeSelected: () => {
@@ -578,7 +651,10 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     const { history, design, selectedIid } = get();
     const next = planMergeSelectedPart(design, selectedIid);
     if (!next) return;
-    set({ ...withDesign(pushHistory(history, next)) });
+    set((s) => ({
+      ...withDesign(pushHistory(history, next)),
+      mergeNonce: s.mergeNonce + 1,
+    }));
   },
 
   rotateSelected: () => {
@@ -597,22 +673,36 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       inspectNonce: iid ? s.inspectNonce + 1 : s.inspectNonce,
     })),
 
+  // Undo and redo restore whole designs. When the restored design stands on
+  // a different chassis (a swap undone or redone), the view comes home the
+  // same way the forward swap brought it, so the camera never stays parked
+  // on a bot that is no longer on the bench.
   undo: () => {
-    const { history } = get();
+    const { history, design } = get();
     if (!canUndo(history)) return;
-    set({
-      ...withDesign(undoHistory(history)),
+    const next = undoHistory(history);
+    set((s) => ({
+      ...withDesign(next),
       selectedIid: null,
-    });
+      viewResetNonce:
+        currentCoreId(next.present) === currentCoreId(design)
+          ? s.viewResetNonce
+          : s.viewResetNonce + 1,
+    }));
   },
 
   redo: () => {
-    const { history } = get();
+    const { history, design } = get();
     if (!canRedo(history)) return;
-    set({
-      ...withDesign(redoHistory(history)),
+    const next = redoHistory(history);
+    set((s) => ({
+      ...withDesign(next),
       selectedIid: null,
-    });
+      viewResetNonce:
+        currentCoreId(next.present) === currentCoreId(design)
+          ? s.viewResetNonce
+          : s.viewResetNonce + 1,
+    }));
   },
 
   setName: (name) => {
@@ -632,6 +722,22 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({ ...withDesign(pushHistory(history, { ...design, behavior })) });
   },
 
+  setRules: (rules) => {
+    const { history, design } = get();
+    const next = rules.slice(0, MAX_DESIGN_RULES);
+    const { rules: _dropped, ...rest } = design;
+    const updated: BotDesign =
+      next.length > 0 ? { ...rest, rules: next } : rest;
+    set({ ...withDesign(pushHistory(history, updated)) });
+  },
+
+  addRule: (rule) => {
+    const rules = get().design.rules ?? [];
+    if (rules.length >= MAX_DESIGN_RULES) return;
+    if (rules.some((r) => r.when === rule.when && r.act === rule.act)) return;
+    get().setRules([...rules, rule]);
+  },
+
   setGearRatio: (ratio) => {
     const { history, design } = get();
     // Applies to every drive axle at once: real bots gear an axle, not one
@@ -647,6 +753,23 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     set({ ...withDesign(pushHistory(history, { ...design, connections })) });
   },
 
+  setPaint: (paint) => {
+    const { history, design } = get();
+    const same =
+      (paint === undefined && design.paint === undefined) ||
+      (paint !== undefined &&
+        design.paint !== undefined &&
+        paint.primary === design.paint.primary &&
+        paint.accent === design.paint.accent);
+    if (same) return;
+    // Clearing drops the key so a saved design round-trips to exactly what
+    // it was before paint existed.
+    const next: BotDesign = { ...design };
+    if (paint === undefined) delete next.paint;
+    else next.paint = { primary: paint.primary, accent: paint.accent };
+    set({ ...withDesign(pushHistory(history, next)) });
+  },
+
   setWeightClass: (classId) => {
     const { history, design } = get();
     if (design.weightClass === classId) return;
@@ -659,11 +782,12 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   },
 
   loadDesign: (design) =>
-    set({
+    set((s) => ({
       ...withDesign(createHistory<BotDesign>(design)),
       selectedIid: null,
       browseStatsOpen: false,
-    }),
+      viewResetNonce: s.viewResetNonce + 1,
+    })),
 
   reset: () =>
     set((s) => ({
@@ -676,5 +800,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       browseOrientation: 0,
       browseDimmed: false,
       browseStatsOpen: false,
+      viewResetNonce: s.viewResetNonce + 1,
     })),
 }));

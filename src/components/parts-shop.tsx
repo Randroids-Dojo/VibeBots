@@ -20,6 +20,32 @@ type ShopState =
   | { state: "unavailable" }
   | { state: "ready"; data: ShopData; notice: string | null };
 
+/**
+ * One family's rows, cheapest first: price climbs with tier by the
+ * catalog's own rule (a tier-two part costs about two tier-one copies), so
+ * price is the ladder order and the server's insertion order never is
+ * (the light plate was added after the frame plate it sits below). Ties
+ * fall back to the name so the order is stable.
+ */
+export function shopRowsFor<T extends CatalogEntry>(
+  catalog: readonly T[],
+  category: string,
+): T[] {
+  return catalog
+    .filter((part) => part.category === category)
+    .sort(
+      (a, b) =>
+        a.priceEmeralds - b.priceEmeralds || a.name.localeCompare(b.name),
+    );
+}
+
+/** Shop headings by family, in the order the carousel chips use. */
+const SHOP_FAMILIES: readonly { category: string; label: string }[] = [
+  { category: "structure", label: "Frame" },
+  { category: "mobility", label: "Drive" },
+  { category: "weapon", label: "Weapon" },
+];
+
 const panelStyle: React.CSSProperties = {
   background: "rgba(17, 21, 31, 0.92)",
   border: "1px solid #26304a",
@@ -159,41 +185,54 @@ export function PartsShop() {
         )}
       </p>
 
-      <h3 style={{ margin: "0 0 8px", fontSize: "0.9rem", opacity: 0.8 }}>
-        Robot parts
-      </h3>
-      <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-        {data.catalog.map((part) => (
-          <li
-            key={part.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 8,
-            }}
-          >
-            <span style={{ fontSize: "0.9rem" }}>
-              {part.name}
-              <span style={{ opacity: 0.5 }}> ({part.category})</span>
-              {counts.get(part.id) ? (
-                <span style={{ color: "#54e0c7" }}>
-                  {" "}
-                  x{counts.get(part.id)}
-                </span>
-              ) : null}
-            </span>
-            <button
-              type="button"
-              onClick={() => void buy(part.id)}
-              disabled={data.emeralds < part.priceEmeralds}
-              style={buyButtonStyle(data.emeralds >= part.priceEmeralds)}
+      {/* Grouped by family (G4): with a ladder of wheels, plates, and
+          blades, a flat list stops reading as a catalog. The order inside a
+          family is the catalog's, which climbs each ladder. */}
+      {SHOP_FAMILIES.map((family) => {
+        const rows = shopRowsFor(data.catalog, family.category);
+        if (rows.length === 0) return null;
+        return (
+          <section key={family.category} aria-label={`${family.label} parts`}>
+            <h3
+              style={{ margin: "8px 0 6px", fontSize: "0.9rem", opacity: 0.8 }}
             >
-              {part.priceEmeralds} vibes
-            </button>
-          </li>
-        ))}
-      </ul>
+              {family.label}
+            </h3>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+              {rows.map((part) => (
+                <li
+                  key={part.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span style={{ fontSize: "0.9rem" }}>
+                    {part.name}
+                    {counts.get(part.id) ? (
+                      <span style={{ color: "#54e0c7" }}>
+                        {" "}
+                        x{counts.get(part.id)}
+                      </span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => void buy(part.id)}
+                    disabled={data.emeralds < part.priceEmeralds}
+                    style={buyButtonStyle(data.emeralds >= part.priceEmeralds)}
+                    aria-label={`Buy ${part.name} for ${part.priceEmeralds} vibes`}
+                  >
+                    {part.priceEmeralds} vibes
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </aside>
   );
 }

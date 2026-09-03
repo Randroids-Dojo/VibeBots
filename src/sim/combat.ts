@@ -13,8 +13,11 @@ import {
 } from "./assembly";
 import {
   type BotDesign,
+  CORE_HURT_RATIO,
   NEUTRAL_BEHAVIOR,
   partInstanceDurability,
+  type RuleAction,
+  type RuleCondition,
 } from "./design";
 import { PART_CATALOG, type PartDef, type Vec3, vec3Distance } from "./parts";
 import {
@@ -511,6 +514,50 @@ function hasUsableWeapon(bot: CombatBot): boolean {
   return intactAttachedIids(bot, bot.weaponIids).length > 0;
 }
 
+/** What a bench rule's condition reads: one bot, one tick (F-247). */
+export interface RuleView {
+  /** The design mounted at least one weapon, so "down" means lost. */
+  hadWeapon: boolean;
+  hasWeapon: boolean;
+  enemyHasWeapon: boolean;
+  /** The enemy can still drive; a design with no mobility parts always can. */
+  enemyMobile: boolean;
+  coreHealthRatio: number;
+  tick: number;
+  timeLimitTicks: number;
+}
+
+/**
+ * Whether a rule's condition holds for the view. Pure and total over the
+ * condition ids so the bench copy and the sim cannot drift apart.
+ */
+export function ruleHolds(condition: RuleCondition, view: RuleView): boolean {
+  switch (condition) {
+    case "weapon-down":
+      return view.hadWeapon && !view.hasWeapon;
+    case "enemy-weapon-down":
+      return !view.enemyHasWeapon;
+    case "enemy-immobile":
+      return !view.enemyMobile;
+    case "core-hurt":
+      return view.coreHealthRatio < CORE_HURT_RATIO;
+    case "clock-late":
+      return view.tick * 3 >= view.timeLimitTicks * 2;
+  }
+}
+
+// One view per process: the controller fills it every tick a bot has
+// rules (frame-loop rule, no per-tick allocation).
+const ruleScratch: RuleView = {
+  hadWeapon: false,
+  hasWeapon: false,
+  enemyHasWeapon: false,
+  enemyMobile: true,
+  coreHealthRatio: 1,
+  tick: 0,
+  timeLimitTicks: 0,
+};
+
 function firstUsableWeaponPosition(bot: CombatBot): Vec3 | null {
   const weapons = intactAttachedIids(bot, bot.weaponIids);
   return weapons.length > 0 ? partPosition(bot, weapons[0]) : null;
@@ -725,6 +772,42 @@ function runControllers(match: MatchState): void {
     // Neutral 0.5 reproduces the classic constants exactly; the factors
     // scale linearly to 0.5x..1.5x across the slider range.
     const behaviorScale = (value: number) => 0.5 + value;
+    // Bench rules (F-234, F-247): the first rule whose condition holds
+    // decides this tick's move. A design without rules never enters this
+    // block, so the path below is the one it always took.
+    let ruleAction: RuleAction | null = null;
+    const rules = bot.design.rules;
+    if (rules !== undefined && rules.length > 0) {
+      // The enemy's drive state; the bot's own was copied out above, so
+      // the shared scratch can be reused here.
+      const enemyDrive = readDriveCondition(enemy);
+      ruleScratch.hadWeapon = bot.weaponIids.size > 0;
+      ruleScratch.hasWeapon = botHasWeapon;
+      ruleScratch.enemyHasWeapon = enemyHasWeapon;
+      ruleScratch.enemyMobile =
+        enemy.mobilityIids.size === 0 || enemyDrive.ratio > 0;
+      ruleScratch.coreHealthRatio = healthRatioOf(bot, bot.assembled.rootIid);
+      ruleScratch.tick = match.tick;
+      ruleScratch.timeLimitTicks = match.timeLimitTicks;
+      for (let i = 0; i < rules.length; i++) {
+        if (ruleHolds(rules[i].when, ruleScratch)) {
+          ruleAction = rules[i].act;
+          break;
+        }
+      }
+    }
+    if (ruleAction === "hold") {
+      setDriveVelocity(bot.assembled, 0, 0);
+      return;
+    }
+    if (ruleAction === "disengage") {
+      setDriveVelocity(
+        bot.assembled,
+        DRIVE_SPEED * BACKOFF_SPEED_FACTOR * wear,
+        0,
+      );
+      return;
+    }
     if (
       bot.brain.backoffUntilTick === 0 &&
       targetDistance < BACKOFF_TRIGGER_RANGE
@@ -775,7 +858,8 @@ function runControllers(match: MatchState): void {
           : -MAX_STEER
         : clamp(STEER_GAIN * cross, -MAX_STEER, MAX_STEER);
 
-    if (bot.brain.backoffUntilTick !== 0) {
+    // A charge rule skips the reset cycle and the damage-aware floor.
+    if (bot.brain.backoffUntilTick !== 0 && ruleAction !== "charge") {
       setDriveVelocity(
         bot.assembled,
         DRIVE_SPEED * BACKOFF_SPEED_FACTOR * wear,
@@ -787,7 +871,9 @@ function runControllers(match: MatchState): void {
     const turnThrottle = aligned < -0.2 ? 0.45 : 1 - Math.abs(steer) * 0.35;
     // Aggression widens or narrows the damage-aware throttle floor.
     const damageThrottle =
-      (0.72 + mobility * 0.28) * (0.8 + behavior.aggression * 0.4);
+      ruleAction === "charge"
+        ? 1
+        : (0.72 + mobility * 0.28) * (0.8 + behavior.aggression * 0.4);
     setDriveVelocity(
       bot.assembled,
       -DRIVE_SPEED * clamp(turnThrottle * damageThrottle, 0.35, 1) * wear,

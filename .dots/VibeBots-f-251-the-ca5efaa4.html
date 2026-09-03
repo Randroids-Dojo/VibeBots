@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>F-251 The goldens update script exits 1 on Windows</title>
+<meta name="dot-title" content="F-251 The goldens update script exits 1 on Windows">
+<meta name="dot-status" content="active">
+<meta name="dot-priority" content="3">
+<meta name="dot-issue-type" content="task">
+<meta name="dot-created-at" content="2026-09-02T16:34:43.052723-07:00">
+</head>
+<body>
+<article>
+<h1>F-251 The goldens update script exits 1 on Windows</h1>
+<section id="description">
+scripts/update-goldens.mjs spawns pnpm without a shell, so on Windows spawnSync fails and the command exits 1 with no message; the vitest runner works when run directly with the two env vars
+</section>
+</article>
+</body>
+</html>

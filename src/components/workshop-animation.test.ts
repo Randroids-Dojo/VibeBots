@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   advance,
+  DISSOLVE_SECONDS,
   decay,
+  dissolveOpacity,
+  dissolveScale,
+  dissolveSink,
   ghostOpacity,
   MOUNT_SECONDS,
   PULSE_SECONDS,
+  SPARK_COUNT,
+  SPARK_SECONDS,
   smoothstep,
   snapScale,
+  sparkDirections,
+  sparkDrop,
+  sparkScale,
+  sparkTravel,
 } from "./workshop-animation";
 
 describe("workshop bench animation curves", () => {
@@ -40,6 +50,48 @@ describe("workshop bench animation curves", () => {
       expect(o).toBeGreaterThanOrEqual(0.28 - 1e-9);
       expect(o).toBeLessThanOrEqual(0.4 + 1e-9);
     }
+  });
+
+  it("dissolves a removed part smaller, fainter, and lower until gone", () => {
+    expect(dissolveScale(0)).toBeCloseTo(1);
+    expect(dissolveOpacity(0)).toBeCloseTo(1);
+    expect(dissolveSink(0)).toBeCloseTo(0);
+    expect(dissolveScale(1)).toBeCloseTo(0.2);
+    expect(dissolveOpacity(1)).toBeCloseTo(0);
+    expect(dissolveSink(1)).toBeCloseTo(0.12);
+    let last = dissolveScale(0);
+    for (const t of [0.2, 0.4, 0.6, 0.8, 1]) {
+      const next = dissolveScale(t);
+      expect(next).toBeLessThan(last);
+      last = next;
+    }
+    expect(DISSOLVE_SECONDS).toBeGreaterThan(0.15);
+    expect(DISSOLVE_SECONDS).toBeLessThan(0.5);
+  });
+
+  it("bursts sparks evenly upward, deterministically, and fades them out", () => {
+    const dirs = sparkDirections();
+    expect(dirs).toHaveLength(SPARK_COUNT);
+    for (const d of dirs) {
+      expect(d.y).toBeGreaterThan(0.2);
+      expect(d.y).toBeLessThan(1);
+      expect(Math.hypot(d.x, d.y, d.z)).toBeCloseTo(1, 6);
+    }
+    expect(sparkDirections()).toEqual(dirs);
+    // Spread: not all sparks lean the same way.
+    const meanX = dirs.reduce((sum, d) => sum + d.x, 0) / dirs.length;
+    expect(Math.abs(meanX)).toBeLessThan(0.3);
+    expect(sparkTravel(0)).toBe(0);
+    expect(sparkTravel(1)).toBeGreaterThan(sparkTravel(0.5));
+    expect(sparkDrop(1)).toBeGreaterThan(sparkDrop(0.5));
+    expect(sparkScale(0)).toBeGreaterThan(sparkScale(0.5));
+    expect(sparkScale(1)).toBe(0);
+    // F-244: big enough to read in a portrait capture.
+    expect(sparkScale(0)).toBeGreaterThanOrEqual(0.025);
+    // And holds most of that size past the midpoint.
+    expect(sparkScale(0.5)).toBeGreaterThan(sparkScale(0) * 0.7);
+    expect(SPARK_COUNT).toBeGreaterThanOrEqual(18);
+    expect(SPARK_SECONDS).toBeLessThan(1);
   });
 
   it("advances toward 1 and decays toward 0, both clamped", () => {

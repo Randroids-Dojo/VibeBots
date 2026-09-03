@@ -136,6 +136,47 @@ const TOWER_BASHER: BotDesign = {
   behavior: { aggression: 0.6, flankBias: 0.2, patience: 0.7 },
 };
 
+// Wedge Lancer: the tier-two rungs on the low chassis. Grip wheels for
+// the shove, a lance for reach on one front mount, and a wedge block on
+// the other to get under whatever the lance misses.
+const WEDGE_LANCER: BotDesign = {
+  name: "Wedge Lancer",
+  parts: [
+    { iid: "core", partId: "wedge-core" },
+    { iid: "wheel-l", partId: "grip-wheel" },
+    { iid: "wheel-r", partId: "grip-wheel" },
+    { iid: "lance", partId: "lance" },
+    { iid: "nose", partId: "wedge-block" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front-left",
+      childIid: "lance",
+      childConnector: "mount",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front-right",
+      childIid: "nose",
+      childConnector: "mount",
+    },
+  ],
+  behavior: { aggression: 0.75, flankBias: 0.35, patience: 0.35 },
+};
+
 export const BLUEPRINTS: Blueprint[] = [
   {
     id: "cube-rammer",
@@ -154,5 +195,11 @@ export const BLUEPRINTS: Blueprint[] = [
     label: "Tower Basher",
     blurb: "Tall and tough. Overhead hammer, front armor.",
     design: TOWER_BASHER,
+  },
+  {
+    id: "wedge-lancer",
+    label: "Wedge Lancer",
+    blurb: "Tier two. Grip wheels, a lance, and a low nose.",
+    design: WEDGE_LANCER,
   },
 ];

@@ -88,6 +88,7 @@ interface AchievementProfileRow {
   elevator_speed_level: number;
   parts_owned: number;
   has_maxed_design: boolean;
+  has_painted_design: boolean;
   bunker_dug: unknown;
   bunker_footprint: unknown;
   mine_diff: unknown;
@@ -156,6 +157,12 @@ async function achievementSnapshot(
              WHERE bd.player_id = p.id
                AND (part->>'mergeLevel')::int >= 3
            ) AS has_maxed_design,
+           EXISTS (
+             SELECT 1
+             FROM bot_designs bd
+             WHERE bd.player_id = p.id
+               AND bd.design ? 'paint'
+           ) AS has_painted_design,
            bk.dug AS bunker_dug,
            bk.footprint AS bunker_footprint,
            mw.diff AS mine_diff
@@ -174,6 +181,12 @@ async function achievementSnapshot(
     sawMatchWins: Math.max(stats.sawMatchWins, matchCounters.sawMatchWins),
     chassisFought: Math.max(stats.chassisFought, matchCounters.chassisFought),
     partsMaxed: Math.max(stats.partsMaxed, row?.has_maxed_design ? 1 : 0),
+    // Custom Job (G5) derives from the saved design itself, so it backfills
+    // for any profile that painted a bot before the stamp existed.
+    designsPainted: Math.max(
+      stats.designsPainted,
+      row?.has_painted_design ? 1 : 0,
+    ),
     // Backfill from the durable record: bunkers.dug proves every
     // player-excavated cell even for profiles that dug before the stamp.
     // The authored spawn pocket is excluded so a fresh claim is not

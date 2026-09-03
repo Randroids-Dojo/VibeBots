@@ -5,6 +5,7 @@ import { DRIVE_WHEEL, PART_CATALOG, SAW_BLADE, SPIN_MOUNT } from "@/sim/parts";
 import {
   CAROUSEL_PART_IDS,
   CORE_PART_IDS,
+  carouselIdsFor,
   currentCoreId,
   findFreeConnectors,
   mirrorSlotFor,
@@ -333,6 +334,26 @@ describe("W4 merge as placement", () => {
   });
 });
 
+describe("bench rules (F-247)", () => {
+  it("sets rules with a cap of three, clears the field when empty, and undoes", () => {
+    store().setRules([{ when: "weapon-down", act: "disengage" }]);
+    expect(store().design.rules).toEqual([
+      { when: "weapon-down", act: "disengage" },
+    ]);
+    store().addRule({ when: "clock-late", act: "charge" });
+    store().addRule({ when: "clock-late", act: "charge" });
+    expect(store().design.rules).toHaveLength(2);
+    store().addRule({ when: "core-hurt", act: "hold" });
+    store().addRule({ when: "enemy-immobile", act: "charge" });
+    expect(store().design.rules).toHaveLength(3);
+    expect(validateDesign(store().design).ok).toBe(true);
+    store().undo();
+    expect(store().design.rules).toHaveLength(2);
+    store().setRules([]);
+    expect(store().design.rules).toBeUndefined();
+  });
+});
+
 describe("B3 temperament", () => {
   it("sets behavior with neutral fill and history undo", () => {
     store().setBehavior({ aggression: 0.9 });
@@ -549,5 +570,162 @@ describe("L mirror placement", () => {
     const left = axleSlots.find((s) => s.parentConnector === "axle-left");
     if (left) store().placeAtSlot(left);
     expect(store().design.parts).toHaveLength(2);
+  });
+});
+
+describe("G4 carousel categories", () => {
+  beforeEach(() => {
+    store().reset();
+    store().setBrowseCategory("all");
+  });
+
+  it("narrows the non-core catalog to one family and back", () => {
+    expect(carouselIdsFor("all")).toEqual(CAROUSEL_PART_IDS);
+    for (const category of ["structure", "mobility", "weapon"] as const) {
+      const ids = carouselIdsFor(category);
+      expect(ids.length).toBeGreaterThan(0);
+      for (const id of ids) expect(PART_CATALOG[id].category).toBe(category);
+    }
+    // The three families partition the whole non-core catalog.
+    const union = new Set([
+      ...carouselIdsFor("structure"),
+      ...carouselIdsFor("mobility"),
+      ...carouselIdsFor("weapon"),
+    ]);
+    expect(union.size).toBe(CAROUSEL_PART_IDS.length);
+    expect(carouselIdsFor("all")).not.toContain("core-cube");
+  });
+
+  it("remembers the chosen chip and cycles inside it", () => {
+    store().setBrowseCategory("mobility");
+    expect(store().browseCategory).toBe("mobility");
+    store().setBrowsableIds(carouselIdsFor("mobility"));
+    expect(PART_CATALOG[store().browsePartId].category).toBe("mobility");
+    for (let i = 0; i < 6; i++) store().browseBy(1);
+    expect(PART_CATALOG[store().browsePartId].category).toBe("mobility");
+  });
+});
+
+describe("G7 merge nonce", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("bumps on a merge by either path and never on a placement", () => {
+    const start = store().mergeNonce;
+    const slot = validSlotsFor(store().design, DRIVE_WHEEL)[0];
+    store().placeAtSlot(slot);
+    expect(store().mergeNonce).toBe(start);
+    store().mergePart(slot.iid);
+    expect(store().mergeNonce).toBe(start + 1);
+    store().select(slot.iid);
+    store().mergeSelectedPart();
+    expect(store().mergeNonce).toBe(start + 2);
+    // At the cap a merge is refused and the nonce holds.
+    store().mergeSelectedPart();
+    expect(store().mergeNonce).toBe(start + 2);
+  });
+});
+
+describe("G5 paint", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("sets, changes, clears, and undoes paint without touching the parts", () => {
+    expect(store().design.paint).toBeUndefined();
+    const parts = store().design.parts;
+    const connections = store().design.connections;
+    store().setPaint({ primary: "cobalt", accent: "gold" });
+    expect(store().design.paint).toEqual({ primary: "cobalt", accent: "gold" });
+    expect(store().design.parts).toBe(parts);
+    expect(store().design.connections).toBe(connections);
+    expect(validateDesign(store().design).ok).toBe(true);
+    // Same paint again is a no-op (no history entry).
+    const before = store().history;
+    store().setPaint({ primary: "cobalt", accent: "gold" });
+    expect(store().history).toBe(before);
+    store().setPaint({ primary: "cobalt", accent: "slate" });
+    expect(store().design.paint?.accent).toBe("slate");
+    store().undo();
+    expect(store().design.paint?.accent).toBe("gold");
+    store().setPaint(undefined);
+    expect("paint" in store().design).toBe(false);
+    store().undo();
+    expect(store().design.paint).toEqual({ primary: "cobalt", accent: "gold" });
+    expect(store().design.parts).toBe(parts);
+    expect(store().design.connections).toBe(connections);
+  });
+});
+
+describe("F-241 setMirror", () => {
+  it("sets mirror mode outright, either way, without a history entry", () => {
+    store().reset();
+    const before = store().history;
+    store().setMirror(true);
+    expect(store().mirrorEnabled).toBe(true);
+    store().setMirror(true);
+    expect(store().mirrorEnabled).toBe(true);
+    store().setMirror(false);
+    expect(store().mirrorEnabled).toBe(false);
+    expect(store().history).toBe(before);
+  });
+});
+
+describe("G6 browseTo", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("shows a named non-core part and ignores cores and unknown ids", () => {
+    store().browseTo("saw-blade");
+    expect(store().browsePartId).toBe("saw-blade");
+    store().rotateBrowse();
+    store().browseTo("drive-wheel");
+    expect(store().browsePartId).toBe("drive-wheel");
+    expect(store().browseOrientation).toBe(0);
+    store().browseTo("core-cube");
+    expect(store().browsePartId).toBe("drive-wheel");
+    store().browseTo("no-such-part");
+    expect(store().browsePartId).toBe("drive-wheel");
+  });
+});
+
+describe("G1 view reset nonce", () => {
+  beforeEach(() => {
+    store().reset();
+  });
+
+  it("bumps on recenter, chassis swap, load, and reset, never on a placement", () => {
+    const start = store().viewResetNonce;
+    const wheelSlots = validSlotsFor(store().design, DRIVE_WHEEL);
+    store().placeAtSlot(wheelSlots[0]);
+    expect(store().viewResetNonce).toBe(start);
+    store().select("drive-wheel-1");
+    expect(store().viewResetNonce).toBe(start);
+
+    store().recenterView();
+    expect(store().viewResetNonce).toBe(start + 1);
+    store().setCore("wedge-core");
+    expect(store().viewResetNonce).toBe(start + 2);
+    // Same core again is a no-op, so the view does not jump either.
+    store().setCore("wedge-core");
+    expect(store().viewResetNonce).toBe(start + 2);
+    // Undoing the swap restores the cube bot: a different chassis, so the
+    // view comes home to it; redo swaps back and comes home again.
+    store().undo();
+    expect(store().viewResetNonce).toBe(start + 3);
+    store().redo();
+    expect(store().viewResetNonce).toBe(start + 4);
+    // Undoing a plain placement keeps the chassis, so the view holds.
+    store().undo();
+    store().placeAtSlot(validSlotsFor(store().design, DRIVE_WHEEL)[0]);
+    const beforePlacementUndo = store().viewResetNonce;
+    store().undo();
+    expect(store().viewResetNonce).toBe(beforePlacementUndo);
+    store().loadDesign(STARTER_DESIGN);
+    expect(store().viewResetNonce).toBe(beforePlacementUndo + 1);
+    store().reset();
+    expect(store().viewResetNonce).toBe(beforePlacementUndo + 2);
   });
 });

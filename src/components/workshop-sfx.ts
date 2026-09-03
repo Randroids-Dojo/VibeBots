@@ -9,7 +9,7 @@ import { audioCtx, type ToneWave, tone } from "./sfx-audio";
  * (gesture-resumed), with no mine event types imported anywhere here.
  */
 
-export type WorkshopSfxEvent = "place" | "merge";
+export type WorkshopSfxEvent = "place" | "merge" | "remove" | "chain";
 
 export interface WorkshopToneStep {
   wave: ToneWave;
@@ -29,6 +29,30 @@ export function workshopSfxTones(event: WorkshopSfxEvent): WorkshopToneStep[] {
     return [
       { wave: "sine", start: 660, gain: 0.1, delay: 0, len: 0.12 },
       { wave: "sine", start: 830, gain: 0.12, delay: 0.07, len: 0.18 },
+    ];
+  }
+  if (event === "chain") {
+    // A merge that can merge again: the merge chime's two notes and a
+    // third on top, so a chain reads as the merge, then more.
+    return [
+      { wave: "sine", start: 660, gain: 0.1, delay: 0, len: 0.12 },
+      { wave: "sine", start: 830, gain: 0.11, delay: 0.07, len: 0.14 },
+      { wave: "sine", start: 990, gain: 0.12, delay: 0.16, len: 0.2 },
+    ];
+  }
+  if (event === "remove") {
+    // Remove: a soft downward whoosh with a low thud under it, the part
+    // coming off rather than an error.
+    return [
+      {
+        wave: "triangle",
+        start: 320,
+        end: 140,
+        gain: 0.08,
+        delay: 0,
+        len: 0.16,
+      },
+      { wave: "sine", start: 90, gain: 0.06, delay: 0.04, len: 0.1 },
     ];
   }
   // Place: one dry mechanical snap, a fast downward tick.

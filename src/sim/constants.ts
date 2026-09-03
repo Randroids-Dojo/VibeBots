@@ -2,8 +2,11 @@
  * Sim-wide constants. SIM_VERSION must bump on any change that alters
  * physics results: a rapier version bump, a DT change, or a change to
  * world construction. Stored hashes from older SIM_VERSIONs are invalid.
+ *
+ * 8 (2026-09-02): the Tower core's collider changed (0.8 tall, axles a
+ * tenth below centre) so the tall chassis can close on an opponent (F-249).
  */
-export const SIM_VERSION = 7;
+export const SIM_VERSION = 8;
 
 /** Fixed timestep in seconds. The sim never steps with a variable dt. */
 export const DT = 1 / 60;

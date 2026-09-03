@@ -134,6 +134,25 @@ Do not stop at planning. Do not stop after opening a PR. Do not stop after armin
 
 Never mark work complete with failing tests, unresolved actionable review comments from a human, a red required parallel CI gate on the PR head, or an open `red-main` issue that your merge caused.
 
+### Stacked pull requests (added 2026-09-02)
+
+Transitional. Once Q-038 is executed (auto-merge on the required gate), new slices branch from `origin/main` again and this section applies only while a stack opened before that is still landing.
+
+When a session cannot merge (the main ruleset blocks a plain merge, auto-merge is off on the repository, and the administrator override is unavailable to the session), keep the loop moving with stacked branches: each slice branches from the previous slice's branch, its PR targets that branch, and GitHub retargets it to `main` as the one below it merges. The owner merges the stack bottom to top. Rules that keep the stack safe:
+
+- Never rewrite a pushed branch (F-151, F-182). Carry a fix from a lower branch upward with a merge commit, never a rebase, and merge every branch below into every branch above it before opening the next PR. This is a manual stack held together by merge commits, not GitHub's native stacked pull request flow (which keeps a linear stack with cascading rebases); the repository squash-merges, so each PR lands as one commit whatever its branch history, and the no-rewrite rule above takes precedence over stack linearity.
+- After every merge that touches `docs/PROGRESS_LOG.html`, count `<article` against `</article>` and `<dl>` against `</dl>` before committing. Two entries inserted at the same anchor on both sides share their closing tags as common context, so git resolves the conflict with one closing pair for two entries and the second entry nests inside the first. Insert the missing pair before the next `<article>`.
+- A followup that a lower branch's ledger entry names must be defined on that branch (F-187), even when a higher branch already carries it: add the identical section at the identical anchor and the stacking merge sees the same hunk on both sides.
+- Dependency bumps still land one per PR; stack them below the feature slices so they merge first.
+
+### Patch scripts and Windows checkouts (added 2026-09-02)
+
+- Write a multi-file edit as a script file and run it; read the script's own exit status before committing, and make anchors formatter-tolerant. A script that asserts on a line the formatter has since rewrapped stops halfway and leaves a commit missing its ledger entries; this happened twice in one session.
+- Long bash heredocs with quoted delimiters can fail to parse on this Windows Git Bash. Keep heredocs short or use a script file.
+- The dash check and the AGENTS link audit both fail on a Windows checkout for environmental reasons (two PNG binaries matched by the raw grep; the five rule symlinks checked out as plain files). Run a text-only scan (`grep -rnI` for U+2014 and U+2013) and record both as the F-224 and F-188 artifacts; both gates are green on CI.
+- `dot-html` ships no Windows binary. Run the Linux release through WSL behind a wrapper that base64-packs the arguments (`wsl.exe` re-splits quoted arguments); the tracked `.dots/config` must be LF (a checkout from before the `.gitattributes` fix may still hold CRLF; a fresh worktree is fine).
+- The whole workshop e2e file at four local workers can fail its timing-sensitive perf case by contention (F-240). Confirm a parallel-run failure with a serial rerun before treating it as a regression.
+
 ### Fresh worktree bootstrap
 
 When the user asks for a fresh worktree, create it from the latest fetched `origin/main`, then make ignored operational metadata available before doing repo work:

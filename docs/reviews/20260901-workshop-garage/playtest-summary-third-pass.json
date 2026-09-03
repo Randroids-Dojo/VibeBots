@@ -1,0 +1,74 @@
+{
+  "coachCardOnFirstVisit": true,
+  "coachStep": "place",
+  "title": "My Bot: 2 parts",
+  "meters": {
+    "power": true,
+    "weight": true
+  },
+  "thumbBar": true,
+  "chips": {
+    "/weapon/i": {
+      "covered": null,
+      "click": "pointer"
+    },
+    "/drive/i (keyboard)": {
+      "pressed": "true"
+    },
+    "/weapon/i (keyboard)": {
+      "pressed": "true"
+    },
+    "/^all$/i": {
+      "covered": null,
+      "click": "pointer"
+    }
+  },
+  "sparkingRightAfterDrop": "1",
+  "titleAfterDrop": "My Bot: 4 parts",
+  "coachStepAfterDrop": "fight",
+  "sparkingLater": "0",
+  "rosterItems": [
+    "Test fight vs Brawlerwarm-up",
+    "Fight Contagioncontrols the floor",
+    "Fight Night Terrorall blade",
+    "Fight Bulldozeroutshoves a spike",
+    "Fight Impalerpunishes a spike",
+    "Fight a rival"
+  ],
+  "lanceBlurb": "Longer reach than the spike, and easier to snap.",
+  "paint": {
+    "primary": "cobalt",
+    "accent": "gold"
+  },
+  "shareCode": {
+    "prefix": "VB1.",
+    "length": 371
+  },
+  "titleAfterMergeDrop": "My Bot: 4 parts",
+  "chainCue": "Merge again to Lv 3",
+  "dissolve": {
+    "frames": "5",
+    "min": "0.200",
+    "stillDissolving": "0"
+  },
+  "titleAfterRemove": "My Bot: 3 parts",
+  "opponent": "Test fight vs Brawlerwarm-up",
+  "arenaPaint": {
+    "bot0": "none",
+    "bot1": "cobalt:gold"
+  },
+  "debrief": {
+    "headline": "You lost by decision at 1:00",
+    "lessons": [
+      "Your Ram Spike never connected. A longer reach or a spinner lands hits the Ram Spike cannot.",
+      "The judges scored it 106 to 105. You were on the front foot 1% of the fight to their 6%: raise Aggression to close faster."
+    ],
+    "buttons": [
+      "Try another weapon",
+      "Raise aggression"
+    ]
+  },
+  "consoleErrors": [],
+  "failedResponses": [],
+  "missing": []
+}

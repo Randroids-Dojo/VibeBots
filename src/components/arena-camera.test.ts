@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARENA_PORTRAIT_ASPECT,
   arenaCameraBoundsCenter,
   arenaCameraFrameForBounds,
   emptyArenaCameraBounds,
@@ -41,6 +42,33 @@ describe("arena camera framing", () => {
       y: 2.5,
       z: 1.5,
     });
+  });
+
+  it("frames over the player's shoulder on a portrait viewport (F-245)", () => {
+    const bounds = emptyArenaCameraBounds();
+    includeArenaCameraPoint(bounds, -4, 1, -1, 1);
+    includeArenaCameraPoint(bounds, 6, 1, 3, 1);
+    const centers: [{ x: number; z: number }, { x: number; z: number }] = [
+      { x: -4, z: -1 },
+      { x: 6, z: 3 },
+    ];
+    const landscape = arenaCameraFrameForBounds(bounds, centers, 16 / 9);
+    const portrait = arenaCameraFrameForBounds(bounds, centers, 390 / 760);
+    // Landscape looks across the line; portrait looks along it, from
+    // behind bot 1 (the player's), a quarter turn away.
+    const alongLine = Math.atan2(6 - -4, 3 - -1);
+    expect(landscape.yaw).toBeCloseTo(alongLine + Math.PI / 2);
+    expect(portrait.yaw).toBeCloseTo(alongLine);
+    // And from closer and higher, so the fight fills a tall screen.
+    expect(portrait.distance).toBeLessThan(landscape.distance);
+    expect(portrait.height).toBeGreaterThan(landscape.height);
+    expect(portrait.targetX).toBeCloseTo(landscape.targetX);
+    expect(portrait.targetZ).toBeCloseTo(landscape.targetZ);
+    // A square-or-wider viewport keeps the broadside shot.
+    expect(arenaCameraFrameForBounds(bounds, centers, 1).yaw).toBeCloseTo(
+      landscape.yaw,
+    );
+    expect(ARENA_PORTRAIT_ASPECT).toBe(1);
   });
 
   it("backs up when the bots spread apart", () => {

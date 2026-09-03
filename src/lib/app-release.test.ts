@@ -24,11 +24,131 @@ describe("app release build id", () => {
 });
 
 describe("app release notes", () => {
-  it("keeps the latest elevator-earned note complete", () => {
+  it("keeps the latest paint note complete", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-08-11-0.1.294-elevator-earned");
+    expect(release.noticeId).toBe("2026-09-03-0.1.312-bench-rules");
+    expect(latestNote).toMatchObject({
+      version: "0.1.312",
+      title: "Rules on the bench",
+      intro:
+        "Your bot has three temperament sliders and gearing; now it has rules too. On the Tune tab, up to three lines of when this, do that, from fixed lists: when my weapon is down, back off; when their weapon is down, charge; when the clock is in its last third, hold still. The first rule that holds decides the move, every tick, and a bot with no rules fights exactly as before.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Rules: up to three when-then lines on the Tune tab, from fixed lists (five conditions, three actions), checked in order every tick; the first that holds decides the move.",
+      "The debrief offers one: lose after your weapon went down and the bot fought on without it, and the lesson adds the rule that backs off in that spot.",
+      "Share codes carry rules, and a bot with no rules fights exactly as it did, so nothing already recorded changes.",
+    ]);
+  });
+
+  it("keeps the archived tier-ladder note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.300");
+
+    expect(latestNote).toMatchObject({
+      version: "0.1.300",
+      title: "Eight new parts, and a ladder to climb inside each family",
+      intro:
+        "The catalog was fourteen parts browsed one at a time. It is now twenty two, with a second and third rung on the wheels, a lighter plate, three new frame shapes, a lance, and a cleaver, and the picker and the shop are sorted by family so the ladder reads at a glance.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Grip Wheel and Super Wheel sit above the Drive Wheel: wider and heavier, then bigger and faster with a higher ride. Light Plate sits below the Frame Plate. Corner Block, Wedge Block, and Skid give a build new shapes to grow into. Lance reaches past the spike; Cleaver stands a heavy edge on a top mount.",
+      "Family chips under the top bar (All, Frame, Drive, Weapon) narrow the carousel to one family, and the Shop lists its parts under the same headings with each ladder in order.",
+      "A fourth blueprint, Wedge Lancer, shows the tier-two rungs on the low chassis.",
+    ]);
+  });
+
+  it("keeps the archived parts-with-faces note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.299");
+
+    expect(latestNote).toMatchObject({
+      version: "0.1.299",
+      title: "Every part in the workshop looks like itself",
+      intro:
+        "Parts used to be coloured by category, so every plate was the same grey and every weapon the same red. Each part now has its own paint and a second tone baked into its shape, and the picker tells you in one line what a part is for.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Wheels and drums are black rubber over a lighter hub, plates are light steel or gunmetal, the saw is bright ground steel over a dark arbor, and each core glows in its own warmth with a window band.",
+      "Tap a part in the carousel and its card now says what it is for, with its mass, hit points, and power beside the name.",
+      "In the arena your team colour stays on the hull, and the new tones keep every part readable from across the floor.",
+    ]);
+  });
+
+  it("keeps the archived first-build note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.298");
+
+    expect(latestNote).toMatchObject({
+      version: "0.1.298",
+      title:
+        "Your first visit to the workshop starts with a bot, not a blank bench",
+      intro:
+        "New players opened the workshop on a bare core and a menu. The first visit now opens on a nearly finished bot with one wheel missing, and a single line at the bottom says what to do. Three steps later you have built, fought, and found the shop.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "A first-ever visit loads a bot that is one drag from done and hands you the missing wheel. Drag it onto the glowing mount and the bot is complete, even before you own a single part.",
+      "The coach line follows you: after the wheel it points at Test fight, and after the fight it points at the Shop tab. Skip ends it at any time, and it never comes back unless you ask.",
+      "The Garage tab has a Replay the first build button beside Reset, for showing someone else or for a fresh start.",
+    ]);
+  });
+
+  it("keeps the archived share-codes note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.297");
+
+    expect(latestNote).toMatchObject({
+      version: "0.1.297",
+      title: "Share a bot as a code or a link",
+      intro:
+        "A bot is data, so it can travel. The garage now hands you a short code and a link for the bot on your bench, and loads anyone else's from a paste or a link. Every saved bot in the garage shows its size and chassis at a glance.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The Share box in the Garage tab shows your bot's code and copies it, or a link that opens the workshop with the bot already loaded.",
+      "Paste a code or a link into Load a code and the bot appears on your bench, checked through the same inspection a fight uses. A damaged or illegal code says so instead of loading.",
+      "Saved designs in the garage list their part count and chassis, so you can tell your bots apart without loading each one.",
+    ]);
+  });
+
+  it("keeps the archived build-hud note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.296");
+
+    expect(latestNote).toMatchObject({
+      version: "0.1.296",
+      title: "Build with the budget in view and every action under your thumb",
+      intro:
+        "The workshop hid undo, redo, and the fights behind a menu, and told you a part would not fit by doing nothing. The bench now keeps its actions in reach and shows how much power and weight you have left as you build.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "Power and weight meters sit in the top bar and fill as parts land. Declare a weight class and the weight meter takes that ceiling; leave it open and it reads against the lightest class your bot fits.",
+      "When the part in hand has nowhere to go, the bar says why in one line: no free mount, how much more power it needs, or how far over your class it would land. The meter it would break flashes.",
+      "Undo, Redo, Mirror, Recenter, and Test fight live in a thumb bar at the top of the bottom sheet, visible whether the sheet is open or closed. The fight roster opens straight from Test fight.",
+    ]);
+  });
+
+  it("keeps the archived face-the-bot note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.295");
+
+    expect(latestNote).toMatchObject({
+      version: "0.1.295",
+      title: "The workshop shows you the front of your bot",
+      intro:
+        "The bench camera used to sit behind the bot, so a build with a plow or a blade on the nose showed you its back. The view now opens on the front three-quarter, comes to a part when you tap it, and comes home on one button.",
+    });
+    expect(latestNote?.changes.map((change) => change.text)).toEqual([
+      "The workshop opens facing the front of your bot, the same angle every fight camera favours, so the weapon you mount is the first thing you see.",
+      "Tap a placed part and the view glides toward it instead of leaving you to orbit and pinch. Building by drag never moves the camera under your finger.",
+      "A Recenter button under the top bar puts the whole bot back in frame after any amount of orbiting. Swapping the chassis or loading a blueprint recenters on its own.",
+    ]);
+  });
+
+  it("keeps the archived elevator-earned note complete", () => {
+    const release = getAppRelease();
+    const latestNote = release.notes.find((note) => note.version === "0.1.294");
+
     expect(latestNote).toMatchObject({
       version: "0.1.294",
       title: "The elevator is something you earn now, and it rides down",

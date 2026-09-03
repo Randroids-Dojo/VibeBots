@@ -1,6 +1,22 @@
 import { expect, type Page, test } from "@playwright/test";
+import { WORKSHOP_GUIDE_DONE_KEY } from "../../src/components/workshop-onboarding";
 import { DRIVE_WHEEL } from "../../src/sim/parts";
 import { ciCase } from "./support/ci-case";
+
+// The guided first build (G6) opens a fresh browser on a three-part bot.
+// Every case in this file was written against the bare starter core, so
+// they all start with the guide already done. The guide cases themselves
+// (titled with G6) get no init script at all, so a fresh context starts
+// the guide and a reload sees only the flag the guide wrote; two scripts
+// racing over one key would leave the start state to script order.
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.includes("(G6)")) return;
+  await page.addInitScript((key: string) => {
+    try {
+      localStorage.setItem(key, "1");
+    } catch {}
+  }, WORKSHOP_GUIDE_DONE_KEY);
+});
 
 // The Build tab shows one part at a time (N1 carousel); step Next until the
 // named part is in hand. Bounded so a missing part fails loudly.
@@ -60,10 +76,28 @@ async function tapHero(page: Page) {
   await page.mouse.up();
 }
 
-// The bot actions (undo/redo, fights) live in the top-bar "Actions" options
-// menu now. Open it (idempotent) before clicking one of its menu items.
+// The fight roster lives behind the thumb bar's "Test fight" button (G2);
+// undo, redo, mirror, and recenter are plain buttons beside it. Open the
+// roster (idempotent) before clicking one of its menu items.
+// Page errors and console errors from the moment of the call on. No
+// Postgres locally or in CI's storage-offline sandbox, so the saves list
+// answers 503 and the browser logs it as a console error; answer that one
+// request with an empty list instead. Every other console error counts.
+async function collectPageErrors(page: Page): Promise<string[]> {
+  await page.route("**/api/designs", async (route) => {
+    await route.fulfill({ json: { designs: [] } });
+  });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(`pageerror: ${String(error)}`));
+  page.on("console", (message) => {
+    if (message.type() !== "error") return;
+    errors.push(`console: ${message.text()}`);
+  });
+  return errors;
+}
+
 async function openActions(page: Page) {
-  const btn = page.getByRole("button", { name: "Bot actions" });
+  const btn = page.getByRole("button", { name: "Test fight" });
   if ((await btn.getAttribute("aria-expanded")) !== "true") {
     await btn.click();
   }
@@ -131,10 +165,9 @@ test(
     await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
     await expect(inspector.getByText("Lv 2")).toBeVisible();
 
-    await openActions(page);
-    await page.getByRole("menuitem", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    await page.getByRole("menuitem", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
     await expect(
       page.getByText("My Bot: 1 part", { exact: false }),
     ).toBeVisible();
@@ -692,23 +725,38 @@ test(
 );
 
 test(
-  "the top bar collapses the bot actions into an options menu",
+  "the thumb bar holds undo, redo, mirror, recenter, and the fight roster (G2)",
   ciCase("E2E-WORKSHOP-0015", "@functional"),
   async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     await page.goto("/workshop");
-    const actions = page.getByRole("button", { name: "Bot actions" });
+    // The bar sits in the sheet's top strip, so it shows with the sheet
+    // collapsed (the default on Build) and needs no menu to reach.
+    const bar = page.getByTestId("thumb-bar");
+    await expect(bar).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Undo" })).toBeDisabled();
+    await expect(bar.getByRole("button", { name: "Redo" })).toBeDisabled();
+    await expect(bar.getByRole("button", { name: "Mirror" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await expect(
+      bar.getByRole("button", { name: "Recenter the view on the bot" }),
+    ).toBeVisible();
+    const actions = bar.getByRole("button", { name: "Test fight" });
     await expect(actions).toBeVisible();
-    // Closed by default: the actions are not in the DOM until opened.
+    // The old top-bar options menu is gone.
+    await expect(page.getByRole("button", { name: "Bot actions" })).toHaveCount(
+      0,
+    );
+    // Closed by default: the roster is not in the DOM until opened.
     await expect(
       page.getByRole("menuitem", { name: "Test fight vs Brawler" }),
     ).toHaveCount(0);
 
-    // Open: undo/redo, the replica opponent roster, and both fight actions appear.
+    // Open: the replica opponent roster and both fight actions appear.
     await actions.click();
     await expect(page.getByRole("menu")).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Undo" })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Redo" })).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: "Fight Contagion" }),
     ).toBeVisible();
@@ -725,9 +773,15 @@ test(
       page.getByRole("menuitem", { name: "Fight a rival" }),
     ).toBeVisible();
 
-    // A tap outside the menu closes it.
+    // A tap outside the menu closes it, and so does Escape, which hands
+    // focus back to the button that opened it.
     await page.mouse.click(196, 250);
     await expect(page.getByRole("menu")).toHaveCount(0);
+    await actions.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(actions).toBeFocused();
   },
 );
 
@@ -861,7 +915,7 @@ test(
     await expect.poll(lift).toBeGreaterThan(0.05);
     // Run a test fight (this unmounts the whole workshop view for the arena),
     // then come straight back.
-    await page.getByRole("button", { name: "Bot actions" }).click();
+    await openActions(page);
     await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
     await page.getByRole("button", { name: "Back to build" }).click();
     // The sheet is still open, so the lift must be re-measured and restored, not
@@ -1118,7 +1172,13 @@ test(
     await expect(shop).toBeVisible();
     await expect(shop.locator("p").first()).toContainText("20 vibes");
     const driveWheel = shop.locator("li").filter({ hasText: DRIVE_WHEEL.name });
-    await expect(driveWheel).toContainText(DRIVE_WHEEL.category);
+    // Rows sit under their family heading now (G4), not a category suffix.
+    await expect(
+      shop
+        .getByRole("region", { name: "Drive parts" })
+        .locator("li")
+        .filter({ hasText: DRIVE_WHEEL.name }),
+    ).toBeVisible();
     const buyDriveWheel = driveWheel.getByRole("button", {
       name: `${DRIVE_WHEEL.priceEmeralds} vibes`,
     });
@@ -1181,8 +1241,7 @@ test(
     await expect(page.getByText("My Bot: 1 part")).toBeVisible();
 
     // The swap is undoable: one Undo restores the Cube chassis.
-    await openActions(page);
-    await page.getByRole("menuitem", { name: "Undo" }).click();
+    await page.getByRole("button", { name: "Undo" }).click();
     await expect(cube).toHaveAttribute("aria-pressed", "true");
   },
 );
@@ -1233,11 +1292,11 @@ test(
     const canvas = page.locator("canvas");
     await expect(canvas).toBeVisible();
 
-    // Turn Mirror on (open the sheet for the Build controls), then collapse the
-    // sheet so it clears the carousel and hero-drag band.
-    await openSheet(page);
-    const chassis = page.getByRole("region", { name: "Chassis" });
-    const mirror = chassis.getByRole("button", { name: /Mirror/ });
+    // Turn Mirror on from the thumb bar (visible with the sheet collapsed),
+    // which leaves the carousel and hero-drag band clear.
+    const mirror = page.getByTestId("thumb-bar").getByRole("button", {
+      name: "Mirror",
+    });
     await expect(mirror).toHaveAttribute("aria-pressed", "false");
     await mirror.click();
     await expect(mirror).toHaveAttribute("aria-pressed", "true");
@@ -1461,6 +1520,1081 @@ test(
     await expect(
       page.getByLabel("Tech inspection").getByTestId("inspection-verdict"),
     ).toHaveText("Passed");
+  },
+);
+
+test(
+  "the bench faces the front of the bot, frames a tapped part, and recenters (G1)",
+  ciCase("E2E-WORKSHOP-0036", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const read = (key: string) =>
+      canvas.evaluate(
+        (c: HTMLCanvasElement, k: string) => Number(c.dataset[k] ?? "NaN"),
+        key,
+      );
+
+    // Front three-quarter: every core's front is -z, so the camera sits on
+    // the -z side (it used to sit at +z and show the back of the bot).
+    await expect.poll(() => read("cameraZ")).toBeLessThan(0);
+    await expect.poll(() => read("cameraY")).toBeGreaterThan(0);
+
+    // Place a wheel. Placement selects the part but is not a tap, so the
+    // whole pose (target and camera, all three axes) holds still under a
+    // building finger.
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    const poseKeys = [
+      "cameraTargetX",
+      "cameraTargetY",
+      "cameraTargetZ",
+      "cameraX",
+      "cameraY",
+      "cameraZ",
+    ];
+    const readPose = async () => {
+      const pose: Record<string, number> = {};
+      for (const key of poseKeys) pose[key] = await read(key);
+      return pose;
+    };
+    const before = await readPose();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await page.waitForTimeout(400);
+    const after = await readPose();
+    for (const key of poseKeys) {
+      expect(Math.abs(after[key] - before[key])).toBeLessThan(0.005);
+    }
+    expect(Math.abs(after.cameraTargetX)).toBeLessThan(0.005);
+
+    // Recenter puts the target on the bot's bounds centre, which the wheel
+    // has pulled off the core to one side, and the camera back in front.
+    // The placed wheel is selected, so its handle position says which side
+    // it landed on; the core tap below stays on the other side of centre.
+    const wheelRight = (await read("selectedScreenX")) > 0.5;
+    const recenter = page.getByRole("button", {
+      name: "Recenter the view on the bot",
+    });
+    await recenter.click();
+    await expect
+      .poll(async () => Math.abs(await read("cameraTargetX")))
+      .toBeGreaterThan(0.05);
+    await expect.poll(() => read("cameraZ")).toBeLessThan(0);
+    // Let the glide settle before reading the reference point.
+    await page.waitForTimeout(700);
+    const centeredX = await read("cameraTargetX");
+
+    // Tap the core: a tap on a placed part frames it, so the target glides
+    // from the bounds centre most of the way back toward the core.
+    await page.mouse.click(wheelRight ? 172 : 218, 405);
+    await expect
+      .poll(() => read("cameraTargetX"))
+      .not.toBeCloseTo(centeredX, 2);
+    await page.waitForTimeout(700);
+    const framedX = await read("cameraTargetX");
+    expect(Math.abs(framedX)).toBeLessThan(Math.abs(centeredX));
+    expect(Math.abs(framedX - centeredX)).toBeGreaterThan(0.04);
+
+    // Recenter again returns to the same centre.
+    await recenter.click();
+    await expect.poll(() => read("cameraTargetX")).toBeCloseTo(centeredX, 2);
+  },
+);
+
+test(
+  "the header meters read the live budget and name why a part will not fit (G2)",
+  ciCase("E2E-WORKSHOP-0037", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [
+            { part_id: DRIVE_WHEEL.id, count: 3 },
+            { part_id: "spin-mount", count: 1 },
+            { part_id: "spinner-bar", count: 1 },
+            { part_id: "hardened-plate", count: 1 },
+          ],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const power = page.getByTestId("meter-power");
+    const weight = page.getByTestId("meter-weight");
+    // A bare cube core: no draw, full supply, and an unclassed bot reads
+    // against the lightest class it fits.
+    await expect(power).toHaveAttribute("data-draw", "0");
+    await expect(power).toHaveAttribute("data-supply", "100");
+    await expect(weight).toHaveAttribute("data-class", "antweight");
+    await expect(page.getByTestId("ready-chip")).toHaveAttribute(
+      "data-ready",
+      "true",
+    );
+
+    // Two wheels in one mirrored drag (the thumb bar's Mirror): the power
+    // meter follows the draw the inspection sums.
+    await page
+      .getByTestId("thumb-bar")
+      .getByRole("button", { name: "Mirror" })
+      .click();
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 3 parts")).toBeVisible();
+    await expect(power).toHaveAttribute("data-draw", "40");
+
+    // A third wheel has no mount: the reason names the mount, not a budget.
+    const reason = page.getByTestId("budget-reason");
+    await expect(reason).toHaveAttribute("data-blocker", "mount");
+    await expect(reason).toContainText("No room for Drive Wheel");
+
+    // Max reduction on both axles costs 31.2 power; a spin mount on the
+    // nose then leaves the spinner bar (36) short by 7.2, and the power
+    // meter flashes to say so.
+    await page.getByRole("tab", { name: "Tune" }).click();
+    await page.locator('[data-testid="gear-option"][data-ratio="2.2"]').click();
+    await expect(power).toHaveAttribute("data-draw", "71.2");
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Spin Mount");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
+    await selectCarouselPart(page, "Spinner Bar");
+    // The flash is armed for 900ms when the block appears, so read it first.
+    await expect(page.locator('[data-meter="power"]')).toHaveAttribute(
+      "data-flash",
+      "true",
+    );
+    await expect(reason).toHaveAttribute("data-blocker", "power");
+    await expect(reason).toContainText("Spinner Bar needs 7.2 more power");
+
+    // Declare Antweight: the weight meter takes the class name and ceiling,
+    // and the hardened plate is refused on weight, not on a mount.
+    await page.getByRole("tab", { name: "Tune" }).click();
+    await page.getByRole("button", { name: /^Antweight/ }).click();
+    await expect(weight).toHaveAttribute("data-class", "antweight");
+    await expect(weight).toHaveAttribute("data-limit", "0.60");
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Hardened Plate");
+    await expect(reason).toHaveAttribute("data-blocker", "weight");
+    await expect(reason).toContainText("over Antweight");
+  },
+);
+
+test(
+  "a share code carries the whole bot out of the garage and back in (G8)",
+  ciCase("E2E-WORKSHOP-0038", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+
+    // Load the Wedge Razor blueprint and read its code from the Share box.
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page
+      .getByRole("region", { name: "Blueprints" })
+      .getByRole("button", { name: /Wedge Razor/ })
+      .click();
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+    const share = page.getByRole("region", { name: "Share" });
+    await expect(share).toBeVisible();
+    const code = await share.getByTestId("share-code").inputValue();
+    expect(code.startsWith("VB1.")).toBe(true);
+    expect(code.length).toBeLessThan(600);
+
+    // Reset to the starter bot, then paste the code back in.
+    await page.getByRole("button", { name: "Reset to starter bot" }).click();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await share.getByTestId("share-import").fill(code);
+    await share.getByRole("button", { name: "Load bot" }).click();
+    await expect(share.getByTestId("share-import-ok")).toContainText(
+      "Loaded Wedge Razor",
+    );
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+    // A damaged code is refused with a reason, and the bot is untouched.
+    await share.getByTestId("share-import").fill("VB1.notacode!!");
+    await share.getByRole("button", { name: "Load bot" }).click();
+    await expect(share.getByTestId("share-import-error")).toContainText(
+      "damaged",
+    );
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+
+    // A share link opens the workshop with the bot loaded and drops the code
+    // from the address bar.
+    await page.goto(`/workshop?code=${encodeURIComponent(code)}`);
+    await expect(page.getByText("Wedge Razor: 5 parts")).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => window.location.search))
+      .toBe("");
+  },
+);
+
+test(
+  "a first visit opens on a guided bot and the coach card follows the player (G6)",
+  ciCase("E2E-WORKSHOP-0039", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    // A brand-new player owns nothing; the guide's wheel must still place.
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 0, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const coach = page.getByTestId("coach-card");
+    await expect(coach).toHaveAttribute("data-step", "place");
+    await expect(coach).toContainText("Drag the wheel");
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await expect(page.getByTestId("carousel-part-name")).toHaveText(
+      "Drive Wheel",
+    );
+
+    // The first drag is the tutorial: the wheel lands on the free axle.
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
+    await expect(coach).toHaveAttribute("data-step", "fight");
+
+    // A test fight ends the second step; coming back shows the third.
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await page.getByRole("button", { name: "Back to build" }).click();
+    await expect(coach).toHaveAttribute("data-step", "shop");
+    await page.getByRole("tab", { name: "Shop" }).click();
+    await expect(coach).toHaveCount(0);
+
+    // Done is remembered: a reload opens on the plain starter bot.
+    await page.reload();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await expect(coach).toHaveCount(0);
+  },
+);
+
+test(
+  "the guided first build can be skipped and replayed from the garage (G6)",
+  ciCase("E2E-WORKSHOP-0040", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    const coach = page.getByTestId("coach-card");
+    await expect(coach).toHaveAttribute("data-step", "place");
+    await coach.getByRole("button", { name: "Skip" }).click();
+    await expect(coach).toHaveCount(0);
+    await page.reload();
+    await expect(coach).toHaveCount(0);
+
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page.getByRole("button", { name: "Replay the first build" }).click();
+    await expect(coach).toHaveAttribute("data-step", "place");
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  },
+);
+
+test(
+  "the carousel chips step one family at a time and the shop lists by family (G4)",
+  ciCase("E2E-WORKSHOP-0041", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 200,
+          inventory: [
+            { part_id: DRIVE_WHEEL.id, count: 2 },
+            { part_id: "frame-plate", count: 1 },
+            { part_id: "ram-spike", count: 1 },
+          ],
+          catalog: [
+            {
+              id: "frame-plate",
+              name: "Frame Plate",
+              category: "structure",
+              priceEmeralds: 3,
+            },
+            {
+              id: "light-plate",
+              name: "Light Plate",
+              category: "structure",
+              priceEmeralds: 2,
+            },
+            {
+              id: "drive-wheel",
+              name: "Drive Wheel",
+              category: "mobility",
+              priceEmeralds: 6,
+            },
+            {
+              id: "grip-wheel",
+              name: "Grip Wheel",
+              category: "mobility",
+              priceEmeralds: 12,
+            },
+            {
+              id: "super-wheel",
+              name: "Super Wheel",
+              category: "mobility",
+              priceEmeralds: 20,
+            },
+            {
+              id: "lance",
+              name: "Lance",
+              category: "weapon",
+              priceEmeralds: 12,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const carousel = page.getByLabel("Part carousel");
+    const nameEl = carousel.getByTestId("carousel-part-name");
+    const chips = page.getByTestId("carousel-chips");
+    await expect(chips.getByRole("button", { name: "All" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // Owned-only pool: three parts across three families. The Weapon chip
+    // pins the carousel to the one owned weapon; Next cannot leave it.
+    await chips.getByRole("button", { name: "Weapon" }).click();
+    await expect(nameEl).toHaveText("Ram Spike");
+    await carousel.getByRole("button", { name: "Next part" }).click();
+    await expect(nameEl).toHaveText("Ram Spike");
+    await chips.getByRole("button", { name: "Drive" }).click();
+    await expect(nameEl).toHaveText("Drive Wheel");
+    await chips.getByRole("button", { name: "Frame" }).click();
+    await expect(nameEl).toHaveText("Frame Plate");
+
+    // With unowned parts shown, the Drive family climbs the wheel ladder.
+    await page.getByRole("tab", { name: "Build" }).click();
+    await page.getByRole("button", { name: /Carousel:/ }).click();
+    await page.getByRole("tab", { name: "Build" }).click();
+    await chips.getByRole("button", { name: "Drive" }).click();
+    await selectCarouselPart(page, "Super Wheel");
+    await expect(nameEl).toHaveText("Super Wheel");
+    await carousel.getByRole("button", { name: "Next part" }).click();
+    await expect(nameEl).not.toHaveText("Super Wheel");
+    await expect
+      .poll(async () => (await nameEl.textContent())?.trim())
+      .toMatch(/Wheel|Drum/);
+
+    // The shop lists by family with the ladder in order, cheapest first
+    // even when the payload lists a lower rung after a higher one.
+    await page.getByRole("tab", { name: "Shop" }).click();
+    const frame = page.getByRole("region", { name: "Frame parts" });
+    await expect(frame.locator("li").nth(0)).toContainText("Light Plate");
+    await expect(frame.locator("li").nth(1)).toContainText("Frame Plate");
+    const drive = page.getByRole("region", { name: "Drive parts" });
+    await expect(drive.getByRole("heading", { name: "Drive" })).toBeVisible();
+    await expect(drive.locator("li")).toHaveCount(3);
+    await expect(drive.locator("li").nth(0)).toContainText("Drive Wheel");
+    await expect(drive.locator("li").nth(2)).toContainText("Super Wheel");
+    await expect(
+      page.getByRole("region", { name: "Weapon parts" }).getByRole("button", {
+        name: "Buy Lance for 12 vibes",
+      }),
+    ).toBeVisible();
+  },
+);
+
+test(
+  "paint colours the bot on the bench and rides into the arena with the team ring (G5)",
+  ciCase("E2E-WORKSHOP-0042", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const paintOf = (key: "paintPrimary" | "paintAccent") =>
+      canvas.evaluate((c: HTMLCanvasElement, k: string) => c.dataset[k], key);
+    await expect.poll(() => paintOf("paintPrimary")).toBe("none");
+
+    // Pick a body colour: the trim defaults, then pick a trim too.
+    await openSheet(page);
+    const paint = page.getByRole("region", { name: "Paint" });
+    await paint.getByRole("button", { name: "Body paint Cobalt" }).click();
+    await expect(
+      paint.getByRole("button", { name: "Body paint Cobalt" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect.poll(() => paintOf("paintPrimary")).toBe("cobalt");
+    await expect.poll(() => paintOf("paintAccent")).toBe("slate");
+    await paint.getByRole("button", { name: "Trim paint Gold" }).click();
+    await expect.poll(() => paintOf("paintAccent")).toBe("gold");
+
+    // Paint is undoable and clearable.
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => paintOf("paintAccent")).toBe("slate");
+    await paint.getByRole("button", { name: "Clear paint" }).click();
+    await expect.poll(() => paintOf("paintPrimary")).toBe("none");
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => paintOf("paintPrimary")).toBe("cobalt");
+
+    // The painted bot fights in its paint; the stock opponent keeps its
+    // team colour, and both carry a team ring.
+    await collapseSheet(page);
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    const arena = page.locator("canvas").first();
+    await expect
+      .poll(() =>
+        arena.evaluate((c: HTMLCanvasElement) => c.dataset.botPaint1 ?? ""),
+      )
+      .toBe("cobalt:slate");
+    await expect
+      .poll(() =>
+        arena.evaluate((c: HTMLCanvasElement) => c.dataset.botPaint0 ?? ""),
+      )
+      .toBe("none");
+    // The team ring under each bot is published too: both present, in the
+    // two team colours, so the sides read however the hulls are painted.
+    const rings = await arena.evaluate((c: HTMLCanvasElement) => [
+      c.dataset.teamRing0 ?? "",
+      c.dataset.teamRing1 ?? "",
+    ]);
+    expect(rings[0]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(rings[1]).toMatch(/^#[0-9a-f]{6}$/);
+    expect(rings[0]).not.toBe(rings[1]);
+  },
+);
+
+test(
+  "a drop sparks, a removal dissolves, and a merge that can chain says so (G7)",
+  ciCase("E2E-WORKSHOP-0043", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: DRIVE_WHEEL.id, count: 3 }],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const read = (key: string) =>
+      canvas.evaluate(
+        (c: HTMLCanvasElement, k: string) => c.dataset[k] ?? "",
+        key,
+      );
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+
+    // A drop sparks: the burst is in flight right after the placement and
+    // has died within a second.
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await expect.poll(() => read("sparking")).toBe("1");
+    await expect.poll(() => read("sparking"), { timeout: 3000 }).toBe("0");
+
+    // A removal dissolves: the ghost shrinks over several frames from full
+    // size to a fifth (Rule 10: observable movement, read from the trace
+    // the canvas publishes because the dissolve is over in a quarter
+    // second), then the ghost is gone.
+    await page.getByRole("button", { name: /^Remove / }).click();
+    await expect(
+      page.getByText("My Bot: 1 part", { exact: false }),
+    ).toBeVisible();
+    await expect
+      .poll(async () => Number(await read("dissolveFrames")))
+      .toBeGreaterThan(2);
+    await expect
+      .poll(async () => Number(await read("dissolveMin")))
+      .toBeLessThan(0.25);
+    await expect.poll(() => read("dissolving"), { timeout: 3000 }).toBe("0");
+
+    // A merge with another copy still available celebrates the chain;
+    // the last merge to the cap does not.
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await openSheet(page);
+    const inspector = page.getByRole("region", { name: "Selected part" });
+    await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
+    await expect(page.getByTestId("chain-cue")).toContainText(
+      "Merge again to Lv 3",
+    );
+    await inspector.getByRole("button", { name: "Merge to Lv 3" }).click();
+    await expect(inspector.getByText("Lv 3")).toBeVisible();
+    await expect(page.getByTestId("chain-cue")).toHaveCount(0);
+  },
+);
+
+test(
+  "the first minute: the guided axles face the camera and fill together, the chips stay in reach under a reason line, and the remove handle stays off the header (G6) (F-241, F-243, F-242)",
+  ciCase("E2E-WORKSHOP-0044", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [
+            { part_id: DRIVE_WHEEL.id, count: 3 },
+            { part_id: "ram-spike", count: 1 },
+            { part_id: "frame-plate", count: 1 },
+          ],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas").first();
+    await expect(canvas).toBeVisible();
+    await expect(page.getByTestId("coach-card")).toHaveAttribute(
+      "data-step",
+      "place",
+    );
+
+    // F-241: the guided start has both axles empty and Mirror on, so the
+    // axle facing the camera glows in the frame and one drop over the bot
+    // fills both sides: two parts become four, the coach advances, and the
+    // selected wheel's published screen anchor is inside the frame.
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mirror" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await selectCarouselPart(page, "Drive Wheel");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 4 parts")).toBeVisible();
+    await expect(page.getByTestId("coach-card")).toHaveAttribute(
+      "data-step",
+      "fight",
+    );
+    const anchorX = () =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.selectedScreenX),
+      );
+    const anchorY = () =>
+      canvas.evaluate((c: HTMLCanvasElement) =>
+        Number(c.dataset.selectedScreenY),
+      );
+    await expect.poll(anchorX).toBeGreaterThan(0.05);
+    await expect.poll(anchorX).toBeLessThan(0.95);
+    await expect.poll(anchorY).toBeGreaterThan(0.05);
+    await expect.poll(anchorY).toBeLessThan(0.95);
+
+    // F-243: both axles are full, so the reason line is up; the family
+    // chips sit under it inside the header card and a real pointer click
+    // still reaches them.
+    const reason = page.getByTestId("budget-reason");
+    await expect(reason).toHaveAttribute("data-blocker", "mount");
+    const chips = page.getByTestId("carousel-chips");
+    const weapon = chips.getByRole("button", { name: "Weapon" });
+    const hit = await weapon.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementFromPoint(
+        r.left + r.width / 2,
+        r.top + r.height / 2,
+      );
+      return top === el || el.contains(top);
+    });
+    expect(hit).toBe(true);
+    await weapon.click();
+    const nameEl = page
+      .getByLabel("Part carousel")
+      .getByTestId("carousel-part-name");
+    await expect(nameEl).toHaveText("Ram Spike");
+    // The guided bot already wears a spike on its only spike mount, so the
+    // reason line stays up for it; a plate fits the free top mount and gets
+    // the neutral line instead, and the chip row stays reachable through
+    // both because the header's height does not change.
+    await expect(reason).toHaveAttribute("data-blocker", "mount");
+    await chips.getByRole("button", { name: "Frame" }).click();
+    await expect(nameEl).toHaveText("Frame Plate");
+    await expect(reason).toHaveAttribute("data-blocker", "none");
+    await expect(reason).toContainText("Frame Plate fits");
+
+    // F-242: with the sheet open the canvas is short and the selected wheel
+    // sits near the top of it; the remove handle stays below the header
+    // card instead of floating over it.
+    await openSheet(page);
+    const handle = page.getByRole("button", { name: /^Remove / });
+    await expect(handle).toBeVisible();
+    const header = page.locator(".workshop-header");
+    await expect
+      .poll(async () => {
+        const h = await handle.boundingBox();
+        const hd = await header.boundingBox();
+        if (!h || !hd) return -1;
+        return h.y - (hd.y + hd.height);
+      })
+      .toBeGreaterThanOrEqual(0);
+  },
+);
+
+test(
+  "a test fight ends with a debrief whose fix-it button lands on the bench with the fix in hand (G9)",
+  ciCase("E2E-WORKSHOP-0045", "@functional"),
+  async ({ page }) => {
+    // A weaponless bare core can only bump, so the fight goes to the
+    // judges at the minute and the first lesson is the weapon one; the
+    // second is the throttle lever, which the case pulls.
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await expect(page.getByText("My Bot: 1 part")).toBeVisible();
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Impaler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+
+    const debrief = page.getByTestId("fight-debrief");
+    await expect(debrief).toBeVisible({ timeout: 100_000 });
+    await expect(debrief.locator(".fight-debrief-headline")).toHaveText(
+      /^(You lost by (knockout|decision)|Draw by (knockout|decision)) at \d+:\d\d$/,
+    );
+    const lesson = debrief.locator('[data-lesson="no-hits"]');
+    await expect(lesson).toContainText("This bot has no weapon");
+    // The loss was to a ladder rung, so the weapon lesson names its
+    // counter (F-250).
+    await expect(lesson).toContainText("Impaler punishes a spike");
+    await expect(
+      lesson.getByRole("button", { name: "Pick a weapon" }),
+    ).toBeVisible();
+    // The workshop fight uses spawn arrangement 0 and the sim is
+    // deterministic, so this matchup always goes to the judges at the
+    // minute: a wheelless core never closes, and the decision reads off
+    // the front foot and offers the throttle lever (H1).
+    await expect(debrief.locator(".fight-debrief-headline")).toContainText(
+      "You lost by decision at 1:00",
+    );
+    const decision = debrief.locator('[data-lesson="decision"]');
+    await expect(decision).toContainText("raise Aggression");
+    await decision.getByRole("button", { name: "Raise aggression" }).click();
+    // The tap leaves the arena, applies the lever, and opens Tune on it.
+    await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+    await expect(
+      page.getByRole("slider", { name: "Aggression slider" }),
+    ).toHaveValue("0.7");
+    // Undo takes the lever back like any edit.
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(
+      page.getByRole("slider", { name: "Aggression slider" }),
+    ).toHaveValue("0.5");
+  },
+);
+
+test(
+  "the fight reads at phone size: over the shoulder on portrait, broadside on landscape (F-245)",
+  ciCase("E2E-WORKSHOP-0046", "@functional"),
+  async ({ page }) => {
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    // The arena publishes its camera diagnostics on its own stage element,
+    // the one that carries the sim tick.
+    const stage = page.locator("[data-sim-tick]");
+    const read = (key: string) =>
+      stage.evaluate((el: HTMLElement, k: string) => el.dataset[k] ?? "", key);
+
+    // Portrait: the rig looks along the line from behind the player's bot,
+    // so both bots stay in frame and the player's bot spans at least a
+    // tenth of the viewport width through the countdown.
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    // The rig frames once both bots have rendered bounds, which can be
+    // after the countdown.
+    await expect
+      .poll(() => read("cameraMode"), { timeout: 20_000 })
+      .toBe("cinematic-follow");
+    await expect
+      .poll(() => read("botsInFrame"), { timeout: 20_000 })
+      .toBe("true");
+    await expect
+      .poll(async () => Number(await read("bot1ScreenSize")), {
+        timeout: 15_000,
+      })
+      .toBeGreaterThanOrEqual(0.1);
+    // Along the line means the bots separate up the screen, not across it.
+    await expect
+      .poll(
+        async () => {
+          const dx =
+            Number(await read("bot1ScreenX")) -
+            Number(await read("bot0ScreenX"));
+          const dy =
+            Number(await read("bot1ScreenY")) -
+            Number(await read("bot0ScreenY"));
+          return Math.abs(dy) - Math.abs(dx);
+        },
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(0);
+
+    // Landscape keeps the broadside shot: the bots separate across.
+    await page.getByRole("button", { name: "Back to build" }).click();
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Test fight vs Brawler" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    await expect
+      .poll(
+        async () => {
+          const dx =
+            Number(await read("bot1ScreenX")) -
+            Number(await read("bot0ScreenX"));
+          const dy =
+            Number(await read("bot1ScreenY")) -
+            Number(await read("bot0ScreenY"));
+          return Math.abs(dx) - Math.abs(dy);
+        },
+        { timeout: 15_000 },
+      )
+      .toBeGreaterThan(0);
+  },
+);
+
+test(
+  "the fight roster is a ladder: easiest first, a hint per rung, and the missing rung fights (H2)",
+  ciCase("E2E-WORKSHOP-0047", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    const errors = await collectPageErrors(page);
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    const items = page.getByRole("menuitem");
+    await expect(items).toHaveCount(7);
+    const labels = await items.allTextContents();
+    expect(labels.map((text) => text.trim())).toEqual([
+      "Test fight vs Brawlerwarm-up",
+      "Fight Contagioncontrols the floor",
+      "Fight Night Terrorall blade",
+      "Fight Bulldozeroutshoves a spike",
+      "Fight Impalerpunishes a spike",
+      "Fight Gravestonepunishes a lance",
+      "Fight a rival",
+    ]);
+    // The rung that used to be bench-only fights from the picker.
+    await page.getByRole("menuitem", { name: "Fight Bulldozer" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    await expect(page.getByText("Bulldozer", { exact: true })).toBeVisible();
+    // A fight started moments after load once logged a null addEventListener
+    // from the bench canvas unmounting mid-init (F-248); the case now fails
+    // on any page error or console error.
+    await page.waitForTimeout(500);
+    expect(errors).toEqual([]);
+  },
+);
+
+test(
+  "a fight started before the bench renderer is ready leaves no error behind, and neither does leaving the arena as fast (F-248)",
+  ciCase("E2E-WORKSHOP-0049", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    // The renderer awaits the adapter request during init, so a slow null
+    // answer keeps each canvas initialising for a second and a half and then
+    // falls back to WebGL2 exactly as a machine without WebGPU does. That
+    // makes the race deterministic: the bench unmounts for the arena, and the
+    // arena unmounts for the bench, while their inits are still pending.
+    await page.addInitScript((ms: number) => {
+      Object.defineProperty(navigator, "gpu", {
+        configurable: true,
+        value: {
+          requestAdapter: () =>
+            new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+        },
+      });
+    }, 1500);
+    const errors = await collectPageErrors(page);
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Bulldozer" }).click();
+    const back = page.getByRole("button", { name: "Back to build" });
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(
+      page.getByRole("button", { name: "Test fight" }),
+    ).toBeVisible();
+    // Both pending inits resolve within the delay; give them the time.
+    await page.waitForTimeout(2500);
+    expect(errors).toEqual([]);
+  },
+);
+
+test(
+  "a loss to a ladder rung opens the debrief with the counter the ladder proves, and the button lands on that part (F-250)",
+  ciCase("E2E-WORKSHOP-0050", "@functional"),
+  async ({ page }) => {
+    // A spike on a wheelless cube never closes on Gravestone, so the fight
+    // goes to the judges at the minute (deterministic sim, spawn
+    // arrangement 0) and the first lesson is the rung's counter.
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: "ram-spike", count: 1 }],
+          catalog: [
+            {
+              id: "ram-spike",
+              name: "Ram Spike",
+              category: "weapon",
+              priceEmeralds: 8,
+            },
+            {
+              id: "tempered-lance",
+              name: "Tempered Lance",
+              category: "weapon",
+              priceEmeralds: 24,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    await expect(page.getByText("My Bot: 1 part")).toBeVisible();
+    await selectCarouselPart(page, "Ram Spike");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Gravestone" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    const debrief = page.getByTestId("fight-debrief");
+    await expect(debrief).toBeVisible({ timeout: 100_000 });
+    await expect(debrief.locator(".fight-debrief-headline")).toHaveText(
+      /^(You lost by (knockout|decision)|Draw by (knockout|decision)) at \d+:\d\d$/,
+    );
+    const counter = debrief.locator('[data-lesson="counter"]');
+    await expect(counter).toContainText("Gravestone eats lances");
+    await counter
+      .getByRole("button", { name: "Browse the Tempered Lance" })
+      .click();
+    // The tap leaves the arena and lands on the counter in the carousel,
+    // owned or not.
+    await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+    await expect(
+      page.getByLabel("Part carousel").getByTestId("carousel-part-name"),
+    ).toHaveText("Tempered Lance");
+  },
+);
+
+test(
+  "the Tune tab authors up to three bench rules from fixed lists, and undo takes one back (F-247)",
+  ciCase("E2E-WORKSHOP-0051", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openSheet(page);
+    await page.getByRole("tab", { name: "Tune" }).click();
+    const rules = page.getByRole("region", { name: "Rules" });
+    await expect(rules).toBeVisible();
+    await expect(rules.getByRole("combobox")).toHaveCount(0);
+
+    // Each tap adds a distinct line; the third fills the list.
+    const add = rules.getByRole("button", { name: "Add rule" });
+    await add.click();
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 1 condition" }),
+    ).toHaveValue("weapon-down");
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 1 action" }),
+    ).toHaveValue("disengage");
+    await add.click();
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 2 condition" }),
+    ).toHaveValue("enemy-weapon-down");
+    await add.click();
+    await expect(rules.getByRole("combobox")).toHaveCount(6);
+    await expect(
+      rules.getByRole("button", { name: "Three rules is the limit" }),
+    ).toBeDisabled();
+
+    // The lists are the only input: pick a different action for rule 2.
+    await rules
+      .getByRole("combobox", { name: "Rule 2 action" })
+      .selectOption("charge");
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 2 action" }),
+    ).toHaveValue("charge");
+
+    // Remove the last, then the toolbar's Undo brings it back from the
+    // editor history, the same history every bench edit goes through.
+    await rules.getByRole("button", { name: "Remove rule 3" }).click();
+    await expect(rules.getByRole("combobox")).toHaveCount(4);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(rules.getByRole("combobox")).toHaveCount(6);
+  },
+);
+
+test(
+  "catalog wave two: the new rungs sit in their ladders and the tempered lance mounts (H3)",
+  ciCase("E2E-WORKSHOP-0048", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 200,
+          inventory: [
+            { part_id: "tempered-lance", count: 1 },
+            { part_id: "ballast-wheel", count: 2 },
+            { part_id: "ballast-block", count: 1 },
+          ],
+          catalog: [
+            {
+              id: "drive-wheel",
+              name: "Drive Wheel",
+              category: "mobility",
+              priceEmeralds: 6,
+            },
+            {
+              id: "super-wheel",
+              name: "Super Wheel",
+              category: "mobility",
+              priceEmeralds: 20,
+            },
+            {
+              id: "ballast-wheel",
+              name: "Ballast Wheel",
+              category: "mobility",
+              priceEmeralds: 28,
+            },
+            {
+              id: "frame-plate",
+              name: "Frame Plate",
+              category: "structure",
+              priceEmeralds: 3,
+            },
+            {
+              id: "ballast-block",
+              name: "Ballast Block",
+              category: "structure",
+              priceEmeralds: 14,
+            },
+            {
+              id: "hardened-plate",
+              name: "Hardened Plate",
+              category: "structure",
+              priceEmeralds: 18,
+            },
+            {
+              id: "lance",
+              name: "Lance",
+              category: "weapon",
+              priceEmeralds: 12,
+            },
+            {
+              id: "tempered-lance",
+              name: "Tempered Lance",
+              category: "weapon",
+              priceEmeralds: 24,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // The shop lists each family cheapest first, so the new parts land on
+    // their rungs: the Ballast Wheel above the Super Wheel, the Ballast Block
+    // between the plates, the Tempered Lance above the Lance.
+    await page.getByRole("tab", { name: "Shop" }).click();
+    const drive = page.getByRole("region", { name: "Drive parts" });
+    await expect(drive.locator("li").last()).toContainText("Ballast Wheel");
+    const frame = page.getByRole("region", { name: "Frame parts" });
+    await expect(frame.locator("li").nth(1)).toContainText("Ballast Block");
+    const weapons = page.getByRole("region", { name: "Weapon parts" });
+    await expect(weapons.locator("li").last()).toContainText("Tempered Lance");
+
+    // Owned, the tempered lance is in the carousel and mounts on the nose.
+    await page.getByRole("tab", { name: "Build" }).click();
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Tempered Lance");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
   },
 );
 

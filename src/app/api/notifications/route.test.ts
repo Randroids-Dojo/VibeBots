@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-08-11-0.1.294-elevator-earned",
+      releaseNoticeId: "2026-09-03-0.1.312-bench-rules",
       releaseSummary:
-        "The elevator is something you earn now, and it rides down: The elevator used to sit in the shop from minute one, selling a single rail row nobody needed yet. Now it is a goal: the stall stays boarded up until you have dug deep enough to want it, and the first purchase hands you a working shaft.",
+        "Rules on the bench: Your bot has three temperament sliders and gearing; now it has rules too. On the Tune tab, up to three lines of when this, do that, from fixed lists: when my weapon is down, back off; when their weapon is down, charge; when the clock is in its last third, hold still. The first rule that holds decides the move, every tick, and a bot with no rules fights exactly as before.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-08-11-0.1.294-elevator-earned",
+      releaseNoticeId: "2026-09-03-0.1.312-bench-rules",
       attempted: 2,
       sent: 1,
       expired: 1,

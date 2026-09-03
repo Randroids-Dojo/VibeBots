@@ -1,4 +1,8 @@
-import type { BotDesign } from "./design";
+import {
+  type BotDesign,
+  CPU_BRAWLER_DESIGN,
+  CPU_BULLDOZER_DESIGN,
+} from "./design";
 
 /**
  * Replica opponents: stock CPU bots built to closely match specific iconic
@@ -169,5 +173,161 @@ export const REPLICA_OPPONENTS: ReplicaOpponent[] = [
     inspiredBy: "Vlad the Impaler",
     blurb: "Forward fork spikes. Relentless rammer.",
     design: IMPALER,
+  },
+];
+
+/**
+ * One rung of the fight ladder (H2, breadth and expression program): a
+ * stock opponent in the order the roster offers them, easiest first for
+ * the first build a player makes (the Cube Rammer: cube, two wheels, a
+ * spike). The order is measured, not guessed: opponents.test.ts fights
+ * the Cube Rammer up the ladder and pins that it beats the first three
+ * rungs, loses to the last two, and that the debrief's counter (a lance
+ * in the spike's place) beats the last rung. Bulldozer was a bench-only
+ * archetype until this; it is the missing rung between a fair fight and
+ * a punishing one.
+ */
+export interface FightRung {
+  id: string;
+  name: string;
+  /** One line for the picker's tooltip. */
+  blurb: string;
+  /** Two or three words under the name: what this rung asks of a build. */
+  hint: string;
+  /** The real BattleBot a replica models; house archetypes have none. */
+  inspiredBy?: string;
+  design: BotDesign;
+  /**
+   * The counter the ladder test proves beats this rung (F-250): a part
+   * the player can buy, and the sentence the debrief says after a loss
+   * to it. Every claim here is a measured case in opponents.test.ts.
+   */
+  counter: RungCounter;
+}
+
+export interface RungCounter {
+  partId: string;
+  text: string;
+}
+
+const replica = (id: string): ReplicaOpponent => {
+  const found = REPLICA_OPPONENTS.find((opponent) => opponent.id === id);
+  if (!found) throw new Error(`no replica opponent ${id}`);
+  return found;
+};
+
+/**
+ * Gravestone (models Tombstone, H4): a heavy horizontal bar on the nose,
+ * drive wheels, a ballast tail, patient. Measured 2026-09-02 from the
+ * opponent seat as the rung above a lance build: it beats the Cube
+ * Rammer with a spike, a lance, or a tempered lance in its nose, and
+ * loses to a tempered lance with a ballast tail of its own, to a bar
+ * with a tail, and to a Bulldozer with a tail, so the rung has counters
+ * a player can buy.
+ */
+const GRAVESTONE: BotDesign = {
+  name: "Gravestone",
+  behavior: { aggression: 0.6, flankBias: 0.6, patience: 0.7 },
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+    { iid: "mount", partId: "spin-mount" },
+    { iid: "bar", partId: "spinner-bar" },
+    { iid: "tail", partId: "ballast-block" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front",
+      childIid: "mount",
+      childConnector: "base",
+    },
+    {
+      parentIid: "mount",
+      parentConnector: "spindle",
+      childIid: "bar",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "back",
+      childIid: "tail",
+      childConnector: "nose",
+    },
+  ],
+};
+
+export const FIGHT_LADDER: readonly FightRung[] = [
+  {
+    id: "brawler",
+    name: CPU_BRAWLER_DESIGN.name,
+    blurb: "The stock brawler: a plate on top and nothing up front.",
+    hint: "warm-up",
+    design: CPU_BRAWLER_DESIGN,
+    counter: {
+      partId: "ram-spike",
+      text: "Brawler has nothing up front: a Ram Spike on the nose and two Drive Wheels beat it.",
+    },
+  },
+  {
+    ...replica("contagion"),
+    hint: "controls the floor",
+    counter: {
+      partId: "ram-spike",
+      text: "Contagion wins the floor, not the fight: a Ram Spike on the nose and two Drive Wheels beat it.",
+    },
+  },
+  {
+    ...replica("night-terror"),
+    hint: "all blade",
+    counter: {
+      partId: "ram-spike",
+      text: "Night Terror is all blade: a Ram Spike on the nose and two Drive Wheels beat it.",
+    },
+  },
+  {
+    id: "bulldozer",
+    name: CPU_BULLDOZER_DESIGN.name,
+    blurb: "Low roller drums, an armour nose, and a plow that never lets go.",
+    hint: "outshoves a spike",
+    design: CPU_BULLDOZER_DESIGN,
+    counter: {
+      partId: "tower-core",
+      text: "Bulldozer outshoves a cube: the Tower Core with the same wheels and spike shoves it back.",
+    },
+  },
+  {
+    ...replica("impaler"),
+    hint: "punishes a spike",
+    counter: {
+      partId: "lance",
+      text: "Impaler punishes a spike: a Lance in the spike's place outreaches it.",
+    },
+  },
+  {
+    id: "gravestone",
+    name: GRAVESTONE.name,
+    inspiredBy: "Tombstone",
+    blurb:
+      "A heavy bar on a ballast tail. Eats lances; a tempered lance with a tail of its own beats it.",
+    hint: "punishes a lance",
+    design: GRAVESTONE,
+    counter: {
+      partId: "tempered-lance",
+      text: "Gravestone eats lances: a Tempered Lance with a Ballast Block for a tail beats it.",
+    },
   },
 ];

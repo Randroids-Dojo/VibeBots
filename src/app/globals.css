@@ -106,7 +106,7 @@ button:focus-visible {
 .workshop-tabs button,
 .carousel-arrow,
 .inspector-actions button,
-.workshop-header-menu button {
+.workshop-ready-chip {
   transition:
     transform 90ms ease,
     filter 120ms ease,
@@ -118,7 +118,7 @@ button:focus-visible {
 .workshop-tabs button:not(:disabled):active,
 .carousel-arrow:not(:disabled):active,
 .inspector-actions button:not(:disabled):active,
-.workshop-header-menu button:not(:disabled):active {
+.workshop-ready-chip:not(:disabled):active {
   transform: translateY(1px) scale(0.97);
   filter: brightness(0.92);
 }
@@ -242,9 +242,8 @@ button:focus-visible {
   right: 20px;
   z-index: 11;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 12px;
   background: rgb(var(--hud-surface-rgb) / 0.92);
   border: 1px solid var(--hud-border);
@@ -256,27 +255,243 @@ button:focus-visible {
   font-weight: 600;
 }
 
-/* Compact options menu: a single button in the top bar opens a dropdown with
- * the bot actions, so the bar stays a thin strip and frees room for the bot. */
-.workshop-header-menu {
-  position: relative;
-  margin-left: auto;
+.workshop-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.workshop-header-menu-button {
+/* Readiness chip (G2): one word for the inspection verdict, and a tap opens
+ * the inspection itself on the Tune tab. */
+.workshop-ready-chip {
+  flex: 0 0 auto;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
   background: transparent;
-  color: #cdd4e4;
-  border: 1px solid #344061;
-  border-radius: 8px;
-  padding: 4px 12px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.workshop-header-menu-panel {
+.workshop-ready-chip-ok {
+  color: #54e0c7;
+  border-color: rgba(84, 224, 199, 0.4);
+}
+
+.workshop-ready-chip-bad {
+  color: #ff6b6b;
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+/* Live budget meters (G2): power against the core's supply and mass against
+ * the weight-class ceiling, filling as parts land. */
+.workshop-meters {
+  display: flex;
+  gap: 12px;
+}
+
+.workshop-meter {
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--hud-text-muted);
+}
+
+.workshop-meter-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.workshop-meter-track {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: #1a2133;
+  border: 1px solid #26304a;
+  overflow: hidden;
+}
+
+.workshop-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--hud-accent);
+  transition: width 220ms ease;
+}
+
+.workshop-meter-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-text);
+  white-space: nowrap;
+}
+
+.workshop-meter-over .workshop-meter-fill,
+.workshop-meter-flash .workshop-meter-fill {
+  background: #ff6b6b;
+}
+
+.workshop-meter-over .workshop-meter-value {
+  color: #ff6b6b;
+}
+
+/* The flash: the meter a refused part would break pulses red once, so the
+ * refusal points at its own cause. */
+.workshop-meter-flash {
+  animation: workshop-meter-flash 900ms ease-out;
+}
+
+@keyframes workshop-meter-flash {
+  0% {
+    color: #ff6b6b;
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  100% {
+    color: inherit;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workshop-meter-flash {
+    animation: none;
+  }
+}
+
+.workshop-budget-reason {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #ffd166;
+}
+
+/* Nothing blocks the browsed part: the same line, in the muted voice, says
+ * where it fits (F-243). */
+.workshop-budget-reason-ok {
+  color: var(--hud-text-muted);
+}
+
+/* Coach card (G6): one line of guidance for the first build, in the sheet's
+ * top strip above the thumb bar so it stays visible open or collapsed. */
+.workshop-coach {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(84, 224, 199, 0.12);
+  border: 1px solid rgba(84, 224, 199, 0.45);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.workshop-coach-title {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: #54e0c7;
+  white-space: nowrap;
+}
+
+.workshop-coach-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--hud-text);
+}
+
+.workshop-coach-skip {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid #344061;
+  background: var(--hud-border);
+  color: var(--hud-text);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* Thumb bar (G2): the build actions live in the sheet's top strip, always
+ * visible whether the sheet is open or collapsed, in reach of the thumb. */
+.workshop-thumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px 6px;
+}
+
+.workshop-thumb-button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 38px;
+  padding: 6px 4px;
+  background: var(--hud-border);
+  color: var(--hud-text);
+  border: 1px solid #344061;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.workshop-thumb-button:disabled {
+  background: #161b28;
+  color: #5a6378;
+  cursor: not-allowed;
+}
+
+.workshop-thumb-button.workshop-thumb-active {
+  background: #2f7d6b;
+  border-color: #54e0c7;
+}
+
+.workshop-thumb-button.workshop-thumb-primary {
+  flex: 1.5 1 0;
+  background: var(--hud-accent);
+  color: #0b0e14;
+}
+
+.workshop-thumb-button.workshop-thumb-primary:disabled {
+  background: #161b28;
+  color: #5a6378;
+}
+
+.workshop-thumb-button:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+}
+
+/* The fight roster opens upward from the Test fight button. */
+.workshop-fight-menu {
+  position: relative;
+  flex: 1.5 1 0;
+  min-width: 0;
+  display: flex;
+}
+
+.workshop-fight-menu > .workshop-thumb-button {
+  flex: 1 1 0;
+}
+
+.workshop-fight-menu-panel {
   position: absolute;
-  top: calc(100% + 6px);
+  bottom: calc(100% + 8px);
   right: 0;
   z-index: 19;
   display: flex;
@@ -288,22 +503,6 @@ button:focus-visible {
   border: 1px solid #344061;
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
-
-.workshop-header-menu-row {
-  display: flex;
-  gap: 6px;
-}
-
-.workshop-header-menu-row button {
-  flex: 1;
-  background: var(--hud-border);
-  color: var(--hud-text);
-  border: 1px solid #344061;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
-  cursor: pointer;
 }
 
 .workshop-fight-action {
@@ -322,7 +521,15 @@ button:focus-visible {
   background: #7aa8ff;
 }
 
-.workshop-header-menu-row button:disabled,
+/* The rung hint under each ladder entry (H2). */
+.workshop-fight-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
 .workshop-fight-action:disabled {
   background: #161b28;
   color: #5a6378;
@@ -484,8 +691,12 @@ button:focus-visible {
   max-width: 340px;
   transform: translateX(-50%);
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
+  /* Tight rows: the chip carries the part's blurb (G3) at the height it
+   * had before it (about 108px), so it never creeps up over the hero
+   * part's tap point on portrait (the carousel tests tap the hero at
+   * 545px and the chip's top must stay below that, fonts aside). */
+  gap: 5px;
+  padding: 8px 14px;
   background: rgb(var(--hud-surface-rgb) / 0.95);
   border: 1px solid #344061;
   border-radius: 12px;
@@ -592,6 +803,158 @@ button:focus-visible {
 
 .part-remove-handle:active {
   background: #a82c2f;
+}
+
+/* Fight debrief (G9): the post-fight card that says what decided the fight
+ * and offers the fix. */
+.fight-debrief {
+  padding: 10px 12px;
+  border: 1px solid var(--hud-border);
+  border-radius: 10px;
+  background: rgb(var(--hud-surface-rgb) / 0.94);
+}
+
+.fight-debrief-headline {
+  margin: 0 0 6px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.fight-debrief-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.fight-debrief-lesson p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.fight-debrief-fix {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #54e0c7;
+  background: #2f7d6b;
+  color: var(--hud-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fight-debrief-fix:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+}
+
+/* Chain cue (G7): the merge that can merge again gets a gold line that
+ * pulses once, the bench's biggest beat. */
+.inspector-chain {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #ffe08a;
+  color: #0b0e14;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  animation: inspector-chain-pulse 1.6s ease-out;
+}
+
+@keyframes inspector-chain-pulse {
+  0% {
+    transform: scale(0.94);
+    box-shadow: 0 0 0 0 rgba(255, 224, 138, 0.9);
+  }
+  30% {
+    transform: scale(1.04);
+    box-shadow: 0 0 18px 4px rgba(255, 224, 138, 0.55);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 224, 138, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspector-chain {
+    animation: none;
+  }
+}
+
+/* Paint swatches (G5): two rows of colour buttons in the Build sheet. */
+.paint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.paint-row-label {
+  flex: 0 0 40px;
+  font-size: 0.78rem;
+  color: var(--hud-text-muted);
+}
+
+.paint-swatches {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.paint-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  padding: 0;
+}
+
+.paint-swatch.paint-swatch-active {
+  border-color: #ffffff;
+  box-shadow:
+    0 0 0 2px #0b0e14,
+    0 0 0 4px #54e0c7;
+}
+
+.paint-swatch:not(:disabled):active {
+  transform: scale(0.94);
+}
+
+/* Carousel category chips (G4): a short row of family pills, the header
+ * card's last row (F-243), so a bigger catalog stays browsable one part at
+ * a time and the reason line above can never cover them. */
+.carousel-overlay-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.carousel-chip {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hud-border);
+  background: rgb(var(--hud-surface-rgb) / 0.86);
+  color: var(--hud-text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.carousel-chip.carousel-chip-active {
+  background: #2f7d6b;
+  border-color: #54e0c7;
+  color: var(--hud-text);
+}
+
+.carousel-chip:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
 }
 
 /* Build carousel arrows (N1): thumb-sized prev/next around the hero part,
@@ -787,6 +1150,21 @@ button:focus-visible {
   margin: 0;
   font-size: 0.78rem;
   opacity: 0.75;
+}
+
+/* The part's one-line purpose (G3) sits under the name with the stats
+ * packed directly beneath it, one block, so the docked inspector keeps
+ * its old height and the hero tray still clears it on portrait (F-052). */
+.inspector-copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-blurb {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  opacity: 0.9;
 }
 
 /* Spend cue for the carousel owned-count (Slice B): a quick gold pop when a

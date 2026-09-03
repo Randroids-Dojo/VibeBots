@@ -7,30 +7,43 @@ import {
   useFrame,
   useThree,
 } from "@react-three/fiber";
-import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ComponentRef,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   BufferAttribute,
   BufferGeometry,
   type Group,
+  type InstancedMesh,
+  Matrix4,
   type MeshStandardMaterial,
   type PerspectiveCamera,
   Vector3,
 } from "three";
+import { createGuardedEvents } from "@/components/canvas-events";
+import { CATEGORY_LOOK, partLook } from "@/components/part-look";
 import {
-  CATEGORY_SURFACE,
   createWebGPU,
   partGeometry,
+  partVertexColors,
   shapeRotation,
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
+import { paintedColor } from "@/lib/bot-paint";
 import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
 import { type BalanceReport, computeBalance } from "@/sim/balance";
-import { type PartInstance, partMergeLevel } from "@/sim/design";
-import { computeLayout, type Placement } from "@/sim/layout";
+import { type BotPaint, type PartInstance, partMergeLevel } from "@/sim/design";
+import { computeLayout, isQuarterTurned, type Placement } from "@/sim/layout";
 import {
   PART_CATALOG,
-  type PartCategory,
   type PartDef,
+  shapeHalfExtents,
   type Vec3,
 } from "@/sim/parts";
 import {
@@ -52,20 +65,31 @@ import { ScenePostProcessing } from "./scene-post";
 import { StudioEnvironment } from "./studio-environment";
 import {
   advance,
+  DISSOLVE_SECONDS,
   decay,
+  dissolveOpacity,
+  dissolveScale,
+  dissolveSink,
   MOUNT_SECONDS,
   PULSE_SECONDS,
+  SPARK_COUNT,
+  SPARK_SECONDS,
   snapScale,
+  sparkDirections,
+  sparkDrop,
+  sparkScale,
+  sparkTravel,
 } from "./workshop-animation";
+import {
+  boundsCenter,
+  DEFAULT_CAMERA_OFFSET,
+  defaultCameraPosition,
+  frameTarget,
+  glideFraction,
+  isSettled,
+} from "./workshop-camera";
 import { clientToNdc, groundFloorY, pickNearestSlot } from "./workshop-drag";
 import { playWorkshopSfx } from "./workshop-sfx";
-
-const CATEGORY_COLORS: Record<PartCategory, string> = {
-  core: "#ff9f43",
-  structure: "#a3b1cc",
-  mobility: "#54e0c7",
-  weapon: "#ff6b6b",
-};
 
 // Stable pip keys (one per merge level) so the level markers never key on
 // a bare array index. Length covers MAX_PART_MERGE_LEVEL.
@@ -89,6 +113,7 @@ function PlacedPart({
   placement,
   selected,
   shadows,
+  paint,
   onActivate,
 }: {
   instance: PartInstance;
@@ -96,6 +121,8 @@ function PlacedPart({
   placement: Placement;
   selected: boolean;
   shadows: boolean;
+  /** The bot's cosmetic paint (G5); undefined leaves the part in its look. */
+  paint: BotPaint | undefined;
   onActivate: () => void;
 }) {
   const scaleRef = useRef<Group>(null);
@@ -104,7 +131,13 @@ function PlacedPart({
   const pulseT = useRef(0);
   const level = partMergeLevel(instance);
   const prevLevel = useRef(level);
-  const surface = CATEGORY_SURFACE[def.category];
+  // The part's own face (G3): base paint, surface response, and whether
+  // its geometry carries the two-tone vertex attribute.
+  const look = partLook(def);
+  const vertexColors = partVertexColors(def);
+  // Painted (G5): body paint on cores and structure, trim on wheel hubs,
+  // steel weapons untouched; no paint keeps the part's own look.
+  const color = paintedColor(def, paint, look.color);
   useFrame((_, dt) => {
     if (level > prevLevel.current) pulseT.current = 1;
     prevLevel.current = level;
@@ -126,8 +159,8 @@ function PlacedPart({
         mat.emissive.set("#ffffff");
         mat.emissiveIntensity = 0.35;
       } else {
-        mat.emissive.set(CATEGORY_COLORS[def.category]);
-        mat.emissiveIntensity = surface.emissiveBoost;
+        mat.emissive.set(color);
+        mat.emissiveIntensity = look.emissiveBoost;
       }
     }
   });
@@ -150,14 +183,15 @@ function PlacedPart({
           castShadow={shadows}
           receiveShadow={shadows}
         >
-          {partGeometry(def.shape, def.category)}
+          {partGeometry(def)}
           <meshStandardMaterial
             ref={matRef}
-            color={CATEGORY_COLORS[def.category]}
-            metalness={surface.metalness}
-            roughness={surface.roughness}
-            emissive={CATEGORY_COLORS[def.category]}
-            emissiveIntensity={surface.emissiveBoost}
+            color={color}
+            vertexColors={vertexColors}
+            metalness={look.metalness}
+            roughness={look.roughness}
+            emissive={color}
+            emissiveIntensity={look.emissiveBoost}
           />
         </mesh>
       </group>
@@ -272,11 +306,11 @@ function HeroPart({
       2,
     );
   });
-  const surface = CATEGORY_SURFACE[def.category];
+  const look = partLook(def);
   // Owned-out (P3): render the part gray and non-glowing so it reads as
   // "you have none", and swallow the grab so an unavailable part cannot be
   // dragged onto the bot.
-  const color = dimmed ? "#8b93a6" : CATEGORY_COLORS[def.category];
+  const color = dimmed ? "#8b93a6" : look.color;
   return (
     <group
       ref={anchorRef}
@@ -286,17 +320,22 @@ function HeroPart({
       }}
     >
       <group ref={spinRef} scale={dragging ? 0.72 : 0.65}>
-        <mesh rotation={shapeRotation(def.shape)}>
-          {partGeometry(def.shape, def.category)}
+        {/* Keyed on the part so stepping the carousel builds a fresh
+            material: a two-tone part and a plain one differ in
+            vertexColors, which three only reads when the material is
+            compiled. */}
+        <mesh key={def.id} rotation={shapeRotation(def.shape)}>
+          {partGeometry(def)}
           <meshStandardMaterial
             color={color}
-            metalness={surface.metalness}
-            roughness={dimmed ? 0.95 : surface.roughness}
+            vertexColors={partVertexColors(def)}
+            metalness={look.metalness}
+            roughness={dimmed ? 0.95 : look.roughness}
             transparent={dimmed}
             opacity={dimmed ? 0.72 : 1}
             emissive={color}
             emissiveIntensity={
-              dimmed ? 0.12 : surface.emissiveBoost + (dragging ? 0.4 : 0.18)
+              dimmed ? 0.12 : look.emissiveBoost + (dragging ? 0.4 : 0.18)
             }
           />
         </mesh>
@@ -336,17 +375,17 @@ function DragGhost({
     }
   });
   const { position, rotation } = placement;
-  const surface = CATEGORY_SURFACE[def.category];
+  const look = partLook(def);
   // Merge targets read gold (matching the W4 merge language); place targets
   // read in the part's own colour and go white-hot when they are the snap.
-  const color = merge ? "#ffe08a" : CATEGORY_COLORS[def.category];
+  const color = merge ? "#ffe08a" : look.color;
   const emissive = merge
     ? active
       ? "#fff0b0"
       : "#ffe08a"
     : active
       ? "#ffffff"
-      : CATEGORY_COLORS[def.category];
+      : look.color;
   return (
     <group
       ref={groupRef}
@@ -354,12 +393,13 @@ function DragGhost({
       quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
     >
       <mesh rotation={shapeRotation(def.shape)}>
-        {partGeometry(def.shape, def.category)}
+        {partGeometry(def)}
         <meshStandardMaterial
           ref={matRef}
           color={color}
-          metalness={surface.metalness}
-          roughness={surface.roughness}
+          vertexColors={partVertexColors(def)}
+          metalness={look.metalness}
+          roughness={look.roughness}
           transparent
           opacity={active ? 0.85 : merge ? 0.32 : 0.22}
           depthWrite={active}
@@ -502,6 +542,305 @@ function BalanceOverlay({
   );
 }
 
+type OrbitControlsRef = ComponentRef<typeof OrbitControls>;
+
+/**
+ * A part on its way out (G7): removal used to blink the part away. The
+ * scene keeps a ghost of a removed part for a beat and dissolves it,
+ * smaller, fainter, and a little lower, so a removal reads as the part
+ * coming off the bot rather than an error. Owns its own timer in a ref;
+ * the scale, opacity, and sink curves are pure and unit tested.
+ */
+interface LeavingPart {
+  key: string;
+  def: PartDef;
+  placement: Placement;
+  color: string;
+}
+
+function DissolvingPart({
+  part,
+  onDone,
+  publish,
+}: {
+  part: LeavingPart;
+  onDone: (key: string) => void;
+  /** Publishes the live scale so a test can watch the dissolve move. */
+  publish: (scale: number) => void;
+}) {
+  const groupRef = useRef<Group>(null);
+  const matRef = useRef<MeshStandardMaterial>(null);
+  const t = useRef(0);
+  const done = useRef(false);
+  useFrame((_, dt) => {
+    if (done.current) return;
+    t.current = advance(t.current, dt, DISSOLVE_SECONDS);
+    const scale = dissolveScale(t.current);
+    const group = groupRef.current;
+    if (group) {
+      group.scale.setScalar(scale);
+      group.position.y = part.placement.position.y - dissolveSink(t.current);
+    }
+    if (matRef.current) matRef.current.opacity = dissolveOpacity(t.current);
+    publish(scale);
+    if (t.current >= 1) {
+      done.current = true;
+      onDone(part.key);
+    }
+  });
+  const { position, rotation } = part.placement;
+  const look = partLook(part.def);
+  return (
+    <group
+      ref={groupRef}
+      position={[position.x, position.y, position.z]}
+      quaternion={[rotation.x, rotation.y, rotation.z, rotation.w]}
+    >
+      <mesh rotation={shapeRotation(part.def.shape)}>
+        {partGeometry(part.def)}
+        <meshStandardMaterial
+          ref={matRef}
+          color={part.color}
+          vertexColors={partVertexColors(part.def)}
+          metalness={look.metalness}
+          roughness={look.roughness}
+          transparent
+          opacity={1}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/** Where and in what colour the next spark burst fires. */
+interface SparkBurst {
+  t: number;
+  x: number;
+  y: number;
+  z: number;
+  color: string;
+}
+
+/**
+ * Drop sparks (G7): one instanced draw of a few small fullbright motes
+ * that fly up and out from the mount a part just snapped onto (in the
+ * part's colour, gold for a merge) and die within half a second. The
+ * directions are a fixed table, the burst state lives in a ref, and the
+ * frame loop writes matrices into the one instanced mesh, so a drop
+ * allocates nothing.
+ */
+const SPARK_DIRECTIONS = sparkDirections(SPARK_COUNT);
+// Sparks are hot metal, not the part's paint (F-244): a wheel's own colour
+// is black rubber, which vanished against the bench. Placement sparks are
+// warm white; a merge keeps its gold.
+const SPARK_PLACE_COLOR = "#ffe3a3";
+
+function DropSparks({
+  burst,
+  publish,
+}: {
+  burst: RefObject<SparkBurst>;
+  publish: (active: boolean) => void;
+}) {
+  const instRef = useRef<InstancedMesh>(null);
+  const matrix = useRef(new Matrix4());
+  const wasActive = useRef(false);
+  useFrame((_, dt) => {
+    const inst = instRef.current;
+    const b = burst.current;
+    if (!inst) return;
+    const active = b.t < 1;
+    if (active) {
+      b.t = advance(b.t, dt, SPARK_SECONDS);
+      const travel = sparkTravel(b.t);
+      const drop = sparkDrop(b.t);
+      const scale = sparkScale(b.t);
+      for (let i = 0; i < SPARK_COUNT; i++) {
+        const d = SPARK_DIRECTIONS[i];
+        matrix.current.makeScale(scale, scale, scale);
+        matrix.current.setPosition(
+          b.x + d.x * travel,
+          b.y + d.y * travel - drop,
+          b.z + d.z * travel,
+        );
+        inst.setMatrixAt(i, matrix.current);
+      }
+      inst.count = SPARK_COUNT;
+      inst.instanceMatrix.needsUpdate = true;
+    } else if (wasActive.current) {
+      inst.count = 0;
+    }
+    if (active !== wasActive.current) {
+      wasActive.current = active;
+      publish(active);
+    }
+  });
+  return (
+    <instancedMesh
+      ref={instRef}
+      args={[undefined, undefined, SPARK_COUNT]}
+      count={0}
+      frustumCulled={false}
+    >
+      <sphereGeometry args={[1, 6, 5]} />
+      <meshBasicMaterial
+        color={burst.current.color}
+        toneMapped={false}
+        transparent
+        opacity={0.9}
+        depthWrite={false}
+      />
+    </instancedMesh>
+  );
+}
+
+/**
+ * Bench camera rig (G1): glides the orbit target toward a tapped part so
+ * the part is framed without wrangling, and brings the whole view home
+ * (target on the bot's bounds centre, camera at the default front
+ * three-quarter offset) on a view reset. The math lives in
+ * workshop-camera.ts; this only applies it per frame with scratch vectors
+ * (frame-loop rule: no per-frame allocation) and publishes the live target
+ * and camera position to the canvas dataset so a test can prove the move.
+ */
+function CameraRig({
+  controlsRef,
+  layout,
+  selectedIid,
+  inspectNonce,
+  viewResetNonce,
+}: {
+  controlsRef: RefObject<OrbitControlsRef | null>;
+  layout: Map<string, Placement>;
+  selectedIid: string | null;
+  inspectNonce: number;
+  viewResetNonce: number;
+}) {
+  const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
+  const design = useWorkshopStore((s) => s.design);
+  const goalTarget = useRef(new Vector3());
+  const goalPosition = useRef(new Vector3());
+  // True while a reset is also gliding the camera itself back to the
+  // default offset; a tap-frame only pans (camera and target move together).
+  const resettingPosition = useRef(false);
+  const scratch = useRef(new Vector3());
+  const datasetCache = useRef<Record<string, number | string>>({});
+
+  // The bot's bounds centre from every part's two bounding corners, so a
+  // wide wheel counts for more than a spike. Design cadence, not frame.
+  const center = useMemo(() => {
+    const corners: Vec3[] = [];
+    for (const part of design.parts) {
+      const def = PART_CATALOG[part.partId];
+      const placement = layout.get(part.iid);
+      if (!def || !placement) continue;
+      const { hx, hy, hz } = shapeHalfExtents(def.shape);
+      const turned = isQuarterTurned(placement.rotation);
+      const ex = turned ? hz : hx;
+      const ez = turned ? hx : hz;
+      const p = placement.position;
+      corners.push({ x: p.x - ex, y: p.y - hy, z: p.z - ez });
+      corners.push({ x: p.x + ex, y: p.y + hy, z: p.z + ez });
+    }
+    return boundsCenter(corners);
+  }, [design, layout]);
+  // The nonce effects below read the bench through refs so they fire only
+  // on a tap or a reset, never on a layout or selection change. The refs
+  // are written in effects (commit time), declared before the readers so
+  // they run first in the same commit; a write during render could
+  // survive a discarded render and aim the camera at a build that never
+  // committed.
+  const centerRef = useRef(center);
+  const layoutRef = useRef(layout);
+  const selectedRef = useRef(selectedIid);
+  useEffect(() => {
+    centerRef.current = center;
+    layoutRef.current = layout;
+    selectedRef.current = selectedIid;
+  }, [center, layout, selectedIid]);
+
+  // A tap on a placed part (inspectNonce bumps only on taps, never on a
+  // placement or merge) frames that part. Keyed on the nonce alone so a
+  // drag-build never moves the view under the finger.
+  useEffect(() => {
+    if (inspectNonce === 0) return;
+    const iid = selectedRef.current;
+    const part = iid ? (layoutRef.current.get(iid)?.position ?? null) : null;
+    const goal = frameTarget(centerRef.current, part);
+    goalTarget.current.set(goal.x, goal.y, goal.z);
+    resettingPosition.current = false;
+  }, [inspectNonce]);
+
+  // A view reset (chassis swap, loaded design, reset, Recenter) glides the
+  // target to the bot's centre and the camera to the default offset. The
+  // mount pass (nonce 0) only seeds the goals: the camera starts there.
+  useEffect(() => {
+    const c = centerRef.current;
+    goalTarget.current.set(c.x, c.y, c.z);
+    const pos = defaultCameraPosition(c);
+    goalPosition.current.set(pos.x, pos.y, pos.z);
+    resettingPosition.current = viewResetNonce > 0;
+  }, [viewResetNonce]);
+
+  // A finger on the bench outranks a pending camera glide: dropping the
+  // position reset the moment an orbit starts keeps the view from fighting
+  // the drag. The target glide is deliberately left to finish: it is a pan
+  // that moves camera and target together, so it cannot fight an orbit,
+  // and cutting it short would leave a tapped part half framed.
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const onStart = () => {
+      resettingPosition.current = false;
+    };
+    controls.addEventListener("start", onStart);
+    return () => controls.removeEventListener("start", onStart);
+  }, [controlsRef]);
+
+  useFrame((_, dt) => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const fraction = glideFraction(dt);
+    const target = controls.target;
+    let moved = false;
+    if (!isSettled(target, goalTarget.current)) {
+      const step = scratch.current
+        .copy(goalTarget.current)
+        .sub(target)
+        .multiplyScalar(fraction);
+      target.add(step);
+      // A frame is a pan: the camera keeps its offset and moves with the
+      // target. During a reset the camera has its own goal below.
+      if (!resettingPosition.current) camera.position.add(step);
+      moved = true;
+    }
+    if (resettingPosition.current) {
+      if (isSettled(camera.position, goalPosition.current)) {
+        resettingPosition.current = false;
+      } else {
+        const step = scratch.current
+          .copy(goalPosition.current)
+          .sub(camera.position)
+          .multiplyScalar(fraction);
+        camera.position.add(step);
+        moved = true;
+      }
+    }
+    if (moved) controls.update();
+    const dataset = (gl.domElement as HTMLCanvasElement).dataset;
+    const cache = datasetCache.current;
+    setDatasetNumber(cache, dataset, "cameraTargetX", target.x, 3);
+    setDatasetNumber(cache, dataset, "cameraTargetY", target.y, 3);
+    setDatasetNumber(cache, dataset, "cameraTargetZ", target.z, 3);
+    setDatasetNumber(cache, dataset, "cameraX", camera.position.x, 2);
+    setDatasetNumber(cache, dataset, "cameraY", camera.position.y, 2);
+    setDatasetNumber(cache, dataset, "cameraZ", camera.position.z, 2);
+  });
+  return null;
+}
+
 function WorkshopScene() {
   const design = useWorkshopStore((s) => s.design);
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
@@ -515,7 +854,126 @@ function WorkshopScene() {
   const buildActive = useWorkshopStore((s) => s.buildActive);
   const browseDimmed = useWorkshopStore((s) => s.browseDimmed);
   const balanceVisible = useWorkshopStore((s) => s.balanceVisible);
+  const inspectNonce = useWorkshopStore((s) => s.inspectNonce);
+  const viewResetNonce = useWorkshopStore((s) => s.viewResetNonce);
+  const controlsRef = useRef<OrbitControlsRef | null>(null);
   const layout = computeLayout(design);
+  // Feel-pass trace for tests (G7): dissolve frames and minimum, spark state.
+  const feelCache = useRef<Record<string, number | string>>({});
+  // Removal dissolve (G7): diff the placed parts against the last commit;
+  // any that vanished become ghosts that shrink and fade off the bench.
+  const [leaving, setLeaving] = useState<LeavingPart[]>([]);
+  const prevPartsRef = useRef(
+    new Map<string, { def: PartDef; placement: Placement }>(),
+  );
+  useEffect(() => {
+    const prev = prevPartsRef.current;
+    const next = new Map<string, { def: PartDef; placement: Placement }>();
+    const committed = computeLayout(design);
+    for (const part of design.parts) {
+      const def = PART_CATALOG[part.partId];
+      const placement = committed.get(part.iid);
+      if (def && placement) next.set(part.iid, { def, placement });
+    }
+    const gone: LeavingPart[] = [];
+    for (const [iid, entry] of prev) {
+      if (next.has(iid)) continue;
+      gone.push({
+        key: `${iid}:${leaveSerial.current++}`,
+        def: entry.def,
+        placement: entry.placement,
+        color: paintedColor(entry.def, design.paint, partLook(entry.def).color),
+      });
+    }
+    prevPartsRef.current = next;
+    if (gone.length > 0) {
+      // A new dissolve starts: reset the published trace so a test reads
+      // this removal's motion, not an earlier one's.
+      feelCache.current.dissolveFrames = 0;
+      feelCache.current.dissolveMin = 1;
+      setLeaving((list) => [...list, ...gone]);
+    }
+  }, [design]);
+  const leaveSerial = useRef(0);
+  const removeLeaving = useCallback((key: string) => {
+    setLeaving((list) => list.filter((entry) => entry.key !== key));
+  }, []);
+  // Drop sparks (G7): a burst at the mount a part just landed on.
+  const burst = useRef<SparkBurst>({
+    t: 1,
+    x: 0,
+    y: 0,
+    z: 0,
+    color: "#ffffff",
+  });
+  // The burst starts from the mount, slid toward the camera along its own
+  // view ray (F-244): same spot on screen, but drawn in front of whatever
+  // the mount sits behind (a far axle hides behind the core from the bench
+  // camera), so the sparks are seen and not just published.
+  // Far enough to clear the core (a unit across) from any bench angle.
+  const SPARK_TOWARD_CAMERA = 1.6;
+  const sparkCamera = useThree((state) => state.camera);
+  const sparkAt = useCallback(
+    (at: Vec3, color: string) => {
+      const b = burst.current;
+      let dx = sparkCamera.position.x - at.x;
+      let dy = sparkCamera.position.y - at.y;
+      let dz = sparkCamera.position.z - at.z;
+      const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+      // Never past halfway to the camera: at the closest zoom a front
+      // mount sits inside the slide's reach, and a burst behind the eye
+      // is a burst nobody sees.
+      const reach = Math.min(SPARK_TOWARD_CAMERA, len * 0.5);
+      dx = (dx / len) * reach;
+      dy = (dy / len) * reach;
+      dz = (dz / len) * reach;
+      b.t = 0;
+      b.x = at.x + dx;
+      b.y = at.y + dy;
+      b.z = at.z + dz;
+      b.color = color;
+    },
+    [sparkCamera],
+  );
+
+  // Publish the applied paint so a test can read it off the DOM (canvas
+  // pixels are not readable through the WebGL/WebGPU fallback).
+  const glForPaint = useThree((state) => state.gl);
+  // The feel pass publishes its motion too: how many parts are dissolving,
+  // the live scale of the newest one, and whether sparks are in flight.
+  useEffect(() => {
+    const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+    dataset.dissolving = String(leaving.length);
+  }, [glForPaint, leaving.length]);
+  // A dissolve is over in a quarter second, too fast for a test to sample
+  // live, so the trace it leaves is what gets published: how many frames
+  // the newest ghost animated and the smallest scale it reached.
+  const publishDissolve = useCallback(
+    (scale: number) => {
+      const cache = feelCache.current;
+      const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+      const frames = (Number(cache.dissolveFrames) || 0) + 1;
+      cache.dissolveFrames = frames;
+      dataset.dissolveFrames = String(frames);
+      const min = Math.min(Number(cache.dissolveMin) || 1, scale);
+      cache.dissolveMin = min;
+      setDatasetNumber(cache, dataset, "dissolveMin", min, 3);
+    },
+    [glForPaint],
+  );
+  const publishSparks = useCallback(
+    (active: boolean) => {
+      (glForPaint.domElement as HTMLCanvasElement).dataset.sparking = active
+        ? "1"
+        : "0";
+    },
+    [glForPaint],
+  );
+  useEffect(() => {
+    const dataset = (glForPaint.domElement as HTMLCanvasElement).dataset;
+    dataset.paintPrimary = design.paint?.primary ?? "none";
+    dataset.paintAccent = design.paint?.accent ?? "none";
+  }, [glForPaint, design.paint]);
   const balance = useMemo(
     () => (balanceVisible ? computeBalance(design) : null),
     [balanceVisible, design],
@@ -673,10 +1131,13 @@ function WorkshopScene() {
             placeAtSlot(target.slot);
             buzz(HAPTIC_PLACE);
             playWorkshopSfx("place");
+            sparkAt(target.placement.position, SPARK_PLACE_COLOR);
           } else {
             mergePart(target.iid);
             buzz(HAPTIC_MERGE);
-            playWorkshopSfx("merge");
+            // The merge sound plays from the panel's merge-nonce effect, so
+            // a chain merge gets one recipe, not merge plus chain.
+            sparkAt(target.placement.position, "#ffe08a");
           }
         }
       } else {
@@ -706,6 +1167,7 @@ function WorkshopScene() {
     camera,
     setMergePreviewLevel,
     toggleBrowseStats,
+    sparkAt,
   ]);
 
   const projScratch = useRef(new Vector3());
@@ -805,6 +1267,7 @@ function WorkshopScene() {
       <StudioEnvironment intensity={features.environmentIntensity} />
       {features.postBloom && webgpuBackend ? <ScenePostProcessing /> : null}
       <OrbitControls
+        ref={controlsRef}
         makeDefault
         enablePan={false}
         enableRotate={!grabbing}
@@ -815,6 +1278,13 @@ function WorkshopScene() {
         // under the floor and see the camera-anchored hero part dip through
         // the grounding disc.
         maxPolarAngle={Math.PI * 0.56}
+      />
+      <CameraRig
+        controlsRef={controlsRef}
+        layout={layout}
+        selectedIid={selectedIid}
+        inspectNonce={inspectNonce}
+        viewResetNonce={viewResetNonce}
       />
       {/* Grounding disc under the build grid so the bot stops floating
           in the void; it also catches the key light's shadow. It tracks the
@@ -845,7 +1315,7 @@ function WorkshopScene() {
         <IdleSlotMarker
           key={`idle:${slot.key}`}
           position={slot.placement.position}
-          color={CATEGORY_COLORS[browseDef.category]}
+          color={CATEGORY_LOOK[browseDef.category].color}
         />
       ))}
       {dragging &&
@@ -867,6 +1337,15 @@ function WorkshopScene() {
             />
           ),
         )}
+      <DropSparks burst={burst} publish={publishSparks} />
+      {leaving.map((part) => (
+        <DissolvingPart
+          key={part.key}
+          part={part}
+          onDone={removeLeaving}
+          publish={publishDissolve}
+        />
+      ))}
       {design.parts.map((instance) => {
         const def = PART_CATALOG[instance.partId];
         const placement = layout.get(instance.iid);
@@ -880,6 +1359,7 @@ function WorkshopScene() {
             placement={placement}
             selected={selected}
             shadows={shadows}
+            paint={design.paint}
             onActivate={() => select(selected ? null : instance.iid)}
           />
         );
@@ -963,8 +1443,18 @@ export default function WorkshopCanvas({
   }, []);
   return (
     <Canvas
-      camera={{ position: [2.6, 1.8, 3.2], fov: 45 }}
+      // Front three-quarter (G1): every core's front is -z, so the camera
+      // sits on the -z side and the player sees the face of their bot.
+      camera={{
+        position: [
+          DEFAULT_CAMERA_OFFSET.x,
+          DEFAULT_CAMERA_OFFSET.y,
+          DEFAULT_CAMERA_OFFSET.z,
+        ],
+        fov: 45,
+      }}
       gl={createWebGPU}
+      events={createGuardedEvents}
       dpr={dpr}
       shadows
     >

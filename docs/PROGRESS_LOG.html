@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="goldens-update-windows" data-date="2026-09-03">
+    <h3>The goldens update script runs on Windows and says why when it cannot (F-251)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/goldens-update-windows</code>, stacked on <code>feature/workshop-ladder-debrief</code> (PR #356).</dd>
+      <dt>PR</dt><dd>Pending. Dot <code>VibeBots-f-251-the-ca5efaa4</code>.</dd>
+      <dt>Context</dt><dd>F-251, found while stepping the sim version to 8: <code>pnpm test:goldens:update -- --reason ...</code> exited 1 with no message on Windows, because the script spawned <code>pnpm</code> without a shell and <code>pnpm</code> is a <code>.cmd</code> shim there, so the spawn failed with a null status that became a silent exit 1. The manifest the runner writes also needed <code>biome</code> afterwards, because it prints one-element arrays across lines and the Quality gate wants them on one.</dd>
+      <dt>Changed</dt><dd>The plan behind the script moved into <code>scripts/update-goldens-lib.mjs</code> so the Windows case is a unit test instead of a machine: <code>parseReason</code> reads the flag and drops pnpm's separator, <code>goldenUpdatePlan</code> names the two spawns (the vitest update runner with its two env vars, then <code>biome format --write tests/goldens</code>) and starts them through a shell on win32, and <code>spawnFailure</code> names a spawn that never started or ended without a status. The script runs the plan, prints those failures instead of swallowing them, and exits with the runner's status when it is not zero. Six unit cases cover the flag, the plan on linux and win32, and the failure messages.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. <code>pnpm exec vitest run scripts/update-goldens-lib.test.mjs</code>: 6 of 6. The documented command on this Windows machine, with a throwaway reason: exit 0; the runner reported no deterministic golden output changed, biome formatted 11 files with no fixes, and nothing under tests/goldens changed. <code>pnpm exec biome check .</code> exit 0. Dash check (text files) and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>The shell is only used on win32, so the posix path is the same spawn as before. No version bump: a contributor script, nothing player-facing. Rule 13 tip review: no version bump, no copy changed. Rule 14 stamp review: tooling, no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>F-251 resolved by this PR.</dd>
+    </dl>
+  </article>
   <article data-slice="ladder-debrief" data-date="2026-09-03">
     <h3>The debrief knows the ladder: a loss to a rung opens with the counter the ladder test proves (F-250)</h3>
     <dl>

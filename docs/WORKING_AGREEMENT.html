@@ -18,6 +18,7 @@
     <li>Branch names should be short and descriptive: <code>feature/manual-shifting</code>, <code>fix/leaderboard-pagination</code>, <code>docs/update-coverage</code>.</li>
     <li>Never push directly to <code>main</code>.</li>
     <li>Do not mix unrelated changes in one branch.</li>
+    <li>Claim before you build: push the branch and open a draft PR as the first act of the slice (see Pull Requests). Put the backlog id in the branch name when one exists (<code>fix/f-240-deploy-tripwire</code>).</li>
   </ul>
 </section>
 
@@ -46,16 +47,18 @@
     <li>After the squash lands, verify the published commit with <code>bash scripts/check-attribution.sh --commit &lt;main-sha&gt;</code>.</li>
     <li>The scan covers metadata only. Author and committer identity are out of scope unless the user separately expands the policy.</li>
   </ul>
-  <p>After opening a PR:</p>
+  <p>Claiming (adopted 2026-09-02):</p>
   <ul>
-    <li>Read flat comments, reviews, and threaded inline comments.</li>
-    <li>Treat CodeRabbit or bot review comments as actionable unless clearly incorrect.</li>
-    <li>Fix valid comments and push followup commits.</li>
-    <li>After every followup push, wait for any configured bot reviewer to finish reviewing that pushed commit.</li>
-    <li>The bot review wait is settled only when all required checks are green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later.</li>
-    <li>Re-read flat reviews and threaded inline comments after each push and after the settled wait. Merge only after bot review is finished or the settled wait confirms no fresh bot feedback appeared.</li>
-    <li>Reply when the context would help future readers.</li>
-    <li>Resolve threads when fixed.</li>
+    <li>The draft PR is the claim. Open it before implementing, right after the first push of the branch, so two sessions cannot probe the same slice concurrently (the failure Cannonball-Vibe hit with two probes of one task on 2026-08-30).</li>
+    <li>Before claiming, check <code>gh pr list --state open --search "&lt;F-id or Q-id&gt;"</code> (search covers PR bodies) and <code>git ls-remote origin 'refs/heads/*'</code> for the id or slug. If another branch or PR already names the slice, pick different work.</li>
+    <li>The first line of the PR body is <code>Claims: F-NNN</code> (or the Q-id, or <code>none</code> plus a one-line scope). Tracker ids stay out of the title (Rule 4).</li>
+  </ul>
+  <p>After the slice is built and verified:</p>
+  <ul>
+    <li>Mark the PR ready and arm auto-merge: <code>gh pr merge &lt;number&gt; --auto --squash --subject "&lt;title&gt;" --body-file &lt;path&gt;</code>, with the squash text validated by the attribution preflight first. Then start the next slice; do not wait for the merge, the preview deploy, or any bot.</li>
+    <li>No human or service review gates a merge. CodeRabbit is retired (<code>.coderabbit.yaml</code> disables automatic reviews while the app remains installed) and the settled-wait rule is gone with it. Review happens after merge, in <code>docs/MAINLINE_REVIEW_LOG.html</code>.</li>
+    <li>If a human leaves comments on your open PR, read flat comments, reviews, and threaded inline comments; fix what is valid, reply when the context would help future readers, resolve threads when fixed, and re-arm auto-merge if the push dropped it.</li>
+    <li>While the repository does not yet allow auto-merge (Q-038), merge yourself as soon as the required gate is green, with the same validated squash text.</li>
   </ul>
 </section>
 
@@ -136,21 +139,53 @@
   <h2>Dependency Upgrade Gate</h2>
   <p>Run at every loop boundary that touches <code>main</code>:</p>
   <ul>
-    <li>After landing on fresh <code>main</code> (post-merge or fresh pull), before picking the next slice.</li>
-    <li>Before opening a new PR, in case a watched release landed while the slice was in flight.</li>
+    <li>At session start on fresh <code>main</code>, after the mainline health check and before picking the next slice.</li>
+    <li>Before marking a PR ready, in case a watched release landed while the slice was in flight.</li>
   </ul>
-  <p>Mechanism lives in <code>docs/IMPLEMENTATION_PLAN.html</code> §<a href="IMPLEMENTATION_PLAN.html#dependency-upgrade-gate">Dependency Upgrade Gate</a>; the watched dep list and per-dep procedure live in <code>docs/DEPENDENCY_LEDGER.html</code>. Treat a new release as a non-optional signal: the upgrade is the next slice unless red CI takes over.</p>
+  <p>Mechanism lives in <code>docs/IMPLEMENTATION_PLAN.html</code> §<a href="IMPLEMENTATION_PLAN.html#dependency-upgrade-gate">Dependency Upgrade Gate</a>; the watched dep list and per-dep procedure live in <code>docs/DEPENDENCY_LEDGER.html</code>. Treat a new release as a non-optional signal: the upgrade is the next slice unless red main takes over.</p>
+</section>
+
+<section id="mainline-integration">
+  <h2>Mainline Integration</h2>
+  <p><strong>Decision, 2026-09-02.</strong> Continuous mainline integration with post-merge adversarial review, adopted from the Cannonball-Vibe contract (that repo's ADR-0025 plus its task-claiming amendment). This section is the standing record; the loop in <code>AGENTS.md</code> Rule 5 and <code>docs/IMPLEMENTATION_PLAN.html</code> implements it.</p>
+  <h3>Context</h3>
+  <p>Delivery is single-owner and agent-executed. The pre-adoption gate stack (five required contexts plus a CodeRabbit settled-wait plus preview-deploy and production-smoke waits) cost every session a merge-babysitting tail and produced a documented pattern of review-service stalls resolved by admin override: PR #328 merged with an override after CodeRabbit's changes-requested state never flipped, and PR #330 hit a <code>code_scanning</code> ruleset rule that a docs-only PR can never satisfy. Development should continue without waiting on feedback outside the human boundaries in Rule 6, with breakage detected and repaired by agents.</p>
+  <h3>Decision</h3>
+  <ul>
+    <li>Integration is PR-only and merges exclusively through auto-merge on green: squash only, zero required approvals, no pre-merge human or service review. CodeRabbit is retired.</li>
+    <li>The only required merge contexts are the five parallel CI jobs: <code>Quality</code>, <code>Typecheck</code>, <code>Unit Tests</code>, <code>Build</code>, and the two <code>Critical E2E</code> shards. Preview Smoke, Functional Shadow, and the render tier stay advisory.</li>
+    <li>The nightly Full E2E matrix, the pinned browser runtime build, and the production deploy become post-merge tripwires. The <code>Mainline health</code> workflow (<code>.github/workflows/mainline-health.yml</code>) watches the CI and Browser Runtime workflows on <code>main</code> and maintains one canonical open issue labeled <code>red-main</code> while any watched signal is red. Production deploy status is checked at session start until the watcher covers it (F-240).</li>
+    <li>Fix-forward only: never revert, never force-push, never bypass-merge to land work. A red main preempts all new slice selection; repair lands as new commits through the same PR flow. Administrator bypass is reserved for governance operations the owner performs personally.</li>
+    <li>A slice is claimed by a draft PR before implementation, so concurrent sessions cannot duplicate work.</li>
+    <li>Post-merge adversarial review replaces pre-merge review: mainline commits are reviewed from the cursor recorded in <code>docs/MAINLINE_REVIEW_LOG.html</code>, and actionable findings are filed as followups or open questions, never as merge blocks.</li>
+    <li>Rule 6 human boundaries are unchanged. The owner-side ruleset and repository setting changes that make auto-merge possible are recorded as Q-038 and executed by the owner, not by an agent.</li>
+  </ul>
+  <h3>Consequences</h3>
+  <ul>
+    <li>Integration no longer waits on review latency or deploy latency; agents arm auto-merge and move to the next slice.</li>
+    <li>There is a bounded window in which unreviewed or tripwire-failing code is on <code>main</code>; the red-main flow and fix-forward law are the accepted repair mechanism.</li>
+    <li>There is no merge queue and no strict up-to-date rule, so two independently green PRs can merge into a combined state never tested together; the push run on <code>main</code> plus the tripwire detect it.</li>
+    <li>Watched workflow <code>name:</code> fields are load-bearing for the watcher's <code>workflow_run</code> filter; renaming <code>CI</code> or <code>Browser Runtime</code> silently detaches it.</li>
+    <li>Ledger closeout happens in the slice's own diff, before the merge, because the merging session may never observe the merge.</li>
+  </ul>
+  <h3>Rejected alternatives</h3>
+  <ul>
+    <li><strong>Direct push to <code>main</code>:</strong> loses the PR unit that required status checks and the ledgers key off, for negligible throughput over auto-merge.</li>
+    <li><strong>Keep the bot settled-wait as advisory:</strong> retains an integration with a documented stall history that no longer gates anything.</li>
+    <li><strong>Revert-first red-main policy:</strong> discards in-flight intent; fix-forward keeps diagnosis and repair in one continuous flow.</li>
+    <li><strong>Make the Full E2E matrix a required PR check:</strong> serializes every merge on a thirty-two shard, 35-minute matrix whose known flakes would hold unrelated PRs.</li>
+  </ul>
 </section>
 
 <section id="merge-and-deploy">
   <h2>Merge And Deploy</h2>
   <ul>
-    <li>Merge only through PRs.</li>
-    <li>Wait for the required parallel CI gate, preview deploy, and bot review after the latest push.</li>
-    <li>After merge, pull <code>main</code>.</li>
-    <li>Verify main commit status for the current remote tip.</li>
-    <li>Verify production deploy status and aliases through GitHub deployment status plus Vercel CLI or API metadata.</li>
+    <li>Merge only through PRs, only through auto-merge on the required parallel gate (see Mainline Integration).</li>
+    <li>Do not wait for the merge, the preview deploy, or a bot review after arming auto-merge. Start the next slice.</li>
+    <li>The next session start checks <code>gh issue list --label red-main --state open</code> and the production deployment status for the <code>origin/main</code> head. Red main is that session's slice.</li>
+    <li>Verify production deploy status and aliases through GitHub deployment status plus Vercel CLI or API metadata, keyed by commit sha.</li>
     <li>Do not use unauthenticated HTTP checks or fresh headless Playwright as the default production smoke path on protected Vercel deployments. Use local or CI Playwright for app behavior, and reserve authenticated real-browser production playtests for slices that explicitly need them.</li>
+    <li>Never revert, force-push, or bypass-merge to land work or to clear a red main.</li>
   </ul>
 </section>
 

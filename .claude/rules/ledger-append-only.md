@@ -5,13 +5,23 @@ paths:
   - "docs/OPEN_QUESTIONS.html"
   - "docs/FOLLOWUPS.html"
   - "docs/GDD_COVERAGE.json"
+  - "docs/MAINLINE_REVIEW_LOG.html"
 ---
 
 <h1>Ledger append-only discipline</h1>
 
-<p>This rule loads when editing the four ledger files. They are the externalized memory of the project. The agent does not remember; the project remembers itself. That contract breaks if past entries are rewritten.</p>
+<p>This rule loads when editing the five ledger files. They are the externalized memory of the project. The agent does not remember; the project remembers itself. That contract breaks if past entries are rewritten.</p>
 
 <h2>What to do</h2>
+
+<section data-ledger="docs/MAINLINE_REVIEW_LOG.html">
+  <h3><code>docs/MAINLINE_REVIEW_LOG.html</code></h3>
+  <ul>
+    <li>Add new <code>&lt;article data-review="YYYY-MM-DD" data-cursor="..."&gt;</code> entries at the TOP of <code>&lt;main id="entries"&gt;</code>. Newest first. The newest entry's cursor is the start of the next review.</li>
+    <li>Never edit a past entry. A review that turns out to have missed something gets a new entry covering the same range again, with the finding.</li>
+    <li>Findings are filed as <code>F-NNN</code> or <code>Q-NNN</code> entries and referenced by id; the log never holds the only copy of a finding.</li>
+  </ul>
+</section>
 
 <section data-ledger="docs/PROGRESS_LOG.html">
   <h3><code>docs/PROGRESS_LOG.html</code></h3>

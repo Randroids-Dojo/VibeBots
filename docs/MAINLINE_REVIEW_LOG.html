@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Mainline Review Log</title>
+</head>
+<body>
+
+<header>
+  <h1>Mainline Review Log</h1>
+  <p>Append-only cursor for the post-merge adversarial review required by the continuous-mainline contract (<code>docs/WORKING_AGREEMENT.html</code>, Mainline Integration). Pre-merge bot review is retired; this log is where review happens instead.</p>
+  <p>Each entry records the reviewed mainline range. The cursor for the next review is the newest entry's head sha. File actionable findings as <code>docs/FOLLOWUPS.html</code> entries or <code>docs/OPEN_QUESTIONS.html</code> entries, never as merge blocks, and reference their ids here. Newest entries first. Never edit or delete a past entry.</p>
+</header>
+
+<section id="template" data-role="entry-template">
+  <h2>How to add a review entry</h2>
+  <pre><code>&lt;article data-review="YYYY-MM-DD" data-cursor="&lt;head sha&gt;"&gt;
+  &lt;h3&gt;YYYY-MM-DD: short label&lt;/h3&gt;
+  &lt;dl&gt;
+    &lt;dt&gt;Reviewed range&lt;/dt&gt;&lt;dd&gt;&lt;code&gt;&lt;previous cursor&gt;..&lt;head sha&gt;&lt;/code&gt;&lt;/dd&gt;
+    &lt;dt&gt;Cursor head&lt;/dt&gt;&lt;dd&gt;&lt;code&gt;&lt;head sha&gt;&lt;/code&gt;&lt;/dd&gt;
+    &lt;dt&gt;PRs covered&lt;/dt&gt;&lt;dd&gt;#N, #M (squash commits in the range)&lt;/dd&gt;
+    &lt;dt&gt;Findings&lt;/dt&gt;&lt;dd&gt;none, or the F-NNN / Q-NNN ids filed with one line each&lt;/dd&gt;
+  &lt;/dl&gt;
+&lt;/article&gt;</code></pre>
+  <p>Review posture is adversarial: read every squash commit in the range as if it were a PR you had to approve, looking for correctness, determinism (<code>src/sim</code> purity, <code>SIM_VERSION</code> bumps), frame-loop allocation, ledger hygiene, and copy that contradicts the GDD. Do not soften a finding because the code already shipped; a shipped defect becomes a followup, not a footnote.</p>
+</section>
+
+<main id="entries">
+  <article data-review="2026-09-02" data-cursor="cd9721c3078415a4874fac42512f894a278e9517">
+    <h3>2026-09-02: bootstrap</h3>
+    <dl>
+      <dt>Reviewed range</dt><dd>none (adoption of the continuous-mainline contract)</dd>
+      <dt>Cursor head</dt><dd><code>cd9721c3078415a4874fac42512f894a278e9517</code> (<code>origin/main</code> at adoption, PR #329)</dd>
+      <dt>PRs covered</dt><dd>none. All mainline history through PR #330 predates this policy and was integrated under the pre-adoption gated flow (required parallel gate plus CodeRabbit settled-wait).</dd>
+      <dt>Findings</dt><dd>none</dd>
+    </dl>
+  </article>
+</main>
+
+</body>
+</html>

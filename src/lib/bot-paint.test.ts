@@ -94,5 +94,8 @@ describe("paint palette", () => {
     expect(PAINT_SWATCHES.map((swatch) => swatch.id)).toEqual([
       ...BOT_PAINT_IDS,
     ]);
+    // Eight fixed swatches is the contract, not just "the same list twice".
+    expect(PAINT_SWATCHES).toHaveLength(8);
+    expect(BOT_PAINT_IDS).toHaveLength(8);
   });
 });

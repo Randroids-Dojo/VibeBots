@@ -55,7 +55,7 @@
     </dl>
   </section>
 
-  <section id="Q-038" data-q="Q-038" data-status="open">
+  <section id="Q-038" data-q="Q-038" data-status="resolved">
     <h3>Q-038: Owner-side governance for continuous mainline integration</h3>
     <dl>
       <dt>Context</dt><dd>The 2026-09-02 slice adopted the Cannonball-Vibe continuous-mainline contract (<code>docs/WORKING_AGREEMENT.html</code>, Mainline Integration): PRs auto-merge on the five required parallel CI contexts, no pre-merge review, everything else a post-merge tripwire. The repository side of that decision lives outside the repo and only the owner can execute it: the <code>main</code> ruleset and the repository merge settings. The current ruleset is known to carry a <code>code_scanning</code> rule that a docs-only PR can never satisfy (PR #330 needed an admin override) and, per PR #328, a CodeRabbit review state that held a green PR. Neither is compatible with unattended auto-merge. Whether auto-merge is already allowed on the repository could not be read from this session.</dd>
@@ -67,7 +67,7 @@
         </ol>
       </dd>
       <dt>Recommended default</dt><dd>A. It is the shape that Cannonball-Vibe verified end to end (its PR #79 auto-merged unattended once its two required checks passed), and the <code>code_scanning</code> rule has already produced one mystery block. Commands, run by the owner: <code>gh api repos/Randroids-Dojo/VibeBots/rules/branches/main</code> and <code>gh api repos/Randroids-Dojo/VibeBots/rulesets</code> to find and snapshot the ruleset; <code>gh api -X PUT repos/Randroids-Dojo/VibeBots/rulesets/&lt;id&gt; --input ruleset.json</code> with the narrowed rules; <code>gh api -X PATCH repos/Randroids-Dojo/VibeBots -F allow_auto_merge=true -F delete_branch_on_merge=true</code>; then one real PR armed with <code>gh pr merge &lt;n&gt; --auto --squash</code> as the end-to-end proof. Until then agents merge on green themselves per the Rule 5 fallback.</dd>
-      <dt>Status</dt><dd>open</dd>
+      <dt>Status</dt><dd>resolved 2026-09-03: option A executed from the 2026-09-01 session with the owner's account and live approval. Before: rules deletion, non_fast_forward, code_scanning (CodeQL, errors and warnings), pull_request (squash only, extra approval for unattributed changes on); repository allow_auto_merge and delete_branch_on_merge off. After: rules deletion, non_fast_forward, required_status_checks (Quality, Typecheck, Unit Tests, Build, Critical E2E 1-of-2, Critical E2E 2-of-2; strict off), pull_request (zero approvals, squash only, no extra approval for unattributed changes); both repository settings on. Bypass actors unchanged. The end-to-end proof is the integration PR that landed the 2026-09-01 workshop program by auto-merge.</dd>
       <dt>Resolution</dt><dd>(filled in once the owner executes the change; include the ruleset id, the before and after snapshot hashes, and the first unattended auto-merge PR number)</dd>
     </dl>
   </section>

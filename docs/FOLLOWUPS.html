@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-254" data-f="F-254" data-priority="polish">
+    <h3>F-254: The gamepad-back helper stalls to the 60 second timeout on software-rendered shards</h3>
+    <dl>
+      <dt>Context</dt><dd>Confirmed 2026-09-03 after three sightings in two days across two specs: the bunker claim-mode case (mine-bunker.spec.ts) on the 2026-09-02 nightly, and the mine-account-sync Escape-and-gamepad-back dismissal case on the non-required Runtime Shadow shards of PR #354 head 1805415c, PR #356 head 2de0bdf6, and main's push run for 86af7dfc. Each time a <code>page.evaluate</code> inside the gamepad-back helper hangs to the 60 second test timeout on both attempts (the Q-035 software-render stall signature) after changes that touched only docs or copy. The helper is shared, so the stall follows the helper, not the spec.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. The helper's evaluate needs a bounded wait (or a synthetic gamepad event dispatched without evaluate) so a stalled software frame cannot hold the whole case.</dd>
+      <dt>Unblock condition</dt><dd>Rewrite the helper so its evaluate cannot block past a short deadline, or replace it with an event dispatch, then run both cases twenty times under <code>E2E_SOFTWARE_GL</code> locally. Acceptance: twenty green runs of each case under software rendering, and the two entries leave the known-flake list in <code>docs/CI_WORKFLOW.html</code>.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-03 after the workshop program landed (#359). Dot <code>VibeBots-f-254-the-87914755</code>.</dd>
+    </dl>
+  </section>
   <section id="F-252" data-f="F-252" data-priority="nice-to-have">
     <h3>F-252: A stamp for the first bench rule</h3>
     <dl>

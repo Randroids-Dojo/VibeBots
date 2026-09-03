@@ -197,6 +197,17 @@ export interface FightRung {
   /** The real BattleBot a replica models; house archetypes have none. */
   inspiredBy?: string;
   design: BotDesign;
+  /**
+   * The counter the ladder test proves beats this rung (F-250): a part
+   * the player can buy, and the sentence the debrief says after a loss
+   * to it. Every claim here is a measured case in opponents.test.ts.
+   */
+  counter: RungCounter;
+}
+
+export interface RungCounter {
+  partId: string;
+  text: string;
 }
 
 const replica = (id: string): ReplicaOpponent => {
@@ -266,14 +277,26 @@ export const FIGHT_LADDER: readonly FightRung[] = [
     blurb: "The stock brawler: a plate on top and nothing up front.",
     hint: "warm-up",
     design: CPU_BRAWLER_DESIGN,
+    counter: {
+      partId: "ram-spike",
+      text: "Brawler has nothing up front: a Ram Spike on the nose and two Drive Wheels beat it.",
+    },
   },
   {
     ...replica("contagion"),
     hint: "controls the floor",
+    counter: {
+      partId: "ram-spike",
+      text: "Contagion wins the floor, not the fight: a Ram Spike on the nose and two Drive Wheels beat it.",
+    },
   },
   {
     ...replica("night-terror"),
     hint: "all blade",
+    counter: {
+      partId: "ram-spike",
+      text: "Night Terror is all blade: a Ram Spike on the nose and two Drive Wheels beat it.",
+    },
   },
   {
     id: "bulldozer",
@@ -281,10 +304,18 @@ export const FIGHT_LADDER: readonly FightRung[] = [
     blurb: "Low roller drums, an armour nose, and a plow that never lets go.",
     hint: "outshoves a spike",
     design: CPU_BULLDOZER_DESIGN,
+    counter: {
+      partId: "tower-core",
+      text: "Bulldozer outshoves a cube: the Tower Core with the same wheels and spike shoves it back.",
+    },
   },
   {
     ...replica("impaler"),
     hint: "punishes a spike",
+    counter: {
+      partId: "lance",
+      text: "Impaler punishes a spike: a Lance in the spike's place outreaches it.",
+    },
   },
   {
     id: "gravestone",
@@ -294,5 +325,9 @@ export const FIGHT_LADDER: readonly FightRung[] = [
       "A heavy bar on a ballast tail. Eats lances; a tempered lance with a tail of its own beats it.",
     hint: "punishes a lance",
     design: GRAVESTONE,
+    counter: {
+      partId: "tempered-lance",
+      text: "Gravestone eats lances: a Tempered Lance with a Ballast Block for a tail beats it.",
+    },
   },
 ];

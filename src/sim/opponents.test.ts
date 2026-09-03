@@ -111,6 +111,27 @@ describe("fight ladder", () => {
     expect(counter.status.over && counter.status.winner).toBe(1);
   }, 90_000);
 
+  it("names a counter per rung that the catalog sells and the measured cases above use (F-250)", () => {
+    const counters = Object.fromEntries(
+      FIGHT_LADDER.map((rung) => [rung.id, rung.counter.partId]),
+    );
+    expect(counters).toEqual({
+      brawler: "ram-spike",
+      contagion: "ram-spike",
+      "night-terror": "ram-spike",
+      bulldozer: "tower-core",
+      impaler: "lance",
+      gravestone: "tempered-lance",
+    });
+    for (const rung of FIGHT_LADDER) {
+      expect(PART_CATALOG[rung.counter.partId]).toBeDefined();
+      expect(rung.counter.text).toContain(rung.name);
+      expect(rung.counter.text).toContain(
+        PART_CATALOG[rung.counter.partId].name,
+      );
+    }
+  });
+
   it("gives the Tower core an edge of its own: it wins the two shove rungs the cube loses (F-249, measured)", async () => {
     // The same two wheels and spike on the tall chassis. Before the
     // reshape (SIM_VERSION 7) this build never closed on anyone.

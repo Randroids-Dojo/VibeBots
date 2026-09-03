@@ -13,6 +13,7 @@ import {
   type BotDesign,
   NEUTRAL_BEHAVIOR,
 } from "@/sim/design";
+import { FIGHT_LADDER } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
 
@@ -24,6 +25,7 @@ export type DebriefAction =
   | { kind: "behavior"; patch: Partial<BotBehavior> };
 
 export type DebriefLessonId =
+  | "counter"
   | "no-hits"
   | "first-loss"
   | "decision"
@@ -55,6 +57,8 @@ export interface DebriefInput {
   design: BotDesign;
   /** Part ids the player owns at least one of; undefined means unknown. */
   ownedPartIds?: readonly string[];
+  /** The ladder rung the opponent was, when it was one; a rival has none. */
+  rungId?: string;
 }
 
 /** How many lessons a debrief shows at most: short enough to act on. */
@@ -132,6 +136,19 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
   const weapon = design.parts
     .map((part) => PART_CATALOG[part.partId])
     .find((def) => def?.category === "weapon");
+  // 0. A loss (or a draw) to a ladder rung names the counter the ladder
+  // test proves beats it (F-250), unless the bot already carries that
+  // part: then the lessons below say why it still lost.
+  const rung = input.rungId
+    ? FIGHT_LADDER.find((candidate) => candidate.id === input.rungId)
+    : undefined;
+  const counter =
+    rung &&
+    !won &&
+    !design.parts.some((part) => part.partId === rung.counter.partId)
+      ? rung.counter
+      : null;
+  const counterDef = counter ? PART_CATALOG[counter.partId] : undefined;
   // What the weapons themselves landed: hull contact also deals damage,
   // and a bot that only bumped still has a weapon that never connected.
   let weaponDamage = 0;
@@ -143,16 +160,32 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
   // fight it never touches. A weaponless bot gets this lesson whatever
   // its hull happened to bump, because the bump is not a plan.
   if (!weapon) {
+    // The weapon lesson stays first for a weaponless bot; when the loss
+    // was to a rung, the rung's counter is the weapon it points at.
+    const counterIsWeapon = counterDef?.category === "weapon";
     lessons.push({
       id: "no-hits",
-      text: "This bot has no weapon, so it can only bump. Mount one on the front.",
+      text: counter
+        ? `This bot has no weapon, so it can only bump. ${counter.text}`
+        : "This bot has no weapon, so it can only bump. Mount one on the front.",
       action: {
         kind: "browse",
-        partId: suggestWeapon(input.ownedPartIds, null),
+        partId:
+          counter && counterIsWeapon
+            ? counter.partId
+            : suggestWeapon(input.ownedPartIds, null),
       },
       actionLabel: "Pick a weapon",
     });
-  } else if (weaponDamage <= 0) {
+  } else if (counter) {
+    lessons.push({
+      id: "counter",
+      text: counter.text,
+      action: { kind: "browse", partId: counter.partId },
+      actionLabel: `Browse the ${counterDef?.name ?? counter.partId}`,
+    });
+  }
+  if (weapon && weaponDamage <= 0) {
     lessons.push({
       id: "no-hits",
       text: `Your ${weapon.name} never connected. A longer reach or a spinner can land hits that the ${weapon.name} cannot.`,

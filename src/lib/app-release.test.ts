@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-02-0.1.310-tower-core");
+    expect(release.noticeId).toBe("2026-09-03-0.1.311-ladder-debrief");
     expect(latestNote).toMatchObject({
-      version: "0.1.310",
-      title: "The Tower core can fight now",
+      version: "0.1.311",
+      title: "The debrief knows the ladder",
       intro:
-        "The tall chassis was a trap: it never closed on anyone, because its belly rode a hair off the floor and pitched into it under drive, so a tower build won nothing. It is shorter now and rides a tenth higher on its axles, and the same wheels and spike beat the two rungs a cube build cannot. Every recorded fight before this version is replayed on the new sim, so old verifications no longer match.",
+        "Lose to a rung on the fight ladder and the debrief now opens with the counter the ladder test proves beats it, and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Tower core is 0.8 tall instead of 1.0 and its axles sit a tenth below centre, so it moves: a tower with two wheels and a spike now beats Brawler, Night Terror, Bulldozer, and Impaler, and a lance build wins four rungs as well.",
-      "Its five mounts and its 130 power are unchanged; what it gains is the shove, which is what a heavy brick is for.",
-      "This changes the physics, so the sim version is now 8: results recorded on the old version cannot be verified against the new one, and a stored match from before September 2, 2026 shows as unverified until it is refought.",
+      "After a loss to a ladder rung, the first lesson names the counter: a Ram Spike and two Drive Wheels for the first three rungs, the Tower Core for Bulldozer, a Lance for Impaler, and a Tempered Lance with a Ballast Block tail for Gravestone.",
+      "Browse the part from the debrief: the button leaves the arena and lands on it in the carousel, owned or not.",
+      "A bot with no weapon still hears the weapon lesson first, now with the rung's counter in it; a bot that already carries the counter hears why it lost instead.",
     ]);
   });
 

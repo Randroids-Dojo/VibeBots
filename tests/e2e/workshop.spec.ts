@@ -2192,6 +2192,9 @@ test(
     );
     const lesson = debrief.locator('[data-lesson="no-hits"]');
     await expect(lesson).toContainText("This bot has no weapon");
+    // The loss was to a ladder rung, so the weapon lesson names its
+    // counter (F-250).
+    await expect(lesson).toContainText("Impaler punishes a spike");
     await expect(
       lesson.getByRole("button", { name: "Pick a weapon" }),
     ).toBeVisible();
@@ -2376,6 +2379,72 @@ test(
     // Both pending inits resolve within the delay; give them the time.
     await page.waitForTimeout(2500);
     expect(errors).toEqual([]);
+  },
+);
+
+test(
+  "a loss to a ladder rung opens the debrief with the counter the ladder proves, and the button lands on that part (F-250)",
+  ciCase("E2E-WORKSHOP-0050", "@functional"),
+  async ({ page }) => {
+    // A spike on a wheelless cube never closes on Gravestone, so the fight
+    // goes to the judges at the minute (deterministic sim, spawn
+    // arrangement 0) and the first lesson is the rung's counter.
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: "ram-spike", count: 1 }],
+          catalog: [
+            {
+              id: "ram-spike",
+              name: "Ram Spike",
+              category: "weapon",
+              priceEmeralds: 8,
+            },
+            {
+              id: "tempered-lance",
+              name: "Tempered Lance",
+              category: "weapon",
+              priceEmeralds: 24,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    await expect(page.getByText("My Bot: 1 part")).toBeVisible();
+    await selectCarouselPart(page, "Ram Spike");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Gravestone" }).click();
+    await expect(
+      page.getByRole("button", { name: "Back to build" }),
+    ).toBeVisible();
+    const debrief = page.getByTestId("fight-debrief");
+    await expect(debrief).toBeVisible({ timeout: 100_000 });
+    await expect(debrief.locator(".fight-debrief-headline")).toHaveText(
+      /^(You lost by (knockout|decision)|Draw by (knockout|decision)) at \d+:\d\d$/,
+    );
+    const counter = debrief.locator('[data-lesson="counter"]');
+    await expect(counter).toContainText("Gravestone eats lances");
+    await counter
+      .getByRole("button", { name: "Browse the Tempered Lance" })
+      .click();
+    // The tap leaves the arena and lands on the counter in the carousel,
+    // owned or not.
+    await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+    await expect(
+      page.getByLabel("Part carousel").getByTestId("carousel-part-name"),
+    ).toHaveText("Tempered Lance");
   },
 );
 

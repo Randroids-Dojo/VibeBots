@@ -808,6 +808,9 @@ export function WorkshopPanel() {
               .filter(([, count]) => count > 0)
               .map(([id]) => id)
           : undefined,
+      // The ladder hands its own design object to the matchup, so identity
+      // says which rung the opponent was; a rival's design is never one.
+      rungId: FIGHT_LADDER.find((rung) => rung.design === matchup[0])?.id,
     });
   }, [debriefInfo, officialTeardown, matchup, inventory]);
   // A fix-it button leaves the arena and lands the player on the fix.

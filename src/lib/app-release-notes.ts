@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-02-0.1.310-tower-core";
+export const RELEASE_NOTICE_ID = "2026-09-03-0.1.311-ladder-debrief";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.311",
+      date: "2026-09-03",
+      title: "The debrief knows the ladder",
+      intro:
+        "Lose to a rung on the fight ladder and the debrief now opens with the counter the ladder test proves beats it, and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
+      changes: [
+        {
+          build,
+          text: "After a loss to a ladder rung, the first lesson names the counter: a Ram Spike and two Drive Wheels for the first three rungs, the Tower Core for Bulldozer, a Lance for Impaler, and a Tempered Lance with a Ballast Block tail for Gravestone.",
+        },
+        {
+          build,
+          text: "Browse the part from the debrief: the button leaves the arena and lands on it in the carousel, owned or not.",
+        },
+        {
+          build,
+          text: "A bot with no weapon still hears the weapon lesson first, now with the rung's counter in it; a bot that already carries the counter hears why it lost instead.",
+        },
+      ],
+    },
     {
       version: "0.1.310",
       date: "2026-09-02",

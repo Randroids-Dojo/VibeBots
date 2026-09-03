@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-02-0.1.310-tower-core",
+      releaseNoticeId: "2026-09-03-0.1.311-ladder-debrief",
       releaseSummary:
-        "The Tower core can fight now: The tall chassis was a trap: it never closed on anyone, because its belly rode a hair off the floor and pitched into it under drive, so a tower build won nothing. It is shorter now and rides a tenth higher on its axles, and the same wheels and spike beat the two rungs a cube build cannot. Every recorded fight before this version is replayed on the new sim, so old verifications no longer match.",
+        "The debrief knows the ladder: Lose to a rung on the fight ladder and the debrief now opens with the counter the ladder test proves beats it, and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-02-0.1.310-tower-core",
+      releaseNoticeId: "2026-09-03-0.1.311-ladder-debrief",
       attempted: 2,
       sent: 1,
       expired: 1,

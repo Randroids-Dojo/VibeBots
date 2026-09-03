@@ -571,3 +571,126 @@ describe("buildDebrief", () => {
     expect(debrief.lessons[0].id).toBe("clean");
   });
 });
+
+describe("buildDebrief on the ladder (F-250)", () => {
+  const RAMMER: BotDesign = {
+    name: "Rammer",
+    parts: [
+      { iid: "core", partId: "core-cube" },
+      { iid: "spike", partId: "ram-spike" },
+    ],
+    connections: [],
+  };
+  const mine = bot("Mine", [
+    part({ iid: "core", name: "Cube Core", category: "core", damageTaken: 40 }),
+    part({
+      iid: "spike",
+      name: "Ram Spike",
+      category: "weapon",
+      damageDealt: 30,
+    }),
+  ]);
+  const gravestone = bot("Gravestone", [
+    part({ iid: "ocore", name: "Cube Core", category: "core" }),
+  ]);
+
+  it("leads a loss to a rung with the counter the ladder test proves, and browses it", () => {
+    const debrief = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "gravestone",
+    });
+    expect(debrief.lessons[0]).toMatchObject({
+      id: "counter",
+      action: { kind: "browse", partId: "tempered-lance" },
+      actionLabel: "Browse the Tempered Lance",
+    });
+    expect(debrief.lessons[0].text).toContain("Gravestone eats lances");
+    expect(debrief.lessons[0].text).toContain("Tempered Lance");
+  });
+
+  it("says nothing about the counter after a win, for a rival, or when the bot already carries it", () => {
+    const won = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 1,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "gravestone",
+    });
+    expect(won.lessons.map((lesson) => lesson.id)).not.toContain("counter");
+    const rival = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+    });
+    expect(rival.lessons.map((lesson) => lesson.id)).not.toContain("counter");
+    const carried = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: {
+        ...RAMMER,
+        parts: [
+          { iid: "core", partId: "core-cube" },
+          { iid: "lance", partId: "tempered-lance" },
+        ],
+      },
+      rungId: "gravestone",
+    });
+    expect(carried.lessons.map((lesson) => lesson.id)).not.toContain("counter");
+  });
+
+  it("keeps the weapon lesson first for a weaponless bot and points it at the rung's counter", () => {
+    const bare = bot("Mine", [
+      part({
+        iid: "core",
+        name: "Cube Core",
+        category: "core",
+        damageTaken: 40,
+      }),
+    ]);
+    const impaler = buildDebrief({
+      teardown: teardown(bare, opponent),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: BARE_CORE,
+      rungId: "impaler",
+    });
+    expect(impaler.lessons[0]).toMatchObject({
+      id: "no-hits",
+      action: { kind: "browse", partId: "lance" },
+      actionLabel: "Pick a weapon",
+    });
+    expect(impaler.lessons[0].text).toContain("This bot has no weapon");
+    expect(impaler.lessons[0].text).toContain("Impaler punishes a spike");
+    // Bulldozer's counter is a core, so the weapon lesson still picks a
+    // weapon while its text names the rung.
+    const bulldozer = buildDebrief({
+      teardown: teardown(bare, opponent),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: BARE_CORE,
+      rungId: "bulldozer",
+    });
+    expect(bulldozer.lessons[0].id).toBe("no-hits");
+    expect(bulldozer.lessons[0].text).toContain("Bulldozer outshoves a cube");
+    expect(bulldozer.lessons[0].action).not.toMatchObject({
+      partId: "tower-core",
+    });
+  });
+});

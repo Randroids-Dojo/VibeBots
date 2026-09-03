@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="full-e2e-functional-only" data-date="2026-09-03">
+    <h3>Scope the hosted Full E2E matrix to the functional cases, so the nightly can be green (red-main #360)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>ci/full-e2e-functional-only</code>, from <code>origin/main</code> at <code>86af7dfc</code>.</dd>
+      <dt>PR</dt><dd>#362.</dd>
+      <dt>Context</dt><dd>The mainline health tripwire opened #360 for the nightly Full E2E signal (red at <code>cd9721c3</code>, run 33614417338, the sixteenth consecutive red night). The one real regression in that streak (the Home Screen prompt copy, E2E-RELEASE-NOTIFICATIONS-0008) landed with the workshop program (#359), so the matrix was re-dispatched on the landed main per Rule 5: run 33716830154, nine red shards of thirty-two, and every failing case carries <code>@render</code> (viewport zoom, bunker reset refund, the elevator cases, the falling-rock camera, and more) except one, the account-sync conflict-choice case that the known-flake list already names. The workflow doc had already assigned every <code>@render</code> case to the real-renderer tier on the Mac because SwiftShader is not their oracle, yet the hosted matrix still ran them, so it was red by construction and the tripwire could never close. Decided live with the owner on 2026-09-03: hosted Full E2E runs the functional cases only; render stays on the Mac tier.</dd>
+      <dt>Changed</dt><dd><code>.github/workflows/ci.yml</code>: the Full E2E step selects <code>--grep "@functional"</code>, the same selection the Critical gate and the Functional Shadow already use, with the reason in a comment. <code>docs/CI_WORKFLOW.html</code>: a Scope paragraph in the Full Smoke section and a note on the known-flake list that its <code>@render</code> entries belong to the Mac tier now. No test changed. The shard count stays at thirty-two; with 64 render, 3 visual, and 7 soak cases leaving the hosted matrix each shard carries about four cases, which only shortens it.</dd>
+      <dt>Verification</dt><dd>CI config: the run itself is the proof. After this merges, <code>gh workflow run CI -f full_e2e=true</code> on main; the signal clears when that completed matrix is green (a hosted red then means a functional regression or the listed account-sync flake, which the flake rule says to re-run). Dash check and <code>git diff --check</code> clean; the workflow YAML parses (<code>python -c "import yaml"</code> was not available, so the YAML was checked by <code>gh workflow view CI</code> after the push).</dd>
+      <dt>Assumptions</dt><dd>The Mac tier's daily 5:30 AM Chicago run is the render oracle, as the doc states; if the owner wants render coverage on hosted runners again, that is a GPU runner question, not a matrix one. Rule 6: the owner approved this CI change live.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>None new. F-132 and F-224 remain the owners of the render family.</dd>
+    </dl>
+  </article>
   <article data-slice="gamepad-back-stall-followup" data-date="2026-09-03">
     <h3>File the gamepad-back helper stall as a confirmed flake (F-254)</h3>
     <dl>

@@ -709,7 +709,13 @@ jobs:
         # two shards with slow clusters run long). Add shards, never workers or
         # a bigger per-test cap, when the software renderer is the bottleneck
         # (F-131/F-132).
-        run: pnpm test:e2e --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
+        # Functional cases only (2026-09-03). The @render, @visual, and @soak
+        # cases are owned by the real-renderer tier (pnpm ci:render on the
+        # Mac, daily) because SwiftShader is not the oracle for them: run on
+        # hosted runners they failed every night for sixteen nights (the
+        # red-main issue #360), which is the whole reason the tripwire could
+        # never go green. The Critical gate already selects @functional.
+        run: pnpm test:e2e --grep "@functional" --project=chromium --fully-parallel --workers=1 --shard=${{ matrix.shard }}
 
       - name: Upload Full E2E case timings
         if: always()

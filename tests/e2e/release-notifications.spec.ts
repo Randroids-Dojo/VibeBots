@@ -29,7 +29,7 @@ test(
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "the first lesson names the counter",
+      "the first lesson names it",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
       "Browse the part from the debrief",

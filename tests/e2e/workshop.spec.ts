@@ -79,17 +79,19 @@ async function tapHero(page: Page) {
 // The fight roster lives behind the thumb bar's "Test fight" button (G2);
 // undo, redo, mirror, and recenter are plain buttons beside it. Open the
 // roster (idempotent) before clicking one of its menu items.
-// Page errors and console errors from the moment of the call on, minus the
-// resource-load lines the local storage-offline sandbox produces (a 503 from
-// the saves list, which the client handles).
-function collectPageErrors(page: Page): string[] {
+// Page errors and console errors from the moment of the call on. No
+// Postgres locally or in CI's storage-offline sandbox, so the saves list
+// answers 503 and the browser logs it as a console error; answer that one
+// request with an empty list instead. Every other console error counts.
+async function collectPageErrors(page: Page): Promise<string[]> {
+  await page.route("**/api/designs", async (route) => {
+    await route.fulfill({ json: { designs: [] } });
+  });
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(`pageerror: ${String(error)}`));
   page.on("console", (message) => {
     if (message.type() !== "error") return;
-    const text = message.text();
-    if (text.startsWith("Failed to load resource")) return;
-    errors.push(`console: ${text}`);
+    errors.push(`console: ${message.text()}`);
   });
   return errors;
 }
@@ -2308,7 +2310,7 @@ test(
         json: { emeralds: 20, inventory: [], catalog: [] },
       });
     });
-    const errors = collectPageErrors(page);
+    const errors = await collectPageErrors(page);
     await page.goto("/workshop");
     await expect(page.locator("canvas")).toBeVisible();
     await openActions(page);
@@ -2362,7 +2364,7 @@ test(
         },
       });
     }, 1500);
-    const errors = collectPageErrors(page);
+    const errors = await collectPageErrors(page);
     await page.goto("/workshop");
     await expect(page.locator("canvas")).toBeVisible();
     await openActions(page);

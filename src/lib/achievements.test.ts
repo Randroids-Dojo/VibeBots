@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACHIEVEMENT_DEFINITIONS,
   achievementIdsUnlockedBy,
+  achievementMetricValue,
   buildAchievementViews,
   DEFAULT_ACHIEVEMENT_STATS,
   mergeAchievementStats,
@@ -151,6 +152,44 @@ describe("achievements", () => {
     );
     expect(merged.chassisFought).toBe(2);
     expect(merged.partsMaxed).toBe(1);
+  });
+
+  it("merges designsPainted by high water and resolves Custom Job through the metric (G5)", () => {
+    // Derived from the saved designs, so two snapshots that each saw one
+    // painted design still mean one, not two.
+    expect(
+      mergeAchievementStats(
+        { ...DEFAULT_ACHIEVEMENT_STATS, designsPainted: 1 },
+        { designsPainted: 1 },
+      ).designsPainted,
+    ).toBe(1);
+    expect(
+      mergeAchievementStats(
+        { ...DEFAULT_ACHIEVEMENT_STATS, designsPainted: 0 },
+        { designsPainted: 1 },
+      ).designsPainted,
+    ).toBe(1);
+    expect(
+      mergeAchievementStats(
+        { ...DEFAULT_ACHIEVEMENT_STATS, designsPainted: 2 },
+        {},
+      ).designsPainted,
+    ).toBe(2);
+    const painted = {
+      ...baseSnapshot,
+      stats: { ...DEFAULT_ACHIEVEMENT_STATS, designsPainted: 1 },
+    };
+    expect(achievementMetricValue(baseSnapshot, "designsPainted")).toBe(0);
+    expect(achievementMetricValue(painted, "designsPainted")).toBe(1);
+    expect(
+      ACHIEVEMENT_DEFINITIONS.find(
+        (definition) => definition.id === "tools-custom-job",
+      ),
+    ).toMatchObject({ metric: "designsPainted", target: 1 });
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "tools-custom-job",
+    );
+    expect(achievementIdsUnlockedBy(painted)).toContain("tools-custom-job");
   });
 
   it("unlocks depth and tool stamps from persistent records", () => {

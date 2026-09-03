@@ -113,7 +113,7 @@ describe("fight ladder", () => {
 
   it("gives the Tower core an edge of its own: it wins the two shove rungs the cube loses (F-249, measured)", async () => {
     // The same two wheels and spike on the tall chassis. Before the
-    // reshape (SIM_VERSION 8) this build never closed on anyone.
+    // reshape (SIM_VERSION 7) this build never closed on anyone.
     const tower = {
       ...rammer,
       name: "Tower Rammer",

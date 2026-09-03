@@ -112,7 +112,7 @@ describe("notification API routes", () => {
       vapidPublicKey: "public-key",
       releaseNoticeId: "2026-09-03-0.1.311-ladder-debrief",
       releaseSummary:
-        "The debrief knows the ladder: Lose to a rung on the fight ladder and the debrief now opens with the counter the ladder test proves beats it, and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
+        "The debrief knows the ladder: Lose to a rung on the fight ladder, or draw with it, and the debrief now opens with the counter the ladder test proves beats it (unless your bot already carries it), and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
     });
   });
 

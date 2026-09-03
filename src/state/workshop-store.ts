@@ -12,9 +12,11 @@ import {
   type BotBehavior,
   type BotDesign,
   type BotPaint,
+  type BotRule,
   type Connection,
   DEFAULT_GEAR_RATIO,
   isGearableConnection,
+  MAX_DESIGN_RULES,
   MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   type Orientation,
@@ -424,6 +426,10 @@ export interface WorkshopState {
   rotateSelected: () => void;
   setName: (name: string) => void;
   setBehavior: (patch: Partial<BotBehavior>) => void;
+  /** Replace the bench rules (F-247); an empty list clears the field. Undoable. */
+  setRules: (rules: readonly BotRule[]) => void;
+  /** Append one rule unless it is already there or the list is full. Undoable. */
+  addRule: (rule: BotRule) => void;
   /** Declare (or clear) the design's weight class (F-228). Undoable. */
   setWeightClass: (classId: string | undefined) => void;
   /** Set (or clear) the design's cosmetic paint (G5). Undoable. */
@@ -714,6 +720,22 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       ...patch,
     };
     set({ ...withDesign(pushHistory(history, { ...design, behavior })) });
+  },
+
+  setRules: (rules) => {
+    const { history, design } = get();
+    const next = rules.slice(0, MAX_DESIGN_RULES);
+    const { rules: _dropped, ...rest } = design;
+    const updated: BotDesign =
+      next.length > 0 ? { ...rest, rules: next } : rest;
+    set({ ...withDesign(pushHistory(history, updated)) });
+  },
+
+  addRule: (rule) => {
+    const rules = get().design.rules ?? [];
+    if (rules.length >= MAX_DESIGN_RULES) return;
+    if (rules.some((r) => r.when === rule.when && r.act === rule.act)) return;
+    get().setRules([...rules, rule]);
   },
 
   setGearRatio: (ratio) => {

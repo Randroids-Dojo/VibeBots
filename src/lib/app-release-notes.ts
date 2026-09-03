@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-03-0.1.311-ladder-debrief";
+export const RELEASE_NOTICE_ID = "2026-09-03-0.1.312-bench-rules";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.312",
+      date: "2026-09-03",
+      title: "Rules on the bench",
+      intro:
+        "Your bot has three temperament sliders and gearing; now it has rules too. On the Tune tab, up to three lines of when this, do that, from fixed lists: when my weapon is down, back off; when their weapon is down, charge; when the clock is in its last third, hold still. The first rule that holds decides the move, every tick, and a bot with no rules fights exactly as before.",
+      changes: [
+        {
+          build,
+          text: "Rules: up to three when-then lines on the Tune tab, from fixed lists (five conditions, three actions), checked in order every tick; the first that holds decides the move.",
+        },
+        {
+          build,
+          text: "The debrief offers one: lose after your weapon went down and the bot fought on without it, and the lesson adds the rule that backs off in that spot.",
+        },
+        {
+          build,
+          text: "Share codes carry rules, and a bot with no rules fights exactly as it did, so nothing already recorded changes.",
+        },
+      ],
+    },
     {
       version: "0.1.311",
       date: "2026-09-03",

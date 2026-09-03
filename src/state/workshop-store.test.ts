@@ -334,6 +334,26 @@ describe("W4 merge as placement", () => {
   });
 });
 
+describe("bench rules (F-247)", () => {
+  it("sets rules with a cap of three, clears the field when empty, and undoes", () => {
+    store().setRules([{ when: "weapon-down", act: "disengage" }]);
+    expect(store().design.rules).toEqual([
+      { when: "weapon-down", act: "disengage" },
+    ]);
+    store().addRule({ when: "clock-late", act: "charge" });
+    store().addRule({ when: "clock-late", act: "charge" });
+    expect(store().design.rules).toHaveLength(2);
+    store().addRule({ when: "core-hurt", act: "hold" });
+    store().addRule({ when: "enemy-immobile", act: "charge" });
+    expect(store().design.rules).toHaveLength(3);
+    expect(validateDesign(store().design).ok).toBe(true);
+    store().undo();
+    expect(store().design.rules).toHaveLength(2);
+    store().setRules([]);
+    expect(store().design.rules).toBeUndefined();
+  });
+});
+
 describe("B3 temperament", () => {
   it("sets behavior with neutral fill and history undo", () => {
     store().setBehavior({ aggression: 0.9 });

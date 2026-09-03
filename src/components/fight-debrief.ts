@@ -11,22 +11,27 @@ import type { MatchEndReason, MatchScore } from "@/sim/combat";
 import {
   type BotBehavior,
   type BotDesign,
+  type BotRule,
   NEUTRAL_BEHAVIOR,
 } from "@/sim/design";
 import { FIGHT_LADDER } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
+import { describeRule, WEAPON_DOWN_RULE } from "./bot-rules";
 
 export type DebriefAction =
   | { kind: "browse"; partId: string }
   | { kind: "select"; iid: string }
   | { kind: "tune" }
   /** Apply a temperament change and open Tune so the slider is seen moving (H1). */
-  | { kind: "behavior"; patch: Partial<BotBehavior> };
+  | { kind: "behavior"; patch: Partial<BotBehavior> }
+  /** Add a bench rule and open Tune on it (F-247). */
+  | { kind: "rule"; rule: BotRule };
 
 export type DebriefLessonId =
   | "counter"
   | "no-hits"
+  | "rule"
   | "first-loss"
   | "decision"
   | "resets"
@@ -60,6 +65,9 @@ export interface DebriefInput {
   /** The ladder rung the opponent was, when it was one; a rival has none. */
   rungId?: string;
 }
+
+/** A weapon down this long before the end earns the rule lesson (F-247). */
+export const RULE_LESSON_MIN_TICKS = 300;
 
 /** How many lessons a debrief shows at most: short enough to act on. */
 export const DEBRIEF_MAX_LESSONS = 2;
@@ -195,6 +203,33 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
       },
       actionLabel: "Try another weapon",
     });
+  }
+
+  // 1b. A weapon that went down while the fight went on: the bot kept
+  // fighting without it, and a bench rule is the lever for that (F-247).
+  if (!won && weapon) {
+    let weaponLossTick: number | null = null;
+    for (const part of mine.parts) {
+      if (part.category !== "weapon" || part.destroyedAtTick === null) continue;
+      if (weaponLossTick === null || part.destroyedAtTick < weaponLossTick) {
+        weaponLossTick = part.destroyedAtTick;
+      }
+    }
+    const hasRule =
+      design.rules?.some((rule) => rule.when === WEAPON_DOWN_RULE.when) ??
+      false;
+    if (
+      weaponLossTick !== null &&
+      !hasRule &&
+      teardown.ticks - weaponLossTick >= RULE_LESSON_MIN_TICKS
+    ) {
+      lessons.push({
+        id: "rule",
+        text: `Your ${weapon.name} went down at ${clockFromTicks(weaponLossTick)} and the bot fought on without it for ${clockFromTicks(teardown.ticks - weaponLossTick)}. A rule changes that: ${describeRule(WEAPON_DOWN_RULE)}`,
+        action: { kind: "rule", rule: WEAPON_DOWN_RULE },
+        actionLabel: "Add the rule",
+      });
+    }
   }
 
   // 2. The first part to go, and what took it.

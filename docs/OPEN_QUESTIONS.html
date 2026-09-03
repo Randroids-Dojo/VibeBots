@@ -39,6 +39,22 @@
 
   <h2>Open</h2>
 
+  <section data-q="Q-034" data-status="open">
+    <h3>Q-034: Which lever answers F-247, skill expression on the bench?</h3>
+    <dl>
+      <dt>Context</dt><dd>The second and third workshop audits named F-247: two builds of the same parts fight the same, because placement, gearing, and the three temperament sliders were the only levers and the controller did the rest. The third audit narrowed it to a lever the sim reads that the sliders and the catalog do not already cover. Any such lever changes results, so it carries the determinism contract (Q-003).</dd>
+      <dt>Options</dt><dd>
+        <ol type="A">
+          <li>A short ordered rule list on the design (F-234): when this, do that, from fixed lists, checked before the usual steering. Deterministic by construction, no free text, and an empty list reproduces today's output byte for byte, so the sim version does not move.</li>
+          <li>A weapon angle per mount (a yaw or pitch the sim reads): changes every recorded fight that used the part, so it bumps the sim version, and it is a per-part editor rather than a decision the player reasons about.</li>
+          <li>A weight bias slider (shift the mass fore or aft): the ballast parts already do this physically, and a hidden mass shift would fight the balance readout.</li>
+        </ol>
+      </dd>
+      <dt>Recommended default</dt><dd>A, shipped under Rule 7 as package 0.1.312: five conditions (my weapon is down, their weapon is down, they cannot drive, my core is under 40%, the clock is in its last third) and three actions (back off, charge without resets, hold still), three rules at most, and a debrief lesson that adds one. Growing the lists is content; the shape is the decision.</dd>
+      <dt>Status</dt><dd>open, shipped under the default; a different lever or a wider vocabulary is a follow-on program.</dd>
+    </dl>
+  </section>
+
   <section data-q="Q-033" data-status="open">
     <h3>Q-033: Does "all rocks are minable" keep the depth tier gate?</h3>
     <dl>

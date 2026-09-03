@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-03-0.1.311-ladder-debrief");
+    expect(release.noticeId).toBe("2026-09-03-0.1.312-bench-rules");
     expect(latestNote).toMatchObject({
-      version: "0.1.311",
-      title: "The debrief knows the ladder",
+      version: "0.1.312",
+      title: "Rules on the bench",
       intro:
-        "Lose to a rung on the fight ladder and the debrief now opens with the counter the ladder test proves beats it, and a button that puts that part in the carousel. The ladder keeps asking; the answer is one tap closer.",
+        "Your bot has three temperament sliders and gearing; now it has rules too. On the Tune tab, up to three lines of when this, do that, from fixed lists: when my weapon is down, back off; when their weapon is down, charge; when the clock is in its last third, hold still. The first rule that holds decides the move, every tick, and a bot with no rules fights exactly as before.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "After a loss to a ladder rung, the first lesson names the counter: a Ram Spike and two Drive Wheels for the first three rungs, the Tower Core for Bulldozer, a Lance for Impaler, and a Tempered Lance with a Ballast Block tail for Gravestone.",
-      "Browse the part from the debrief: the button leaves the arena and lands on it in the carousel, owned or not.",
-      "A bot with no weapon still hears the weapon lesson first, now with the rung's counter in it; a bot that already carries the counter hears why it lost instead.",
+      "Rules: up to three when-then lines on the Tune tab, from fixed lists (five conditions, three actions), checked in order every tick; the first that holds decides the move.",
+      "The debrief offers one: lose after your weapon went down and the bot fought on without it, and the lesson adds the rule that backs off in that spot.",
+      "Share codes carry rules, and a bot with no rules fights exactly as it did, so nothing already recorded changes.",
     ]);
   });
 

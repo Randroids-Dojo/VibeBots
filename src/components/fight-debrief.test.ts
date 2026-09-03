@@ -572,6 +572,89 @@ describe("buildDebrief", () => {
   });
 });
 
+describe("buildDebrief and bench rules (F-247)", () => {
+  const RAMMER: BotDesign = {
+    name: "Rammer",
+    parts: [
+      { iid: "core", partId: "core-cube" },
+      { iid: "spike", partId: "ram-spike" },
+    ],
+    connections: [],
+  };
+  const lostSpike = bot("Mine", [
+    part({ iid: "core", name: "Cube Core", category: "core", damageTaken: 60 }),
+    part({
+      iid: "spike",
+      name: "Ram Spike",
+      category: "weapon",
+      damageDealt: 20,
+      destroyed: true,
+      destroyedAtTick: 600,
+      killedBy: "obar",
+      killedByName: "Spinner Bar",
+    }),
+  ]);
+  const rival = bot("Rival", [
+    part({ iid: "ocore", name: "Cube Core", category: "core" }),
+    part({ iid: "obar", name: "Spinner Bar", category: "weapon" }),
+  ]);
+
+  it("offers the weapon-down rule when the weapon went down and the bot fought on", () => {
+    const debrief = buildDebrief({
+      teardown: teardown(lostSpike, rival, 2400),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+    });
+    const lesson = debrief.lessons.find((l) => l.id === "rule");
+    expect(lesson).toMatchObject({
+      action: {
+        kind: "rule",
+        rule: { when: "weapon-down", act: "disengage" },
+      },
+      actionLabel: "Add the rule",
+    });
+    expect(lesson?.text).toContain("went down at 0:10");
+    expect(lesson?.text).toContain("fought on without it for 0:30");
+    expect(lesson?.text).toContain("When my weapon is down, back off.");
+  });
+
+  it("stays quiet when the rule is already there, the weapon survived, the end came fast, or the bot won", () => {
+    const has = buildDebrief({
+      teardown: teardown(lostSpike, rival, 2400),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: {
+        ...RAMMER,
+        rules: [{ when: "weapon-down", act: "hold" }],
+      },
+    });
+    expect(has.lessons.map((l) => l.id)).not.toContain("rule");
+    const quick = buildDebrief({
+      teardown: teardown(lostSpike, rival, 700),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+    });
+    expect(quick.lessons.map((l) => l.id)).not.toContain("rule");
+    const won = buildDebrief({
+      teardown: teardown(lostSpike, rival, 2400),
+      winner: 1,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+    });
+    expect(won.lessons.map((l) => l.id)).not.toContain("rule");
+  });
+});
+
 describe("buildDebrief on the ladder (F-250)", () => {
   const RAMMER: BotDesign = {
     name: "Rammer",

@@ -1,8 +1,12 @@
+import { z } from "zod";
 import {
   type BotDesign,
+  type BotRule,
   botDesignSchema,
   botPaintSchema,
+  botRuleSchema,
   type Connection,
+  MAX_DESIGN_RULES,
   type PartInstance,
   validateDesign,
 } from "@/sim/design";
@@ -40,6 +44,8 @@ interface CompactDesign {
   w?: string;
   /** Paint as [body, trim] palette ids (G5). */
   k?: [string, string];
+  /** Bench rules (F-247). */
+  r?: BotRule[];
 }
 
 const BASE64URL =
@@ -111,6 +117,7 @@ function compact(design: BotDesign): CompactDesign {
   if (design.behavior) out.b = design.behavior;
   if (design.weightClass) out.w = design.weightClass;
   if (design.paint) out.k = [design.paint.primary, design.paint.accent];
+  if (design.rules && design.rules.length > 0) out.r = [...design.rules];
   return out;
 }
 
@@ -172,6 +179,16 @@ function expand(raw: unknown): BotDesign | null {
   }
   const design: BotDesign = { name: value.n, parts, connections };
   if (value.b !== undefined) design.behavior = value.b;
+  if (value.r !== undefined) {
+    // Rules are ids the sim reads, so a pasted code with an unknown one
+    // does not decode into a bot that fights differently than it says.
+    const rules = z
+      .array(botRuleSchema)
+      .max(MAX_DESIGN_RULES)
+      .safeParse(value.r);
+    if (!rules.success) return null;
+    if (rules.data.length > 0) design.rules = rules.data;
+  }
   if (value.w !== undefined) {
     if (typeof value.w !== "string") return null;
     design.weightClass = value.w;

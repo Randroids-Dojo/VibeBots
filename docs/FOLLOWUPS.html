@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-252" data-f="F-252" data-priority="nice-to-have">
+    <h3>F-252: A stamp for the first bench rule</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-09-03 with the bench rules (F-247). Authoring a first rule is a first-use moment of the kind Rule 14 asks stamps for, and the Rules panel is where a tinkerer discovers the bot can be told what to do without its weapon.</dd>
+      <dt>Blocker (if any)</dt><dd>A stamp needs a durable progress source; a design's rules are client state until a verified fight carries them, so the count has to come from the match route (a verified result whose player design has rules) rather than the bench.</dd>
+      <dt>Unblock condition</dt><dd>Record on the server that a verified match ran with at least one rule on the player's design, add the stamp in <code>src/lib/achievements.ts</code> with its test, and show it in the Stamp Book. Acceptance: the stamp lands after the first verified fight with a rule, never from the bench alone.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-03 during the bench rules slice. Dot <code>VibeBots-f-252-a-d957cd8f</code>.</dd>
+    </dl>
+  </section>
   <section id="F-251" data-f="F-251" data-priority="nice-to-have">
     <h3>F-251: The goldens update script exits 1 on Windows with no message</h3>
     <dl>
@@ -971,6 +980,7 @@
       <dt>Blocker (if any)</dt><dd>Design decision with a determinism contract behind it (Q-003): any new lever the sim reads changes results everywhere at once and bumps <code>SIM_VERSION</code>. F-234 (behaviour rules beyond the temperament sliders) is the closest existing thread.</dd>
       <dt>Unblock condition</dt><dd>Pick one lever a build can vary that the sim reads and the debrief can advise on (a weapon angle, a behaviour rule, a weight bias), spec it in the GDD, and ship it with its debrief lesson. Acceptance: two valid builds of the same parts can fight differently by a choice the player made on the bench, and the debrief names it.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 by the second audit. Dot <code>VibeBots-f-247-skill-a72b3f5c</code>.</dd>
+      <dt>Resolved</dt><dd>PR #RULES_PR (bench rules: a when-then list the sim reads; Q-034 records the choice)</dd>
     </dl>
   </section>
   <section id="F-239" data-f="F-239" data-priority="nice-to-have">
@@ -1038,6 +1048,7 @@
       <dt>Blocker (if any)</dt><dd>None. The constraint is determinism: rules must evaluate from sim state only, in a fixed order, with no wall-clock or <code>Math.random</code>.</dd>
       <dt>Unblock condition</dt><dd>Ready: add an ordered condition/action rule array to <code>BotDesign</code>, evaluate it in <code>runControllers</code> before the existing steering falls through, and default an empty list to today's exact behavior so old designs stay hash-identical. Bumps <code>SIM_VERSION</code> only if evaluation changes neutral output. Acceptance: a rule list changes an observable outcome in a unit test, an empty list reproduces the current golden vectors byte for byte, and the workshop can author rules without free text.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
+      <dt>Resolved</dt><dd>PR #RULES_PR (the rule list shipped with the bench rules slice; its three acceptance lines hold: a rule changes an outcome in a unit test, an empty list reproduces the goldens, the workshop authors rules without free text)</dd>
     </dl>
   </section>
 

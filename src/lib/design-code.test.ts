@@ -95,10 +95,33 @@ describe("design share codes", () => {
       behavior: { aggression: 0.8, flankBias: 0.2, patience: 0.5 },
       weightClass: "beetleweight",
       paint: { primary: "cobalt", accent: "gold" },
+      rules: [
+        { when: "weapon-down", act: "disengage" },
+        { when: "clock-late", act: "charge" },
+      ],
     };
     const decoded = decodeDesignCode(encodeDesignCode(design));
     expect(decoded.ok).toBe(true);
     if (decoded.ok) expect(decoded.design).toEqual(design);
+  });
+
+  it("refuses a code whose rule the sim would not read (F-247)", () => {
+    const code = encodeDesignCode(TEST_BOT_DESIGN);
+    const [tag, payload] = code.split(".");
+    const json = Buffer.from(
+      payload.replace(/-/g, "+").replace(/_/g, "/"),
+      "base64",
+    ).toString("utf8");
+    const forged = {
+      ...JSON.parse(json),
+      r: [{ when: "always", act: "hold" }],
+    };
+    const forgedPayload = Buffer.from(JSON.stringify(forged), "utf8")
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    expect(decodeDesignCode(`${tag}.${forgedPayload}`).ok).toBe(false);
   });
 
   it("is compact enough to paste: a full stock bot stays well under the cap", () => {

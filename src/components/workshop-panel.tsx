@@ -71,6 +71,7 @@ import {
   useWorkshopStore,
   validSlotsFor,
 } from "@/state/workshop-store";
+import { RulesPanel } from "./rules-panel";
 
 const WorkshopCanvas = dynamic(() => import("./workshop-canvas"), {
   ssr: false,
@@ -543,6 +544,8 @@ export function WorkshopPanel() {
   const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
   const setBehavior = useWorkshopStore((s) => s.setBehavior);
+  const setRules = useWorkshopStore((s) => s.setRules);
+  const addRule = useWorkshopStore((s) => s.addRule);
   const setWeightClass = useWorkshopStore((s) => s.setWeightClass);
   const setPaint = useWorkshopStore((s) => s.setPaint);
   const undo = useWorkshopStore((s) => s.undo);
@@ -837,6 +840,7 @@ export function WorkshopPanel() {
     // A lever lesson applies its change (undoable) and opens Tune so the
     // slider is seen moving.
     if (action.kind === "behavior") setBehavior(action.patch);
+    if (action.kind === "rule") addRule(action.rule);
     setTab("tune");
     setSheetOpen(true);
   };
@@ -1763,6 +1767,12 @@ export function WorkshopPanel() {
                   </label>
                 ))}
               </section>
+
+              <RulesPanel
+                rules={design.rules ?? []}
+                panelStyle={panelStyle}
+                onChange={setRules}
+              />
 
               <BenchPanel design={design} panelStyle={panelStyle} />
             </>

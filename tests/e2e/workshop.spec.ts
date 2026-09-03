@@ -2451,6 +2451,60 @@ test(
 );
 
 test(
+  "the Tune tab authors up to three bench rules from fixed lists, and undo takes one back (F-247)",
+  ciCase("E2E-WORKSHOP-0051", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openSheet(page);
+    await page.getByRole("tab", { name: "Tune" }).click();
+    const rules = page.getByRole("region", { name: "Rules" });
+    await expect(rules).toBeVisible();
+    await expect(rules.getByRole("combobox")).toHaveCount(0);
+
+    // Each tap adds a distinct line; the third fills the list.
+    const add = rules.getByRole("button", { name: "Add rule" });
+    await add.click();
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 1 condition" }),
+    ).toHaveValue("weapon-down");
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 1 action" }),
+    ).toHaveValue("disengage");
+    await add.click();
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 2 condition" }),
+    ).toHaveValue("enemy-weapon-down");
+    await add.click();
+    await expect(rules.getByRole("combobox")).toHaveCount(6);
+    await expect(
+      rules.getByRole("button", { name: "Three rules is the limit" }),
+    ).toBeDisabled();
+
+    // The lists are the only input: pick a different action for rule 2.
+    await rules
+      .getByRole("combobox", { name: "Rule 2 action" })
+      .selectOption("charge");
+    await expect(
+      rules.getByRole("combobox", { name: "Rule 2 action" }),
+    ).toHaveValue("charge");
+
+    // Remove the last, then the toolbar's Undo brings it back from the
+    // editor history, the same history every bench edit goes through.
+    await rules.getByRole("button", { name: "Remove rule 3" }).click();
+    await expect(rules.getByRole("combobox")).toHaveCount(4);
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(rules.getByRole("combobox")).toHaveCount(6);
+  },
+);
+
+test(
   "catalog wave two: the new rungs sit in their ladders and the tempered lance mounts (H3)",
   ciCase("E2E-WORKSHOP-0048", "@functional"),
   async ({ page }) => {

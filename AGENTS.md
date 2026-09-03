@@ -39,6 +39,7 @@ Before each implementation slice, read:
 - `docs/GDD_COVERAGE.json`
 - `docs/DEPENDENCY_LEDGER.html` (and run the Dependency Upgrade Gate from `docs/IMPLEMENTATION_PLAN.html`)
 - `docs/CI_WORKFLOW.html` when touching CI, verification policy, release process, or monitoring behavior
+- `docs/MAINLINE_REVIEW_LOG.html` (the post-merge adversarial review cursor; run the review when it is behind `origin/main`)
 - `docs/PART_ART_PIPELINE.html` when touching bot part geometry, materials, or any 3D part art (render-only over unchanged colliders; also the Fable 5 3D-art workflow)
 - `docs/PLAYTEST.html` and `docs/FUN_FACTOR_AUDIT.html` when coverage is >=80% done
 - the current task backlog (HTML Dots via `dot-html`, stored under `.dots/`)
@@ -110,33 +111,28 @@ Do not introduce new dependencies in core categories without explicit user appro
 
 ## RULE 5: Autonomous PR loop
 
-Operate continuously until the planned scope is complete. The loop definition lives in `docs/IMPLEMENTATION_PLAN.html`. The process contract lives in `docs/WORKING_AGREEMENT.html`. Follow both on every slice.
+Operate continuously until the planned scope is complete. The loop definition lives in `docs/IMPLEMENTATION_PLAN.html`. The process contract lives in `docs/WORKING_AGREEMENT.html`, whose Mainline Integration section is the standing decision behind this rule (adopted 2026-09-02 from the Cannonball-Vibe continuous-mainline contract, that repo's ADR-0025). Follow both on every slice.
 
 For every slice:
 
-1. Read the rule, plan, product, progress, question, followup, coverage, dependency-ledger, and backlog documents listed in Rule 2.
-2. Run the Dependency Upgrade Gate (see `docs/IMPLEMENTATION_PLAN.html`). If a watched dep is out of date, the upgrade IS the next slice unless red CI takes over.
-3. Check the newest scheduled Full E2E conclusion. Filter by `--event schedule` on the server, not with a `select(.event == "schedule")` over the default mixed page: scheduled runs are rare, so a day of push and PR runs pushes them off the default page and the client-side filter silently returns null. Also filter `--status completed`, because the newest schedule run may be queued or in progress (null conclusion) and would mask an older completed red one. Use `gh run list --workflow CI --event schedule --status completed --limit 1 --json conclusion,createdAt,databaseId,headSha`. Treat both `failure` AND a non-superseded `cancelled` (a Full E2E shard that ran out of its job budget, F-131) as red. If it is red and less than a day old, triage it before picking a slice: a real regression takes over as the next slice; a known-flake-only failure gets logged in the slice's progress entry so it cannot rot invisibly. Supersession is Full-E2E-specific and ancestry-based: a push to a newer `main` SHA does NOT supersede a scheduled timeout, because push and PR runs do not run the Full E2E matrix at all. A red scheduled run is superseded only by a later run that actually completed the Full E2E matrix (a newer scheduled run or a `full_e2e` manual dispatch) on a commit that CONTAINS the red commit as an ancestor (`git merge-base --is-ancestor <red-sha> <newer-sha>`), not merely a numerically or chronologically newer SHA. Until such a completed matrix exists, the red stands.
-4. Pick the highest-priority unblocked task from the implementation plan, dep ledger, GDD coverage gaps, followups, and active backlog.
-5. Create one branch for one PR-sized slice. Always fetch remote `main`, then rebase the new branch on `origin/main` before implementation. Never push directly to `main`.
-6. Implement the slice fully using existing project patterns.
-7. Add or update tests appropriate to the risk and surface area.
-8. Update `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`, and the GDD section when the work changes them.
-9. Run the local verification suite. At minimum: dash checks, `git diff --check`, type-check, relevant unit tests, broader checks when warranted.
-10. Re-run the Dependency Upgrade Gate before opening the PR. If a watched release landed while the slice was in flight, defer the bump to its own PR (do not bundle).
-11. Open a PR.
-12. Inspect all PR review comments, including inline and threaded comments from CodeRabbit or other review bots.
-13. Fix actionable review comments, reply in-thread when the platform supports it, resolve threads when resolved.
-14. After every push to the PR branch, wait for any configured bot reviewer to finish its review pass. The wait is settled only when the required parallel CI gate from `docs/CI_WORKFLOW.html` is green AND at least 60 seconds have passed since the latest PR branch push or latest bot review activity, whichever is later. Re-inspect reviews and review threads after the settled wait.
-15. Wait for the required parallel CI gate and the preview deploy to pass. Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it.
-16. Merge only when green, review feedback is handled, bot review has settled, and the preview deploy is healthy.
-17. Pull `main`, verify the current remote tip's required parallel CI gate and production deploy, smoke test production.
-18. Close the completed backlog item with the PR number and verification.
-19. Immediately start the next slice.
+1. Read the rule, plan, product, progress, question, followup, coverage, dependency-ledger, review-log, and backlog documents listed in Rule 2.
+2. Check mainline health: `gh issue list --label red-main --state open`. If main is red, the repair is this session's slice; new work waits. The `Mainline health` workflow keeps that issue in sync with the latest completed CI on `main`, including the nightly Full E2E matrix, so this one command replaces listing runs by hand. Until the first health evaluation has run after adoption, or whenever `gh` cannot read issues, fall back to the manual scheduled-run check in `docs/CI_WORKFLOW.html` (Scheduled Run Visibility). Also read the production deployment state for the `origin/main` head (`gh api "repos/{owner}/{repo}/deployments?sha=<sha>&environment=Production"` and its statuses). A failed production deploy is red main too, even though the tripwire does not watch it yet (F-240).
+3. Run the Dependency Upgrade Gate (see `docs/IMPLEMENTATION_PLAN.html`). If a watched dep is out of date, the upgrade IS the next slice unless red main takes over.
+4. Run the post-merge adversarial review when the cursor in `docs/MAINLINE_REVIEW_LOG.html` is behind `origin/main`: read every squash commit since the cursor as if approving it, file findings as followups or open questions (never as merge blocks), confirm each merged PR's backlog item and ledger entry carry the PR number, and append a log entry. A finding makes the fix a candidate slice under normal priority; it does not reopen the PR.
+5. Pick the highest-priority unblocked task from the implementation plan, dep ledger, GDD coverage gaps, followups, and active backlog.
+6. Claim the slice before implementing. Check for an existing claim with `gh pr list --state open --search "<F-id or Q-id>"` (search covers PR bodies) and `git ls-remote origin 'refs/heads/*'` filtered for the id or slug; if another branch or PR already names the slice, select different work. Otherwise create one branch for one PR-sized slice from freshly fetched `origin/main`, push it, and open a draft PR as your first act: the draft PR is the claim. Put `Claims: F-NNN` (or the Q-id, or `none` plus a one-line scope) as the first line of the PR body, keep the title outcome-first per Rule 4, and put the id in the branch name when one exists. Never push directly to `main`.
+7. Implement the slice fully using existing project patterns.
+8. Add or update tests appropriate to the risk and surface area.
+9. Update `docs/PROGRESS_LOG.html`, `docs/GDD_COVERAGE.json`, `docs/OPEN_QUESTIONS.html`, `docs/FOLLOWUPS.html`, `docs/DEPENDENCY_LEDGER.html`, and the GDD section when the work changes them. Close the backlog item in the same diff, citing the PR number; do not leave closure for a session that may never see the merge.
+10. Run the local verification suite (`pnpm verify`, with `--build` for runtime-affecting slices). Run the full Playwright smoke suite locally or by manual dispatch when the touched surface warrants it; the merge gate does not run it.
+11. Re-run the Dependency Upgrade Gate before marking the PR ready. If a watched release landed while the slice was in flight, defer the bump to its own PR (do not bundle).
+12. Mark the PR ready and arm auto-merge: `gh pr merge <number> --auto --squash --subject "<title>" --body-file <path>`, after validating the squash text with `bash scripts/check-attribution.sh --message-file <path>`. Then move on; do not wait for the merge, the preview deploy, or a bot review. The only merge gates are the five required parallel CI contexts named in `docs/CI_WORKFLOW.html`. No human or service review happens before merge; CodeRabbit is retired. When `gh` is unavailable, enable auto-merge through the GitHub API or MCP equivalent. While the repository does not yet allow auto-merge (Q-038 open), merge yourself as soon as the required gate is green, with the same validated squash text and no bot-review wait.
+13. If a human leaves review comments on an open PR of yours, treat them like any other user direction: fix, reply in-thread, resolve, and re-arm auto-merge if it dropped. There is no settled-wait for bots.
+14. Immediately start the next slice at step 1. Step 2 on that pass is where a merge that broke `main` becomes visible, and repairing it outranks the slice you were about to pick.
 
-Do not stop at planning. Do not stop after opening a PR. Do not stop after merge. If blocked, log the blocker, update the backlog item, move to the next unblocked slice.
+Do not stop at planning. Do not stop after opening a PR. Do not stop after arming auto-merge. If blocked, log the blocker, update the backlog item, move to the next unblocked slice.
 
-Never mark work complete with failing tests, unresolved actionable review comments, a bot review still in flight after the latest push, a red required parallel CI gate on the current remote tip, or a broken deploy.
+Never mark work complete with failing tests, unresolved actionable review comments from a human, a red required parallel CI gate on the PR head, or an open `red-main` issue that your merge caused.
 
 ### Fresh worktree bootstrap
 
@@ -147,31 +143,31 @@ When the user asks for a fresh worktree, create it from the latest fetched `orig
 3. Run `pnpm install --frozen-lockfile` before type-checks or tests in a fresh worktree, because `node_modules` is ignored.
 4. If production Web Push env vars need setup or rotation, use `pnpm ops:setup-push-env -- --production-only`. The script passes values through stdin, suppresses Vercel CLI secret diagnostics, and avoids printing generated values.
 
-### Post-merge and direct-main CI monitoring
+### Mainline health and repair
 
-CI and deploy monitoring after merges or direct pushes is part of the slice, not an optional status check. Treat slow, stale, or confusing monitoring as a process bug to improve.
+Integration is PR-only and merges exclusively through auto-merge on the required parallel gate. Everything else (the nightly Full E2E matrix, Preview Smoke, Functional Shadow, the render tier, the production deploy) is a post-merge tripwire, not a merge gate. The `Mainline health` workflow (`.github/workflows/mainline-health.yml`) watches the `CI` and `Browser Runtime` workflows on `main` and maintains a single open issue labeled `red-main` while any watched signal's latest completed run is red. A cancelled Full E2E run counts as red (F-131); a cancelled push run was superseded by a newer push and is skipped.
 
-Required flow after any merge or direct push to `main`:
+Fix-forward law: never revert, never force-push, and never bypass-merge to land work. A red main is repaired with new commits through the same PR flow, and the repair PR is the only slice a session may pick while the issue is open. Administrator bypass is reserved for governance operations the owner performs personally. When the red signal is the Full E2E matrix, re-dispatch it after the fix (`gh workflow run CI -f full_e2e=true`) so the signal clears without waiting for the nightly cron. A flake-only red still needs that green rerun, and the flake gets one line in the repair slice's progress entry so it cannot rot invisibly.
 
-1. Record the exact pushed sha, then verify `git ls-remote origin refs/heads/main` matches it.
-2. If `origin/main` moves while monitoring, fetch immediately and check whether the pushed sha is still contained in `origin/main`. If it is contained, stop waiting on cancelled or superseded runs for older heads and verify the newest remote tip's required parallel CI gate instead. If it is not contained, reconcile before claiming the work shipped. Report both facts separately: the pushed commit status and the current remote head status.
-3. Track GitHub Actions by run id and head sha, not by branch name alone. Branch queries can silently switch to a newer push.
-4. Track Vercel by commit sha through GitHub deployment status and Vercel CLI metadata. Do not use unauthenticated `curl`, `fetch`, or headless Playwright against production Vercel URLs as a deploy-readiness gate; protected targets can return a Vercel login or security checkpoint before the app. Use local or CI Playwright for app smoke coverage, and use a real authenticated browser context only when a slice explicitly needs production playtest evidence.
-5. Use bounded polling with timestamps. Prefer a short loop that prints status, conclusion, head sha, and run URL. Avoid long noisy `gh run watch` output unless it is actively useful.
-6. If `gh` auth fails, stop the failed loop and switch to the public GitHub REST endpoints when the repo is public. Do not keep retrying the same broken command.
-7. When a run is slow, inspect the jobs endpoint to identify the active step. If logs are unavailable until completion, say that explicitly and keep polling the run conclusion.
-8. Before final response, verify the latest `origin/main` head, whether the shipped commit is contained in it, Vercel deployment status for the latest head, production aliases from deployment metadata, notification config when relevant, and CI conclusion for the pushed sha or its superseding current-tip run. If `origin/main` advanced after the push, also verify the latest head's CI or state clearly that it is still running.
+Monitoring hygiene, for the repair session and for any deploy check:
+
+1. Track GitHub Actions by run id and head sha, not by branch name alone. Branch queries can silently switch to a newer push.
+2. Track Vercel by commit sha through GitHub deployment status and Vercel CLI metadata. Do not use unauthenticated `curl`, `fetch`, or headless Playwright against production Vercel URLs as a deploy-readiness gate; protected targets can return a Vercel login or security checkpoint before the app. Use local or CI Playwright for app smoke coverage, and use a real authenticated browser context only when a slice explicitly needs production playtest evidence.
+3. Use bounded polling with timestamps. Prefer a short loop that prints status, conclusion, head sha, and run URL. Avoid long noisy `gh run watch` output unless it is actively useful.
+4. If `gh` auth fails, stop the failed loop and switch to the public GitHub REST endpoints when the repo is public. Do not keep retrying the same broken command.
+5. If `origin/main` moves while you are repairing it, fetch immediately and check whether your fix is still contained. If it is not, reconcile before claiming the repair landed.
+6. Watched workflow `name:` fields are load-bearing for the health watcher's `workflow_run` filter. Renaming `CI` or `Browser Runtime` silently detaches the tripwire; update both together.
 
 CI speed policy:
 
-- Required CI is the parallel gate in `docs/CI_WORKFLOW.html`: quality, typecheck, unit tests, build, and sharded critical Playwright smoke.
-- The full Playwright smoke matrix runs on schedule and manual dispatch. Run it locally or by manual dispatch for broad-risk slices that change shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or equivalent surfaces.
-- A red scheduled full-matrix run must never rot unseen: the loop's step 3 checks the newest scheduled conclusion at every slice start, and `docs/CI_WORKFLOW.html` records the exact command. Known flakes are named in `docs/CI_WORKFLOW.html`; anything outside that list is treated as a regression.
-- Do not block normal closeout on cancelled, superseded, or older in-progress workflow runs once the current `origin/main` tip contains the shipped commit and its required parallel gate is green.
+- Required CI is the parallel gate in `docs/CI_WORKFLOW.html`: quality, typecheck, unit tests, build, and sharded critical Playwright smoke. Those five contexts are the whole merge gate.
+- The full Playwright smoke matrix runs on schedule and manual dispatch as a post-merge tripwire. Run it locally or by manual dispatch before arming auto-merge for broad-risk slices that change shared UI shell behavior, cross-route storage state, release-note infrastructure, Playwright harness behavior, or equivalent surfaces.
+- A red scheduled full-matrix run must never rot unseen: the health watcher evaluates the Full E2E signal separately from push runs, because push runs never execute the matrix. Known flakes are named in `docs/CI_WORKFLOW.html`; anything outside that list is treated as a regression.
+- Two independently green PRs can auto-merge into a combined state never tested together (no merge queue, no strict up-to-date rule). The push run on `main` plus the tripwire detect it; the repair is fix-forward.
 
 Continuous improvement requirement:
 
-- If CI monitoring takes unusual time, auth breaks, branch status shifts underfoot, production reports an older sha, or the final status is confusing, root cause the monitoring problem before closing the task.
+- If the tripwire misses a failure, fires falsely, or a repair takes unusual time because auth broke, branch status shifted underfoot, or production reported an older sha, root cause the monitoring problem before closing the task.
 - Document the prevention in `AGENTS.md` when it is a reusable workflow rule, or in the slice progress log when it is a one-off incident.
 - Keep the closeout short, but include enough exact evidence that the next agent can resume without rediscovering which sha, run id, or deploy was being watched.
 

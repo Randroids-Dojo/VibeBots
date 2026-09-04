@@ -642,47 +642,123 @@ export async function speedUpVersionRefreshChecks(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Fake pad whose Back (B, index 1) and Select (index 8) buttons the test
+ * drives through window.__setGamepadBackPressed. The app polls
+ * navigator.getGamepads once an animation frame (useDismissControls), so
+ * the fake also counts reads while pressed and released, and animation
+ * frames since the last press, and exposes them on
+ * window.__gamepadBackState: pressGamepadBack waits on those instead of
+ * on wall-clock time (F-254).
+ */
 export async function installGamepadBackControl(page: Page): Promise<void> {
   await page.addInitScript(() => {
     let backPressed = false;
+    let pressedReads = 0;
+    let releasedReads = 0;
+    let framesSincePress = 0;
+    let counting = false;
+    const countFrame = () => {
+      if (!counting) return;
+      framesSincePress += 1;
+      requestAnimationFrame(countFrame);
+    };
     Object.defineProperty(navigator, "getGamepads", {
       configurable: true,
-      value: () => [
-        {
-          buttons: Array.from({ length: 17 }, (_, index) => ({
-            pressed: (index === 1 || index === 8) && backPressed,
-            touched: (index === 1 || index === 8) && backPressed,
-            value: (index === 1 || index === 8) && backPressed ? 1 : 0,
-          })),
-        },
-      ],
+      value: () => {
+        if (backPressed) pressedReads += 1;
+        else releasedReads += 1;
+        return [
+          {
+            buttons: Array.from({ length: 17 }, (_, index) => ({
+              pressed: (index === 1 || index === 8) && backPressed,
+              touched: (index === 1 || index === 8) && backPressed,
+              value: (index === 1 || index === 8) && backPressed ? 1 : 0,
+            })),
+          },
+        ];
+      },
     });
     Object.defineProperty(window, "__setGamepadBackPressed", {
       configurable: true,
       value: (pressed: boolean) => {
         backPressed = pressed;
+        if (pressed) {
+          framesSincePress = 0;
+          if (!counting) {
+            counting = true;
+            requestAnimationFrame(countFrame);
+          }
+        } else {
+          counting = false;
+        }
       },
+    });
+    Object.defineProperty(window, "__gamepadBackState", {
+      configurable: true,
+      value: () => ({ pressedReads, releasedReads, framesSincePress }),
     });
   });
 }
 
+interface GamepadBackState {
+  pressedReads: number;
+  releasedReads: number;
+  framesSincePress: number;
+}
+
+type GamepadBackWindow = Window & {
+  __setGamepadBackPressed: (pressed: boolean) => void;
+  __gamepadBackState: () => GamepadBackState;
+};
+
+/**
+ * Longest a press or release may wait to be observed by the app's poll
+ * before the helper fails with a message. Far above any frame time the
+ * software renderer produces, far below a case's 60 s budget (F-254).
+ */
+export const GAMEPAD_BACK_DEADLINE_MS = 15_000;
+
+/**
+ * Press and release Back on the fake pad so the dismiss poll sees the
+ * edge. The old helper held the press for a fixed 80 ms; on a software
+ * renderer a frame can take longer than that, the poll never saw the
+ * press, and the case waited for a dialog that never closed until its
+ * 60 s timeout (F-254). This one holds the press until the page has run
+ * two animation frames and the poll has read the pad pressed, then
+ * releases and waits for one released read, each wait bounded and polled
+ * on a timer rather than on the starved frame loop.
+ */
 export async function pressGamepadBack(page: Page): Promise<void> {
+  const readState = () =>
+    page.evaluate(() =>
+      (window as unknown as GamepadBackWindow).__gamepadBackState(),
+    );
+  const before = await readState();
   await page.evaluate(() => {
-    (
-      window as unknown as Window & {
-        __setGamepadBackPressed: (pressed: boolean) => void;
-      }
-    ).__setGamepadBackPressed(true);
+    (window as unknown as GamepadBackWindow).__setGamepadBackPressed(true);
   });
-  await page.waitForTimeout(80);
+  await page.waitForFunction(
+    (pressedBefore) => {
+      const state = (
+        window as unknown as GamepadBackWindow
+      ).__gamepadBackState();
+      return state.pressedReads > pressedBefore && state.framesSincePress >= 2;
+    },
+    before.pressedReads,
+    { timeout: GAMEPAD_BACK_DEADLINE_MS, polling: 50 },
+  );
+  const held = await readState();
   await page.evaluate(() => {
-    (
-      window as unknown as Window & {
-        __setGamepadBackPressed: (pressed: boolean) => void;
-      }
-    ).__setGamepadBackPressed(false);
+    (window as unknown as GamepadBackWindow).__setGamepadBackPressed(false);
   });
-  await page.waitForTimeout(80);
+  await page.waitForFunction(
+    (releasedBefore) =>
+      (window as unknown as GamepadBackWindow).__gamepadBackState()
+        .releasedReads > releasedBefore,
+    held.releasedReads,
+    { timeout: GAMEPAD_BACK_DEADLINE_MS, polling: 50 },
+  );
 }
 
 /** Fake pad with arbitrary settable buttons, for D-pad movement and the

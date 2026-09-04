@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="gamepad-back-helper-stall" data-date="2026-09-04">
+    <h3>The gamepad-back e2e helper waits on the app's own poll, so the software renderer cannot miss the press (F-254)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/gamepad-back-helper-stall</code>, from <code>origin/main</code> at <code>6b94334e</code>, rebased onto <code>15a379c3</code>.</dd>
+      <dt>PR</dt><dd>PR_NUMBER. Dot <code>VibeBots-f-254-the-87914755</code>.</dd>
+      <dt>Context</dt><dd>F-254: the bunker claim-mode case and the account dialog's Escape-and-gamepad-back case stalled to their 60 second timeout on the software-rendered shards, four sightings across two days, and sat on the known-flake list. The followup read it as a <code>page.evaluate</code> stall; the helper's shape says otherwise. It set the fake pad's Back button pressed, waited a fixed 80 ms, and released. The app reads the pad once an animation frame (<code>useDismissControls</code>) and dismisses on the press edge; on a software renderer a frame can take longer than 80 ms, so the poll saw released before and released after, no edge, no dismissal, and the case waited for a dialog that never closed until its budget ran out.</dd>
+      <dt>Changed</dt><dd><code>installGamepadBackControl</code> now counts pad reads while pressed and while released, and animation frames since the last press, on <code>window.__gamepadBackState</code>. <code>pressGamepadBack</code> holds the press until the page has run two animation frames and the poll has read the pad pressed, releases, and waits for one released read so the next press has a clean edge; each wait is <code>page.waitForFunction</code> with a 50 ms timer poll (not the starved frame loop) and a 15 s deadline (<code>GAMEPAD_BACK_DEADLINE_MS</code>), so a real stall fails in seconds with a message instead of eating the case. Test-only: no app code, no version bump, no release note. The two cases leave the known-flake list in <code>docs/CI_WORKFLOW.html</code>.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. <code>pnpm typecheck</code> exit 0. <code>pnpm exec biome check .</code> exit 0. <code>pnpm build</code> exit 0. Soak under the software renderer (<code>E2E_SOFTWARE_GL=1</code>, SwiftShader, serial, no retries) against the build on an isolated port: the seven cases the grep <q>gamepad|claim</q> selects in the bunker, account-sync, and mine-ui files (the two F-254 cases among them) twenty times each with no retries, 140 of 140 in 48 minutes. Dash check and <code>git diff --check</code> clean. Dependency gate: unchanged since the wave-three entry today.</dd>
+      <dt>Assumptions</dt><dd>The helper waits on frames and reads, so it only works while a surface that polls the pad is active, which is the only time a test presses Back; a press with no poller fails at the deadline with a message, which is the right failure. The 80 ms stall was not reproduced locally before the change (a desktop under SwiftShader renders faster than the hosted runner), so the soak proves the new helper's stability, and the flake list records the mechanism. Rule 13 tip review: no version bump; tips checked, no change. Rule 14 stamp review: a test helper earns no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No change. F-254 resolved; <code>docs/CI_WORKFLOW.html</code> known-flake list updated.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
   <article data-slice="mine-render-pause" data-date="2026-09-04">
     <h3>The mine rests behind an open dialog: four frames a second under a modal, free again when it closes (F-255)</h3>
     <dl>

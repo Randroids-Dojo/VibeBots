@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("it gets over the bar and wins");
+    await expect(dialog).toContainText("sweeps all six rungs");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "five presets per weapon mount",
+      "a thick deck plate between the Frame Plate",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "The debrief leads with the free counter",
+      "the Ram Spike drawn out and hardened",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "the sim version is now 9",
+      "a heavier bar on the same spin motor",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,10 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      [
+        "0.1.315",
+        "Three more rungs: an Armour Plate, a Tempered Spike, and a Heavy Bar",
+      ],
       ["0.1.314", "Angle your weapon"],
       ["0.1.313", "Merge levels are gone, and the bench was reset"],
       ["0.1.312", "Rules on the bench"],

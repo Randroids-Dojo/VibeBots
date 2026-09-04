@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createArenaWorld } from "./arena";
 import { assembleBot } from "./assembly";
-import { type BotDesign, validateDesign } from "./design";
+import { type BotDesign, TEST_BOT_DESIGN, validateDesign } from "./design";
+import { FIGHT_LADDER } from "./opponents";
 import {
   HARDENED_PLATE,
   PART_CATALOG,
@@ -9,6 +10,7 @@ import {
   partMass,
   SPINNER_BAR,
 } from "./parts";
+import { resolveMatch } from "./resolve";
 
 // A cube bot carrying both new parts: a hardened plate on the deck and a
 // spinner bar on a spin mount, plus two drive wheels.
@@ -114,7 +116,7 @@ describe("tier ladder wave one (G4)", () => {
       expect(PART_CATALOG[id], id).toBeDefined();
       expect(PART_CATALOG[id].priceEmeralds, id).toBeGreaterThan(0);
     }
-    expect(Object.keys(PART_CATALOG)).toHaveLength(28);
+    expect(Object.keys(PART_CATALOG)).toHaveLength(31);
   });
 
   it("climbs the wheel ladder in mass, power, and price", () => {
@@ -165,6 +167,201 @@ describe("tier ladder wave one (G4)", () => {
     expect(lance.shape.hz).toBeGreaterThan(spike.shape.hz);
     expect(lance.durability).toBeLessThan(spike.durability);
   });
+});
+
+describe("catalog wave three", () => {
+  const WAVE_THREE = ["armour-plate", "tempered-spike", "heavy-bar"] as const;
+
+  it("registers the three rungs, all sold, at about twice the part below", () => {
+    for (const id of WAVE_THREE) {
+      expect(PART_CATALOG[id], id).toBeDefined();
+      expect(PART_CATALOG[id].priceEmeralds, id).toBeGreaterThan(0);
+    }
+    expect(PART_CATALOG["armour-plate"].priceEmeralds).toBe(
+      2 * PART_CATALOG["frame-plate"].priceEmeralds,
+    );
+    expect(PART_CATALOG["tempered-spike"].priceEmeralds).toBe(
+      2 * PART_CATALOG["ram-spike"].priceEmeralds,
+    );
+    expect(PART_CATALOG["heavy-bar"].priceEmeralds).toBe(
+      2 * PART_CATALOG["spinner-bar"].priceEmeralds,
+    );
+  });
+
+  it("keeps the plate's and the bar's shape and climbs in mass and durability", () => {
+    for (const [above, below] of [
+      ["armour-plate", "frame-plate"],
+      ["heavy-bar", "spinner-bar"],
+    ] as const) {
+      expect(PART_CATALOG[above].shape).toEqual(PART_CATALOG[below].shape);
+      expect(PART_CATALOG[above].connectors).toEqual(
+        PART_CATALOG[below].connectors,
+      );
+      expect(partMass(PART_CATALOG[above])).toBeGreaterThan(
+        partMass(PART_CATALOG[below]),
+      );
+      expect(PART_CATALOG[above].durability).toBeGreaterThan(
+        PART_CATALOG[below].durability,
+      );
+    }
+    // A heavier bar on the same motor draws more.
+    expect(PART_CATALOG["heavy-bar"].powerDraw).toBeGreaterThan(
+      PART_CATALOG["spinner-bar"].powerDraw,
+    );
+  });
+
+  it("draws the spike out at the same cross-section and density, mounted at its tip", () => {
+    const spike = PART_CATALOG["ram-spike"];
+    const tempered = PART_CATALOG["tempered-spike"];
+    if (spike.shape.type !== "cuboid" || tempered.shape.type !== "cuboid") {
+      throw new Error("spikes are cuboids");
+    }
+    expect(tempered.shape.hx).toBe(spike.shape.hx);
+    expect(tempered.shape.hy).toBe(spike.shape.hy);
+    expect(tempered.shape.hz).toBeGreaterThan(spike.shape.hz);
+    expect(tempered.density).toBe(spike.density);
+    expect(tempered.durability).toBeGreaterThan(spike.durability);
+    expect(tempered.connectors).toEqual([
+      {
+        id: "mount",
+        kind: "rigid",
+        position: { x: 0, y: 0, z: tempered.shape.hz },
+      },
+    ]);
+  });
+
+  it("builds valid bots with each rung in the part below's place", () => {
+    const withSpike = (partId: string): BotDesign => ({
+      ...TEST_BOT_DESIGN,
+      parts: TEST_BOT_DESIGN.parts.map((p) =>
+        p.iid === "spike" ? { ...p, partId } : p,
+      ),
+    });
+    expect(validateDesign(withSpike("tempered-spike")).ok).toBe(true);
+    const plated: BotDesign = {
+      ...TEST_BOT_DESIGN,
+      parts: [
+        ...TEST_BOT_DESIGN.parts,
+        { iid: "plate", partId: "armour-plate" },
+      ],
+      connections: [
+        ...TEST_BOT_DESIGN.connections,
+        {
+          parentIid: "core",
+          parentConnector: "top",
+          childIid: "plate",
+          childConnector: "bottom",
+        },
+      ],
+    };
+    expect(validateDesign(plated).ok).toBe(true);
+  });
+});
+
+describe("catalog wave three, measured on the ladder", () => {
+  const rung = (id: string): BotDesign => {
+    const found = FIGHT_LADDER.find((r) => r.id === id);
+    if (!found) throw new Error(`rung ${id} missing`);
+    return found.design;
+  };
+  const withSpike = (partId: string): BotDesign => ({
+    ...TEST_BOT_DESIGN,
+    parts: TEST_BOT_DESIGN.parts.map((p) =>
+      p.iid === "spike" ? { ...p, partId } : p,
+    ),
+  });
+  const plated = (base: BotDesign, plateId: string): BotDesign => ({
+    ...base,
+    parts: [...base.parts, { iid: "plate", partId: plateId }],
+    connections: [
+      ...base.connections,
+      {
+        parentIid: "core",
+        parentConnector: "top",
+        childIid: "plate",
+        childConnector: "bottom",
+      },
+    ],
+  });
+  const spinner = (barId: string): BotDesign => ({
+    name: "Spinner",
+    parts: [
+      { iid: "core", partId: "core-cube" },
+      { iid: "wl", partId: "drive-wheel" },
+      { iid: "wr", partId: "drive-wheel" },
+      { iid: "spin", partId: "spin-mount" },
+      { iid: "bar", partId: barId },
+    ],
+    connections: [
+      {
+        parentIid: "core",
+        parentConnector: "axle-left",
+        childIid: "wl",
+        childConnector: "hub",
+      },
+      {
+        parentIid: "core",
+        parentConnector: "axle-right",
+        childIid: "wr",
+        childConnector: "hub",
+      },
+      {
+        parentIid: "core",
+        parentConnector: "front",
+        childIid: "spin",
+        childConnector: "base",
+      },
+      {
+        parentIid: "spin",
+        parentConnector: "spindle",
+        childIid: "bar",
+        childConnector: "hub",
+      },
+    ],
+  });
+  // Opponent at seat 0, the player's build at seat 1, as the arena runs it.
+  const fight = async (player: BotDesign, rungId: string) => {
+    const result = await resolveMatch([rung(rungId), player]);
+    if (!result.status.over) throw new Error("fight did not end");
+    return result.status;
+  };
+
+  it("the Heavy Bar beats Impaler where the Spinner Bar loses, and with a Hardened Plate sweeps the ladder", async () => {
+    expect((await fight(spinner("spinner-bar"), "impaler")).winner).toBe(0);
+    expect((await fight(spinner("heavy-bar"), "impaler")).winner).toBe(1);
+    const sweep = plated(spinner("heavy-bar"), "hardened-plate");
+    for (const r of FIGHT_LADDER) {
+      expect((await fight(sweep, r.id)).winner, r.id).toBe(1);
+    }
+  }, 60_000);
+
+  it("the Tempered Spike disables Brawler level, where the Ram Spike only outlasts it", async () => {
+    const spike = await fight(withSpike("ram-spike"), "brawler");
+    expect(spike.winner).toBe(1);
+    expect(spike.reason).toBe("timeout");
+    const tempered = await fight(withSpike("tempered-spike"), "brawler");
+    expect(tempered.winner).toBe(1);
+    expect(tempered.reason).toBe("disable");
+  }, 60_000);
+
+  it("the Armour Plate on the starter build beats Night Terror where the Frame Plate draws", async () => {
+    expect(
+      (
+        await fight(
+          plated(withSpike("ram-spike"), "frame-plate"),
+          "night-terror",
+        )
+      ).winner,
+    ).toBeNull();
+    expect(
+      (
+        await fight(
+          plated(withSpike("ram-spike"), "armour-plate"),
+          "night-terror",
+        )
+      ).winner,
+    ).toBe(1);
+  }, 60_000);
 });
 
 describe("catalog blurbs", () => {

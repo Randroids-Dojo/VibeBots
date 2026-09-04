@@ -2616,6 +2616,93 @@ test(
   },
 );
 
+test(
+  "catalog wave three: the new rungs sit in their ladders and the tempered spike mounts (volume program)",
+  ciCase("E2E-WORKSHOP-0053", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 200,
+          inventory: [
+            { part_id: "tempered-spike", count: 1 },
+            { part_id: "armour-plate", count: 1 },
+            { part_id: "heavy-bar", count: 1 },
+          ],
+          catalog: [
+            {
+              id: "frame-plate",
+              name: "Frame Plate",
+              category: "structure",
+              priceEmeralds: 3,
+            },
+            {
+              id: "armour-plate",
+              name: "Armour Plate",
+              category: "structure",
+              priceEmeralds: 6,
+            },
+            {
+              id: "hardened-plate",
+              name: "Hardened Plate",
+              category: "structure",
+              priceEmeralds: 18,
+            },
+            {
+              id: "ram-spike",
+              name: "Ram Spike",
+              category: "weapon",
+              priceEmeralds: 8,
+            },
+            {
+              id: "tempered-spike",
+              name: "Tempered Spike",
+              category: "weapon",
+              priceEmeralds: 16,
+            },
+            {
+              id: "spinner-bar",
+              name: "Spinner Bar",
+              category: "weapon",
+              priceEmeralds: 20,
+            },
+            {
+              id: "heavy-bar",
+              name: "Heavy Bar",
+              category: "weapon",
+              priceEmeralds: 40,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // The shop lists each family cheapest first, so the new parts land on
+    // their rungs: the Armour Plate between the plates, the Tempered Spike
+    // above the Ram Spike, the Heavy Bar at the top of the weapons.
+    await page.getByRole("tab", { name: "Shop" }).click();
+    const frame = page.getByRole("region", { name: "Frame parts" });
+    await expect(frame.locator("li").nth(1)).toContainText("Armour Plate");
+    const weapons = page.getByRole("region", { name: "Weapon parts" });
+    await expect(weapons.locator("li").nth(1)).toContainText("Tempered Spike");
+    await expect(weapons.locator("li").last()).toContainText("Heavy Bar");
+
+    // Owned, the tempered spike is in the carousel and mounts on the nose.
+    await page.getByRole("tab", { name: "Build" }).click();
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Tempered Spike");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

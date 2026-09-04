@@ -344,6 +344,31 @@ export const PART_LOOKS: Record<string, PartLook> = {
     roughness: 0.18,
     emissiveBoost: 0.06,
   },
+  // Catalog wave three: each rung reads as the part below it, heavier.
+  "armour-plate": {
+    color: "#8f99a8",
+    region: "deck",
+    tone: 1.05,
+    metalness: 0.8,
+    roughness: 0.45,
+    emissiveBoost: 0,
+  },
+  "tempered-spike": {
+    color: "#c9cfd8",
+    region: "tip",
+    tone: 1.32,
+    metalness: 0.92,
+    roughness: 0.18,
+    emissiveBoost: 0.06,
+  },
+  "heavy-bar": {
+    color: "#5f6f8b",
+    region: "ends",
+    tone: 1.45,
+    metalness: 0.92,
+    roughness: 0.2,
+    emissiveBoost: 0.08,
+  },
   cleaver: {
     color: "#8f98a6",
     region: "deck",

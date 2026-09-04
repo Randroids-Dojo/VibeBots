@@ -83,8 +83,10 @@ export const WEAK_SURVIVOR_FRACTION = 0.5;
 export const WEAPON_SUGGESTIONS: readonly string[] = [
   "lance",
   "saw-blade",
+  "heavy-bar",
   "spinner-bar",
   "cleaver",
+  "tempered-spike",
   "ram-spike",
 ];
 /** The plate the soak and core lessons send the player to. */

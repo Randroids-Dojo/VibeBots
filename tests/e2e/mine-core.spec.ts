@@ -16,6 +16,7 @@ import {
   MINE_VERSION,
   type MineAction,
   openScrapMode,
+  openSettings,
   pressMineKey,
   pressMineKeyUntilStatus,
   returnEnergyCost,
@@ -1812,5 +1813,41 @@ test(
     for (const sample of interior) {
       expect(Math.abs(sample.camX - sample.x)).toBeLessThan(0.2);
     }
+  },
+);
+
+test(
+  "the mine drops to a slow tick behind an open dialog and runs free again when it closes (F-255)",
+  ciCase("E2E-MINE-CORE-0023", "@functional"),
+  async ({ page }) => {
+    await page.goto("/mine");
+    await dismissReleaseNotes(page);
+    const frames = () =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __vibebotsMineFrames?: number })
+            .__vibebotsMineFrames ?? 0,
+      );
+    // Frames run free once the warm pass has settled.
+    const before = await frames();
+    await expect.poll(frames, { timeout: 15_000 }).toBeGreaterThan(before + 2);
+
+    // Open Settings: the loop stops and a four-a-second ticker takes over.
+    const settings = await openSettings(page);
+    await page.waitForTimeout(400);
+    const pausedStart = await frames();
+    await page.waitForTimeout(2_000);
+    const pausedFrames = (await frames()) - pausedStart;
+    // Under five a second (eight ticks in two seconds, with slack for a
+    // frame in flight), and not frozen: the backdrop still breathes.
+    expect(pausedFrames).toBeLessThanOrEqual(10);
+    expect(pausedFrames).toBeGreaterThanOrEqual(1);
+
+    // Close it: frames run free again.
+    await page.getByRole("button", { name: "Open settings" }).click();
+    await expect(settings).not.toBeVisible();
+    const resumedStart = await frames();
+    await page.waitForTimeout(1_500);
+    expect((await frames()) - resumedStart).toBeGreaterThanOrEqual(3);
   },
 );

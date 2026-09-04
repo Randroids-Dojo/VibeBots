@@ -3055,6 +3055,17 @@ export function MinePanel({
       bunkerPanelOpen ||
       settingsOpen) &&
     !fpBunkerActive;
+  // A modal dialog over the mine drops the canvas to a slow tick (F-255):
+  // play is paused or the player is reading, so full frames behind the
+  // dialog are battery spent on a scene nobody is looking at. The HUD is
+  // DOM and stays live.
+  const modalOpen =
+    settingsOpen ||
+    saveSlotsOpen ||
+    accountOpen ||
+    creditsOpen ||
+    stampBookOpen ||
+    feedbackOpen;
   const usableElevatorDepth = Math.min(mine.gear.elevator, MINE_BOTTOM_ROW - 1);
   const minerOnElevatorRail = miner.col === ownedElevatorColumn;
   const salvagedSupportCount =
@@ -4282,6 +4293,7 @@ export function MinePanel({
               onToggleSupport={toggleCollectTarget}
               onElevatorStageComplete={handleElevatorStageComplete}
               onFirstFrame={handleMineFirstFrame}
+              paused={modalOpen}
             />
           )}
         </MineSceneErrorBoundary>

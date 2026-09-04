@@ -127,6 +127,8 @@ import {
   elevatorCallSeconds,
   elevatorCallStartY,
 } from "./mine-elevator-presentation";
+import { MineFrameCounter, PausedFrameTicker } from "./mine-frame-ticker";
+import { mineFrameloopFor } from "./mine-frameloop";
 import { InstancedBlockGrid } from "./mine-instanced-grid";
 import {
   collectBlockNodeMaterials,
@@ -2747,6 +2749,11 @@ interface MineCanvasProps {
   ) => void;
   /** Fires once, after the first frame has actually rendered. */
   onFirstFrame?: () => void;
+  /**
+   * True while a modal dialog covers the mine (F-255): the render loop
+   * stops and a slow ticker advances frames by hand behind the dialog.
+   */
+  paused?: boolean;
 }
 
 export default function MineCanvas(props: MineCanvasProps) {
@@ -2764,8 +2771,13 @@ export default function MineCanvas(props: MineCanvasProps) {
   // first rendered frame otherwise compiles the whole warm set in one
   // main-thread stall on phones. The prop must change through React
   // state (see compile-gate.tsx for the reconciliation and clock traps).
-  const [frameloop, setFrameloop] = useState<"never" | "always">("never");
-  const startFrames = useCallback(() => setFrameloop("always"), []);
+  const [warmed, setWarmed] = useState(false);
+  const startFrames = useCallback(() => setWarmed(true), []);
+  // Under a modal dialog the loop stops and PausedFrameTicker advances a
+  // frame four times a second (F-255); the prop still changes through
+  // React state, as the compile gate requires.
+  const paused = props.paused === true;
+  const frameloop = mineFrameloopFor(warmed, paused);
   return (
     <Canvas
       camera={{ position: [0, 1.5, 13], fov: 42 }}
@@ -2783,6 +2795,8 @@ export default function MineCanvas(props: MineCanvasProps) {
       />
       <CanvasDrawCallProbe onFirstFrame={props.onFirstFrame} />
       <PerfProbeBridge source="mine" />
+      <PausedFrameTicker active={warmed && paused} />
+      <MineFrameCounter />
     </Canvas>
   );
 }

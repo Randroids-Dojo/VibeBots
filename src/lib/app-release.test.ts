@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-04-0.1.316-ladder-rung-seven");
+    expect(release.noticeId).toBe("2026-09-04-0.1.317-mine-render-pause");
     expect(latestNote).toMatchObject({
-      version: "0.1.316",
-      title: "A seventh rung on the ladder: Headstone, which stops the sweep",
+      version: "0.1.317",
+      title: "The mine rests behind an open menu",
       intro:
-        "The Heavy Bar with a Hardened Plate swept all six rungs the day it shipped, so the ladder has a seventh: Headstone, Gravestone's heavier sibling, a Heavy Bar on a plated deck with a ballast tail. It beats the sweep build, the starter build, a Lance, and even the Tempered Lance that beats Gravestone, when that lance sits level. Tilt the Tempered Lance up 15 and it wins, tail or no tail.",
+        "While Settings, Credits, the Account dialog, the save slots, the Stamp Book, or Feedback was open, the mine kept drawing full frames behind the dialog: battery spent on a scene nobody was looking at. Now it draws four frames a second there, the backdrop still breathing, and runs free again the moment the dialog closes.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Headstone joins the fight picker as the top rung: a Heavy Bar on a Hardened Plate deck with a Ballast Block tail. Measured from the player seat: it beats the starter build, the Cube Lancer, the level Tempered Lance with a tail, and the Heavy Bar sweep build; it draws the sweep build with a tail of its own.",
-      "Its counter is a tilt, not a purchase: a Tempered Lance up 15 beats Headstone with or without a tail, and up 30 with a tail; the same lance level loses. After a loss to Headstone with a level Tempered Lance, the debrief's first lesson tilts it for you.",
-      "The catalog and the physics are unchanged: the sim version stays 9 and every recorded fight replays the same.",
+      "Behind any mine dialog the canvas ticks four times a second instead of running free. The HUD stays live, and nothing pops when the dialog closes: the first frame after it is at most a quarter second stale.",
+      "The loop's own code is untouched; only its cadence changes. Measured with the heap-churn probe before and after: 2.55 MB a second allocated before, 2.08 after, the difference being run noise.",
+      "On a phone that is battery back. In the hosted test runner it is the frame or two every tap inside a dialog used to cost, the stall the software-renderer work last night worked around.",
     ]);
   });
 

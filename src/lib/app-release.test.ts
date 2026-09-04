@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-04-0.1.317-mine-render-pause");
+    expect(release.noticeId).toBe("2026-09-04-0.1.318-first-orders-stamp");
     expect(latestNote).toMatchObject({
-      version: "0.1.317",
-      title: "The mine rests behind an open menu",
+      version: "0.1.318",
+      title: "A stamp for your first order",
       intro:
-        "While Settings, Credits, the Account dialog, the save slots, the Stamp Book, or Feedback was open, the mine kept drawing full frames behind the dialog: battery spent on a scene nobody was looking at. Now it draws four frames a second there, the backdrop still breathing, and runs free again the moment the dialog closes.",
+        "Telling your bot what to do without a weapon is the bench's quietest trick, so it gets a stamp: First Orders lands after the first verified fight with a bench rule on your design. The bench alone cannot earn it; the fight has to run on the server with the rule aboard.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Behind any mine dialog the canvas ticks four times a second instead of running free. The HUD stays live, and nothing pops when the dialog closes: the first frame after it is at most a quarter second stale.",
-      "The loop's own code is untouched; only its cadence changes. Measured with the heap-churn probe before and after: 2.55 MB a second allocated before, 2.08 after, the difference being run noise.",
-      "On a phone that is battery back. In the hosted test runner it is the frame or two every tap inside a dialog used to cost, the stall the software-renderer work last night worked around.",
+      "First Orders joins the battle page of the Stamp Book: fight a verified match with at least one bench rule on your bot.",
+      "The count comes from the match record, not the bench: each verified fight now stores how many rules your design carried, and the stamp reads that, so it backfills for nobody and lies for nobody.",
+      "Cosmetic only, like every stamp: no vibes, gear, parts, or luck.",
     ]);
   });
 

@@ -20,6 +20,8 @@ export interface MatchRecordInput {
   durationTicks: number;
   /** Unique part ids on the player's design, for part-themed stamps. */
   usedPartIds: readonly string[];
+  /** Bench rules on the player's design when it fought (F-252). */
+  ruleCount: number;
 }
 
 export interface MatchRecordSummary {
@@ -42,11 +44,12 @@ export async function recordMatchResult(
   await sql`
     INSERT INTO match_records
       (player_id, bot_name, opponent_name, outcome, result_hash,
-       sim_version, duration_ticks, used_part_ids)
+       sim_version, duration_ticks, used_part_ids, rule_count)
     VALUES
       (${playerId}, ${record.botName}, ${record.opponentName},
        ${record.outcome}, ${record.resultHash}, ${record.simVersion},
-       ${record.durationTicks}, ${JSON.stringify(record.usedPartIds)})`;
+       ${record.durationTicks}, ${JSON.stringify(record.usedPartIds)},
+       ${record.ruleCount})`;
 }
 
 export async function loadMatchRecordSummary(
@@ -94,13 +97,19 @@ const CHASSIS_CORE_IDS = ["core-cube", "wedge-core", "tower-core"] as const;
 export async function matchAchievementCounters(
   sql: Sql,
   playerId: string,
-): Promise<{ matchWins: number; sawMatchWins: number; chassisFought: number }> {
+): Promise<{
+  matchWins: number;
+  sawMatchWins: number;
+  chassisFought: number;
+  ruleMatches: number;
+}> {
   const rows = (await sql`
     SELECT
       COUNT(*) FILTER (WHERE outcome = 'win')::int AS match_wins,
       COUNT(*) FILTER (
         WHERE outcome = 'win' AND used_part_ids ? 'saw-blade'
       )::int AS saw_match_wins,
+      COUNT(*) FILTER (WHERE rule_count > 0)::int AS rule_matches,
       COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[0]})::int
         AS cube_fights,
       COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[1]})::int
@@ -111,6 +120,7 @@ export async function matchAchievementCounters(
     WHERE player_id = ${playerId}`) as Array<{
     match_wins: number;
     saw_match_wins: number;
+    rule_matches: number;
     cube_fights: number;
     wedge_fights: number;
     tower_fights: number;
@@ -125,5 +135,6 @@ export async function matchAchievementCounters(
     matchWins: row?.match_wins ?? 0,
     sawMatchWins: row?.saw_match_wins ?? 0,
     chassisFought,
+    ruleMatches: row?.rule_matches ?? 0,
   };
 }

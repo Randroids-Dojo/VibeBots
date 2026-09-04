@@ -124,6 +124,7 @@ export async function POST(request: Request): Promise<Response> {
       simVersion: result.simVersion,
       durationTicks: result.tick,
       usedPartIds: [...new Set(playerDesign.parts.map((p) => p.partId))],
+      ruleCount: playerDesign.rules?.length ?? 0,
     });
     try {
       newStamps = (await refreshPlayerAchievements(sql, playerId))

@@ -579,6 +579,16 @@ const STAMP_PICTOGRAMS: Record<
       <path d="M32 24 v4 M32 36 v4 M24 32 h4 M36 32 h4" strokeWidth="2" />
     </g>
   ),
+  // First Orders (F-252): an order sheet with two lines read and the
+  // third ticked, the accent on the tick.
+  "battle-first-orders": ({ accent }) => (
+    <g>
+      <rect x="19" y="15" width="26" height="34" rx="3" />
+      <path d="M25 24 h14 M25 31 h14 M25 38 h8" strokeWidth="2" />
+      <circle cx="40" cy="40" r="5.5" fill={accent} stroke="none" />
+      <path d="M37 40 l2.2 2.2 l4 -4.6" strokeWidth="2" />
+    </g>
+  ),
 };
 
 const FALLBACK_PICTOGRAM = ({ accent }: StampPalette): ReactElement => (

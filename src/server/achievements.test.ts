@@ -6,11 +6,14 @@ import {
   refreshPlayerAchievements,
 } from "./achievements";
 
+import { matchAchievementCounters } from "./match-records";
+
 vi.mock("./match-records", () => ({
   matchAchievementCounters: vi.fn(async () => ({
     matchWins: 0,
     sawMatchWins: 0,
     chassisFought: 0,
+    ruleMatches: 0,
   })),
 }));
 
@@ -93,6 +96,31 @@ function makeAchievementSql({
   );
   return { sql, statsWrites };
 }
+
+describe("First Orders (F-252)", () => {
+  it("stamps from the records' rule count, never from bench state", async () => {
+    const { sql, statsWrites } = makeAchievementSql({});
+    // Nothing on the bench reaches this path; only the records counter
+    // can move the stat, and a fight with a rule aboard moves it to 1.
+    const none = await applyAchievementProgress(sql as never, "player-1", {});
+    expect(none).not.toContain("battle-first-orders");
+    vi.mocked(matchAchievementCounters).mockResolvedValueOnce({
+      matchWins: 0,
+      sawMatchWins: 0,
+      chassisFought: 0,
+      ruleMatches: 1,
+    });
+    const stamped = await applyAchievementProgress(
+      sql as never,
+      "player-1",
+      {},
+    );
+    expect(stamped).toContain("battle-first-orders");
+    // The persisted stats carry only bench-side patches; the derived
+    // counter lives in the records and is recomputed at snapshot time.
+    expect(statsWrites.length).toBeGreaterThan(0);
+  });
+});
 
 describe("Groundbreaker backfill", () => {
   it("counts no player digs for a fresh claim whose dug is only the spawn pocket", async () => {

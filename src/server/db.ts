@@ -248,6 +248,12 @@ async function applySchema(sql: Sql): Promise<void> {
       used_part_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
       created_at timestamptz NOT NULL DEFAULT now()
     )`;
+  // Bench rules aboard the player's design when it fought (F-252): the
+  // First Orders stamp reads this, so it can only come from a verified
+  // fight. Older rows read 0, which is the truth for them.
+  await sql`
+    ALTER TABLE match_records
+    ADD COLUMN IF NOT EXISTS rule_count integer NOT NULL DEFAULT 0`;
   await sql`
     CREATE INDEX IF NOT EXISTS match_records_player_created
     ON match_records (player_id, created_at DESC)`;

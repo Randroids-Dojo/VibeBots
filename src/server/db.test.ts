@@ -43,6 +43,14 @@ describe("compatibility migration markers", () => {
     expect(source).toContain("WHERE elevator_column_migrated_at IS NULL");
   });
 
+  it("adds the bench-rule count to match records (F-252)", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain(
+      "ADD COLUMN IF NOT EXISTS rule_count integer NOT NULL DEFAULT 0",
+    );
+  });
+
   it("creates the release push dispatch ledger", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 

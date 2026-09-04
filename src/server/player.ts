@@ -193,9 +193,10 @@ async function createPlayer(sql: Sql): Promise<string> {
       plank_count,
       support_kit_granted_at,
       legacy_support_snapshot_reconciled_at,
-      dynamite_tier_unlock_reset_at
+      dynamite_tier_unlock_reset_at,
+      merge_levels_retired_at
     )
-    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now(), now(), now())
+    VALUES (${LADDER_RECOVERY_FLOOR}, ${PLANK_RECOVERY_FLOOR}, now(), now(), now(), now())
     RETURNING id`) as Array<{
     id: string;
   }>;

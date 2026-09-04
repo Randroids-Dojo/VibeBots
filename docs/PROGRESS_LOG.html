@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="merge-retirement-marker-at-creation" data-date="2026-09-04">
+    <h3>Mark a new player past the merge-level wipe at creation (F-256, from the mainline review)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>fix/merge-retirement-marker-at-creation</code>, from <code>origin/main</code> at <code>6d59d107</code>.</dd>
+      <dt>PR</dt><dd>Pending. Dot <code>VibeBots-f-256-a-21b346c8</code>.</dd>
+      <dt>Context</dt><dd>The post-merge adversarial review (Rule 5 step 4) of #365 asked the question the wipe's marker pattern invites: who marks a player created after the wipe? Nobody did. The INSERT in <code>src/server/player.ts</code> sets the support kit, legacy snapshot, and dynamite reset markers at creation, not <code>merge_levels_retired_at</code>, so a new player would have been wiped at the next cold start.</dd>
+      <dt>Changed</dt><dd>The INSERT names <code>merge_levels_retired_at</code> and gives it now(). A source test in <code>src/server/db.test.ts</code> pins the marker in the INSERT and counts the four now() markers, so the next destructive one-time marker cannot be forgotten the same way. Production has had no cold start between the wipe landing (#365) and this fix landing that a new player could have fallen into: the wipe ran once at the first setup after #365, and the only players since are the beta's test users, who were wiped by design.</dd>
+      <dt>Verification</dt><dd><code>pnpm typecheck</code> exit 0; <code>pnpm exec vitest run src/server/db.test.ts src/server/player.test.ts</code> 28 of 28; dash check and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>Markers whose null means "needs a data migration" (the elevator ones) are correctly left null at creation; only destructive one-time passes need the creation stamp.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>F-256 raised and resolved here.</dd>
+    </dl>
+  </article>
   <article data-slice="weapon-angle" data-date="2026-09-04">
     <h3>Angle your weapon: a pitch per rigid weapon mount the sim reads, measured to flip the top rung (Q-039 second lever)</h3>
     <dl>

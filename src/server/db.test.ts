@@ -10,6 +10,19 @@ describe("compatibility migration markers", () => {
     }
   });
 
+  it("marks a new player past the merge-level wipe at creation, so a cold start never wipes them (F-256)", () => {
+    const source = readFileSync("src/server/player.ts", "utf8");
+    const insert = source.slice(
+      source.indexOf("INSERT INTO players ("),
+      source.indexOf("RETURNING id"),
+    );
+    expect(insert).toContain("merge_levels_retired_at");
+    // Every destructive one-time marker is set at creation; the wipe keys
+    // on NULL, and a player born after the wipe must never read as NULL.
+    expect(insert).toContain("dynamite_tier_unlock_reset_at");
+    expect((insert.match(/now\(\)/g) ?? []).length).toBe(4);
+  });
+
   it("wipes designs and part inventories once when merge levels retire (F-230)", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
     expect(source).toContain(

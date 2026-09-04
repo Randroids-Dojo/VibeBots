@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("now it has rules too");
+    await expect(dialog).toContainText("a bot is one copy of each part again");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "up to three when-then lines on the Tune tab",
+      "Merge levels are retired",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "The debrief offers one",
+      "One-time reset for the beta",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "Share codes carry rules",
+      "Old share codes still paste",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,7 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.313", "Merge levels are gone, and the bench was reset"],
       ["0.1.312", "Rules on the bench"],
       ["0.1.311", "The debrief knows the ladder"],
       ["0.1.310", "The Tower core can fight now"],

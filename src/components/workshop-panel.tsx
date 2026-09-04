@@ -44,15 +44,13 @@ import { playWorkshopSfx } from "@/components/workshop-sfx";
 import { panelStyle, pillStyle } from "@/components/workshop-ui";
 import { PAINT_SWATCHES } from "@/lib/bot-paint";
 import { decodeDesignCode } from "@/lib/design-code";
-import { buzz, HAPTIC_MERGE, HAPTIC_REMOVE } from "@/lib/haptics";
+import { buzz, HAPTIC_REMOVE } from "@/lib/haptics";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
-  MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   partInstanceDurability,
-  partMergeLevel,
   validateDesign,
 } from "@/sim/design";
 import { designPartCounts, partInventoryCounts } from "@/sim/inventory";
@@ -66,7 +64,6 @@ import {
   CORE_PART_IDS,
   carouselIdsFor,
   currentCoreId,
-  planMergeSelectedPart,
   planRotateSelected,
   useWorkshopStore,
   validSlotsFor,
@@ -101,10 +98,6 @@ type WorkshopInventory =
   | { state: "loading" }
   | { state: "sandbox" }
   | { state: "ready"; counts: Map<string, number> };
-
-// One inspector pip per merge level, keyed by a stable id (never a bare
-// array index). Length matches MAX_PART_MERGE_LEVEL.
-const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
 
 // The open menu's content is capped to this fraction of the viewport and
 // scrolls past it, so the sheet stays short and leaves room above it for the
@@ -538,10 +531,8 @@ export function WorkshopPanel() {
   const mirrorEnabled = useWorkshopStore((s) => s.mirrorEnabled);
   const toggleMirror = useWorkshopStore((s) => s.toggleMirror);
   const recenterView = useWorkshopStore((s) => s.recenterView);
-  const mergePreviewLevel = useWorkshopStore((s) => s.mergePreviewLevel);
   const history = useWorkshopStore((s) => s.history);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
-  const mergeSelectedPart = useWorkshopStore((s) => s.mergeSelectedPart);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
   const setBehavior = useWorkshopStore((s) => s.setBehavior);
   const setRules = useWorkshopStore((s) => s.setRules);
@@ -586,7 +577,6 @@ export function WorkshopPanel() {
   }, [browsableIds, setBrowsableIds]);
   const selectedPart = design.parts.find((p) => p.iid === selectedIid);
   const selectedDef = selectedPart ? PART_CATALOG[selectedPart.partId] : null;
-  const selectedMergeLevel = selectedPart ? partMergeLevel(selectedPart) : 1;
   const selectedDurability =
     selectedPart && selectedDef ? partInstanceDurability(selectedPart) : null;
   // Any non-core part can be removed: removing one takes its whole subtree
@@ -595,41 +585,6 @@ export function WorkshopPanel() {
     selectedDef != null &&
     selectedDef.category !== "core" &&
     selectedIid !== null;
-  const selectedMergePlan = planMergeSelectedPart(design, selectedIid);
-  const selectedUsed = selectedPart
-    ? (usedPartCounts.get(selectedPart.partId) ?? 0)
-    : 0;
-  const selectedOwned =
-    inventory.state === "ready" && selectedPart
-      ? (inventory.counts.get(selectedPart.partId) ?? 0)
-      : 0;
-  const selectedAvailableAfterUse =
-    selectedPart && inventory.state === "ready"
-      ? Math.max(0, selectedOwned - selectedUsed)
-      : 0;
-  const mergeInventoryAllows =
-    inventory.state === "sandbox" ||
-    (inventory.state === "ready" && selectedAvailableAfterUse > 0);
-  const mergeEnabled = selectedMergePlan !== null && mergeInventoryAllows;
-
-  // Chain cue (G7): a merge that leaves another merge available is the
-  // best moment on the bench, so it gets its own beat: a brighter line in
-  // the inspector and a three-note stinger, once per merge.
-  const mergeNonce = useWorkshopStore((s) => s.mergeNonce);
-  const [chainCue, setChainCue] = useState(false);
-  const lastMergeNonce = useRef(mergeNonce);
-  // The sound is chosen here too, once per merge from either path (the
-  // inspector button or a drop onto a twin): the chain recipe already
-  // carries the merge chime's notes, so playing both would stack them.
-  useEffect(() => {
-    if (mergeNonce === lastMergeNonce.current) return;
-    lastMergeNonce.current = mergeNonce;
-    playWorkshopSfx(mergeEnabled ? "chain" : "merge");
-    if (!mergeEnabled) return;
-    setChainCue(true);
-    const timer = setTimeout(() => setChainCue(false), 1600);
-    return () => clearTimeout(timer);
-  }, [mergeNonce, mergeEnabled]);
 
   // Tapping a placed part focuses its stats: jump to the Build tab and open the
   // sheet so the selected-part panel (level, HP, Merge, Rotate) is on screen.
@@ -1474,23 +1429,6 @@ export function WorkshopPanel() {
               show their own inline spinner while loading. */}
           {deferredTab === "build" && (
             <>
-              {mergePreviewLevel !== null && (
-                <div
-                  data-testid="merge-banner"
-                  style={{
-                    background: "#ffe08a",
-                    color: "#0b0e14",
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    fontWeight: 700,
-                    textAlign: "center",
-                    boxShadow: "0 0 16px rgba(255, 224, 138, 0.55)",
-                  }}
-                >
-                  {`↑ Release to merge into Lv ${mergePreviewLevel}`}
-                </div>
-              )}
-
               {/* A tapped placed part shows its stats and build actions here in
                   the sheet, in place of the carousel browse details. Removal
                   lives on the on-part X, not a button in this panel. */}
@@ -1498,21 +1436,6 @@ export function WorkshopPanel() {
                 <section style={panelStyle} aria-label="Selected part">
                   <div className="inspector-head">
                     <span className="inspector-name">{selectedDef.name}</span>
-                    <span className="inspector-level">
-                      <span className="inspector-pips" aria-hidden="true">
-                        {MERGE_PIP_IDS.map((pipId, i) => (
-                          <span
-                            key={`pip-${selectedIid}-${pipId}`}
-                            className={
-                              i < selectedMergeLevel
-                                ? "inspector-pip inspector-pip-on"
-                                : "inspector-pip"
-                            }
-                          />
-                        ))}
-                      </span>
-                      Lv {selectedMergeLevel}
-                    </span>
                   </div>
                   <p className="inspector-blurb">{selectedDef.blurb}</p>
                   <p className="inspector-stats" data-testid="selected-stats">
@@ -1524,7 +1447,7 @@ export function WorkshopPanel() {
                         <div
                           className="inspector-durability-fill"
                           style={{
-                            width: `${Math.min(100, (selectedDurability / (selectedDef.durability * ((MAX_PART_MERGE_LEVEL + 1) / 2))) * 100)}%`,
+                            width: `${Math.min(100, (selectedDurability / selectedDef.durability) * 100)}%`,
                           }}
                         />
                         <span className="inspector-durability-text">
@@ -1532,15 +1455,6 @@ export function WorkshopPanel() {
                         </span>
                       </div>
                     )}
-                  {chainCue && mergeEnabled && (
-                    <p
-                      className="inspector-chain"
-                      data-testid="chain-cue"
-                      role="status"
-                    >
-                      {`Merge again to Lv ${selectedMergeLevel + 1}`}
-                    </p>
-                  )}
                   <div className="inspector-actions">
                     <button
                       type="button"
@@ -1551,28 +1465,6 @@ export function WorkshopPanel() {
                       title="Quarter-turn this part around its mount"
                     >
                       Rotate
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        mergeSelectedPart();
-                        buzz(HAPTIC_MERGE);
-                      }}
-                      disabled={!mergeEnabled}
-                      title={
-                        selectedMergePlan === null
-                          ? "This part is already at max level"
-                          : inventory.state === "loading"
-                            ? "Checking inventory"
-                            : inventory.state === "ready" &&
-                                selectedAvailableAfterUse <= 0
-                              ? "Needs another owned copy"
-                              : undefined
-                      }
-                    >
-                      {selectedMergeLevel >= MAX_PART_MERGE_LEVEL
-                        ? "Max level"
-                        : `Merge to Lv ${selectedMergeLevel + 1}`}
                     </button>
                   </div>
                 </section>

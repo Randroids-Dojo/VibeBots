@@ -152,13 +152,6 @@ async function achievementSnapshot(
            ), 0) AS parts_owned,
            EXISTS (
              SELECT 1
-             FROM bot_designs bd,
-                  jsonb_array_elements(bd.design->'parts') AS part
-             WHERE bd.player_id = p.id
-               AND (part->>'mergeLevel')::int >= 3
-           ) AS has_maxed_design,
-           EXISTS (
-             SELECT 1
              FROM bot_designs bd
              WHERE bd.player_id = p.id
                AND bd.design ? 'paint'
@@ -180,7 +173,6 @@ async function achievementSnapshot(
     matchWins: Math.max(stats.matchWins, matchCounters.matchWins),
     sawMatchWins: Math.max(stats.sawMatchWins, matchCounters.sawMatchWins),
     chassisFought: Math.max(stats.chassisFought, matchCounters.chassisFought),
-    partsMaxed: Math.max(stats.partsMaxed, row?.has_maxed_design ? 1 : 0),
     // Custom Job (G5) derives from the saved design itself, so it backfills
     // for any profile that painted a bot before the stamp existed.
     designsPainted: Math.max(

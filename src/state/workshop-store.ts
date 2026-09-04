@@ -17,10 +17,8 @@ import {
   DEFAULT_GEAR_RATIO,
   isGearableConnection,
   MAX_DESIGN_RULES,
-  MAX_PART_MERGE_LEVEL,
   NEUTRAL_BEHAVIOR,
   type Orientation,
-  partMergeLevel,
   validateDesign,
 } from "@/sim/design";
 import { PART_CATALOG, type PartDef } from "@/sim/parts";
@@ -292,29 +290,6 @@ export function subtreeIids(design: BotDesign, rootIid: string): Set<string> {
   return removed;
 }
 
-export function planMergeSelectedPart(
-  design: BotDesign,
-  selectedIid: string | null,
-  catalog: Record<string, PartDef> = PART_CATALOG,
-): BotDesign | null {
-  if (!selectedIid) return null;
-  const selected = design.parts.find((p) => p.iid === selectedIid);
-  if (!selected) return null;
-  const def = catalog[selected.partId];
-  if (!def || def.category === "core") return null;
-  const currentLevel = partMergeLevel(selected);
-  if (currentLevel >= MAX_PART_MERGE_LEVEL) return null;
-  const next: BotDesign = {
-    ...design,
-    parts: design.parts.map((part) =>
-      part.iid === selectedIid
-        ? { ...part, mergeLevel: currentLevel + 1 }
-        : part,
-    ),
-  };
-  return validateDesign(next, catalog).ok ? next : null;
-}
-
 function nextIid(design: BotDesign, partId: string): string {
   let n = 1;
   while (design.parts.some((p) => p.iid === `${partId}-${n}`)) n += 1;
@@ -374,12 +349,6 @@ export interface WorkshopState {
    */
   browseStatsOpen: boolean;
   /**
-   * While a drag hovers a merge twin, the level the drop would produce, so
-   * the panel can show a "release to merge" banner (Slice B). Null when the
-   * drag is over an empty slot or not dragging.
-   */
-  mergePreviewLevel: number | null;
-  /**
    * Balance overlay (F-227): draws the centre of mass and the footprint the
    * bot stands on. Off by default so the bench stays clean; it is a
    * diagnostic view, not the default way to look at a bot.
@@ -418,11 +387,8 @@ export interface WorkshopState {
   /** Set mirror mode outright; the guided first build turns it on (F-241). */
   setMirror: (enabled: boolean) => void;
   toggleMirror: () => void;
-  setMergePreviewLevel: (level: number | null) => void;
   placeAtSlot: (slot: PlacementSlot) => void;
-  mergePart: (iid: string) => void;
   removeSelected: () => void;
-  mergeSelectedPart: () => void;
   rotateSelected: () => void;
   setName: (name: string) => void;
   setBehavior: (patch: Partial<BotBehavior>) => void;
@@ -434,8 +400,6 @@ export interface WorkshopState {
   setWeightClass: (classId: string | undefined) => void;
   /** Set (or clear) the design's cosmetic paint (G5). Undoable. */
   setPaint: (paint: BotPaint | undefined) => void;
-  /** Bumped on every merge, either path, so the panel can celebrate a chain (G7). */
-  mergeNonce: number;
   /** Set the drive gear ratio on every drive axle (F-229). Undoable. */
   setGearRatio: (ratio: number) => void;
   loadDesign: (design: BotDesign) => void;
@@ -462,11 +426,9 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   buildActive: true,
   browseDimmed: false,
   browseStatsOpen: false,
-  mergePreviewLevel: null,
   balanceVisible: false,
   mirrorEnabled: false,
   viewResetNonce: 0,
-  mergeNonce: 0,
 
   recenterView: () => set((s) => ({ viewResetNonce: s.viewResetNonce + 1 })),
 
@@ -568,8 +530,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     }));
   },
 
-  setMergePreviewLevel: (level) => set({ mergePreviewLevel: level }),
-
   // Commit the exact connection the tapped ghost (or slot button) named,
   // rebuilt against the live design so it cannot land a stale placement.
   placeAtSlot: (slot) => {
@@ -610,20 +570,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
     });
   },
 
-  // Merge-as-placement (W4): while armed, tapping an already-placed part
-  // of the same kind spends the copy on a level-up instead of a new part.
-  mergePart: (iid) => {
-    const { history, design } = get();
-    const next = planMergeSelectedPart(design, iid);
-    if (!next) return;
-    set((s) => ({
-      ...withDesign(pushHistory(history, next)),
-      selectedIid: iid,
-      browseStatsOpen: false,
-      mergeNonce: s.mergeNonce + 1,
-    }));
-  },
-
   removeSelected: () => {
     const { history, design, selectedIid } = get();
     if (!selectedIid) return;
@@ -645,16 +591,6 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
       ),
     };
     set({ ...withDesign(pushHistory(history, next)), selectedIid: null });
-  },
-
-  mergeSelectedPart: () => {
-    const { history, design, selectedIid } = get();
-    const next = planMergeSelectedPart(design, selectedIid);
-    if (!next) return;
-    set((s) => ({
-      ...withDesign(pushHistory(history, next)),
-      mergeNonce: s.mergeNonce + 1,
-    }));
   },
 
   rotateSelected: () => {

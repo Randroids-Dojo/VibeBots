@@ -130,28 +130,20 @@ describe("achievements", () => {
     ).toContain("battle-chassis-tour");
   });
 
-  it("unlocks Mastercrafted from a maxed-part design record", () => {
+  it("no longer has a merge-level stamp (F-230)", () => {
     expect(
-      achievementIdsUnlockedBy({
-        ...baseSnapshot,
-        stats: { ...DEFAULT_ACHIEVEMENT_STATS, partsMaxed: 1 },
-      }),
-    ).toContain("tools-mastercrafted");
-    expect(
-      achievementIdsUnlockedBy({
-        ...baseSnapshot,
-        stats: { ...DEFAULT_ACHIEVEMENT_STATS, matchWins: 5 },
-      }),
-    ).not.toContain("tools-mastercrafted");
+      ACHIEVEMENT_DEFINITIONS.find(
+        (definition) => definition.id === "tools-mastercrafted",
+      ),
+    ).toBeUndefined();
   });
 
   it("merges derived mastery levels by high water, not by sum", () => {
     const merged = mergeAchievementStats(
-      { ...DEFAULT_ACHIEVEMENT_STATS, chassisFought: 2, partsMaxed: 1 },
-      { chassisFought: 2, partsMaxed: 1 },
+      { ...DEFAULT_ACHIEVEMENT_STATS, chassisFought: 2 },
+      { chassisFought: 2 },
     );
     expect(merged.chassisFought).toBe(2);
-    expect(merged.partsMaxed).toBe(1);
   });
 
   it("merges designsPainted by high water and resolves Custom Job through the metric (G5)", () => {

@@ -9,7 +9,6 @@
 export const HAPTIC_PLACE = 12;
 export const HAPTIC_REMOVE = 22;
 // A merge is the signature moment, so it gets a double-tap pattern.
-export const HAPTIC_MERGE: number[] = [0, 16, 26, 34];
 
 export function buzz(pattern: number | number[]): void {
   if (typeof navigator === "undefined") return;

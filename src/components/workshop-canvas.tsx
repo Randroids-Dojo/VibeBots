@@ -36,9 +36,9 @@ import {
 } from "@/components/part-visuals";
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import { paintedColor } from "@/lib/bot-paint";
-import { buzz, HAPTIC_MERGE, HAPTIC_PLACE } from "@/lib/haptics";
+import { buzz, HAPTIC_PLACE } from "@/lib/haptics";
 import { type BalanceReport, computeBalance } from "@/sim/balance";
-import { type BotPaint, type PartInstance, partMergeLevel } from "@/sim/design";
+import type { BotPaint, PartInstance } from "@/sim/design";
 import { computeLayout, isQuarterTurned, type Placement } from "@/sim/layout";
 import {
   PART_CATALOG,
@@ -48,7 +48,6 @@ import {
 } from "@/sim/parts";
 import {
   type PlacementSlot,
-  planMergeSelectedPart,
   useWorkshopStore,
   validSlotsFor,
 } from "@/state/workshop-store";
@@ -91,24 +90,17 @@ import {
 import { clientToNdc, groundFloorY, pickNearestSlot } from "./workshop-drag";
 import { playWorkshopSfx } from "./workshop-sfx";
 
-// Stable pip keys (one per merge level) so the level markers never key on
-// a bare array index. Length covers MAX_PART_MERGE_LEVEL.
-const MERGE_PIP_IDS = ["i", "ii", "iii"] as const;
-
-// A place to drop the held part while dragging (N2/N3): an empty connector
-// slot to place a new part, or an existing same-kind part to merge into.
-type DragTarget =
-  | { kind: "place"; slot: PlacementSlot; placement: Placement }
-  | { kind: "merge"; iid: string; placement: Placement };
+// A place to drop the held part while dragging (N2): an empty connector
+// slot to place a new part. (Dropping onto a twin used to merge; merge
+// levels were retired 2026-09-04, F-230.)
+type DragTarget = { kind: "place"; slot: PlacementSlot; placement: Placement };
 
 /**
  * One placed part on the bench (W5 feel polish): it pops in when first
- * placed and gives a quick scale bump when it merges up a level, so an
- * edit lands with a snap instead of appearing instantly. The scale math
+ * placed, so an edit lands with a snap instead of appearing instantly. The scale math
  * lives in workshop-animation so it stays unit-tested.
  */
 function PlacedPart({
-  instance,
   def,
   placement,
   selected,
@@ -129,8 +121,6 @@ function PlacedPart({
   const matRef = useRef<MeshStandardMaterial>(null);
   const mountT = useRef(0);
   const pulseT = useRef(0);
-  const level = partMergeLevel(instance);
-  const prevLevel = useRef(level);
   // The part's own face (G3): base paint, surface response, and whether
   // its geometry carries the two-tone vertex attribute.
   const look = partLook(def);
@@ -139,16 +129,13 @@ function PlacedPart({
   // steel weapons untouched; no paint keeps the part's own look.
   const color = paintedColor(def, paint, look.color);
   useFrame((_, dt) => {
-    if (level > prevLevel.current) pulseT.current = 1;
-    prevLevel.current = level;
     mountT.current = advance(mountT.current, dt, MOUNT_SECONDS);
     pulseT.current = decay(pulseT.current, dt, PULSE_SECONDS);
     scaleRef.current?.scale.setScalar(
       snapScale(mountT.current, pulseT.current),
     );
-    // Gold flash on level-up (Slice B), fading with the same pulse the pop
-    // rides, so a merge lands as a clear "leveled up" beat over the base
-    // selected / idle emissive.
+    // The pulse flash is kept for the snap-in pop; nothing sets it past
+    // mount any more now that merge levels are gone.
     const flash = pulseT.current;
     const mat = matRef.current;
     if (mat) {
@@ -355,12 +342,10 @@ function DragGhost({
   def,
   placement,
   active,
-  merge = false,
 }: {
   def: PartDef;
   placement: Placement;
   active: boolean;
-  merge?: boolean;
 }) {
   const groupRef = useRef<Group>(null);
   const matRef = useRef<MeshStandardMaterial>(null);
@@ -376,16 +361,8 @@ function DragGhost({
   });
   const { position, rotation } = placement;
   const look = partLook(def);
-  // Merge targets read gold (matching the W4 merge language); place targets
-  // read in the part's own colour and go white-hot when they are the snap.
-  const color = merge ? "#ffe08a" : look.color;
-  const emissive = merge
-    ? active
-      ? "#fff0b0"
-      : "#ffe08a"
-    : active
-      ? "#ffffff"
-      : look.color;
+  const color = look.color;
+  const emissive = active ? "#ffffff" : look.color;
   return (
     <group
       ref={groupRef}
@@ -401,7 +378,7 @@ function DragGhost({
           metalness={look.metalness}
           roughness={look.roughness}
           transparent
-          opacity={active ? 0.85 : merge ? 0.32 : 0.22}
+          opacity={active ? 0.85 : 0.22}
           depthWrite={active}
           emissive={emissive}
           emissiveIntensity={active ? 0.7 : 0.4}
@@ -846,8 +823,6 @@ function WorkshopScene() {
   const selectedIid = useWorkshopStore((s) => s.selectedIid);
   const select = useWorkshopStore((s) => s.select);
   const placeAtSlot = useWorkshopStore((s) => s.placeAtSlot);
-  const mergePart = useWorkshopStore((s) => s.mergePart);
-  const setMergePreviewLevel = useWorkshopStore((s) => s.setMergePreviewLevel);
   const toggleBrowseStats = useWorkshopStore((s) => s.toggleBrowseStats);
   const browsePartId = useWorkshopStore((s) => s.browsePartId);
   const browseOrientation = useWorkshopStore((s) => s.browseOrientation);
@@ -1013,7 +988,6 @@ function WorkshopScene() {
   const hoveredRef = useRef(-1);
   const dragTargets = useMemo<DragTarget[]>(() => {
     if (!dragging) return [];
-    const baseLayout = computeLayout(design);
     const targets: DragTarget[] = [];
     for (const slot of validSlotsFor(
       design,
@@ -1024,14 +998,8 @@ function WorkshopScene() {
       const placement = computeLayout(slot.next).get(slot.iid);
       if (placement) targets.push({ kind: "place", slot, placement });
     }
-    for (const part of design.parts) {
-      if (part.partId !== browsePartId) continue;
-      if (planMergeSelectedPart(design, part.iid) === null) continue;
-      const placement = baseLayout.get(part.iid);
-      if (placement) targets.push({ kind: "merge", iid: part.iid, placement });
-    }
     return targets;
-  }, [dragging, design, browseDef, browsePartId, browseOrientation]);
+  }, [dragging, design, browseDef, browseOrientation]);
   const dragTargetsRef = useRef(dragTargets);
   dragTargetsRef.current = dragTargets;
   // Synchronous drag flag: the hover frame checks this rather than the
@@ -1127,18 +1095,10 @@ function WorkshopScene() {
         );
         const target = dragTargetsRef.current[index];
         if (index >= 0 && target) {
-          if (target.kind === "place") {
-            placeAtSlot(target.slot);
-            buzz(HAPTIC_PLACE);
-            playWorkshopSfx("place");
-            sparkAt(target.placement.position, SPARK_PLACE_COLOR);
-          } else {
-            mergePart(target.iid);
-            buzz(HAPTIC_MERGE);
-            // The merge sound plays from the panel's merge-nonce effect, so
-            // a chain merge gets one recipe, not merge plus chain.
-            sparkAt(target.placement.position, "#ffe08a");
-          }
+          placeAtSlot(target.slot);
+          buzz(HAPTIC_PLACE);
+          playWorkshopSfx("place");
+          sparkAt(target.placement.position, SPARK_PLACE_COLOR);
         }
       } else {
         // A tap on the hero part reveals (or hides) its stats in the bottom
@@ -1149,7 +1109,6 @@ function WorkshopScene() {
       setDragging(false);
       setHovered(-1);
       hoveredRef.current = -1;
-      setMergePreviewLevel(null);
     };
     el.addEventListener("pointermove", move);
     window.addEventListener("pointerup", drop);
@@ -1159,16 +1118,7 @@ function WorkshopScene() {
       window.removeEventListener("pointerup", drop);
       window.removeEventListener("pointercancel", drop);
     };
-  }, [
-    grabbing,
-    gl,
-    placeAtSlot,
-    mergePart,
-    camera,
-    setMergePreviewLevel,
-    toggleBrowseStats,
-    sparkAt,
-  ]);
+  }, [grabbing, gl, placeAtSlot, camera, toggleBrowseStats, sparkAt]);
 
   const projScratch = useRef(new Vector3());
   useFrame(() => {
@@ -1182,16 +1132,6 @@ function WorkshopScene() {
     if (next !== hoveredRef.current) {
       hoveredRef.current = next;
       setHovered(next);
-      // Surface a "release to merge" preview to the panel when the snap
-      // target is a twin, so the merge intent reads in always-visible DOM
-      // instead of an in-world marker the top panel can hide (Slice B).
-      const target = dragTargets[next];
-      if (target && target.kind === "merge") {
-        const part = design.parts.find((p) => p.iid === target.iid);
-        setMergePreviewLevel(part ? partMergeLevel(part) + 1 : null);
-      } else {
-        setMergePreviewLevel(null);
-      }
     }
   });
 
@@ -1319,24 +1259,14 @@ function WorkshopScene() {
         />
       ))}
       {dragging &&
-        dragTargets.map((target, i) =>
-          target.kind === "place" ? (
-            <DragGhost
-              key={`place:${target.slot.parentIid}:${target.slot.parentConnector}`}
-              def={browseDef}
-              placement={target.placement}
-              active={i === hovered}
-            />
-          ) : (
-            <DragGhost
-              key={`merge:${target.iid}`}
-              def={browseDef}
-              placement={target.placement}
-              active={i === hovered}
-              merge
-            />
-          ),
-        )}
+        dragTargets.map((target, i) => (
+          <DragGhost
+            key={`place:${target.slot.parentIid}:${target.slot.parentConnector}`}
+            def={browseDef}
+            placement={target.placement}
+            active={i === hovered}
+          />
+        ))}
       <DropSparks burst={burst} publish={publishSparks} />
       {leaving.map((part) => (
         <DissolvingPart
@@ -1363,35 +1293,6 @@ function WorkshopScene() {
             onActivate={() => select(selected ? null : instance.iid)}
           />
         );
-      })}
-      {/* Merge-level markers (W3): a merged part carries one glowing pip
-          per level, floated in world-up above it so the upgrade reads at
-          a glance. Mesh markers, not 3D text (mine-canvas glyph rule). */}
-      {design.parts.map((instance) => {
-        const def = PART_CATALOG[instance.partId];
-        const placement = layout.get(instance.iid);
-        if (!def || !placement) return null;
-        const level = partMergeLevel(instance);
-        if (level <= 1) return null;
-        const { position } = placement;
-        return MERGE_PIP_IDS.slice(0, level).map((pipId, i) => (
-          <mesh
-            key={`pip:${instance.iid}:${pipId}`}
-            position={[
-              position.x + (i - (level - 1) / 2) * 0.16,
-              position.y + 0.62,
-              position.z,
-            ]}
-          >
-            <sphereGeometry args={[0.05, 12, 12]} />
-            <meshStandardMaterial
-              color="#ffe08a"
-              emissive="#ffe08a"
-              emissiveIntensity={0.9}
-              toneMapped={false}
-            />
-          </mesh>
-        ));
       })}
     </>
   );

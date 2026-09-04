@@ -10,7 +10,6 @@ import {
   findFreeConnectors,
   mirrorSlotFor,
   planAddPart,
-  planMergeSelectedPart,
   STARTER_DESIGN,
   subtreeIids,
   useWorkshopStore,
@@ -194,31 +193,6 @@ describe("workshop store", () => {
     expect(conn?.orientation).toBe(90);
   });
 
-  it("merges selected duplicate parts into stronger levels with undo", () => {
-    store().addPart("ram-spike");
-    const spikeIid = store().selectedIid;
-    expect(spikeIid).not.toBeNull();
-
-    store().mergeSelectedPart();
-    let spike = store().design.parts.find((p) => p.iid === spikeIid);
-    expect(spike?.mergeLevel).toBe(2);
-
-    store().mergeSelectedPart();
-    spike = store().design.parts.find((p) => p.iid === spikeIid);
-    expect(spike?.mergeLevel).toBe(3);
-    expect(planMergeSelectedPart(store().design, spikeIid)).toBeNull();
-
-    store().undo();
-    spike = store().design.parts.find((p) => p.iid === spikeIid);
-    expect(spike?.mergeLevel).toBe(2);
-  });
-
-  it("never merges the core part", () => {
-    store().select("core");
-    store().mergeSelectedPart();
-    expect(store().design.parts[0].mergeLevel).toBeUndefined();
-  });
-
   it("refuses to rotate axle-mounted parts", () => {
     store().addPart("drive-wheel");
     const wheelIid = store().selectedIid;
@@ -293,44 +267,6 @@ describe("W2 tap-to-place slots", () => {
     // Replaying the same slot (now occupied) is a no-op, not a double-mount.
     store().placeAtSlot(slot);
     expect(store().design.parts).toHaveLength(2);
-  });
-});
-
-describe("W4 merge as placement", () => {
-  beforeEach(() => {
-    store().reset();
-  });
-
-  it("merges a specific placed part by iid", () => {
-    store().addPart("drive-wheel");
-    const wheelIid = store().selectedIid;
-    expect(wheelIid).not.toBeNull();
-    if (!wheelIid) return;
-    // Merge the existing copy instead of placing a new one.
-    store().mergePart(wheelIid);
-    const merged = store().design.parts.find((p) => p.iid === wheelIid);
-    expect(merged?.mergeLevel).toBe(2);
-    // The merge selects the upgraded part.
-    expect(store().selectedIid).toBe(wheelIid);
-    // History captured it: undo returns to level 1.
-    store().undo();
-    expect(
-      store().design.parts.find((p) => p.iid === wheelIid)?.mergeLevel,
-    ).toBeUndefined();
-  });
-
-  it("refuses to merge a maxed or non-mergeable part", () => {
-    store().addPart("ram-spike");
-    const spikeIid = store().selectedIid;
-    if (!spikeIid) return;
-    store().mergePart(spikeIid); // level 2
-    store().mergePart(spikeIid); // level 3 (max)
-    const before = store().design;
-    store().mergePart(spikeIid); // no-op at max
-    expect(store().design).toBe(before);
-    // The core never merges.
-    store().mergePart("core");
-    expect(store().design.parts[0].mergeLevel).toBeUndefined();
   });
 });
 
@@ -440,14 +376,6 @@ describe("N1 build carousel", () => {
     expect(store().browseDimmed).toBe(true);
     store().setBrowseDimmed(false);
     expect(store().browseDimmed).toBe(false);
-  });
-
-  it("tracks the release-to-merge preview level (Slice B)", () => {
-    expect(store().mergePreviewLevel).toBeNull();
-    store().setMergePreviewLevel(2);
-    expect(store().mergePreviewLevel).toBe(2);
-    store().setMergePreviewLevel(null);
-    expect(store().mergePreviewLevel).toBeNull();
   });
 });
 
@@ -603,27 +531,6 @@ describe("G4 carousel categories", () => {
     expect(PART_CATALOG[store().browsePartId].category).toBe("mobility");
     for (let i = 0; i < 6; i++) store().browseBy(1);
     expect(PART_CATALOG[store().browsePartId].category).toBe("mobility");
-  });
-});
-
-describe("G7 merge nonce", () => {
-  beforeEach(() => {
-    store().reset();
-  });
-
-  it("bumps on a merge by either path and never on a placement", () => {
-    const start = store().mergeNonce;
-    const slot = validSlotsFor(store().design, DRIVE_WHEEL)[0];
-    store().placeAtSlot(slot);
-    expect(store().mergeNonce).toBe(start);
-    store().mergePart(slot.iid);
-    expect(store().mergeNonce).toBe(start + 1);
-    store().select(slot.iid);
-    store().mergeSelectedPart();
-    expect(store().mergeNonce).toBe(start + 2);
-    // At the cap a merge is refused and the nonce holds.
-    store().mergeSelectedPart();
-    expect(store().mergeNonce).toBe(start + 2);
   });
 });
 

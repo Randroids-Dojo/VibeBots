@@ -224,19 +224,21 @@ describe("autonomous combat", () => {
     }
   });
 
-  it("uses merged part durability for combat health", async () => {
+  it("uses the catalog durability for combat health; a stale merge level changes nothing (F-230)", async () => {
     const world = await createArenaWorld();
-    const upgraded = {
+    const stale = {
       ...TEST_BOT_DESIGN,
       parts: TEST_BOT_DESIGN.parts.map((part) =>
-        part.iid === "wheel-l" ? { ...part, mergeLevel: 3 } : part,
+        part.iid === "wheel-l"
+          ? ({ ...part, mergeLevel: 3 } as typeof part)
+          : part,
       ),
     };
-    const match = createMatch(world, [upgraded, TEST_BOT_DESIGN]);
+    const match = createMatch(world, [stale, TEST_BOT_DESIGN]);
     try {
       const wheel = match.bots[0].parts.get("wheel-l");
-      expect(wheel?.maxHealth).toBe(160);
-      expect(damagePart(match, 0, "wheel-l", 9999)).toBe(160);
+      expect(wheel?.maxHealth).toBe(80);
+      expect(damagePart(match, 0, "wheel-l", 9999)).toBe(80);
     } finally {
       freeMatch(match);
       world.free();

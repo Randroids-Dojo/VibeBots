@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buzz, HAPTIC_MERGE, HAPTIC_PLACE, HAPTIC_REMOVE } from "./haptics";
+import { buzz, HAPTIC_PLACE, HAPTIC_REMOVE } from "./haptics";
 
 describe("haptics", () => {
   afterEach(() => {
@@ -11,8 +11,8 @@ describe("haptics", () => {
     vi.stubGlobal("navigator", { vibrate });
     buzz(HAPTIC_PLACE);
     expect(vibrate).toHaveBeenCalledWith(HAPTIC_PLACE);
-    buzz(HAPTIC_MERGE);
-    expect(vibrate).toHaveBeenCalledWith(HAPTIC_MERGE);
+    buzz(HAPTIC_REMOVE);
+    expect(vibrate).toHaveBeenCalledWith(HAPTIC_REMOVE);
   });
 
   it("no-ops when vibrate is unavailable", () => {
@@ -28,10 +28,7 @@ describe("haptics", () => {
     expect(() => buzz(HAPTIC_PLACE)).not.toThrow();
   });
 
-  it("uses distinct patterns for place, merge, and remove", () => {
-    expect(HAPTIC_PLACE).not.toEqual(HAPTIC_MERGE);
+  it("uses distinct patterns for place and remove", () => {
     expect(HAPTIC_REMOVE).not.toEqual(HAPTIC_PLACE);
-    // The merge is the signature moment: a multi-step pattern, not a single tap.
-    expect(Array.isArray(HAPTIC_MERGE)).toBe(true);
   });
 });

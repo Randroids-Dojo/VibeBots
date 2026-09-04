@@ -157,16 +157,15 @@ test(
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 
     // Placing selects the new part. Its stats live in the Build sheet now, so
-    // open the sheet to reach them and merge it up (removal moved to the on-part
-    // X, so this panel only rotates and merges).
+    // open the sheet to reach them (removal moved to the on-part X, so this
+    // panel only rotates; merge levels were retired, F-230).
     await openSheet(page);
     const inspector = page.getByRole("region", { name: "Selected part" });
     await expect(inspector).toBeVisible();
-    await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
-    await expect(inspector.getByText("Lv 2")).toBeVisible();
+    await expect(inspector.locator(".inspector-name")).toHaveText(
+      "Drive Wheel",
+    );
 
-    await page.getByRole("button", { name: "Undo" }).click();
-    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(
       page.getByText("My Bot: 1 part", { exact: false }),
@@ -298,11 +297,12 @@ test(
 );
 
 test(
-  "drag the hero part onto a twin merges it (N3)",
+  "dropping the hero part onto an occupied twin places nothing (N3, merge levels retired)",
   ciCase("E2E-WORKSHOP-0005", "@functional"),
   async ({ page }) => {
     // Place one wheel on the left axle by dragging there, then drag the hero
-    // wheel onto that twin: it should level up (no third part appears).
+    // wheel onto that twin again: merging is gone (F-230), so the drop has no
+    // target there and the design stays at two parts.
     await page.setViewportSize({ width: 390, height: 760 });
     await page.route("**/api/shop", async (route) => {
       await route.fulfill({
@@ -342,25 +342,14 @@ test(
     await page.mouse.up();
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
 
-    // Second wheel: drag it onto the same twin to merge.
+    // Second wheel: drag it onto the same twin and release. Nothing to
+    // merge into, nothing placed: the bot keeps its two parts and no banner
+    // ever appears.
     await dragToLeftAxle();
-
-    // Hovering the twin: the release-to-merge banner names the resulting level
-    // (Slice B), so the merge intent reads in always-visible DOM.
-    const mergeBanner = page.getByTestId("merge-banner");
-    await expect(mergeBanner).toBeVisible();
-    await expect(mergeBanner).toHaveText("↑ Release to merge into Lv 2");
-
+    await expect(page.getByTestId("merge-banner")).toHaveCount(0);
     await page.mouse.up();
-
-    // Merged, not added: still two parts, and the wheel is now level 2. The
-    // merged part is selected; open the sheet to read its stats in the Build tab.
+    await page.waitForTimeout(300);
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    await openSheet(page);
-    const inspector = page.getByRole("region", { name: "Selected part" });
-    await expect(inspector.getByText("Lv 2")).toBeVisible();
-    // The banner clears once the drop resolves.
-    await expect(mergeBanner).toBeHidden();
   },
 );
 
@@ -1992,7 +1981,7 @@ test(
 );
 
 test(
-  "a drop sparks, a removal dissolves, and a merge that can chain says so (G7)",
+  "a drop sparks and a removal dissolves (G7)",
   ciCase("E2E-WORKSHOP-0043", "@functional"),
   async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 760 });
@@ -2044,20 +2033,6 @@ test(
       .poll(async () => Number(await read("dissolveMin")))
       .toBeLessThan(0.25);
     await expect.poll(() => read("dissolving"), { timeout: 3000 }).toBe("0");
-
-    // A merge with another copy still available celebrates the chain;
-    // the last merge to the cap does not.
-    await dragHeroOntoCore(page);
-    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
-    await openSheet(page);
-    const inspector = page.getByRole("region", { name: "Selected part" });
-    await inspector.getByRole("button", { name: "Merge to Lv 2" }).click();
-    await expect(page.getByTestId("chain-cue")).toContainText(
-      "Merge again to Lv 3",
-    );
-    await inspector.getByRole("button", { name: "Merge to Lv 3" }).click();
-    await expect(inspector.getByText("Lv 3")).toBeVisible();
-    await expect(page.getByTestId("chain-cue")).toHaveCount(0);
   },
 );
 

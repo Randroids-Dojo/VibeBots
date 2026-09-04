@@ -66,6 +66,7 @@ import { useMineStore } from "@/state/mine-store";
 import { setDatasetNumber, setDatasetText } from "./dataset-diagnostics";
 import { FallbackDprCap } from "./fallback-dpr-cap";
 import {
+  detectSoftwareRenderer,
   type GraphicsFeatures,
   graphicsFeaturesFor,
   hasCoarsePointer,
@@ -2753,7 +2754,11 @@ export default function MineCanvas(props: MineCanvasProps) {
   // stored setting, and flipping renderer shadow support live is not
   // worth the misconfiguration risk.
   const features = graphicsFeaturesFor(
-    resolveGraphicsQualityTier(readStoredGraphicsQuality(), hasCoarsePointer()),
+    resolveGraphicsQualityTier(
+      readStoredGraphicsQuality(),
+      hasCoarsePointer(),
+      detectSoftwareRenderer(),
+    ),
   );
   // Frames start once the material warm pass has compiled (F-081): the
   // first rendered frame otherwise compiles the whole warm set in one

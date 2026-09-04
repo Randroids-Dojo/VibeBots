@@ -868,7 +868,11 @@ test(
         };
       },
       undefined,
-      { timeout: 5_000 },
+      // On a timer, not on animation frames: a software renderer can go
+      // seconds between frames, long enough for the 1.8 second hint to
+      // come and go between two rAF-driven polls (the functional-only
+      // matrix lost it that way, 2026-09-03).
+      { timeout: 10_000, polling: 100 },
     );
     const hintSeen = await hintRead.jsonValue();
     expect(hintSeen).not.toBeNull();

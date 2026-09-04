@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-255" data-f="F-255" data-priority="nice-to-have">
+    <h3>F-255: Pause the mine render loop under a modal dialog</h3>
+    <dl>
+      <dt>Context</dt><dd>Raised 2026-09-04 by the red-main #360 repair. While Settings, Credits, the Account dialog, or a save-slot confirm is open, the mine keeps rendering full frames behind the dialog even though play is paused. On a software renderer that is what made every pointer action inside the dialog cost a frame or two; on a phone it is battery spent on a scene nobody is looking at.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. It is a frame-loop change (the frame-loop-performance rule applies) and the dialogs are translucent, so a frozen backdrop must still look intentional.</dd>
+      <dt>Unblock condition</dt><dd>Drop the mine canvas to demand rendering (or a low fixed rate) while a modal is open, keep the HUD live, measure with <code>scripts/measure-heap-churn.mjs</code> and the telemetry A/B, and pin it with a case that counts frames while a dialog is open. Acceptance: fewer than five frames a second under an open dialog with no visible pop when it closes.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-04 during the software-renderer tier slice. Dot <code>VibeBots-f-255-pause-969af930</code>.</dd>
+    </dl>
+  </section>
   <section id="F-254" data-f="F-254" data-priority="polish">
     <h3>F-254: The gamepad-back helper stalls to the 60 second timeout on software-rendered shards</h3>
     <dl>

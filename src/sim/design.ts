@@ -181,8 +181,14 @@ export const RULE_CONDITIONS = [
   "enemy-immobile",
   "core-hurt",
   "clock-late",
+  // The second vocabulary (2026-09-05): range, own drive, and the early
+  // clock. Appended, so the bench's Add order and stored designs hold.
+  "enemy-close",
+  "enemy-far",
+  "wheel-lost",
+  "clock-early",
 ] as const;
-export const RULE_ACTIONS = ["disengage", "charge", "hold"] as const;
+export const RULE_ACTIONS = ["disengage", "charge", "hold", "flank"] as const;
 export type RuleCondition = (typeof RULE_CONDITIONS)[number];
 export type RuleAction = (typeof RULE_ACTIONS)[number];
 export const botRuleSchema = z.object({
@@ -193,6 +199,10 @@ export type BotRule = z.infer<typeof botRuleSchema>;
 export const MAX_DESIGN_RULES = 3;
 /** Core health below this fraction counts as hurt (the core-hurt rule). */
 export const CORE_HURT_RATIO = 0.4;
+/** Ground distance to the target under which the enemy counts as close. */
+export const RULE_CLOSE_RANGE = 1.2;
+/** Ground distance to the target over which the enemy counts as far. */
+export const RULE_FAR_RANGE = 3;
 
 /**
  * Cosmetic paint (G5): two palette ids, the body paint and the trim. The

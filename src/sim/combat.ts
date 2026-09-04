@@ -16,6 +16,8 @@ import {
   CORE_HURT_RATIO,
   NEUTRAL_BEHAVIOR,
   partInstanceDurability,
+  RULE_CLOSE_RANGE,
+  RULE_FAR_RANGE,
   type RuleAction,
   type RuleCondition,
 } from "./design";
@@ -525,6 +527,12 @@ export interface RuleView {
   coreHealthRatio: number;
   tick: number;
   timeLimitTicks: number;
+  /** Ground distance from the bot's core to its current target. */
+  targetDistance: number;
+  /** The design mounted at least one drive part, so "lost" means lost. */
+  hadMobility: boolean;
+  /** Usable drive parts over mounted drive parts (1 with none lost). */
+  mobilityRatio: number;
 }
 
 /**
@@ -543,6 +551,14 @@ export function ruleHolds(condition: RuleCondition, view: RuleView): boolean {
       return view.coreHealthRatio < CORE_HURT_RATIO;
     case "clock-late":
       return view.tick * 3 >= view.timeLimitTicks * 2;
+    case "enemy-close":
+      return view.targetDistance < RULE_CLOSE_RANGE;
+    case "enemy-far":
+      return view.targetDistance > RULE_FAR_RANGE;
+    case "wheel-lost":
+      return view.hadMobility && view.mobilityRatio < 1;
+    case "clock-early":
+      return view.tick * 3 < view.timeLimitTicks;
   }
 }
 
@@ -556,6 +572,9 @@ const ruleScratch: RuleView = {
   coreHealthRatio: 1,
   tick: 0,
   timeLimitTicks: 0,
+  targetDistance: 0,
+  hadMobility: false,
+  mobilityRatio: 1,
 };
 
 function firstUsableWeaponPosition(bot: CombatBot): Vec3 | null {
@@ -789,6 +808,9 @@ function runControllers(match: MatchState): void {
       ruleScratch.coreHealthRatio = healthRatioOf(bot, bot.assembled.rootIid);
       ruleScratch.tick = match.tick;
       ruleScratch.timeLimitTicks = match.timeLimitTicks;
+      ruleScratch.targetDistance = targetDistance;
+      ruleScratch.hadMobility = bot.mobilityIids.size > 0;
+      ruleScratch.mobilityRatio = mobility;
       for (let i = 0; i < rules.length; i++) {
         if (ruleHolds(rules[i].when, ruleScratch)) {
           ruleAction = rules[i].act;
@@ -829,14 +851,22 @@ function runControllers(match: MatchState): void {
       aimX += (me.x - weaponPos.x) * 0.9;
       aimZ += (me.z - weaponPos.z) * 0.9;
     }
-    if (enemyHasWeapon && (!botHasWeapon || mobility < 0.75)) {
+    // A flank rule swings round the enemy's side whatever the weapon
+    // state, at the widest flank the slider allows; otherwise the classic
+    // condition decides, so unruled designs take their old path.
+    const flanking =
+      ruleAction === "flank" ||
+      (enemyHasWeapon && (!botHasWeapon || mobility < 0.75));
+    if (flanking) {
       const enemyPlusZ = bodyPlusZ(enemy.coreBody);
       const enemyFrontLen =
         Math.sqrt(enemyPlusZ.x ** 2 + enemyPlusZ.z ** 2) || 1;
       const enemyFrontX = -enemyPlusZ.x / enemyFrontLen;
       const enemyFrontZ = -enemyPlusZ.z / enemyFrontLen;
       const side = stableSide(index, target?.iid ?? enemy.assembled.rootIid);
-      const flank = FLANK_DISTANCE * behaviorScale(behavior.flankBias);
+      const flank =
+        FLANK_DISTANCE *
+        (ruleAction === "flank" ? 1.5 : behaviorScale(behavior.flankBias));
       aimX += -enemyFrontZ * flank * side - enemyFrontX * 0.3;
       aimZ += enemyFrontX * flank * side - enemyFrontZ * 0.3;
     }

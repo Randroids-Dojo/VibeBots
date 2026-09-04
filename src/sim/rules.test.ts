@@ -15,6 +15,9 @@ const view = (over: Partial<RuleView> = {}): RuleView => ({
   coreHealthRatio: 1,
   tick: 0,
   timeLimitTicks: 3600,
+  targetDistance: 2,
+  hadMobility: true,
+  mobilityRatio: 1,
   ...over,
 });
 
@@ -38,6 +41,19 @@ describe("ruleHolds (F-247)", () => {
     expect(ruleHolds("core-hurt", view({ coreHealthRatio: 0.39 }))).toBe(true);
     expect(ruleHolds("clock-late", view({ tick: 2399 }))).toBe(false);
     expect(ruleHolds("clock-late", view({ tick: 2400 }))).toBe(true);
+    // The second vocabulary: range, own drive, the early clock.
+    expect(ruleHolds("enemy-close", view({ targetDistance: 1.2 }))).toBe(false);
+    expect(ruleHolds("enemy-close", view({ targetDistance: 1.19 }))).toBe(true);
+    expect(ruleHolds("enemy-far", view({ targetDistance: 3 }))).toBe(false);
+    expect(ruleHolds("enemy-far", view({ targetDistance: 3.01 }))).toBe(true);
+    expect(ruleHolds("wheel-lost", view())).toBe(false);
+    expect(ruleHolds("wheel-lost", view({ mobilityRatio: 0.5 }))).toBe(true);
+    // A design that never had a wheel has not lost one.
+    expect(
+      ruleHolds("wheel-lost", view({ hadMobility: false, mobilityRatio: 0 })),
+    ).toBe(false);
+    expect(ruleHolds("clock-early", view({ tick: 1199 }))).toBe(true);
+    expect(ruleHolds("clock-early", view({ tick: 1200 }))).toBe(false);
   });
 });
 

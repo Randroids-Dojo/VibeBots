@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("sweeps all six rungs");
+    await expect(dialog).toContainText("tail or no tail");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "a thick deck plate between the Frame Plate",
+      "Headstone joins the fight picker as the top rung",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "the Ram Spike drawn out and hardened",
+      "Its counter is a tilt, not a purchase",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "a heavier bar on the same spin motor",
+      "the sim version stays 9",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,10 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      [
+        "0.1.316",
+        "A seventh rung on the ladder: Headstone, which stops the sweep",
+      ],
       [
         "0.1.315",
         "Three more rungs: an Armour Plate, a Tempered Spike, and a Heavy Bar",

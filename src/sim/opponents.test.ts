@@ -42,6 +42,7 @@ describe("fight ladder", () => {
       "bulldozer",
       "impaler",
       "gravestone",
+      "headstone",
     ]);
     for (const rung of FIGHT_LADDER) {
       expect(validateDesign(rung.design).ok).toBe(true);
@@ -65,7 +66,7 @@ describe("fight ladder", () => {
       expect(result.status.over).toBe(true);
       outcomes.push(result.status.over && result.status.winner === 1);
     }
-    expect(outcomes).toEqual([true, true, true, false, false, false]);
+    expect(outcomes).toEqual([true, true, true, false, false, false, false]);
     // The debrief's never-connected lesson sends a spike build to a
     // longer reach; a lance in the spike's place beats Impaler and then
     // meets the top rung, which beats it (H4), so the ladder keeps asking.
@@ -82,11 +83,13 @@ describe("fight ladder", () => {
     const overImpaler = await resolveMatch([impaler.design, lanced]);
     expect(overImpaler.status.over && overImpaler.status.winner).toBe(1);
     const top = FIGHT_LADDER[FIGHT_LADDER.length - 1];
-    expect(top.id).toBe("gravestone");
+    expect(top.id).toBe("headstone");
     const lancerAtTop = await resolveMatch([top.design, lanced]);
     expect(lancerAtTop.status.over && lancerAtTop.status.winner).toBe(0);
-    // And the top rung's counter is a build a player can buy from wave
-    // two: the tempered lance in the nose and a ballast block on the tail.
+    // And Gravestone's counter is a build a player can buy from wave two:
+    // the tempered lance in the nose and a ballast block on the tail.
+    const gravestone = FIGHT_LADDER[5];
+    expect(gravestone.id).toBe("gravestone");
     const temperedTail = {
       ...rammer,
       name: "Tempered Tail",
@@ -107,9 +110,32 @@ describe("fight ladder", () => {
       ],
     };
     expect(validateDesign(temperedTail).ok).toBe(true);
-    const counter = await resolveMatch([top.design, temperedTail]);
+    const counter = await resolveMatch([gravestone.design, temperedTail]);
     expect(counter.status.over && counter.status.winner).toBe(1);
-  }, 90_000);
+    // The seventh rung eats that same lance level, and falls to it tilted
+    // up 15, tail or no tail: the top of the ladder is a tilt, not a buy.
+    const levelAtTop = await resolveMatch([top.design, temperedTail]);
+    expect(levelAtTop.status.over && levelAtTop.status.winner).toBe(0);
+    const tiltedTail = {
+      ...temperedTail,
+      connections: temperedTail.connections.map((c) =>
+        c.childIid === "spike" ? { ...c, pitch: 15 as const } : c,
+      ),
+    };
+    const tiltedAtTop = await resolveMatch([top.design, tiltedTail]);
+    expect(tiltedAtTop.status.over && tiltedAtTop.status.winner).toBe(1);
+    const tiltedNoTail = {
+      ...lanced,
+      parts: lanced.parts.map((part) =>
+        part.iid === "spike" ? { ...part, partId: "tempered-lance" } : part,
+      ),
+      connections: lanced.connections.map((c) =>
+        c.childIid === "spike" ? { ...c, pitch: 15 as const } : c,
+      ),
+    };
+    const noTailAtTop = await resolveMatch([top.design, tiltedNoTail]);
+    expect(noTailAtTop.status.over && noTailAtTop.status.winner).toBe(1);
+  }, 120_000);
 
   it("names a free counter on the rungs an angle flips, and the angle really flips them (second lever, measured)", async () => {
     const tilted = (partId: string, pitch: 15): BotDesign => ({
@@ -131,6 +157,9 @@ describe("fight ladder", () => {
       partId: "lance",
       pitch: 15,
     });
+    expect(
+      FIGHT_LADDER.find((rung) => rung.id === "headstone")?.pitchCounter,
+    ).toMatchObject({ partId: "tempered-lance", pitch: 15 });
     if (!gravestone || !nightTerror) throw new Error("rungs missing");
     // Level, the starter spike loses to Gravestone; up 15, it wins.
     const level = await resolveMatch([gravestone.design, TEST_BOT_DESIGN]);
@@ -156,6 +185,7 @@ describe("fight ladder", () => {
       bulldozer: "tower-core",
       impaler: "lance",
       gravestone: "tempered-lance",
+      headstone: "tempered-lance",
     });
     for (const rung of FIGHT_LADDER) {
       expect(PART_CATALOG[rung.counter.partId]).toBeDefined();

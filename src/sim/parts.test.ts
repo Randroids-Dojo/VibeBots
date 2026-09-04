@@ -326,12 +326,14 @@ describe("catalog wave three, measured on the ladder", () => {
     return result.status;
   };
 
-  it("the Heavy Bar beats Impaler where the Spinner Bar loses, and with a Hardened Plate sweeps the ladder", async () => {
+  it("the Heavy Bar beats Impaler where the Spinner Bar loses, and with a Hardened Plate sweeps the first six rungs", async () => {
     expect((await fight(spinner("spinner-bar"), "impaler")).winner).toBe(0);
     expect((await fight(spinner("heavy-bar"), "impaler")).winner).toBe(1);
     const sweep = plated(spinner("heavy-bar"), "hardened-plate");
     for (const r of FIGHT_LADDER) {
-      expect((await fight(sweep, r.id)).winner, r.id).toBe(1);
+      // The seventh rung was built to stop this build (measured there).
+      const expected = r.id === "headstone" ? 0 : 1;
+      expect((await fight(sweep, r.id)).winner, r.id).toBe(expected);
     }
   }, 60_000);
 

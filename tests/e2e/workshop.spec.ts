@@ -2297,7 +2297,7 @@ test(
     await expect(page.locator("canvas")).toBeVisible();
     await openActions(page);
     const items = page.getByRole("menuitem");
-    await expect(items).toHaveCount(7);
+    await expect(items).toHaveCount(8);
     const labels = await items.allTextContents();
     expect(labels.map((text) => text.trim())).toEqual([
       "Test fight vs Brawlerwarm-up",
@@ -2306,6 +2306,7 @@ test(
       "Fight Bulldozeroutshoves a spike",
       "Fight Impalerpunishes a spike",
       "Fight Gravestonepunishes a lance",
+      "Fight Headstoneeats a level lance",
       "Fight a rival",
     ]);
     // The rung that used to be bench-only fights from the picker.

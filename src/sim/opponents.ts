@@ -283,6 +283,65 @@ const GRAVESTONE: BotDesign = {
   ],
 };
 
+// Headstone: Gravestone's heavier sibling, the seventh rung (2026-09-04).
+// The Heavy Bar with a Hardened Plate swept the six rungs the day it
+// shipped, so the ladder needed a top that beats it. Measured from the
+// player seat: Headstone beats the starter build, the Cube Lancer, the
+// level Tempered Lance with a tail (Gravestone's counter), and the sweep
+// build, and draws the sweep build with a tail; a Tempered Lance tilted up
+// 15 beats it, tail or no tail, and up 30 with a tail.
+const HEADSTONE: BotDesign = {
+  name: "Headstone",
+  behavior: { aggression: 0.6, flankBias: 0.6, patience: 0.7 },
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "drive-wheel" },
+    { iid: "wheel-r", partId: "drive-wheel" },
+    { iid: "mount", partId: "spin-mount" },
+    { iid: "bar", partId: "heavy-bar" },
+    { iid: "plate", partId: "hardened-plate" },
+    { iid: "tail", partId: "ballast-block" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front",
+      childIid: "mount",
+      childConnector: "base",
+    },
+    {
+      parentIid: "mount",
+      parentConnector: "spindle",
+      childIid: "bar",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "top",
+      childIid: "plate",
+      childConnector: "bottom",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "back",
+      childIid: "tail",
+      childConnector: "nose",
+    },
+  ],
+};
+
 export const FIGHT_LADDER: readonly FightRung[] = [
   {
     id: "brawler",
@@ -351,6 +410,23 @@ export const FIGHT_LADDER: readonly FightRung[] = [
       partId: "ram-spike",
       pitch: 15,
       text: "A level Ram Spike loses to Gravestone; tilted up 15 it gets over the bar and wins.",
+    },
+  },
+  {
+    id: "headstone",
+    name: HEADSTONE.name,
+    blurb:
+      "Gravestone's heavier sibling: a heavy bar on a plated deck with a tail. Eats any level lance; a tempered lance tilted up beats it.",
+    hint: "eats a level lance",
+    design: HEADSTONE,
+    counter: {
+      partId: "tempered-lance",
+      text: "Headstone eats a level lance: a Tempered Lance tilted up 15 beats it, tail or no tail.",
+    },
+    pitchCounter: {
+      partId: "tempered-lance",
+      pitch: 15,
+      text: "A level Tempered Lance loses to Headstone; tilted up 15 it gets over the bar and wins.",
     },
   },
 ];

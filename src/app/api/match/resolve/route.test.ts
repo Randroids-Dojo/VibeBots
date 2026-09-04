@@ -7,6 +7,8 @@ import { SIM_VERSION } from "@/sim/constants";
 import {
   CPU_BRAWLER_DESIGN,
   CPU_WHIRLIGIG_DESIGN,
+  RULE_ACTIONS,
+  RULE_CONDITIONS,
   TEST_BOT_DESIGN,
 } from "@/sim/design";
 import { resolveMatch } from "@/sim/resolve";
@@ -202,7 +204,27 @@ describe("match record persistence (B4)", () => {
     expect(["win", "loss", "draw"]).toContain(record.outcome);
     expect(record.resultHash).toBe(body.hash);
     expect(record.usedPartIds).toContain("ram-spike");
+    expect(record.ruleCount).toBe(0);
     expect(mockedRefreshPlayerAchievements).toHaveBeenCalledTimes(1);
+  });
+
+  it("records how many bench rules the player's design carried (F-252)", async () => {
+    mockedStorageConfigured.mockReturnValue(true);
+    mockedRecordMatchResult.mockClear();
+    const ruled = {
+      ...TEST_BOT_DESIGN,
+      rules: [{ when: RULE_CONDITIONS[0], act: RULE_ACTIONS[0] }],
+    };
+    const res = await post({
+      designs: [CPU_BRAWLER_DESIGN, ruled],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 120,
+      enforceInventory: true,
+      inventoryDesignIndex: 1,
+    });
+    expect(res.status).toBe(200);
+    const [, , record] = mockedRecordMatchResult.mock.calls[0];
+    expect(record.ruleCount).toBe(1);
   });
 
   it("persists nothing for anonymous resolves", async () => {

@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-04-0.1.317-mine-render-pause";
+export const RELEASE_NOTICE_ID = "2026-09-04-0.1.318-first-orders-stamp";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.318",
+      date: "2026-09-04",
+      title: "A stamp for your first order",
+      intro:
+        "Telling your bot what to do without a weapon is the bench's quietest trick, so it gets a stamp: First Orders lands after the first verified fight with a bench rule on your design. The bench alone cannot earn it; the fight has to run on the server with the rule aboard.",
+      changes: [
+        {
+          build,
+          text: "First Orders joins the battle page of the Stamp Book: fight a verified match with at least one bench rule on your bot.",
+        },
+        {
+          build,
+          text: "The count comes from the match record, not the bench: each verified fight now stores how many rules your design carried, and the stamp reads that, so it backfills for nobody and lies for nobody.",
+        },
+        {
+          build,
+          text: "Cosmetic only, like every stamp: no vibes, gear, parts, or luck.",
+        },
+      ],
+    },
     {
       version: "0.1.317",
       date: "2026-09-04",

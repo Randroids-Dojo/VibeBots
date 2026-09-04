@@ -173,6 +173,8 @@ async function achievementSnapshot(
     matchWins: Math.max(stats.matchWins, matchCounters.matchWins),
     sawMatchWins: Math.max(stats.sawMatchWins, matchCounters.sawMatchWins),
     chassisFought: Math.max(stats.chassisFought, matchCounters.chassisFought),
+    // First Orders (F-252) reads the records' rule counts, never the bench.
+    ruleMatches: Math.max(stats.ruleMatches, matchCounters.ruleMatches),
     // Custom Job (G5) derives from the saved design itself, so it backfills
     // for any profile that painted a bot before the stamp existed.
     designsPainted: Math.max(

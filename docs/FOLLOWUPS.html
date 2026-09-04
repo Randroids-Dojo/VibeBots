@@ -961,6 +961,7 @@
       <dt>Blocker (if any)</dt><dd>A stamp needs a durable progress source; a design's rules are client state until a verified fight carries them, so the count has to come from the match route (a verified result whose player design has rules) rather than the bench.</dd>
       <dt>Unblock condition</dt><dd>Record on the server that a verified match ran with at least one rule on the player's design, add the stamp in <code>src/lib/achievements.ts</code> with its test, and show it in the Stamp Book. Acceptance: the stamp lands after the first verified fight with a rule, never from the bench alone.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-09-03 during the bench rules slice. Dot <code>VibeBots-f-252-a-d957cd8f</code>.</dd>
+      <dt>Resolved</dt><dd>PR #374 (2026-09-04, package 0.1.318): <code>match_records.rule_count</code> stores how many bench rules the player's design carried in each verified fight (the resolve route already receives the whole design); <code>matchAchievementCounters</code> counts records with a rule and <code>achievementSnapshot</code> high-waters it into <code>ruleMatches</code>; the First Orders stamp (<code>battle-first-orders</code>, target 1) reads that counter, so it lands after the first verified fight with a rule and never from the bench. Art in the Stamp Book's battle page.</dd>
     </dl>
   </section>
   <section id="F-251" data-f="F-251" data-priority="nice-to-have">

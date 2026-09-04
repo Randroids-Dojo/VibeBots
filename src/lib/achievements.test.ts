@@ -130,6 +130,26 @@ describe("achievements", () => {
     ).toContain("battle-chassis-tour");
   });
 
+  it("stamps First Orders after the first verified fight with a rule, and merges it as a high-water mark (F-252)", () => {
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "battle-first-orders",
+    );
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, ruleMatches: 1 },
+      }),
+    ).toContain("battle-first-orders");
+    // The counter is derived from the records at snapshot time, so a
+    // patch of zero cannot take an earned stamp back.
+    expect(
+      mergeAchievementStats(
+        { ...DEFAULT_ACHIEVEMENT_STATS, ruleMatches: 1 },
+        { ruleMatches: 0 },
+      ).ruleMatches,
+    ).toBe(1);
+  });
+
   it("no longer has a merge-level stamp (F-230)", () => {
     expect(
       ACHIEVEMENT_DEFINITIONS.find(

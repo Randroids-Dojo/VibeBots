@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("the backdrop still breathing");
+    await expect(dialog).toContainText("with the rule aboard");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "the canvas ticks four times a second",
+      "joins the battle page of the Stamp Book",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "only its cadence changes",
+      "The count comes from the match record",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "On a phone that is battery back",
+      "Cosmetic only, like every stamp",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,7 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.318", "A stamp for your first order"],
       ["0.1.317", "The mine rests behind an open menu"],
       [
         "0.1.316",

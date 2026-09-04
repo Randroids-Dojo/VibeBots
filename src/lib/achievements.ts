@@ -46,7 +46,8 @@ export type AchievementMetric =
   | "matchWins"
   | "chassisFought"
   | "sawMatchWins"
-  | "designsPainted";
+  | "designsPainted"
+  | "ruleMatches";
 
 export interface AchievementStats {
   sales: number;
@@ -79,6 +80,11 @@ export interface AchievementStats {
   sawMatchWins: number;
   /** 1 once any saved design carries a paint job (G5). */
   designsPainted: number;
+  /**
+   * Verified matches fought with at least one bench rule on the player's
+   * design (F-252). Durable: match_records.rule_count, never the bench.
+   */
+  ruleMatches: number;
 }
 
 export interface AchievementSnapshot {
@@ -129,6 +135,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   chassisFought: 0,
   sawMatchWins: 0,
   designsPainted: 0,
+  ruleMatches: 0,
 };
 
 export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
@@ -537,6 +544,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     metric: "sawMatchWins",
     target: 1,
   },
+  {
+    id: "battle-first-orders",
+    category: "battle",
+    title: "First Orders",
+    description: "Fight a verified match with a bench rule on your bot.",
+    stamp: "RUL",
+    metric: "ruleMatches",
+    target: 1,
+  },
 ];
 
 /** The catalog keyed by achievement id (art, alerts, and validation). */
@@ -586,6 +602,8 @@ export function mergeAchievementStats(
     // Derived from the saved designs (a painted design exists or not), so
     // it merges as a high-water mark rather than a sum.
     designsPainted: Math.max(current.designsPainted, patch.designsPainted ?? 0),
+    // Derived from the match records at snapshot time (F-252): high water.
+    ruleMatches: Math.max(current.ruleMatches, patch.ruleMatches ?? 0),
   };
 }
 

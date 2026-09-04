@@ -38,7 +38,7 @@ export const YAW_QUATS: Record<Orientation, Quat> = {
 /**
  * Weapon tilt about the mount's lateral (x) axis, applied in the child's
  * frame after the yaw. Literal half-angle sines and cosines (7.5 and 15
- * degrees), because the sim may not call Math.sin: a positive pitch turns
+ * degrees), because the sim may not call the trig functions: a positive pitch turns
  * the child's -z nose upward.
  */
 export const PITCH_QUATS: Record<Pitch, Quat> = {
@@ -49,7 +49,7 @@ export const PITCH_QUATS: Record<Pitch, Quat> = {
   30: { x: 0.2588190451, y: 0, z: 0, w: 0.9659258263 },
 };
 
-/** |tan| of each pitch preset, literal because the sim may not call Math.tan. */
+/** |tan| of each pitch preset, literal because the sim may not call the trig functions. */
 export const PITCH_TANS: Record<Pitch, number> = {
   [-30]: 0.5773502692,
   [-15]: 0.2679491924,

@@ -36,8 +36,8 @@ export type Orientation = 0 | 90 | 180 | 270;
  * Weapon mount angles (the second bench lever, 2026-09-04): a weapon on a
  * rigid mount can tilt nose down or nose up by a fixed step. Exact
  * presets only, so client and server agree on what exists, and the sim's
- * rotation table can hold their quaternions as literals (no Math.sin in
- * the sim). Degrees; positive is nose up.
+ * rotation table can hold their quaternions as literals (the sim may not
+ * call the trig functions). Degrees; positive is nose up.
  */
 export const PITCH_PRESETS = [-30, -15, 0, 15, 30] as const;
 export type Pitch = (typeof PITCH_PRESETS)[number];

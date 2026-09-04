@@ -655,6 +655,91 @@ describe("buildDebrief and bench rules (F-247)", () => {
   });
 });
 
+describe("buildDebrief and the weapon angle (second lever)", () => {
+  const RAMMER: BotDesign = {
+    name: "Rammer",
+    parts: [
+      { iid: "core", partId: "core-cube" },
+      { iid: "spike", partId: "ram-spike" },
+    ],
+    connections: [
+      {
+        parentIid: "core",
+        parentConnector: "front",
+        childIid: "spike",
+        childConnector: "mount",
+      },
+    ],
+  };
+  const mine = bot("Mine", [
+    part({ iid: "core", name: "Cube Core", category: "core", damageTaken: 40 }),
+    part({
+      iid: "spike",
+      name: "Ram Spike",
+      category: "weapon",
+      damageDealt: 30,
+    }),
+  ]);
+  const gravestone = bot("Gravestone", [
+    part({ iid: "ocore", name: "Cube Core", category: "core" }),
+  ]);
+
+  it("leads a loss to Gravestone with the free tilt when the spike sits level, then the counter to buy", () => {
+    const debrief = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "gravestone",
+    });
+    expect(debrief.lessons[0]).toMatchObject({
+      id: "pitch",
+      action: { kind: "pitch", iid: "spike", pitch: 15 },
+      actionLabel: "Tilt it up 15",
+    });
+    expect(debrief.lessons[0].text).toContain("tilted up 15");
+    expect(debrief.lessons[1]?.id).toBe("counter");
+  });
+
+  it("stays quiet when the spike is already tilted, the rung has no tilt to teach, or the bot won", () => {
+    const tilted = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: {
+        ...RAMMER,
+        connections: [{ ...RAMMER.connections[0], pitch: 15 }],
+      },
+      rungId: "gravestone",
+    });
+    expect(tilted.lessons.map((l) => l.id)).not.toContain("pitch");
+    const brawler = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "brawler",
+    });
+    expect(brawler.lessons.map((l) => l.id)).not.toContain("pitch");
+    const won = buildDebrief({
+      teardown: teardown(mine, gravestone),
+      winner: 1,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "gravestone",
+    });
+    expect(won.lessons.map((l) => l.id)).not.toContain("pitch");
+  });
+});
+
 describe("buildDebrief on the ladder (F-250)", () => {
   const RAMMER: BotDesign = {
     name: "Rammer",

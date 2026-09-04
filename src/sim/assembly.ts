@@ -10,10 +10,13 @@ import {
   type BotDesign,
   type Connection,
   DEFAULT_GEAR_RATIO,
-  type Orientation,
   validateDesign,
 } from "./design";
-import { computeLayout, YAW_QUATS } from "./layout";
+import {
+  computeLayout,
+  connectionRotation,
+  pitchedChildAnchor,
+} from "./layout";
 import { PART_CATALOG, type PartDef, type PartShape, type Vec3 } from "./parts";
 
 /**
@@ -210,13 +213,13 @@ export function assembleBot(
       }
     } else {
       const identity = { x: 0, y: 0, z: 0, w: 1 };
-      // The fixed joint pins body2's identity frame to body1's yaw frame,
-      // enforcing exactly the layout's relative rotation.
-      const yaw = YAW_QUATS[(conn.orientation ?? 0) as Orientation];
+      // The fixed joint pins body2's identity frame to body1's yaw-and-pitch
+      // frame, enforcing exactly the layout's relative rotation.
+      const frame = connectionRotation(conn);
       const data = RAPIER.JointData.fixed(
         parentAnchor.position,
-        yaw,
-        childAnchor.position,
+        frame,
+        pitchedChildAnchor(conn, childPart.shape, childAnchor.position),
         identity,
       );
       const joint = world.createImpulseJoint(data, parentBody, childBody, true);

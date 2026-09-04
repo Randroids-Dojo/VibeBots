@@ -105,6 +105,31 @@ describe("design share codes", () => {
     if (decoded.ok) expect(decoded.design).toEqual(design);
   });
 
+  it("carries a weapon angle and refuses one the sim would not read", () => {
+    const angled: BotDesign = {
+      ...TEST_BOT_DESIGN,
+      connections: TEST_BOT_DESIGN.connections.map((conn) =>
+        conn.childIid === "spike" ? { ...conn, pitch: 15 } : conn,
+      ),
+    };
+    const decoded = decodeDesignCode(encodeDesignCode(angled));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.design).toEqual(angled);
+    const code = encodeDesignCode(angled);
+    const [tag, payload] = code.split(".");
+    const json = Buffer.from(
+      payload.replace(/-/g, "+").replace(/_/g, "/"),
+      "base64",
+    ).toString("utf8");
+    const forged = { ...JSON.parse(json), a: { spike: 10 } };
+    const forgedPayload = Buffer.from(JSON.stringify(forged), "utf8")
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    expect(decodeDesignCode(`${tag}.${forgedPayload}`).ok).toBe(false);
+  });
+
   it("refuses a code whose rule the sim would not read (F-247)", () => {
     const code = encodeDesignCode(TEST_BOT_DESIGN);
     const [tag, payload] = code.split(".");

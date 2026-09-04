@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-04-0.1.313-merge-levels-retired",
+      releaseNoticeId: "2026-09-04-0.1.314-weapon-angle",
       releaseSummary:
-        "Merge levels are gone, and the bench was reset: Merging duplicate parts into higher levels was an idle-game habit bolted onto a machine shop, and tiers (a Ballast Wheel, a Tempered Lance, a Ballast Block, and the rest to come) already give better parts a real story: they weigh more, cost more, and change how the bot moves. So merge levels are retired. Every saved design and every part inventory was wiped once for this beta, because both carried levels; mining refills the shelf, and a bot is one copy of each part again.",
+        "Angle your weapon: A weapon on a rigid mount can now sit level, tilt up 15 or 30, or down 15 or 30, from the Angle control in the part inspector. It is the second lever the sim reads, and it was measured before it shipped: the starter spike, level, loses to Gravestone; tilted up 15 it gets over the bar and wins. The debrief now says so after a loss to a rung an angle flips.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-04-0.1.313-merge-levels-retired",
+      releaseNoticeId: "2026-09-04-0.1.314-weapon-angle",
       attempted: 2,
       sent: 1,
       expired: 1,

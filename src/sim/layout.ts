@@ -1,5 +1,11 @@
-import type { BotDesign, Connection, Orientation } from "./design";
-import { PART_CATALOG, type PartDef, type Vec3 } from "./parts";
+import type { BotDesign, Connection, Orientation, Pitch } from "./design";
+import {
+  PART_CATALOG,
+  type PartDef,
+  type PartShape,
+  shapeHalfExtents,
+  type Vec3,
+} from "./parts";
 
 /**
  * Pure part placement for a design tree: BFS from the core with children
@@ -28,6 +34,113 @@ export const YAW_QUATS: Record<Orientation, Quat> = {
   180: { x: 0, y: 1, z: 0, w: 0 },
   270: { x: 0, y: -HALF_SQRT2, z: 0, w: HALF_SQRT2 },
 };
+
+/**
+ * Weapon tilt about the mount's lateral (x) axis, applied in the child's
+ * frame after the yaw. Literal half-angle sines and cosines (7.5 and 15
+ * degrees), because the sim may not call Math.sin: a positive pitch turns
+ * the child's -z nose upward.
+ */
+export const PITCH_QUATS: Record<Pitch, Quat> = {
+  [-30]: { x: -0.2588190451, y: 0, z: 0, w: 0.9659258263 },
+  [-15]: { x: -0.1305261922, y: 0, z: 0, w: 0.9914448614 },
+  0: { x: 0, y: 0, z: 0, w: 1 },
+  15: { x: 0.1305261922, y: 0, z: 0, w: 0.9914448614 },
+  30: { x: 0.2588190451, y: 0, z: 0, w: 0.9659258263 },
+};
+
+/** |tan| of each pitch preset, literal because the sim may not call Math.tan. */
+export const PITCH_TANS: Record<Pitch, number> = {
+  [-30]: 0.5773502692,
+  [-15]: 0.2679491924,
+  0: 0,
+  15: 0.2679491924,
+  30: 0.5773502692,
+};
+
+/**
+ * Where a pitched child meets its parent. Tilting a box about the point
+ * where it touches its mount swings the corner nearest the mount into the
+ * mount; pushing the child out along its own (tilted) mount axis by (the
+ * half extent across the tilt) times tan(pitch) puts that deepest corner
+ * back on the mount plane, so the overlap rule keeps meaning what it says. A flat mount returns the anchor untouched, so designs without
+ * angles keep their layouts and their hashes.
+ */
+export function pitchedChildAnchor(
+  conn: Pick<Connection, "pitch">,
+  shape: PartShape,
+  anchor: Vec3,
+): Vec3 {
+  const pitch = (conn.pitch ?? 0) as Pitch;
+  if (pitch === 0) return anchor;
+  const s = PITCH_TANS[pitch];
+  const { hy, hz } = shapeHalfExtents(shape);
+  const ax = Math.abs(anchor.x);
+  const ay = Math.abs(anchor.y);
+  const az = Math.abs(anchor.z);
+  if (az >= ay && az >= ax && az > 0) {
+    return {
+      x: anchor.x,
+      y: anchor.y,
+      z: anchor.z + (anchor.z > 0 ? 1 : -1) * hy * s,
+    };
+  }
+  if (ay >= ax && ay > 0) {
+    return {
+      x: anchor.x,
+      y: anchor.y + (anchor.y > 0 ? 1 : -1) * hz * s,
+      z: anchor.z,
+    };
+  }
+  return anchor;
+}
+
+/**
+ * Half extents of the axis-aligned box that contains a part's box after a
+ * rotation: the absolute rotation matrix applied to the extents. Exact for
+ * quarter turns, conservative for a pitch.
+ */
+export function rotatedHalfExtents(
+  q: Quat,
+  hx: number,
+  hy: number,
+  hz: number,
+): Vec3 {
+  const xx = q.x * q.x;
+  const yy = q.y * q.y;
+  const zz = q.z * q.z;
+  const xy = q.x * q.y;
+  const xz = q.x * q.z;
+  const yz = q.y * q.z;
+  const wx = q.w * q.x;
+  const wy = q.w * q.y;
+  const wz = q.w * q.z;
+  const r00 = 1 - 2 * (yy + zz);
+  const r01 = 2 * (xy - wz);
+  const r02 = 2 * (xz + wy);
+  const r10 = 2 * (xy + wz);
+  const r11 = 1 - 2 * (xx + zz);
+  const r12 = 2 * (yz - wx);
+  const r20 = 2 * (xz - wy);
+  const r21 = 2 * (yz + wx);
+  const r22 = 1 - 2 * (xx + yy);
+  return {
+    x: Math.abs(r00) * hx + Math.abs(r01) * hy + Math.abs(r02) * hz,
+    y: Math.abs(r10) * hx + Math.abs(r11) * hy + Math.abs(r12) * hz,
+    z: Math.abs(r20) * hx + Math.abs(r21) * hy + Math.abs(r22) * hz,
+  };
+}
+
+/** The child frame a connection asks for: its yaw, then its pitch. A
+ * connection without a pitch gets exactly the yaw quaternion it always
+ * got, so designs without angles keep their hashes. */
+export function connectionRotation(
+  conn: Pick<Connection, "orientation" | "pitch">,
+): Quat {
+  const yaw = YAW_QUATS[(conn.orientation ?? 0) as Orientation];
+  const pitch = (conn.pitch ?? 0) as Pitch;
+  return pitch === 0 ? yaw : quatMultiply(yaw, PITCH_QUATS[pitch]);
+}
 
 /**
  * Whether a placement carries a 90 or 270 degree yaw, which swaps a part's
@@ -107,16 +220,19 @@ export function computeLayout(
       const childAnchor = childPart?.connectors.find(
         (c) => c.id === conn.childConnector,
       );
-      if (!parentAnchor || !childAnchor) continue;
+      if (!childPart || !parentAnchor || !childAnchor) continue;
       const rotation = quatMultiply(
         placement.rotation,
-        YAW_QUATS[(conn.orientation ?? 0) as Orientation],
+        connectionRotation(conn),
       );
       const parentOffset = quatRotate(
         placement.rotation,
         parentAnchor.position,
       );
-      const childOffset = quatRotate(rotation, childAnchor.position);
+      const childOffset = quatRotate(
+        rotation,
+        pitchedChildAnchor(conn, childPart.shape, childAnchor.position),
+      );
       placements.set(conn.childIid, {
         position: {
           x: placement.position.x + parentOffset.x - childOffset.x,

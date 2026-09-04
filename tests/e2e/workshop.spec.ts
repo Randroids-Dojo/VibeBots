@@ -2484,6 +2484,45 @@ test(
 );
 
 test(
+  "a weapon on a rigid mount can be angled from the inspector and levelled again (F-247, second lever)",
+  ciCase("E2E-WORKSHOP-0052", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 20,
+          inventory: [{ part_id: "ram-spike", count: 2 }],
+          catalog: [],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    await expect(page.getByText("My Bot: 1 part")).toBeVisible();
+    await selectCarouselPart(page, "Ram Spike");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+
+    await openSheet(page);
+    const inspector = page.getByRole("region", { name: "Selected part" });
+    const angle = inspector.getByRole("combobox", { name: "Weapon angle" });
+    await expect(angle).toHaveValue("0");
+    await angle.selectOption("15");
+    await expect(angle).toHaveValue("15");
+    await angle.selectOption("0");
+    await expect(angle).toHaveValue("0");
+    // Each pick is one history entry (an undo clears the selection like
+    // every bench edit does, so undo itself is pinned in the store test).
+    await expect(page.getByRole("button", { name: "Undo" })).toBeEnabled();
+  },
+);
+
+test(
   "catalog wave two: the new rungs sit in their ladders and the tempered lance mounts (H3)",
   ciCase("E2E-WORKSHOP-0048", "@functional"),
   async ({ page }) => {

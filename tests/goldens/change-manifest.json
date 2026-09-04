@@ -560,5 +560,34 @@
         }
       }
     ]
+  },
+  {
+    "id": "goldens-20260904212029532",
+    "createdAt": "2026-09-04T21:20:29.532Z",
+    "reason": "Weapon mount pitch: the second bench lever changes world construction for angled designs; sim version 9",
+    "changes": [
+      {
+        "vectorId": "GOLDEN-WORLD-0001",
+        "kind": "world",
+        "changedFields": ["$.outcomes.simVersion"],
+        "oldSnapshotHash": "b70ff16c6f724b39",
+        "newSnapshotHash": "b70ff16c6f724b39",
+        "oldOutcomes": {
+          "seed": 42,
+          "simVersion": 8,
+          "steps": 600
+        },
+        "newOutcomes": {
+          "seed": 42,
+          "simVersion": 9,
+          "steps": 600
+        },
+        "versionDecision": {
+          "constant": "SIM_VERSION",
+          "from": 8,
+          "to": 9
+        }
+      }
+    ]
   }
 ]

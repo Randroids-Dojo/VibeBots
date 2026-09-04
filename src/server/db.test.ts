@@ -10,6 +10,17 @@ describe("compatibility migration markers", () => {
     }
   });
 
+  it("wipes designs and part inventories once when merge levels retire (F-230)", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+    expect(source).toContain(
+      "ADD COLUMN IF NOT EXISTS merge_levels_retired_at",
+    );
+    expect(source).toContain("DELETE FROM bot_designs");
+    expect(source).toContain("DELETE FROM player_parts");
+    expect(source).toContain("SET merge_levels_retired_at = now()");
+    expect(source).toContain("WHERE achievement_id = 'tools-mastercrafted'");
+  });
+
   it("preserves legacy rail columns without placing shafts for new players", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 

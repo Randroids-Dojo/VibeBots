@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-03-0.1.312-bench-rules";
+export const RELEASE_NOTICE_ID = "2026-09-04-0.1.313-merge-levels-retired";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.313",
+      date: "2026-09-04",
+      title: "Merge levels are gone, and the bench was reset",
+      intro:
+        "Merging duplicate parts into higher levels was an idle-game habit bolted onto a machine shop, and tiers (a Ballast Wheel, a Tempered Lance, a Ballast Block, and the rest to come) already give better parts a real story: they weigh more, cost more, and change how the bot moves. So merge levels are retired. Every saved design and every part inventory was wiped once for this beta, because both carried levels; mining refills the shelf, and a bot is one copy of each part again.",
+      changes: [
+        {
+          build,
+          text: "Merge levels are retired: no Lv pips, no Merge button, no release-to-merge drop, no chain chime. A part is one copy and its durability is the catalog number.",
+        },
+        {
+          build,
+          text: "One-time reset for the beta: saved designs and part inventories were wiped on the server, and the Mastercrafted stamp, which only merging could earn, is gone from the Stamp Book.",
+        },
+        {
+          build,
+          text: "Old share codes still paste: a level baked into one is read and dropped, so the bot loads as its parts.",
+        },
+      ],
+    },
     {
       version: "0.1.312",
       date: "2026-09-03",

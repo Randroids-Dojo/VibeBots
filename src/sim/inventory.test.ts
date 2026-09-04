@@ -10,14 +10,18 @@ describe("inventory validation", () => {
     expect(counts.get("ram-spike")).toBe(1);
   });
 
-  it("counts merged part levels as extra owned copies", () => {
+  it("counts one owned copy per placed instance, whatever a stored design once carried (F-230)", () => {
+    // A design saved before merge levels were retired may still carry the
+    // field; the schema strips it and the count is one copy per part.
     const counts = designPartCounts({
       ...TEST_BOT_DESIGN,
       parts: TEST_BOT_DESIGN.parts.map((part) =>
-        part.iid === "spike" ? { ...part, mergeLevel: 3 } : part,
+        part.iid === "spike"
+          ? ({ ...part, mergeLevel: 3 } as typeof part)
+          : part,
       ),
     });
-    expect(counts.get("ram-spike")).toBe(3);
+    expect(counts.get("ram-spike")).toBe(1);
   });
 
   it("accepts designs covered by owned inventory", () => {

@@ -60,14 +60,14 @@ describe("design share codes", () => {
     }
   });
 
-  it("keeps merge levels, orientation, gearing, behavior, and class", () => {
+  it("keeps orientation, gearing, behavior, and class", () => {
     const design: BotDesign = {
       name: "Everything",
       parts: [
         { iid: "core", partId: "core-cube" },
-        { iid: "wheel-l", partId: "drive-wheel", mergeLevel: 2 },
+        { iid: "wheel-l", partId: "drive-wheel" },
         { iid: "wheel-r", partId: "drive-wheel" },
-        { iid: "plate", partId: "frame-plate", mergeLevel: 3 },
+        { iid: "plate", partId: "frame-plate" },
       ],
       connections: [
         {

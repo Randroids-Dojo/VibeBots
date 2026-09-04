@@ -45,7 +45,6 @@ export type AchievementMetric =
   | "bunkerCellsDug"
   | "matchWins"
   | "chassisFought"
-  | "partsMaxed"
   | "sawMatchWins"
   | "designsPainted";
 
@@ -76,8 +75,6 @@ export interface AchievementStats {
   matchWins: number;
   /** Distinct core chassis fielded across official matches (0-3). */
   chassisFought: number;
-  /** 1 once any saved design fields a part at the max merge level. */
-  partsMaxed: number;
   /** Verified wins by a design carrying a saw blade. */
   sawMatchWins: number;
   /** 1 once any saved design carries a paint job (G5). */
@@ -130,7 +127,6 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   bunkerCellsDug: 0,
   matchWins: 0,
   chassisFought: 0,
-  partsMaxed: 0,
   sawMatchWins: 0,
   designsPainted: 0,
 };
@@ -506,15 +502,6 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     target: 3,
   },
   {
-    id: "tools-mastercrafted",
-    category: "tools",
-    title: "Mastercrafted",
-    description: "Field a part merged to Lv 3 in a saved design.",
-    stamp: "M3",
-    metric: "partsMaxed",
-    target: 1,
-  },
-  {
     id: "tools-custom-job",
     category: "tools",
     title: "Custom Job",
@@ -595,7 +582,6 @@ export function mergeAchievementStats(
     // Derived levels, not event counts: the server recomputes them from
     // durable records at snapshot time, so merging takes the high water.
     chassisFought: Math.max(current.chassisFought, patch.chassisFought ?? 0),
-    partsMaxed: Math.max(current.partsMaxed, patch.partsMaxed ?? 0),
     sawMatchWins: current.sawMatchWins + (patch.sawMatchWins ?? 0),
     // Derived from the saved designs (a painted design exists or not), so
     // it merges as a high-water mark rather than a sum.

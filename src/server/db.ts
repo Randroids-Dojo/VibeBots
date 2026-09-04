@@ -24,6 +24,7 @@ export const PLAYER_COMPATIBILITY_MARKERS = [
   "elevator_placement_chosen_at",
   "legacy_support_snapshot_reconciled_at",
   "dynamite_tier_unlock_reset_at",
+  "merge_levels_retired_at",
 ] as const;
 
 let client: Sql | null = null;
@@ -285,6 +286,28 @@ async function applySchema(sql: Sql): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (player_id, name)
     )`;
+  // Merge levels retired (F-230, 2026-09-04, owner decision): the beta's
+  // saved designs and part inventories are wiped once per player, because
+  // both carried merge levels, and the stamp the mechanic fed is removed.
+  // The marker makes this a one-time pass; a player created after it has
+  // nothing to wipe and is marked on first sight.
+  await sql`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS merge_levels_retired_at timestamptz`;
+  await sql`
+    DELETE FROM bot_designs
+    WHERE player_id IN (
+      SELECT id FROM players WHERE merge_levels_retired_at IS NULL
+    )`;
+  await sql`
+    DELETE FROM player_parts
+    WHERE player_id IN (
+      SELECT id FROM players WHERE merge_levels_retired_at IS NULL
+    )`;
+  await sql`
+    UPDATE players
+    SET merge_levels_retired_at = now()
+    WHERE merge_levels_retired_at IS NULL`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_achievements (
       player_id uuid NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -293,6 +316,9 @@ async function applySchema(sql: Sql): Promise<void> {
       metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
       PRIMARY KEY (player_id, achievement_id)
     )`;
+  await sql`
+    DELETE FROM player_achievements
+    WHERE achievement_id = 'tools-mastercrafted'`;
   await sql`
     CREATE TABLE IF NOT EXISTS player_achievement_stats (
       player_id uuid PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,

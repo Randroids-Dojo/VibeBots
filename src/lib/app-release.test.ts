@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-03-0.1.312-bench-rules");
+    expect(release.noticeId).toBe("2026-09-04-0.1.313-merge-levels-retired");
     expect(latestNote).toMatchObject({
-      version: "0.1.312",
-      title: "Rules on the bench",
+      version: "0.1.313",
+      title: "Merge levels are gone, and the bench was reset",
       intro:
-        "Your bot has three temperament sliders and gearing; now it has rules too. On the Tune tab, up to three lines of when this, do that, from fixed lists: when my weapon is down, back off; when their weapon is down, charge; when the clock is in its last third, hold still. The first rule that holds decides the move, every tick, and a bot with no rules fights exactly as before.",
+        "Merging duplicate parts into higher levels was an idle-game habit bolted onto a machine shop, and tiers (a Ballast Wheel, a Tempered Lance, a Ballast Block, and the rest to come) already give better parts a real story: they weigh more, cost more, and change how the bot moves. So merge levels are retired. Every saved design and every part inventory was wiped once for this beta, because both carried levels; mining refills the shelf, and a bot is one copy of each part again.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Rules: up to three when-then lines on the Tune tab, from fixed lists (five conditions, three actions), checked in order every tick; the first that holds decides the move.",
-      "The debrief offers one: lose after your weapon went down and the bot fought on without it, and the lesson adds the rule that backs off in that spot.",
-      "Share codes carry rules, and a bot with no rules fights exactly as it did, so nothing already recorded changes.",
+      "Merge levels are retired: no Lv pips, no Merge button, no release-to-merge drop, no chain chime. A part is one copy and its durability is the catalog number.",
+      "One-time reset for the beta: saved designs and part inventories were wiped on the server, and the Mastercrafted stamp, which only merging could earn, is gone from the Stamp Book.",
+      "Old share codes still paste: a level baked into one is read and dropped, so the bot loads as its parts.",
     ]);
   });
 

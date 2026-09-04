@@ -723,25 +723,6 @@ button:focus-visible {
   opacity: 0.85;
 }
 
-.inspector-pips {
-  display: inline-flex;
-  gap: 3px;
-}
-
-.inspector-pip {
-  width: 8px;
-  height: 8px;
-  border: 1px solid #3d496b;
-  border-radius: 50%;
-  background: #2b3450;
-}
-
-.inspector-pip-on {
-  border-color: #ffe08a;
-  background: #ffe08a;
-  box-shadow: 0 0 6px rgba(255, 224, 138, 0.7);
-}
-
 .inspector-durability {
   position: relative;
   height: 15px;
@@ -848,41 +829,6 @@ button:focus-visible {
 
 .fight-debrief-fix:not(:disabled):active {
   transform: translateY(1px) scale(0.97);
-}
-
-/* Chain cue (G7): the merge that can merge again gets a gold line that
- * pulses once, the bench's biggest beat. */
-.inspector-chain {
-  margin: 0 0 8px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: #ffe08a;
-  color: #0b0e14;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-align: center;
-  animation: inspector-chain-pulse 1.6s ease-out;
-}
-
-@keyframes inspector-chain-pulse {
-  0% {
-    transform: scale(0.94);
-    box-shadow: 0 0 0 0 rgba(255, 224, 138, 0.9);
-  }
-  30% {
-    transform: scale(1.04);
-    box-shadow: 0 0 18px 4px rgba(255, 224, 138, 0.55);
-  }
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(255, 224, 138, 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .inspector-chain {
-    animation: none;
-  }
 }
 
 /* Paint swatches (G5): two rows of colour buttons in the Build sheet. */

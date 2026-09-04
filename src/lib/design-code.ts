@@ -93,11 +93,9 @@ export function decodeBase64Url(code: string): string | null {
 }
 
 function compact(design: BotDesign): CompactDesign {
-  const p: PartTuple[] = design.parts.map((part) =>
-    part.mergeLevel !== undefined
-      ? [part.iid, part.partId, part.mergeLevel]
-      : [part.iid, part.partId],
-  );
+  // Two-tuple always: the third slot carried a merge level until 2026-09-04
+  // (F-230), and decode still accepts one from an older code.
+  const p: PartTuple[] = design.parts.map((part) => [part.iid, part.partId]);
   const c: ConnectionTuple[] = design.connections.map((conn) => {
     const base: [string, string, string, string] = [
       conn.parentIid,
@@ -131,12 +129,13 @@ function expand(raw: unknown): BotDesign | null {
     if (!Array.isArray(tuple) || tuple.length < 2 || tuple.length > 3) {
       return null;
     }
+    // A third element is a merge level from a code minted before
+    // 2026-09-04; it is accepted and dropped (F-230).
     const [iid, partId, mergeLevel] = tuple as unknown[];
     if (typeof iid !== "string" || typeof partId !== "string") return null;
     const part: PartInstance = { iid, partId };
-    if (mergeLevel !== undefined) {
-      if (typeof mergeLevel !== "number") return null;
-      part.mergeLevel = mergeLevel;
+    if (mergeLevel !== undefined && typeof mergeLevel !== "number") {
+      return null;
     }
     parts.push(part);
   }

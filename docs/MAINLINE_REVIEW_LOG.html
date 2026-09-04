@@ -27,6 +27,16 @@
 </section>
 
 <main id="entries">
+  <article data-review="2026-09-04" data-cursor="6d59d107">
+    <h3>2026-09-04: the workshop program landing, the red-main repair, the two follow-on programs</h3>
+    <dl>
+      <dt>Reviewed range</dt><dd><code>cd9721c3..6d59d107</code></dd>
+      <dt>Cursor head</dt><dd><code>6d59d107</code> (Close the dots for the slices that landed on main)</dd>
+      <dt>PRs covered</dt><dd>#352 (the continuous-mainline adoption, owner-authored), #359 (the 2026-09-01 workshop program, 27 slices in one integration merge), #361 (F-254 filed), #362 (hosted Full E2E scoped to functional cases), #363 (G7 two-frame dissolve floor), #364 (software renderers take the low graphics tier), #365 (merge levels retired, beta bench wiped), #366 (weapon angle per rigid mount, sim version 9), #367 (dots closed).</dd>
+      <dt>Findings</dt><dd>F-256: the merge-level wipe in #365 keys on a per-player null marker at lazy schema setup, and player creation did not set it, so a player created after the wipe would have been wiped at the next cold start; fixed in #368 (the INSERT stamps the marker, a source test counts the four now() markers). Checked and clean: <code>src/sim</code> purity across #359 and #366 (the angle's quaternion and tangent tables are literals; the purity script caught the trig names in two comments before #366 merged, reworded); <code>SIM_VERSION</code> 8 (#359, the Tower core collider) and 9 (#366, the mount pitch) each carry a regenerated golden manifest with the version field as the only change; the software-renderer probe (#364) makes one throwaway WebGL context per page and releases it, and the rules and pitch views in the controller fill module-level scratch objects, so the frame loop allocates nothing new; the four-file conflict resolution in #359 kept main's Rule 5 (the stacked-PR section stays as a transitional note), renumbered the colliding Q-034 to Q-039 and F-240 to F-253, and the ledgers balance; #365's retirement copy matches the GDD 02 spec paragraph it rewrote, and #366's release note claims only the two flips the ladder test pins. Not findings, already filed before this review: F-254 (the gamepad-back helper stall), F-255 (pause the mine render loop under a modal), F-252 (a stamp needs a server-side source).</dd>
+    </dl>
+  </article>
+
   <article data-review="2026-09-02" data-cursor="cd9721c3078415a4874fac42512f894a278e9517">
     <h3>2026-09-02: bootstrap</h3>
     <dl>

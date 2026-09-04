@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-04-0.1.314-weapon-angle",
+      releaseNoticeId: "2026-09-04-0.1.315-catalog-wave-three",
       releaseSummary:
-        "Angle your weapon: A weapon on a rigid mount can now sit level, tilt up 15 or 30, or down 15 or 30, from the Angle control in the part inspector. It is the second lever the sim reads, and it was measured before it shipped: the starter spike, level, loses to Gravestone; tilted up 15 it gets over the bar and wins. The debrief now says so after a loss to a rung an angle flips.",
+        "Three more rungs: an Armour Plate, a Tempered Spike, and a Heavy Bar: Three parts join the catalog, each a rung above one you already know, and each was fought up the ladder before it shipped. The Heavy Bar is the one to save for: on a spinner build it beats Impaler where the Spinner Bar loses, and with a Hardened Plate on the deck it is the first build that sweeps all six rungs.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-04-0.1.314-weapon-angle",
+      releaseNoticeId: "2026-09-04-0.1.315-catalog-wave-three",
       attempted: 2,
       sent: 1,
       expired: 1,

@@ -1,9 +1,31 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-04-0.1.314-weapon-angle";
+export const RELEASE_NOTICE_ID = "2026-09-04-0.1.315-catalog-wave-three";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.315",
+      date: "2026-09-04",
+      title:
+        "Three more rungs: an Armour Plate, a Tempered Spike, and a Heavy Bar",
+      intro:
+        "Three parts join the catalog, each a rung above one you already know, and each was fought up the ladder before it shipped. The Heavy Bar is the one to save for: on a spinner build it beats Impaler where the Spinner Bar loses, and with a Hardened Plate on the deck it is the first build that sweeps all six rungs.",
+      changes: [
+        {
+          build,
+          text: "Armour Plate (6 emeralds): a thick deck plate between the Frame Plate and the Hardened Plate. On the starter build it beats Night Terror where the Frame Plate only draws.",
+        },
+        {
+          build,
+          text: "Tempered Spike (16): the Ram Spike drawn out and hardened, the same weight with more reach and 240 durability. Level, it beats the first five rungs and disables Brawler; tilted up 15 it keeps all five, where the Ram Spike drops Contagion to a draw.",
+        },
+        {
+          build,
+          text: "Heavy Bar (40): a heavier bar on the same spin motor that drinks more power. Alone it beats every rung but Gravestone; with a Hardened Plate it beats Gravestone too. All three are additive, so every recorded fight replays the same.",
+        },
+      ],
+    },
     {
       version: "0.1.314",
       date: "2026-09-04",

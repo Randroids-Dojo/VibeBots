@@ -747,6 +747,67 @@ export const BALLAST_BLOCK: PartDef = {
   ],
 };
 
+// Catalog wave three (the volume program, 2026-09-04): a rung above three
+// parts that had one, each measured on the ladder before it shipped. The
+// plate and the bar keep the shape of the part below them and add mass; the
+// spike keeps its cross-section and gains reach, because a heavier spike on
+// the starter build measured worse than the Ram Spike on every rung while a
+// longer one held the five wins level and tilted. No existing collider
+// moves, so SIM_VERSION stays; each costs about two of the part below.
+export const ARMOUR_PLATE: PartDef = {
+  id: "armour-plate",
+  name: "Armour Plate",
+  category: "structure",
+  blurb: "Thick deck plate. Shrugs a hit, weighs on the sprint.",
+  shape: { type: "cuboid", hx: 0.3, hy: 0.05, hz: 0.3 },
+  density: 2,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 200,
+  priceEmeralds: 6,
+  connectors: [
+    { id: "top", kind: "rigid", position: { x: 0, y: 0.05, z: 0 } },
+    { id: "bottom", kind: "rigid", position: { x: 0, y: -0.05, z: 0 } },
+  ],
+};
+export const TEMPERED_SPIKE: PartDef = {
+  id: "tempered-spike",
+  name: "Tempered Spike",
+  category: "weapon",
+  blurb:
+    "The spike, hardened and drawn out. More reach, more life, same weight.",
+  shape: { type: "cuboid", hx: 0.05, hy: 0.05, hz: 0.3 },
+  density: 3,
+  powerDraw: 5,
+  powerSupply: 0,
+  durability: 240,
+  priceEmeralds: 16,
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: 0, z: 0.3 } },
+  ],
+};
+export const HEAVY_BAR: PartDef = {
+  id: "heavy-bar",
+  name: "Heavy Bar",
+  category: "weapon",
+  blurb: "A heavier bar on the same spin motor. Hits harder, drinks more.",
+  shape: { type: "cuboid", hx: 0.28, hy: 0.06, hz: 0.08 },
+  density: 9,
+  powerDraw: 48,
+  powerSupply: 0,
+  durability: 200,
+  priceEmeralds: 40,
+  connectors: [
+    {
+      id: "hub",
+      kind: "axle",
+      motor: "spin",
+      position: { x: 0, y: 0, z: 0.06 },
+      axis: { x: 0, y: 0, z: 1 },
+    },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -777,5 +838,8 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     BALLAST_WHEEL,
     TEMPERED_LANCE,
     BALLAST_BLOCK,
+    ARMOUR_PLATE,
+    TEMPERED_SPIKE,
+    HEAVY_BAR,
   ].map((p) => [p.id, p]),
 );

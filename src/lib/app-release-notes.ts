@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-04-0.1.315-catalog-wave-three";
+export const RELEASE_NOTICE_ID = "2026-09-04-0.1.316-ladder-rung-seven";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.316",
+      date: "2026-09-04",
+      title: "A seventh rung on the ladder: Headstone, which stops the sweep",
+      intro:
+        "The Heavy Bar with a Hardened Plate swept all six rungs the day it shipped, so the ladder has a seventh: Headstone, Gravestone's heavier sibling, a Heavy Bar on a plated deck with a ballast tail. It beats the sweep build, the starter build, a Lance, and even the Tempered Lance that beats Gravestone, when that lance sits level. Tilt the Tempered Lance up 15 and it wins, tail or no tail.",
+      changes: [
+        {
+          build,
+          text: "Headstone joins the fight picker as the top rung: a Heavy Bar on a Hardened Plate deck with a Ballast Block tail. Measured from the player seat: it beats the starter build, the Cube Lancer, the level Tempered Lance with a tail, and the Heavy Bar sweep build; it draws the sweep build with a tail of its own.",
+        },
+        {
+          build,
+          text: "Its counter is a tilt, not a purchase: a Tempered Lance up 15 beats Headstone with or without a tail, and up 30 with a tail; the same lance level loses. After a loss to Headstone with a level Tempered Lance, the debrief's first lesson tilts it for you.",
+        },
+        {
+          build,
+          text: "The catalog and the physics are unchanged: the sim version stays 9 and every recorded fight replays the same.",
+        },
+      ],
+    },
     {
       version: "0.1.315",
       date: "2026-09-04",

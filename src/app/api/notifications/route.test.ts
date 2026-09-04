@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-04-0.1.315-catalog-wave-three",
+      releaseNoticeId: "2026-09-04-0.1.316-ladder-rung-seven",
       releaseSummary:
-        "Three more rungs: an Armour Plate, a Tempered Spike, and a Heavy Bar: Three parts join the catalog, each a rung above one you already know, and each was fought up the ladder before it shipped. The Heavy Bar is the one to save for: on a spinner build it beats Impaler where the Spinner Bar loses, and with a Hardened Plate on the deck it is the first build that sweeps all six rungs.",
+        "A seventh rung on the ladder: Headstone, which stops the sweep: The Heavy Bar with a Hardened Plate swept all six rungs the day it shipped, so the ladder has a seventh: Headstone, Gravestone's heavier sibling, a Heavy Bar on a plated deck with a ballast tail. It beats the sweep build, the starter build, a Lance, and even the Tempered Lance that beats Gravestone, when that lance sits level. Tilt the Tempered Lance up 15 and it wins, tail or no tail.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-04-0.1.315-catalog-wave-three",
+      releaseNoticeId: "2026-09-04-0.1.316-ladder-rung-seven",
       attempted: 2,
       sent: 1,
       expired: 1,

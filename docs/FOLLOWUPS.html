@@ -1118,7 +1118,7 @@
       <dt>Blocker (if any)</dt><dd>Merge levels are shipped, player-visible, and backed by owned inventory, so this cannot simply replace them. Needs a migration decision: map existing merge levels onto materials, or run both.</dd>
       <dt>Unblock condition</dt><dd>Ready once that migration call is made. Materials multiply density and durability and scale price; the collider shape must NOT change (part-visuals rule), so mass moves through density only. Bumps <code>SIM_VERSION</code>. Acceptance: the same part in two materials differs in mass and durability in a unit test, the design mass stat reflects it, existing saved designs keep validating, and the bench (<a href="#F-226">F-226</a>) quantifies the balance shift.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-08-12 during the build-and-battle depth program.</dd>
-      <dt>Resolved</dt><dd>PR #RETIRE_PR (2026-09-04): merge levels retired in favour of tiers (separate parts), by the owner's live decision on 2026-09-03; materials not adopted. Saved designs and part inventories wiped once for the beta; the dead code removed.</dd>
+      <dt>Resolved</dt><dd>PR #365 (2026-09-04): merge levels retired in favour of tiers (separate parts), by the owner's live decision on 2026-09-03; materials not adopted. Saved designs and part inventories wiped once for the beta; the dead code removed.</dd>
     </dl>
   </section>
 

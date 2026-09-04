@@ -2,6 +2,7 @@ import {
   type BotDesign,
   CPU_BRAWLER_DESIGN,
   CPU_BULLDOZER_DESIGN,
+  type Pitch,
 } from "./design";
 
 /**
@@ -203,10 +204,22 @@ export interface FightRung {
    * to it. Every claim here is a measured case in opponents.test.ts.
    */
   counter: RungCounter;
+  /**
+   * A counter that costs nothing (the second lever, 2026-09-04): a weapon
+   * the player may already carry, tilted to a preset angle, measured from
+   * the player seat against this rung with the starter build.
+   */
+  pitchCounter?: RungPitchCounter;
 }
 
 export interface RungCounter {
   partId: string;
+  text: string;
+}
+
+export interface RungPitchCounter {
+  partId: string;
+  pitch: Pitch;
   text: string;
 }
 
@@ -297,6 +310,11 @@ export const FIGHT_LADDER: readonly FightRung[] = [
       partId: "ram-spike",
       text: "Night Terror is all blade: a Ram Spike on the nose and two Drive Wheels beat it.",
     },
+    pitchCounter: {
+      partId: "lance",
+      pitch: 15,
+      text: "A level Lance only draws with Night Terror; tilted up 15 it wins.",
+    },
   },
   {
     id: "bulldozer",
@@ -328,6 +346,11 @@ export const FIGHT_LADDER: readonly FightRung[] = [
     counter: {
       partId: "tempered-lance",
       text: "Gravestone eats lances: a Tempered Lance with a Ballast Block for a tail beats it.",
+    },
+    pitchCounter: {
+      partId: "ram-spike",
+      pitch: 15,
+      text: "A level Ram Spike loses to Gravestone; tilted up 15 it gets over the bar and wins.",
     },
   },
 ];

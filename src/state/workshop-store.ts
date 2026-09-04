@@ -19,6 +19,7 @@ import {
   MAX_DESIGN_RULES,
   NEUTRAL_BEHAVIOR,
   type Orientation,
+  type Pitch,
   validateDesign,
 } from "@/sim/design";
 import { PART_CATALOG, type PartDef } from "@/sim/parts";
@@ -267,6 +268,48 @@ export function planRotateSelected(
   return null;
 }
 
+/** The angle a selected part's mount carries, and whether it may carry one
+ * (a weapon on a rigid mount). Null selection or no connection: not
+ * angleable. */
+export function pitchOfSelected(
+  design: BotDesign,
+  selectedIid: string | null,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): { pitch: Pitch; allowed: boolean } {
+  if (!selectedIid) return { pitch: 0, allowed: false };
+  const conn = design.connections.find((c) => c.childIid === selectedIid);
+  const child = design.parts.find((p) => p.iid === selectedIid);
+  if (!conn || !child) return { pitch: 0, allowed: false };
+  const parent = design.parts.find((p) => p.iid === conn.parentIid);
+  const parentConn = parent
+    ? catalog[parent.partId]?.connectors.find(
+        (c) => c.id === conn.parentConnector,
+      )
+    : undefined;
+  const allowed =
+    parentConn?.kind === "rigid" &&
+    catalog[child.partId]?.category === "weapon";
+  return { pitch: (conn.pitch ?? 0) as Pitch, allowed };
+}
+
+export function planPitchSelected(
+  design: BotDesign,
+  selectedIid: string | null,
+  pitch: Pitch,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): BotDesign | null {
+  if (!pitchOfSelected(design, selectedIid, catalog).allowed) return null;
+  const next: BotDesign = {
+    ...design,
+    connections: design.connections.map((c) => {
+      if (c.childIid !== selectedIid) return c;
+      const { pitch: _old, ...rest } = c;
+      return pitch === 0 ? rest : { ...rest, pitch };
+    }),
+  };
+  return validateDesign(next, catalog).ok ? next : null;
+}
+
 /**
  * A part plus every part hung off it, transitively. Removing a part in a
  * stack takes its whole subtree so no child is left floating without its
@@ -390,6 +433,8 @@ export interface WorkshopState {
   placeAtSlot: (slot: PlacementSlot) => void;
   removeSelected: () => void;
   rotateSelected: () => void;
+  /** Tilt the selected weapon's mount to a preset angle (F-247's second lever). Undoable. */
+  setPitchSelected: (pitch: Pitch) => void;
   setName: (name: string) => void;
   setBehavior: (patch: Partial<BotBehavior>) => void;
   /** Replace the bench rules (F-247); an empty list clears the field. Undoable. */
@@ -596,6 +641,13 @@ export const useWorkshopStore = create<WorkshopState>((set, get) => ({
   rotateSelected: () => {
     const { history, design, selectedIid } = get();
     const next = planRotateSelected(design, selectedIid);
+    if (!next) return;
+    set({ ...withDesign(pushHistory(history, next)) });
+  },
+
+  setPitchSelected: (pitch) => {
+    const { history, design, selectedIid } = get();
+    const next = planPitchSelected(design, selectedIid, pitch);
     if (!next) return;
     set({ ...withDesign(pushHistory(history, next)) });
   },

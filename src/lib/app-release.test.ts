@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-04-0.1.313-merge-levels-retired");
+    expect(release.noticeId).toBe("2026-09-04-0.1.314-weapon-angle");
     expect(latestNote).toMatchObject({
-      version: "0.1.313",
-      title: "Merge levels are gone, and the bench was reset",
+      version: "0.1.314",
+      title: "Angle your weapon",
       intro:
-        "Merging duplicate parts into higher levels was an idle-game habit bolted onto a machine shop, and tiers (a Ballast Wheel, a Tempered Lance, a Ballast Block, and the rest to come) already give better parts a real story: they weigh more, cost more, and change how the bot moves. So merge levels are retired. Every saved design and every part inventory was wiped once for this beta, because both carried levels; mining refills the shelf, and a bot is one copy of each part again.",
+        "A weapon on a rigid mount can now sit level, tilt up 15 or 30, or down 15 or 30, from the Angle control in the part inspector. It is the second lever the sim reads, and it was measured before it shipped: the starter spike, level, loses to Gravestone; tilted up 15 it gets over the bar and wins. The debrief now says so after a loss to a rung an angle flips.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Merge levels are retired: no Lv pips, no Merge button, no release-to-merge drop, no chain chime. A part is one copy and its durability is the catalog number.",
-      "One-time reset for the beta: saved designs and part inventories were wiped on the server, and the Mastercrafted stamp, which only merging could earn, is gone from the Stamp Book.",
-      "Old share codes still paste: a level baked into one is read and dropped, so the bot loads as its parts.",
+      "Angle: five presets per weapon mount (down 30 to up 30), read by the physics, so the same parts fight differently by a choice you make on the bench. Wheels and plates cannot tilt.",
+      "The debrief leads with the free counter: lose to Gravestone with a level spike and its first lesson tilts the spike up 15 for you; lose to Night Terror with a level lance and it tilts that.",
+      "This changes the physics for angled bots, so the sim version is now 9; results recorded on the old version cannot be verified against the new one. Share codes carry angles.",
     ]);
   });
 

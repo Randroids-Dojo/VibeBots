@@ -82,6 +82,7 @@ const ITEM_FOR_CODE: Record<DesignIssueCode, InspectionItemId> = {
   "missing-connector": "connections",
   "kind-mismatch": "connections",
   "oriented-axle": "connections",
+  "pitched-mount": "connections",
   "connector-reused": "connections",
   "multiple-parents": "connections",
   disconnected: "frame",

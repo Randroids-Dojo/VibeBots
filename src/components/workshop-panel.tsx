@@ -50,6 +50,8 @@ import { SIM_VERSION } from "@/sim/constants";
 import {
   type BotDesign,
   NEUTRAL_BEHAVIOR,
+  PITCH_PRESETS,
+  type Pitch,
   partInstanceDurability,
   validateDesign,
 } from "@/sim/design";
@@ -64,6 +66,7 @@ import {
   CORE_PART_IDS,
   carouselIdsFor,
   currentCoreId,
+  pitchOfSelected,
   planRotateSelected,
   useWorkshopStore,
   validSlotsFor,
@@ -98,6 +101,15 @@ type WorkshopInventory =
   | { state: "loading" }
   | { state: "sandbox" }
   | { state: "ready"; counts: Map<string, number> };
+
+// How the bench words each weapon angle; positive is nose up.
+const PITCH_LABELS: Record<Pitch, string> = {
+  [-30]: "down 30",
+  [-15]: "down 15",
+  0: "level",
+  15: "up 15",
+  30: "up 30",
+};
 
 // The open menu's content is capped to this fraction of the viewport and
 // scrolls past it, so the sheet stays short and leaves room above it for the
@@ -534,6 +546,8 @@ export function WorkshopPanel() {
   const history = useWorkshopStore((s) => s.history);
   const removeSelected = useWorkshopStore((s) => s.removeSelected);
   const rotateSelected = useWorkshopStore((s) => s.rotateSelected);
+  const setPitchSelected = useWorkshopStore((s) => s.setPitchSelected);
+  const selectedPitch = pitchOfSelected(design, selectedIid);
   const setBehavior = useWorkshopStore((s) => s.setBehavior);
   const setRules = useWorkshopStore((s) => s.setRules);
   const addRule = useWorkshopStore((s) => s.addRule);
@@ -796,6 +810,14 @@ export function WorkshopPanel() {
     // slider is seen moving.
     if (action.kind === "behavior") setBehavior(action.patch);
     if (action.kind === "rule") addRule(action.rule);
+    if (action.kind === "pitch") {
+      // Select the weapon, tilt it, and land on the bench with it in hand.
+      select(action.iid);
+      setPitchSelected(action.pitch);
+      setTab("build");
+      setSheetOpen(true);
+      return;
+    }
     setTab("tune");
     setSheetOpen(true);
   };
@@ -1466,6 +1488,26 @@ export function WorkshopPanel() {
                     >
                       Rotate
                     </button>
+                    {selectedPitch.allowed && (
+                      <span className="inspector-angle">
+                        Angle
+                        <select
+                          aria-label="Weapon angle"
+                          value={selectedPitch.pitch}
+                          onChange={(event) =>
+                            setPitchSelected(
+                              Number(event.target.value) as Pitch,
+                            )
+                          }
+                        >
+                          {PITCH_PRESETS.map((pitch) => (
+                            <option key={pitch} value={pitch}>
+                              {PITCH_LABELS[pitch]}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                    )}
                   </div>
                 </section>
               )}

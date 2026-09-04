@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { computeLayout, isQuarterTurned } from "./layout";
+import { computeLayout, rotatedHalfExtents } from "./layout";
 import {
   type Connector,
   PART_CATALOG,
@@ -31,6 +31,28 @@ export const orientationSchema = z
   .union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])
   .optional();
 export type Orientation = 0 | 90 | 180 | 270;
+
+/**
+ * Weapon mount angles (the second bench lever, 2026-09-04): a weapon on a
+ * rigid mount can tilt nose down or nose up by a fixed step. Exact
+ * presets only, so client and server agree on what exists, and the sim's
+ * rotation table can hold their quaternions as literals (the sim may not
+ * call the trig functions). Degrees; positive is nose up.
+ */
+export const PITCH_PRESETS = [-30, -15, 0, 15, 30] as const;
+export type Pitch = (typeof PITCH_PRESETS)[number];
+export const pitchSchema = z
+  .union([
+    z.literal(-30),
+    z.literal(-15),
+    z.literal(0),
+    z.literal(15),
+    z.literal(30),
+  ])
+  .optional();
+export function isPitchPreset(value: number): value is Pitch {
+  return (PITCH_PRESETS as readonly number[]).includes(value);
+}
 
 /**
  * Drive gearing (F-229). Above 1 trades top speed for torque, below 1 the
@@ -114,6 +136,9 @@ export const connectionSchema = z.object({
       message: `gear ratio must be one of ${GEAR_RATIO_PRESETS.join(", ")}`,
     })
     .optional(),
+  /** Weapon tilt on a rigid mount, degrees nose up; validateDesign decides
+   * which connections may carry one. */
+  pitch: pitchSchema,
 });
 export type Connection = z.infer<typeof connectionSchema>;
 
@@ -242,6 +267,7 @@ export type DesignIssueCode =
   | "missing-connector"
   | "kind-mismatch"
   | "oriented-axle"
+  | "pitched-mount"
   | "connector-reused"
   | "multiple-parents"
   | "disconnected"
@@ -401,6 +427,28 @@ export function validateDesign(
         `axle connections cannot be oriented (${conn.parentIid}:${conn.parentConnector})`,
       );
     }
+    // An angle is a weapon's to have, on a rigid mount: a tilted wheel
+    // would fight its axle and a tilted plate has nothing to aim.
+    if ((conn.pitch ?? 0) !== 0) {
+      const childDef = resolvePart(child, catalog);
+      if (parentConn.kind === "axle" || childDef?.category !== "weapon") {
+        fail(
+          "pitched-mount",
+          `only a weapon on a rigid mount can be angled (${conn.parentIid}:${conn.parentConnector} -> ${conn.childIid})`,
+        );
+      }
+    }
+    // An angle is a weapon's to have, on a rigid mount: a tilted wheel
+    // would fight its axle and a tilted plate has nothing to aim.
+    if ((conn.pitch ?? 0) !== 0) {
+      const childDef = resolvePart(child, catalog);
+      if (parentConn.kind === "axle" || childDef?.category !== "weapon") {
+        fail(
+          "pitched-mount",
+          `only a weapon on a rigid mount can be angled (${conn.parentIid}:${conn.parentConnector} -> ${conn.childIid})`,
+        );
+      }
+    }
     // Gearing is a drive-motor property. A rigid mount has no motor, and a
     // spinner runs at a fixed velocity by contract, so a ratio on either
     // would silently do nothing.
@@ -463,8 +511,10 @@ export function validateDesign(
 
   // Overlapping part volumes are illegal: contacts between jointed pairs
   // are disabled in combat, so an overlapped part detaching would fire a
-  // violent depenetration impulse. Yaw quarter-turns keep every part
-  // axis-aligned, so world AABBs are exact.
+  // violent depenetration impulse. Each part is bounded by the
+  // axis-aligned box around its rotated box: exact under yaw quarter
+  // turns, conservative under a weapon pitch (whose mount shift keeps the
+  // tilted part clear of its parent).
   if (errors.length === 0) {
     const placements = computeLayout(design, catalog);
     const boxes: Array<{ iid: string; min: number[]; max: number[] }> = [];
@@ -473,15 +523,12 @@ export function validateDesign(
       const placement = placements.get(part.iid);
       if (!def || !placement) continue;
       const { hx, hy, hz } = shapeHalfExtents(def.shape);
-      // Quarter-turn yaw swaps the x/z extents for 90 and 270.
-      const halfTurned = isQuarterTurned(placement.rotation);
-      const ex = halfTurned ? hz : hx;
-      const ez = halfTurned ? hx : hz;
+      const e = rotatedHalfExtents(placement.rotation, hx, hy, hz);
       const p = placement.position;
       boxes.push({
         iid: part.iid,
-        min: [p.x - ex, p.y - hy, p.z - ez],
-        max: [p.x + ex, p.y + hy, p.z + ez],
+        min: [p.x - e.x, p.y - e.y, p.z - e.z],
+        max: [p.x + e.x, p.y + e.y, p.z + e.z],
       });
     }
     const EPS = 1e-6;

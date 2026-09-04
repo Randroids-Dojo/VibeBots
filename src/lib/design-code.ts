@@ -6,6 +6,7 @@ import {
   botPaintSchema,
   botRuleSchema,
   type Connection,
+  isPitchPreset,
   MAX_DESIGN_RULES,
   type PartInstance,
   validateDesign,
@@ -46,6 +47,8 @@ interface CompactDesign {
   k?: [string, string];
   /** Bench rules (F-247). */
   r?: BotRule[];
+  /** Weapon angles by child instance id, degrees nose up (F-247's second lever). */
+  a?: Record<string, number>;
 }
 
 const BASE64URL =
@@ -116,6 +119,13 @@ function compact(design: BotDesign): CompactDesign {
   if (design.weightClass) out.w = design.weightClass;
   if (design.paint) out.k = [design.paint.primary, design.paint.accent];
   if (design.rules && design.rules.length > 0) out.r = [...design.rules];
+  const angles: Record<string, number> = {};
+  for (const conn of design.connections) {
+    if (conn.pitch !== undefined && conn.pitch !== 0) {
+      angles[conn.childIid] = conn.pitch;
+    }
+  }
+  if (Object.keys(angles).length > 0) out.a = angles;
   return out;
 }
 
@@ -178,6 +188,19 @@ function expand(raw: unknown): BotDesign | null {
   }
   const design: BotDesign = { name: value.n, parts, connections };
   if (value.b !== undefined) design.behavior = value.b;
+  if (value.a !== undefined) {
+    // Angles are presets the sim reads, so an unknown one is refused
+    // rather than rounded.
+    if (!value.a || typeof value.a !== "object" || Array.isArray(value.a)) {
+      return null;
+    }
+    for (const [childIid, pitch] of Object.entries(value.a)) {
+      if (typeof pitch !== "number" || !isPitchPreset(pitch)) return null;
+      const conn = connections.find((c) => c.childIid === childIid);
+      if (!conn) return null;
+      if (pitch !== 0) conn.pitch = pitch;
+    }
+  }
   if (value.r !== undefined) {
     // Rules are ids the sim reads, so a pasted code with an unknown one
     // does not decode into a bot that fights differently than it says.

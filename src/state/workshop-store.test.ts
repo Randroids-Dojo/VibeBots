@@ -9,6 +9,7 @@ import {
   currentCoreId,
   findFreeConnectors,
   mirrorSlotFor,
+  pitchOfSelected,
   planAddPart,
   STARTER_DESIGN,
   subtreeIids,
@@ -267,6 +268,34 @@ describe("W2 tap-to-place slots", () => {
     // Replaying the same slot (now occupied) is a no-op, not a double-mount.
     store().placeAtSlot(slot);
     expect(store().design.parts).toHaveLength(2);
+  });
+});
+
+describe("weapon angle (F-247, second lever)", () => {
+  it("angles a weapon on a rigid mount, refuses a wheel, and undoes", () => {
+    store().addPart("ram-spike");
+    const spikeIid = store().selectedIid;
+    expect(spikeIid).not.toBeNull();
+    expect(pitchOfSelected(store().design, spikeIid)).toEqual({
+      pitch: 0,
+      allowed: true,
+    });
+    store().setPitchSelected(15);
+    expect(pitchOfSelected(store().design, spikeIid).pitch).toBe(15);
+    expect(validateDesign(store().design).ok).toBe(true);
+    store().setPitchSelected(0);
+    expect(
+      store().design.connections.find((c) => c.childIid === spikeIid)?.pitch,
+    ).toBeUndefined();
+    store().undo();
+    expect(pitchOfSelected(store().design, spikeIid).pitch).toBe(15);
+
+    store().addPart("drive-wheel");
+    const wheelIid = store().selectedIid;
+    expect(pitchOfSelected(store().design, wheelIid).allowed).toBe(false);
+    const before = store().design;
+    store().setPitchSelected(30);
+    expect(store().design).toBe(before);
   });
 });
 

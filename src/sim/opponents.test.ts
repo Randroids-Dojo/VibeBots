@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BLUEPRINTS } from "./blueprints";
-import { validateDesign } from "./design";
+import { type BotDesign, TEST_BOT_DESIGN, validateDesign } from "./design";
 import { FIGHT_LADDER, REPLICA_OPPONENTS } from "./opponents";
 import { PART_CATALOG } from "./parts";
 import { resolveMatch } from "./resolve";
@@ -110,6 +110,40 @@ describe("fight ladder", () => {
     const counter = await resolveMatch([top.design, temperedTail]);
     expect(counter.status.over && counter.status.winner).toBe(1);
   }, 90_000);
+
+  it("names a free counter on the rungs an angle flips, and the angle really flips them (second lever, measured)", async () => {
+    const tilted = (partId: string, pitch: 15): BotDesign => ({
+      ...TEST_BOT_DESIGN,
+      parts: TEST_BOT_DESIGN.parts.map((p) =>
+        p.iid === "spike" ? { ...p, partId } : p,
+      ),
+      connections: TEST_BOT_DESIGN.connections.map((c) =>
+        c.childIid === "spike" ? { ...c, pitch } : c,
+      ),
+    });
+    const gravestone = FIGHT_LADDER.find((rung) => rung.id === "gravestone");
+    const nightTerror = FIGHT_LADDER.find((rung) => rung.id === "night-terror");
+    expect(gravestone?.pitchCounter).toMatchObject({
+      partId: "ram-spike",
+      pitch: 15,
+    });
+    expect(nightTerror?.pitchCounter).toMatchObject({
+      partId: "lance",
+      pitch: 15,
+    });
+    if (!gravestone || !nightTerror) throw new Error("rungs missing");
+    // Level, the starter spike loses to Gravestone; up 15, it wins.
+    const level = await resolveMatch([gravestone.design, TEST_BOT_DESIGN]);
+    expect(level.status.over && level.status.winner).toBe(0);
+    const up = await resolveMatch([gravestone.design, tilted("ram-spike", 15)]);
+    expect(up.status.over && up.status.winner).toBe(1);
+    // A level lance draws with Night Terror; up 15, it wins.
+    const lanceUp = await resolveMatch([
+      nightTerror.design,
+      tilted("lance", 15),
+    ]);
+    expect(lanceUp.status.over && lanceUp.status.winner).toBe(1);
+  }, 60_000);
 
   it("names a counter per rung that the catalog sells and the measured cases above use (F-250)", () => {
     const counters = Object.fromEntries(

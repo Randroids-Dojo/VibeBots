@@ -13,6 +13,7 @@ import {
   type BotDesign,
   type BotRule,
   NEUTRAL_BEHAVIOR,
+  type Pitch,
 } from "@/sim/design";
 import { FIGHT_LADDER } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
@@ -26,9 +27,12 @@ export type DebriefAction =
   /** Apply a temperament change and open Tune so the slider is seen moving (H1). */
   | { kind: "behavior"; patch: Partial<BotBehavior> }
   /** Add a bench rule and open Tune on it (F-247). */
-  | { kind: "rule"; rule: BotRule };
+  | { kind: "rule"; rule: BotRule }
+  /** Tilt a weapon's mount to a preset angle and show it on the bench (second lever). */
+  | { kind: "pitch"; iid: string; pitch: Pitch };
 
 export type DebriefLessonId =
+  | "pitch"
   | "counter"
   | "no-hits"
   | "rule"
@@ -157,6 +161,32 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
       ? rung.counter
       : null;
   const counterDef = counter ? PART_CATALOG[counter.partId] : undefined;
+  // 0a. The free counter first: the weapon already on the bot, tilted one
+  // notch, measured to flip this rung (second lever, 2026-09-04).
+  const pitchCounter = rung && !won ? rung.pitchCounter : undefined;
+  const pitchTarget = pitchCounter
+    ? design.parts.find((part) => part.partId === pitchCounter.partId)
+    : undefined;
+  const pitchConn = pitchTarget
+    ? design.connections.find((c) => c.childIid === pitchTarget.iid)
+    : undefined;
+  if (
+    pitchCounter &&
+    pitchTarget &&
+    pitchConn &&
+    (pitchConn.pitch ?? 0) !== pitchCounter.pitch
+  ) {
+    lessons.push({
+      id: "pitch",
+      text: pitchCounter.text,
+      action: {
+        kind: "pitch",
+        iid: pitchTarget.iid,
+        pitch: pitchCounter.pitch,
+      },
+      actionLabel: `Tilt it ${pitchCounter.pitch > 0 ? "up" : "down"} ${Math.abs(pitchCounter.pitch)}`,
+    });
+  }
   // What the weapons themselves landed: hull contact also deals damage,
   // and a bot that only bumped still has a weapon that never connected.
   let weaponDamage = 0;

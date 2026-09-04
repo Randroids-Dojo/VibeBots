@@ -924,6 +924,16 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-256" data-f="F-256" data-priority="polish">
+    <h3>F-256: A player created after the merge-level wipe was wiped at the next cold start</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-04 by the post-merge adversarial review of #365. The retirement's one-time wipe deletes saved designs and part inventories for every player whose <code>merge_levels_retired_at</code> is null and then marks them, at lazy schema setup. Player creation set the other one-time markers to now() but not this one, so a player born after the wipe read as null until the next server cold start, when the pass would have deleted whatever they had built and bought since.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Set the marker at creation and pin it: the INSERT names <code>merge_levels_retired_at</code> and gives it now(), and a source test counts the four now() markers so the next destructive marker cannot be forgotten the same way.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-04 by the mainline review. Dot <code>VibeBots-f-256-a-21b346c8</code>.</dd>
+      <dt>Resolved</dt><dd>PR #368 (the marker is set at creation; source test pins it)</dd>
+    </dl>
+  </section>
   <section id="F-255" data-f="F-255" data-priority="nice-to-have">
     <h3>F-255: Pause the mine render loop under a modal dialog</h3>
     <dl>

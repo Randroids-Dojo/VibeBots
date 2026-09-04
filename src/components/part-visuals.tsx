@@ -6,6 +6,7 @@ import { WebGPURenderer } from "three/webgpu";
 import { perfAnalyzerEnabled } from "@/lib/perf-analyzer-settings";
 import type { PartDef, PartShape } from "@/sim/parts";
 import {
+  detectSoftwareRenderer,
   hasCoarsePointer,
   readStoredGraphicsQuality,
   resolveGraphicsQualityTier,
@@ -28,6 +29,7 @@ function resolvePartGeometry(def: PartDef): BufferGeometry {
     resolveGraphicsQualityTier(
       readStoredGraphicsQuality(),
       hasCoarsePointer(),
+      detectSoftwareRenderer(),
     ) === "low"
       ? LOW_DETAIL
       : HIGH_DETAIL;

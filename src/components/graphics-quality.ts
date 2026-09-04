@@ -30,19 +30,86 @@ export function parseGraphicsQualitySetting(
 }
 
 /** Coarse pointers are the phones we force onto the WebGL2 backend; they
- * get the low tier unless the player pins high. */
+ * get the low tier unless the player pins high. So does a software
+ * renderer (SwiftShader, llvmpipe, Mesa's offscreen driver): a machine
+ * with no GPU cannot pay for shadow maps, bloom, or the accent pool, and
+ * the frames it would spend on them are what keeps the page from
+ * answering (the hosted CI matrix spent about three seconds per pointer
+ * action on the high tier, red-main #360). */
 export function detectGraphicsQualityTier(
   coarsePointer: boolean,
+  softwareRenderer = false,
 ): GraphicsQualityTier {
-  return coarsePointer ? "low" : "high";
+  return coarsePointer || softwareRenderer ? "low" : "high";
 }
 
 export function resolveGraphicsQualityTier(
   setting: GraphicsQualitySetting,
   coarsePointer: boolean,
+  softwareRenderer = false,
 ): GraphicsQualityTier {
-  if (setting === "auto") return detectGraphicsQualityTier(coarsePointer);
+  if (setting === "auto") {
+    return detectGraphicsQualityTier(coarsePointer, softwareRenderer);
+  }
   return setting;
+}
+
+/** The renderer strings a software rasterizer reports through
+ * WEBGL_debug_renderer_info (or RENDERER when the extension is absent). */
+export function isSoftwareRendererName(
+  name: string | null | undefined,
+): boolean {
+  if (!name) return false;
+  return /swiftshader|llvmpipe|softpipe|software\s*(rasterizer|renderer)|mesa offscreen|basic render driver/i.test(
+    name,
+  );
+}
+
+let softwareRendererProbe: boolean | null = null;
+
+/**
+ * Whether WebGL on this page runs on a software rasterizer. Probed once
+ * per page with a throwaway context that is released straight after;
+ * false wherever a context cannot be made (SSR, a blocked canvas), so
+ * detection can only ever lower the tier, never raise it.
+ */
+export function detectSoftwareRenderer(
+  probe: () => string | null = readWebGLRendererName,
+): boolean {
+  if (softwareRendererProbe !== null) return softwareRendererProbe;
+  if (typeof window === "undefined") return false;
+  let name: string | null = null;
+  try {
+    name = probe();
+  } catch {
+    name = null;
+  }
+  softwareRendererProbe = isSoftwareRendererName(name);
+  return softwareRendererProbe;
+}
+
+/** Test seam: forget the cached probe. */
+export function resetSoftwareRendererProbe(): void {
+  softwareRendererProbe = null;
+}
+
+function readWebGLRendererName(): string | null {
+  const canvas = document.createElement("canvas");
+  const gl =
+    (canvas.getContext("webgl2") as WebGLRenderingContext | null) ??
+    (canvas.getContext("webgl") as WebGLRenderingContext | null);
+  if (!gl) return null;
+  try {
+    const info = gl.getExtension("WEBGL_debug_renderer_info") as {
+      UNMASKED_RENDERER_WEBGL: number;
+    } | null;
+    const unmasked = info
+      ? (gl.getParameter(info.UNMASKED_RENDERER_WEBGL) as string | null)
+      : null;
+    return unmasked ?? (gl.getParameter(gl.RENDERER) as string | null);
+  } finally {
+    gl.getExtension("WEBGL_lose_context")?.loseContext();
+  }
 }
 
 /** Per-tier render feature switches for slice G1. Later slices extend

@@ -853,6 +853,28 @@ export const GREAT_CLEAVER: PartDef = {
   ],
 };
 
+// The Boom Arm (F-258, 2026-09-05): a forward spar whose tip sits on its
+// top face near the forward end, so a bottom-mounted head (the Hammer
+// Head) rides out front at chest height instead of up a mast where it
+// never lands. Measured on the Tower Basher: with the hammer on a boom the
+// blueprint wins three rungs where the mast version won one.
+export const BOOM_ARM: PartDef = {
+  id: "boom-arm",
+  name: "Boom Arm",
+  blurb: "A forward spar. Holds a head out front at chest height.",
+  category: "structure",
+  shape: { type: "cuboid", hx: 0.04, hy: 0.04, hz: 0.35 },
+  density: 2,
+  powerDraw: 0,
+  powerSupply: 0,
+  durability: 120,
+  priceEmeralds: 6,
+  connectors: [
+    { id: "base", kind: "rigid", position: { x: 0, y: 0, z: 0.35 } },
+    { id: "tip", kind: "rigid", position: { x: 0, y: 0.04, z: -0.3 } },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -888,5 +910,6 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     HEAVY_BAR,
     RIPSAW,
     GREAT_CLEAVER,
+    BOOM_ARM,
   ].map((p) => [p.id, p]),
 );

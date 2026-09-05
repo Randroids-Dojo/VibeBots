@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-05-0.1.322-catalog-wave-four");
+    expect(release.noticeId).toBe("2026-09-05-0.1.323-boom-arm");
     expect(latestNote).toMatchObject({
-      version: "0.1.322",
-      title: "Two more weapon rungs: the Ripsaw and the Great Cleaver",
+      version: "0.1.323",
+      title: "The Tower Basher's hammer lands: a Boom Arm holds it out front",
       intro:
-        "The saw and the cleaver each get a rung above them, and each was fought up the ladder before its numbers were final. The Ripsaw keeps the saw's disc and adds mass: on a plain spin build it sweeps every rung, Headstone included, where the Saw Blade falls at the top. The Great Cleaver keeps the cleaver's edge and draws it out: it beats Headstone and wins Contagion's fight in the Pit, and gives up Night Terror, which gets under the longer edge.",
+        "The Tower Basher blueprint carried its hammer up a mast, where it never landed: one rung of seven, at every hammer size and density we measured. A new structure part, the Boom Arm, holds a bottom-mounted head out front at chest height instead. On the boom the same hammer takes three rungs, and the blueprint now ships that way.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Ripsaw (28 emeralds): the saw, thicker and harder, on the same spin motor. Measured on a spin build: seven rungs of seven, where the Saw Blade takes six.",
-      "Great Cleaver (28): the cleaver drawn out, the same weight per edge, 240 durability. Measured on the starter build with the edge up top: five rungs of seven, where the Cleaver takes four, trading Night Terror for Contagion and Headstone.",
-      "A heavier hammer was measured at four sizes and densities and changed nothing on the Tower Basher, so it did not ship; the hammer itself has a followup. Both new parts are additive: every recorded fight replays the same.",
+      "Boom Arm (6 emeralds): a forward spar whose tip sits on its top face near the end, so any head that mounts from below, the Hammer Head today, rides out front instead of up top.",
+      "Tower Basher: tower core, two drive wheels, a Boom Arm, and the Hammer Head on it. Measured against every rung in its arena: Brawler, Contagion in the Pit, and Impaler fall to it, where the mast version beat Brawler alone.",
+      "Saved bots built from the old blueprint keep their mast and their hammer; nothing in the physics changed and every recorded fight replays the same.",
     ]);
   });
 

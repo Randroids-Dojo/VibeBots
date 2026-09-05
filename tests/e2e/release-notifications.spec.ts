@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("gets under the longer edge");
+    await expect(dialog).toContainText("the same hammer takes three rungs");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "the saw, thicker and harder",
+      "a forward spar whose tip sits on its top face",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "the cleaver drawn out",
+      "Brawler, Contagion in the Pit, and Impaler fall to it",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "A heavier hammer was measured",
+      "keep their mast and their hammer",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,10 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      [
+        "0.1.323",
+        "The Tower Basher's hammer lands: a Boom Arm holds it out front",
+      ],
       ["0.1.322", "Two more weapon rungs: the Ripsaw and the Great Cleaver"],
       ["0.1.321", "A stamp for your first fight in the Pit"],
       ["0.1.320", "A second arena: the Pit, where Contagion fights"],

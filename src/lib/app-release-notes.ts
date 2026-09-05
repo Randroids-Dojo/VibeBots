@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-04-0.1.318-first-orders-stamp";
+export const RELEASE_NOTICE_ID = "2026-09-05-0.1.319-rule-vocabulary";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.319",
+      date: "2026-09-05",
+      title: "Four more things a bot can notice, and one more thing it can do",
+      intro:
+        "The bench rules grow from five conditions and three actions to nine and four: a bot can now notice the enemy within arm's reach or far off, a wheel of its own lost, and the first third of the clock, and it can swing round the enemy's side. Measured before shipping: the starter build loses to Headstone, and one rule, when they are within arm's reach, charge without resets, beats it.",
+      changes: [
+        {
+          build,
+          text: "New conditions: they are within arm's reach, they are far off, I have lost a wheel, the clock is in its first third. New action: swing round their side. Every stored design and every recorded fight replays the same; the sim version holds.",
+        },
+        {
+          build,
+          text: "Headstone now teaches a free rule: lose to it and the debrief's first lesson adds the rule that beats it and opens the bench on it, the way the tilt lessons already do for Gravestone and Night Terror.",
+        },
+        {
+          build,
+          text: "Measured on the starter build against every rung: the arm's-reach charge wins Headstone and Bulldozer by disabling it, and costs Night Terror and a draw with Contagion; the same condition with hold still also beats Headstone and costs Impaler; flanking loses more than it wins on a spike build, which is the point of a lever that is yours to pull or not.",
+        },
+      ],
+    },
     {
       version: "0.1.318",
       date: "2026-09-04",

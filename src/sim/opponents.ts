@@ -1,5 +1,6 @@
 import {
   type BotDesign,
+  type BotRule,
   CPU_BRAWLER_DESIGN,
   CPU_BULLDOZER_DESIGN,
   type Pitch,
@@ -210,10 +211,21 @@ export interface FightRung {
    * the player seat against this rung with the starter build.
    */
   pitchCounter?: RungPitchCounter;
+  /**
+   * A counter that costs nothing and needs no angle (the second rule
+   * vocabulary, 2026-09-05): one bench rule, measured from the player
+   * seat against this rung with the starter build.
+   */
+  ruleCounter?: RungRuleCounter;
 }
 
 export interface RungCounter {
   partId: string;
+  text: string;
+}
+
+export interface RungRuleCounter {
+  rule: BotRule;
   text: string;
 }
 
@@ -427,6 +439,10 @@ export const FIGHT_LADDER: readonly FightRung[] = [
       partId: "tempered-lance",
       pitch: 15,
       text: "A level Tempered Lance loses to Headstone; tilted up 15 it gets over the bar and wins.",
+    },
+    ruleCounter: {
+      rule: { when: "enemy-close", act: "charge" },
+      text: "The starter build loses to Headstone; told to charge without resets when they are within arm's reach, it wins.",
     },
   },
 ];

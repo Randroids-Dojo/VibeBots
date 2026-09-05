@@ -62,7 +62,9 @@ describe("fight ladder", () => {
     // loses to the last two.
     const outcomes: boolean[] = [];
     for (const rung of FIGHT_LADDER) {
-      const result = await resolveMatch([rung.design, rammer]);
+      const result = await resolveMatch([rung.design, rammer], undefined, {
+        arenaId: rung.arenaId,
+      });
       expect(result.status.over).toBe(true);
       outcomes.push(result.status.over && result.status.winner === 1);
     }
@@ -174,6 +176,34 @@ describe("fight ladder", () => {
     expect(lanceUp.status.over && lanceUp.status.winner).toBe(1);
   }, 60_000);
 
+  it("Contagion fights in the Pit, where the starter still beats it and the Cube Lancer that beats it in the Ring does not (measured)", async () => {
+    const contagion = FIGHT_LADDER.find((rung) => rung.id === "contagion");
+    if (!contagion) throw new Error("contagion missing");
+    expect(contagion.arenaId).toBe("pit");
+    // Every other rung fights in the Ring (absent means the default).
+    for (const rung of FIGHT_LADDER) {
+      if (rung.id !== "contagion") expect(rung.arenaId).toBeUndefined();
+    }
+    const starter = await resolveMatch([contagion.design, rammer], undefined, {
+      arenaId: "pit",
+    });
+    expect(starter.status.over && starter.status.winner).toBe(1);
+    const lanced = {
+      ...rammer,
+      parts: rammer.parts.map((part) =>
+        part.iid === "spike" ? { ...part, partId: "lance" } : part,
+      ),
+    };
+    const ring = await resolveMatch([contagion.design, lanced], undefined, {
+      arenaId: "ring",
+    });
+    expect(ring.status.over && ring.status.winner).toBe(1);
+    const pit = await resolveMatch([contagion.design, lanced], undefined, {
+      arenaId: "pit",
+    });
+    expect(pit.status.over && pit.status.winner).toBe(0);
+  }, 60_000);
+
   it("names a counter per rung that the catalog sells and the measured cases above use (F-250)", () => {
     const counters = Object.fromEntries(
       FIGHT_LADDER.map((rung) => [rung.id, rung.counter.partId]),
@@ -209,7 +239,9 @@ describe("fight ladder", () => {
     expect(validateDesign(tower).ok).toBe(true);
     const wins: string[] = [];
     for (const rung of FIGHT_LADDER) {
-      const result = await resolveMatch([rung.design, tower]);
+      const result = await resolveMatch([rung.design, tower], undefined, {
+        arenaId: rung.arenaId,
+      });
       if (result.status.over && result.status.winner === 1) wins.push(rung.id);
     }
     expect(wins).toContain("bulldozer");

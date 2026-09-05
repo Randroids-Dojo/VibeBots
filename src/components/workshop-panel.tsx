@@ -45,6 +45,7 @@ import { panelStyle, pillStyle } from "@/components/workshop-ui";
 import { PAINT_SWATCHES } from "@/lib/bot-paint";
 import { decodeDesignCode } from "@/lib/design-code";
 import { buzz, HAPTIC_REMOVE } from "@/lib/haptics";
+import { ARENAS, type ArenaId, DEFAULT_ARENA_ID } from "@/sim/arena";
 import { BLUEPRINTS } from "@/sim/blueprints";
 import { SIM_VERSION } from "@/sim/constants";
 import {
@@ -141,6 +142,8 @@ export function WorkshopPanel() {
     />
   );
   const [matchup, setMatchup] = useState<[BotDesign, BotDesign] | null>(null);
+  // The arena the current matchup fights in: a rung's own, or the Ring.
+  const [matchArenaId, setMatchArenaId] = useState<ArenaId>(DEFAULT_ARENA_ID);
   const [endInfo, setEndInfo] = useState<MatchEndInfo | null>(null);
   // The debrief (G9) outlives the exhibition rerun: the arena replays the
   // fight after a linger and clears endInfo so a verdict never describes
@@ -494,6 +497,7 @@ export function WorkshopPanel() {
         body: JSON.stringify({
           designs: matchup,
           simVersion: SIM_VERSION,
+          arenaId: matchArenaId,
           enforceInventory: inventory.state === "ready",
           inventoryDesignIndex: 1,
         }),
@@ -829,6 +833,7 @@ export function WorkshopPanel() {
         {stampBook}
         <ArenaCanvas
           designs={matchup}
+          arenaId={matchArenaId}
           onMatchEnd={(info) => {
             // The exhibition loop reruns the fight; a verdict from the
             // previous run must not describe the new one.
@@ -1349,6 +1354,7 @@ export function WorkshopPanel() {
                         setFightOpen(false);
                         setEndInfo(null);
                         setVerification({ state: "idle" });
+                        setMatchArenaId(rung.arenaId ?? DEFAULT_ARENA_ID);
                         setMatchup([rung.design, design]);
                       })}
                       title={
@@ -1360,7 +1366,11 @@ export function WorkshopPanel() {
                       {rung.id === "brawler"
                         ? "Test fight vs Brawler"
                         : `Fight ${rung.name}`}
-                      <span className="workshop-fight-hint">{rung.hint}</span>
+                      <span className="workshop-fight-hint">
+                        {rung.arenaId && rung.arenaId !== DEFAULT_ARENA_ID
+                          ? `${rung.hint}, in ${ARENAS[rung.arenaId].name}`
+                          : rung.hint}
+                      </span>
                     </button>
                   ))}
                   <button
@@ -1382,6 +1392,7 @@ export function WorkshopPanel() {
                         };
                         setRivalState("idle");
                         setFightOpen(false);
+                        setMatchArenaId(DEFAULT_ARENA_ID);
                         setMatchup([body.design, design]);
                       } catch {
                         setRivalState("error");

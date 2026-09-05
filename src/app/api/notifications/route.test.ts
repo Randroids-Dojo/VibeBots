@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-05-0.1.319-rule-vocabulary",
+      releaseNoticeId: "2026-09-05-0.1.320-second-arena",
       releaseSummary:
-        "Four more things a bot can notice, and one more thing it can do: The bench rules grow from five conditions and three actions to nine and four: a bot can now notice the enemy within arm's reach or far off, a wheel of its own lost, and the first third of the clock, and it can swing round the enemy's side. Measured before shipping: the starter build loses to Headstone, and one rule, when they are within arm's reach, charge without resets, beats it.",
+        "A second arena: the Pit, where Contagion fights: The fights had one floor. Now there are two: the Ring you know, and the Pit, a tight floor with hard walls where nothing has room to flank and every shove rebounds. Contagion, the rung that controls the floor, fights there. Measured before shipping: the starter build still beats it in the Pit; the Cube Lancer, which beats it in the Ring, loses there; the Tower Rammer's draw becomes a loss.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-05-0.1.319-rule-vocabulary",
+      releaseNoticeId: "2026-09-05-0.1.320-second-arena",
       attempted: 2,
       sent: 1,
       expired: 1,

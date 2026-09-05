@@ -1,3 +1,4 @@
+import type { ArenaId } from "./arena";
 import {
   type BotDesign,
   type BotRule,
@@ -217,6 +218,12 @@ export interface FightRung {
    * seat against this rung with the starter build.
    */
   ruleCounter?: RungRuleCounter;
+  /**
+   * The arena this rung fights in (the arenas program, 2026-09-05); the
+   * Ring when absent. Measured: the starter build's result against the
+   * rung holds in its arena, and the rung's counters still beat it there.
+   */
+  arenaId?: ArenaId;
 }
 
 export interface RungCounter {
@@ -369,6 +376,11 @@ export const FIGHT_LADDER: readonly FightRung[] = [
   {
     ...replica("contagion"),
     hint: "controls the floor",
+    // Contagion fights in the Pit: a floor controller on a tight floor.
+    // Measured with the Cube Rammer's variants: the rammer still beats it
+    // there, the Cube Lancer that beats it in the Ring loses, and the
+    // Tower Rammer's draw becomes a loss.
+    arenaId: "pit",
     counter: {
       partId: "ram-spike",
       text: "Contagion wins the floor, not the fight: a Ram Spike on the nose and two Drive Wheels beat it.",

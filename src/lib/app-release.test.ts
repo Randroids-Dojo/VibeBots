@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-05-0.1.319-rule-vocabulary");
+    expect(release.noticeId).toBe("2026-09-05-0.1.320-second-arena");
     expect(latestNote).toMatchObject({
-      version: "0.1.319",
-      title: "Four more things a bot can notice, and one more thing it can do",
+      version: "0.1.320",
+      title: "A second arena: the Pit, where Contagion fights",
       intro:
-        "The bench rules grow from five conditions and three actions to nine and four: a bot can now notice the enemy within arm's reach or far off, a wheel of its own lost, and the first third of the clock, and it can swing round the enemy's side. Measured before shipping: the starter build loses to Headstone, and one rule, when they are within arm's reach, charge without resets, beats it.",
+        "The fights had one floor. Now there are two: the Ring you know, and the Pit, a tight floor with hard walls where nothing has room to flank and every shove rebounds. Contagion, the rung that controls the floor, fights there. Measured before shipping: the starter build still beats it in the Pit; the Cube Lancer, which beats it in the Ring, loses there; the Tower Rammer's draw becomes a loss.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "New conditions: they are within arm's reach, they are far off, I have lost a wheel, the clock is in its first third. New action: swing round their side. Every stored design and every recorded fight replays the same; the sim version holds.",
-      "Headstone now teaches a free rule: lose to it and the debrief's first lesson adds the rule that beats it and opens the bench on it, the way the tilt lessons already do for Gravestone and Night Terror.",
-      "Measured on the starter build against every rung: the arm's-reach charge wins Headstone and Bulldozer by disabling it, and costs Night Terror and a draw with Contagion; the same condition with hold still also beats Headstone and costs Impaler; flanking loses more than it wins on a spike build, which is the point of a lever that is yours to pull or not.",
+      "The Pit joins the Ring: walls at six metres instead of nine and bouncier, drawn to the same colliders the bots rebound off. The picker names the arena on the rung, the stage boots it, and the server verifies the fight in the same arena.",
+      "Every fight before this ran in the Ring, and every recorded fight replays there: the Ring is byte for byte the arena it was, the sim version holds, and match records now carry the arena they ran in.",
+      "Measured with the starter build and its variants against every rung in both arenas: only Contagion moves, because it is the rung the Pit changes without breaking a counter the ladder promises.",
     ]);
   });
 

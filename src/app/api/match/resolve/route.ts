@@ -8,6 +8,7 @@ import {
 } from "@/server/match-records";
 import { validatePlayerDesignInventory } from "@/server/part-inventory";
 import { getOrCreatePlayerId } from "@/server/player";
+import { ARENA_IDS } from "@/sim/arena";
 import { DEFAULT_TIME_LIMIT_TICKS } from "@/sim/combat";
 import { SIM_VERSION } from "@/sim/constants";
 import { botDesignSchema, validateDesign } from "@/sim/design";
@@ -32,6 +33,8 @@ const bodySchema = z.object({
    */
   enforceInventory: z.boolean().optional(),
   inventoryDesignIndex: z.union([z.literal(0), z.literal(1)]).optional(),
+  /** Which arena the fight ran in; the Ring when absent (arenas program). */
+  arenaId: z.enum(ARENA_IDS).optional(),
 });
 
 /**
@@ -101,7 +104,7 @@ export async function POST(request: Request): Promise<Response> {
   const result = await resolveMatch(
     parsed.data.designs,
     parsed.data.timeLimitTicks,
-    { telemetry: true },
+    { telemetry: true, arenaId: parsed.data.arenaId },
   );
   // Verified player fights become durable records (B4): the workshop
   // record chip and the battle stamps read from them. Exhibition and
@@ -125,6 +128,7 @@ export async function POST(request: Request): Promise<Response> {
       durationTicks: result.tick,
       usedPartIds: [...new Set(playerDesign.parts.map((p) => p.partId))],
       ruleCount: playerDesign.rules?.length ?? 0,
+      arenaId: result.arenaId,
     });
     try {
       newStamps = (await refreshPlayerAchievements(sql, playerId))

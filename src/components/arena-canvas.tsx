@@ -39,10 +39,12 @@ import {
 import { PerfProbeBridge } from "@/components/perf-probe-bridge";
 import { paintedColor } from "@/lib/bot-paint";
 import {
-  ARENA_WALL_HALF_EXTENT,
-  ARENA_WALL_HEIGHT,
-  ARENA_WALL_THICKNESS,
+  ARENA_IDS,
+  ARENAS,
+  type ArenaId,
+  type ArenaSpec,
   createArenaWorld,
+  DEFAULT_ARENA_ID,
 } from "@/sim/arena";
 import {
   createMatch,
@@ -120,23 +122,44 @@ const ARENA_CAMERA_PART_PADDING = 1.2;
  * bots actually rebound off. The wall centers sit half a thickness past the
  * inner ring face; the deck reaches to the walls' outer face.
  */
-const ARENA_WALL_CENTER = ARENA_WALL_HALF_EXTENT + ARENA_WALL_THICKNESS;
-const ARENA_DECK_HALF = ARENA_WALL_CENTER + ARENA_WALL_THICKNESS;
-const ARENA_DECK_SIZE = ARENA_DECK_HALF * 2;
-const ARENA_WALL_SPAN = ARENA_DECK_SIZE;
+interface ArenaRenderGeometry {
+  wallCenter: number;
+  deckSize: number;
+  wallSpan: number;
+  wallHeight: number;
+  wallThickness: number;
+  wallY: number;
+}
+
 // Rendered wall height and center match the sim collider exactly, so the
-// bounce reads true (no visible/collider mismatch).
-const ARENA_WALL_RENDER_HEIGHT = ARENA_WALL_HEIGHT;
-const ARENA_WALL_RENDER_THICKNESS = ARENA_WALL_THICKNESS * 2;
-const ARENA_WALL_RENDER_Y = ARENA_WALL_RENDER_HEIGHT / 2;
+// bounce reads true (no visible/collider mismatch). One geometry per
+// arena, computed once (frame-loop rule: nothing per render).
+function arenaRenderGeometry(spec: ArenaSpec): ArenaRenderGeometry {
+  const wallCenter = spec.wallHalfExtent + spec.wallThickness;
+  const deckSize = (wallCenter + spec.wallThickness) * 2;
+  return {
+    wallCenter,
+    deckSize,
+    wallSpan: deckSize,
+    wallHeight: spec.wallHeight,
+    wallThickness: spec.wallThickness * 2,
+    wallY: spec.wallHeight / 2,
+  };
+}
+const ARENA_GEOMETRY = Object.fromEntries(
+  ARENA_IDS.map((id) => [id, arenaRenderGeometry(ARENAS[id])]),
+) as Record<ArenaId, ArenaRenderGeometry>;
 
 interface ArenaRun {
   match: MatchState;
   dispose: () => void;
 }
 
-async function bootMatch(designs: [BotDesign, BotDesign]): Promise<ArenaRun> {
-  const world = await createArenaWorld();
+async function bootMatch(
+  designs: [BotDesign, BotDesign],
+  arenaId: ArenaId,
+): Promise<ArenaRun> {
+  const world = await createArenaWorld(ARENAS[arenaId]);
   // Recorded so the fight can be taken apart afterwards. Impacts arrive at
   // contact cadence, not frame cadence, and the log is capped, so this is
   // not steady-state frame-loop allocation.
@@ -274,8 +297,11 @@ function ArenaScene({
   onMatchEnd,
   onMatchStart,
   onCountdown,
+  arenaId,
 }: {
   designs: [BotDesign, BotDesign];
+  /** The arena the fight runs in; its walls are what the bots rebound off. */
+  arenaId: ArenaId;
   stageRef: RefObject<HTMLDivElement | null>;
   onHud: (hud: HudState) => void;
   onMatchEnd?: (info: MatchEndInfo) => void;
@@ -284,6 +310,7 @@ function ArenaScene({
   onCountdown: (label: string | null) => void;
 }) {
   const runRef = useRef<ArenaRun | null>(null);
+  const geometry = ARENA_GEOMETRY[arenaId];
   // Quantize-and-cache diagnostics (frame-loop-performance rule).
   const datasetCache = useRef<Record<string, number | string>>({});
   /** Bumped on every effect (re)run and cleanup; stale async boots check it. */
@@ -393,7 +420,7 @@ function ArenaScene({
     // under the old bots until an exhibition restart.
     setActiveDesigns(designs);
     const generation = ++generationRef.current;
-    bootMatch(designs).then((run) => {
+    bootMatch(designs, arenaId).then((run) => {
       if (generationRef.current !== generation) {
         run.dispose();
         return;
@@ -407,7 +434,7 @@ function ArenaScene({
       runRef.current?.dispose();
       runRef.current = null;
     };
-  }, [syncViews, onHud, designs]);
+  }, [syncViews, onHud, designs, arenaId]);
 
   useFrame((state, delta) => {
     const run = runRef.current;
@@ -742,7 +769,8 @@ function ArenaScene({
         setActiveDesigns(nextDesigns);
         countdownRef.current = COUNTDOWN_STEP_SECONDS * COUNTDOWN_STEPS;
         onCountdown("3");
-        bootMatch(nextDesigns).then((next) => {
+        // The exhibition loop always fights in the Ring.
+        bootMatch(nextDesigns, DEFAULT_ARENA_ID).then((next) => {
           if (generationRef.current !== generation) {
             next.dispose();
             return;
@@ -880,39 +908,39 @@ function ArenaScene({
         material={surfaceComposite("#5f6875", detail)}
         dispose={null}
       >
-        <boxGeometry args={[ARENA_DECK_SIZE, 1, ARENA_DECK_SIZE]} />
+        <boxGeometry args={[geometry.deckSize, 1, geometry.deckSize]} />
       </mesh>
       {[
         {
-          pos: [0, ARENA_WALL_RENDER_Y, -ARENA_WALL_CENTER] as const,
+          pos: [0, geometry.wallY, -geometry.wallCenter] as const,
           size: [
-            ARENA_WALL_SPAN,
-            ARENA_WALL_RENDER_HEIGHT,
-            ARENA_WALL_RENDER_THICKNESS,
+            geometry.wallSpan,
+            geometry.wallHeight,
+            geometry.wallThickness,
           ] as const,
         },
         {
-          pos: [0, ARENA_WALL_RENDER_Y, ARENA_WALL_CENTER] as const,
+          pos: [0, geometry.wallY, geometry.wallCenter] as const,
           size: [
-            ARENA_WALL_SPAN,
-            ARENA_WALL_RENDER_HEIGHT,
-            ARENA_WALL_RENDER_THICKNESS,
+            geometry.wallSpan,
+            geometry.wallHeight,
+            geometry.wallThickness,
           ] as const,
         },
         {
-          pos: [-ARENA_WALL_CENTER, ARENA_WALL_RENDER_Y, 0] as const,
+          pos: [-geometry.wallCenter, geometry.wallY, 0] as const,
           size: [
-            ARENA_WALL_RENDER_THICKNESS,
-            ARENA_WALL_RENDER_HEIGHT,
-            ARENA_WALL_SPAN,
+            geometry.wallThickness,
+            geometry.wallHeight,
+            geometry.wallSpan,
           ] as const,
         },
         {
-          pos: [ARENA_WALL_CENTER, ARENA_WALL_RENDER_Y, 0] as const,
+          pos: [geometry.wallCenter, geometry.wallY, 0] as const,
           size: [
-            ARENA_WALL_RENDER_THICKNESS,
-            ARENA_WALL_RENDER_HEIGHT,
-            ARENA_WALL_SPAN,
+            geometry.wallThickness,
+            geometry.wallHeight,
+            geometry.wallSpan,
           ] as const,
         },
       ].map((wall) => (
@@ -938,10 +966,13 @@ function ArenaScene({
 
 export default function ArenaCanvas({
   designs = EXHIBITION_DESIGNS,
+  arenaId = DEFAULT_ARENA_ID,
   onMatchEnd,
   onMatchStart,
 }: {
   designs?: [BotDesign, BotDesign];
+  /** The arena the fight runs in; the Ring by default. */
+  arenaId?: ArenaId;
   onMatchEnd?: (info: MatchEndInfo) => void;
   /** Fired when the exhibition loop boots the next fight. */
   onMatchStart?: () => void;
@@ -956,6 +987,7 @@ export default function ArenaCanvas({
   return (
     <div
       ref={stageRef}
+      data-arena={arenaId}
       data-sim-tick="0"
       style={{ position: "relative", width: "100%", height: "100dvh" }}
     >
@@ -969,6 +1001,7 @@ export default function ArenaCanvas({
         <color attach="background" args={["#0b0e14"]} />
         <ArenaScene
           designs={designs}
+          arenaId={arenaId}
           stageRef={stageRef}
           onHud={setHud}
           onMatchEnd={onMatchEnd}

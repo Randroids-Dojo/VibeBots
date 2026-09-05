@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-05-0.1.319-rule-vocabulary";
+export const RELEASE_NOTICE_ID = "2026-09-05-0.1.320-second-arena";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.320",
+      date: "2026-09-05",
+      title: "A second arena: the Pit, where Contagion fights",
+      intro:
+        "The fights had one floor. Now there are two: the Ring you know, and the Pit, a tight floor with hard walls where nothing has room to flank and every shove rebounds. Contagion, the rung that controls the floor, fights there. Measured before shipping: the starter build still beats it in the Pit; the Cube Lancer, which beats it in the Ring, loses there; the Tower Rammer's draw becomes a loss.",
+      changes: [
+        {
+          build,
+          text: "The Pit joins the Ring: walls at six metres instead of nine and bouncier, drawn to the same colliders the bots rebound off. The picker names the arena on the rung, the stage boots it, and the server verifies the fight in the same arena.",
+        },
+        {
+          build,
+          text: "Every fight before this ran in the Ring, and every recorded fight replays there: the Ring is byte for byte the arena it was, the sim version holds, and match records now carry the arena they ran in.",
+        },
+        {
+          build,
+          text: "Measured with the starter build and its variants against every rung in both arenas: only Contagion moves, because it is the rung the Pit changes without breaking a counter the ladder promises.",
+        },
+      ],
+    },
     {
       version: "0.1.319",
       date: "2026-09-05",

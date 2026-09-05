@@ -13,12 +13,17 @@ export const RULE_CONDITION_COPY: Record<RuleCondition, string> = {
   "enemy-immobile": "they cannot drive",
   "core-hurt": "my core is under 40%",
   "clock-late": "the clock is in its last third",
+  "enemy-close": "they are within arm's reach",
+  "enemy-far": "they are far off",
+  "wheel-lost": "I have lost a wheel",
+  "clock-early": "the clock is in its first third",
 };
 
 export const RULE_ACTION_COPY: Record<RuleAction, string> = {
   disengage: "back off",
   charge: "charge without resets",
   hold: "hold still",
+  flank: "swing round their side",
 };
 
 /** The rule the debrief offers after a weapon went down (F-247). */

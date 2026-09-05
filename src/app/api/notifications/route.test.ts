@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-04-0.1.318-first-orders-stamp",
+      releaseNoticeId: "2026-09-05-0.1.319-rule-vocabulary",
       releaseSummary:
-        "A stamp for your first order: Telling your bot what to do without a weapon is the bench's quietest trick, so it gets a stamp: First Orders lands after the first verified fight with a bench rule on your design. The bench alone cannot earn it; the fight has to run on the server with the rule aboard.",
+        "Four more things a bot can notice, and one more thing it can do: The bench rules grow from five conditions and three actions to nine and four: a bot can now notice the enemy within arm's reach or far off, a wheel of its own lost, and the first third of the clock, and it can swing round the enemy's side. Measured before shipping: the starter build loses to Headstone, and one rule, when they are within arm's reach, charge without resets, beats it.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-04-0.1.318-first-orders-stamp",
+      releaseNoticeId: "2026-09-05-0.1.319-rule-vocabulary",
       attempted: 2,
       sent: 1,
       expired: 1,

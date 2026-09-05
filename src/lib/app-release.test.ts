@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-04-0.1.318-first-orders-stamp");
+    expect(release.noticeId).toBe("2026-09-05-0.1.319-rule-vocabulary");
     expect(latestNote).toMatchObject({
-      version: "0.1.318",
-      title: "A stamp for your first order",
+      version: "0.1.319",
+      title: "Four more things a bot can notice, and one more thing it can do",
       intro:
-        "Telling your bot what to do without a weapon is the bench's quietest trick, so it gets a stamp: First Orders lands after the first verified fight with a bench rule on your design. The bench alone cannot earn it; the fight has to run on the server with the rule aboard.",
+        "The bench rules grow from five conditions and three actions to nine and four: a bot can now notice the enemy within arm's reach or far off, a wheel of its own lost, and the first third of the clock, and it can swing round the enemy's side. Measured before shipping: the starter build loses to Headstone, and one rule, when they are within arm's reach, charge without resets, beats it.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "First Orders joins the battle page of the Stamp Book: fight a verified match with at least one bench rule on your bot.",
-      "The count comes from the match record, not the bench: each verified fight now stores how many rules your design carried, and the stamp reads that, so it backfills for nobody and lies for nobody.",
-      "Cosmetic only, like every stamp: no vibes, gear, parts, or luck.",
+      "New conditions: they are within arm's reach, they are far off, I have lost a wheel, the clock is in its first third. New action: swing round their side. Every stored design and every recorded fight replays the same; the sim version holds.",
+      "Headstone now teaches a free rule: lose to it and the debrief's first lesson adds the rule that beats it and opens the bench on it, the way the tilt lessons already do for Gravestone and Night Terror.",
+      "Measured on the starter build against every rung: the arm's-reach charge wins Headstone and Bulldozer by disabling it, and costs Night Terror and a draw with Contagion; the same condition with hold still also beats Headstone and costs Impaler; flanking loses more than it wins on a spike build, which is the point of a lever that is yours to pull or not.",
     ]);
   });
 

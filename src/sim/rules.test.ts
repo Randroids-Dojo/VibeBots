@@ -15,6 +15,9 @@ const view = (over: Partial<RuleView> = {}): RuleView => ({
   coreHealthRatio: 1,
   tick: 0,
   timeLimitTicks: 3600,
+  targetDistance: 2,
+  hadMobility: true,
+  mobilityRatio: 1,
   ...over,
 });
 
@@ -38,7 +41,59 @@ describe("ruleHolds (F-247)", () => {
     expect(ruleHolds("core-hurt", view({ coreHealthRatio: 0.39 }))).toBe(true);
     expect(ruleHolds("clock-late", view({ tick: 2399 }))).toBe(false);
     expect(ruleHolds("clock-late", view({ tick: 2400 }))).toBe(true);
+    // The second vocabulary: range, own drive, the early clock.
+    expect(ruleHolds("enemy-close", view({ targetDistance: 1.2 }))).toBe(false);
+    expect(ruleHolds("enemy-close", view({ targetDistance: 1.19 }))).toBe(true);
+    expect(ruleHolds("enemy-far", view({ targetDistance: 3 }))).toBe(false);
+    expect(ruleHolds("enemy-far", view({ targetDistance: 3.01 }))).toBe(true);
+    expect(ruleHolds("wheel-lost", view())).toBe(false);
+    expect(ruleHolds("wheel-lost", view({ mobilityRatio: 0.5 }))).toBe(true);
+    // A design that never had a wheel has not lost one.
+    expect(
+      ruleHolds("wheel-lost", view({ hadMobility: false, mobilityRatio: 0 })),
+    ).toBe(false);
+    expect(ruleHolds("clock-early", view({ tick: 1199 }))).toBe(true);
+    expect(ruleHolds("clock-early", view({ tick: 1200 }))).toBe(false);
   });
+});
+
+describe("the second rule vocabulary, measured on the ladder", () => {
+  const withRules = (rules: BotDesign["rules"]): BotDesign => ({
+    ...TEST_BOT_DESIGN,
+    rules,
+  });
+  const headstone = FIGHT_LADDER[FIGHT_LADDER.length - 1];
+
+  it("an arm's-reach charge, and an arm's-reach hold, each beat the top rung the starter build loses to", async () => {
+    expect(headstone.id).toBe("headstone");
+    const none = await resolveMatch([headstone.design, TEST_BOT_DESIGN]);
+    expect(none.status.over && none.status.winner).toBe(0);
+    const charge = await resolveMatch([
+      headstone.design,
+      withRules([{ when: "enemy-close", act: "charge" }]),
+    ]);
+    expect(charge.status.over && charge.status.winner).toBe(1);
+    const hold = await resolveMatch([
+      headstone.design,
+      withRules([{ when: "enemy-close", act: "hold" }]),
+    ]);
+    expect(hold.status.over && hold.status.winner).toBe(1);
+    // The rung names the charge as its free rule, and the test above is
+    // what proves it (the same contract as F-250's counters).
+    expect(headstone.ruleCounter?.rule).toEqual({
+      when: "enemy-close",
+      act: "charge",
+    });
+  }, 60_000);
+
+  it("a rule that never holds leaves the fight byte-identical: no wheel is lost against the brawler", async () => {
+    const none = await resolveMatch([BRAWLER, TEST_BOT_DESIGN]);
+    const wheel = await resolveMatch([
+      BRAWLER,
+      withRules([{ when: "wheel-lost", act: "disengage" }]),
+    ]);
+    expect(wheel.hash).toBe(none.hash);
+  }, 30_000);
 });
 
 describe("bench rules in a match (F-234, F-247)", () => {

@@ -740,6 +740,81 @@ describe("buildDebrief and the weapon angle (second lever)", () => {
   });
 });
 
+describe("buildDebrief and the free rule (second rule vocabulary)", () => {
+  const mine = bot("Mine", [
+    part({ iid: "core", name: "Cube Core", category: "core", damageTaken: 40 }),
+    part({
+      iid: "spike",
+      name: "Ram Spike",
+      category: "weapon",
+      damageDealt: 30,
+    }),
+  ]);
+  const headstone = bot("Headstone", [
+    part({ iid: "ocore", name: "Cube Core", category: "core" }),
+  ]);
+  const RAMMER: BotDesign = {
+    name: "Rammer",
+    parts: [
+      { iid: "core", partId: "core-cube" },
+      { iid: "spike", partId: "ram-spike" },
+    ],
+    connections: [
+      {
+        parentIid: "core",
+        parentConnector: "front",
+        childIid: "spike",
+        childConnector: "mount",
+      },
+    ],
+  };
+
+  it("offers Headstone's free rule after a loss without it, with a button that adds it", () => {
+    const debrief = buildDebrief({
+      teardown: teardown(mine, headstone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "headstone",
+    });
+    const lesson = debrief.lessons.find((l) => l.id === "rule");
+    expect(lesson).toMatchObject({
+      action: { kind: "rule", rule: { when: "enemy-close", act: "charge" } },
+      actionLabel: "Add the rule",
+    });
+    expect(lesson?.text).toContain("charge without resets");
+  });
+
+  it("stays quiet when the rule is already aboard, or the rung has none", () => {
+    const aboard = buildDebrief({
+      teardown: teardown(mine, headstone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: { ...RAMMER, rules: [{ when: "enemy-close", act: "charge" }] },
+      rungId: "headstone",
+    });
+    expect(
+      aboard.lessons.filter((l) => l.action?.kind === "rule"),
+    ).toHaveLength(0);
+    const brawler = buildDebrief({
+      teardown: teardown(mine, headstone),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: RAMMER,
+      rungId: "brawler",
+    });
+    expect(
+      brawler.lessons.filter((l) => l.action?.kind === "rule"),
+    ).toHaveLength(0);
+  });
+});
+
 describe("buildDebrief on the ladder (F-250)", () => {
   const RAMMER: BotDesign = {
     name: "Rammer",

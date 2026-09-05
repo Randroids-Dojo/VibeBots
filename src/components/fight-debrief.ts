@@ -18,7 +18,7 @@ import {
 import { FIGHT_LADDER } from "@/sim/opponents";
 import { PART_CATALOG } from "@/sim/parts";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
-import { describeRule, WEAPON_DOWN_RULE } from "./bot-rules";
+import { describeRule, sameRule, WEAPON_DOWN_RULE } from "./bot-rules";
 
 export type DebriefAction =
   | { kind: "browse"; partId: string }
@@ -187,6 +187,20 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
         pitch: pitchCounter.pitch,
       },
       actionLabel: `Tilt it ${pitchCounter.pitch > 0 ? "up" : "down"} ${Math.abs(pitchCounter.pitch)}`,
+    });
+  }
+  // 0b. The free rule: one bench line measured to flip this rung, offered
+  // when the design does not already carry it (second rule vocabulary).
+  const ruleCounter = rung && !won ? rung.ruleCounter : undefined;
+  if (
+    ruleCounter &&
+    !(design.rules ?? []).some((rule) => sameRule(rule, ruleCounter.rule))
+  ) {
+    lessons.push({
+      id: "rule",
+      text: `${ruleCounter.text} ${describeRule(ruleCounter.rule)}`,
+      action: { kind: "rule", rule: ruleCounter.rule },
+      actionLabel: "Add the rule",
     });
   }
   // What the weapons themselves landed: hull contact also deals damage,

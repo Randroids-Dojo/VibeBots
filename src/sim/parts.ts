@@ -808,6 +808,51 @@ export const HEAVY_BAR: PartDef = {
   ],
 };
 
+// Catalog wave four (the volume program, 2026-09-05): a rung above the saw
+// and the cleaver, each fought up the ladder before its numbers were final.
+// The Ripsaw keeps the saw's shape and adds mass; the Great Cleaver keeps
+// the cleaver's cross-section and density and gains edge length, because a
+// heavier cleaver measured worse on every rung while a longer one traded
+// Night Terror for Contagion and Headstone. A hammer rung was measured at
+// four sizes and densities and changed nothing (F-258), so it is not here.
+// No existing collider moves, so SIM_VERSION holds.
+export const RIPSAW: PartDef = {
+  id: "ripsaw",
+  name: "Ripsaw",
+  blurb: "The saw, thicker and harder. Same rim, more bite, more to spin.",
+  category: "weapon",
+  shape: { type: "cylinder", halfHeight: 0.04, radius: 0.28, axis: "z" },
+  density: 3,
+  powerDraw: 36,
+  powerSupply: 0,
+  durability: 170,
+  priceEmeralds: 28,
+  connectors: [
+    {
+      id: "hub",
+      kind: "axle",
+      motor: "spin",
+      position: { x: 0, y: 0, z: 0.06 },
+      axis: { x: 0, y: 0, z: 1 },
+    },
+  ],
+};
+export const GREAT_CLEAVER: PartDef = {
+  id: "great-cleaver",
+  name: "Great Cleaver",
+  category: "weapon",
+  shape: { type: "cuboid", hx: 0.04, hy: 0.2, hz: 0.28 },
+  density: 5,
+  powerDraw: 11,
+  powerSupply: 0,
+  durability: 240,
+  priceEmeralds: 28,
+  blurb: "The cleaver, drawn out. A longer edge that reaches over a bar.",
+  connectors: [
+    { id: "mount", kind: "rigid", position: { x: 0, y: -0.2, z: 0 } },
+  ],
+};
+
 export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
   [
     CORE_CUBE,
@@ -841,5 +886,7 @@ export const PART_CATALOG: Record<string, PartDef> = Object.fromEntries(
     ARMOUR_PLATE,
     TEMPERED_SPIKE,
     HEAVY_BAR,
+    RIPSAW,
+    GREAT_CLEAVER,
   ].map((p) => [p.id, p]),
 );

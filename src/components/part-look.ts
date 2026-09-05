@@ -369,6 +369,23 @@ export const PART_LOOKS: Record<string, PartLook> = {
     roughness: 0.2,
     emissiveBoost: 0.08,
   },
+  // Catalog wave four: each rung reads as the part below it, harder.
+  ripsaw: {
+    color: "#aeb8c6",
+    region: "arbor",
+    tone: 0.45,
+    metalness: 0.94,
+    roughness: 0.18,
+    emissiveBoost: 0.08,
+  },
+  "great-cleaver": {
+    color: "#8a939f",
+    region: "deck",
+    tone: 1.3,
+    metalness: 0.93,
+    roughness: 0.16,
+    emissiveBoost: 0.07,
+  },
   cleaver: {
     color: "#8f98a6",
     region: "deck",

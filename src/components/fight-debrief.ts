@@ -83,9 +83,11 @@ export const WEAK_SURVIVOR_FRACTION = 0.5;
 export const WEAPON_SUGGESTIONS: readonly string[] = [
   "lance",
   "saw-blade",
+  "ripsaw",
   "heavy-bar",
   "spinner-bar",
   "cleaver",
+  "great-cleaver",
   "tempered-spike",
   "ram-spike",
 ];

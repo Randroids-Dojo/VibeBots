@@ -361,6 +361,67 @@ const HEADSTONE: BotDesign = {
   ],
 };
 
+// Grindstone: the eighth rung (2026-09-05). The Ripsaw on a plain spin
+// build swept the seven rungs the day it shipped, so the ladder needed a
+// top that stops it. Measured from the rung seat in the Ring: a Ripsaw on
+// ballast wheels behind an Armour Plate with a ballast tail beats the
+// starter, the Cube Lancer, the Tower Rammer, the tilted spike, the plain
+// and plated Ripsaw builds, the tilted tempered tail, the Great Cleaver
+// build, the boom Basher, and the rule builds; it loses to the Heavy Bar
+// on a Hardened Plate deck, the build Headstone stops, so the top of the
+// ladder is a cycle rather than a wall.
+const GRINDSTONE: BotDesign = {
+  name: "Grindstone",
+  behavior: { aggression: 0.7, flankBias: 0.5, patience: 0.5 },
+  parts: [
+    { iid: "core", partId: "core-cube" },
+    { iid: "wheel-l", partId: "ballast-wheel" },
+    { iid: "wheel-r", partId: "ballast-wheel" },
+    { iid: "mount", partId: "spin-mount" },
+    { iid: "blade", partId: "ripsaw" },
+    { iid: "plate", partId: "armour-plate" },
+    { iid: "tail", partId: "ballast-block" },
+  ],
+  connections: [
+    {
+      parentIid: "core",
+      parentConnector: "axle-left",
+      childIid: "wheel-l",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "axle-right",
+      childIid: "wheel-r",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "front",
+      childIid: "mount",
+      childConnector: "base",
+    },
+    {
+      parentIid: "mount",
+      parentConnector: "spindle",
+      childIid: "blade",
+      childConnector: "hub",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "top",
+      childIid: "plate",
+      childConnector: "bottom",
+    },
+    {
+      parentIid: "core",
+      parentConnector: "back",
+      childIid: "tail",
+      childConnector: "nose",
+    },
+  ],
+};
+
 export const FIGHT_LADDER: readonly FightRung[] = [
   {
     id: "brawler",
@@ -455,6 +516,18 @@ export const FIGHT_LADDER: readonly FightRung[] = [
     ruleCounter: {
       rule: { when: "enemy-close", act: "charge" },
       text: "The starter build loses to Headstone; told to charge without resets when they are within arm's reach, it wins.",
+    },
+  },
+  {
+    id: "grindstone",
+    name: GRINDSTONE.name,
+    blurb:
+      "A ripsaw on ballast wheels behind an armour plate. Grinds down every spinner but the heaviest bar.",
+    hint: "eats a spinner",
+    design: GRINDSTONE,
+    counter: {
+      partId: "heavy-bar",
+      text: "Grindstone eats spinners: a Heavy Bar on a Hardened Plate deck beats it.",
     },
   },
 ];

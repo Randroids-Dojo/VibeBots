@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="ladder-rung-eight" data-date="2026-09-05">
+    <h3>An eighth ladder rung, Grindstone, measured so the top of the ladder is a cycle and not a wall (volume program)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/ladder-rung-eight</code>, from <code>origin/main</code> at <code>b133c3c3</code>, rebased onto <code>26703805</code>.</dd>
+      <dt>PR</dt><dd>#382. Dot <code>VibeBots-rung-eight-grindstone-188679ce</code>.</dd>
+      <dt>Context</dt><dd>Wave four (#380) measured the Ripsaw on a plain spin build as the first build that sweeps all seven rungs, Headstone included. As with the Heavy Bar sweep before Headstone, a ladder with nothing above the sweep stops asking.</dd>
+      <dt>Changed</dt><dd>Grindstone joins <code>FIGHT_LADDER</code> as the top rung: a Ripsaw on ballast wheels behind an Armour Plate with a ballast tail, hint <q>eats a spinner</q>. Four candidates were fought from the rung seat against nine player builds, then the survivor against nine more (the Cube Lancer, the Tower Rammer, the tilted spike, three Heavy Bar decks, a Ripsaw with a hold rule, the boom Basher): a drive-wheel version with a Hardened Plate lost to five, a tower on ballast wheels to three with a draw, a twin-saw tower did not validate, and Grindstone beat every spinner build including the sweeping Ripsaw, drew the plated Ripsaw with a tail, and lost only to the Heavy Bar on a Hardened Plate deck, the build Headstone stops. So the top three rungs answer each other: the Heavy Bar deck beats Grindstone, Headstone beats the Heavy Bar deck, the Ripsaw beats Headstone, Grindstone beats the Ripsaw. The rung's <code>counter</code> is the Heavy Bar (a part the shop sells, as F-250 requires); no tilt or rule probed flips it, so it carries no free counter. The ladder test now expects eight ids, the starter losing the last five, the Cube Lancer losing at the new top, Headstone's tempered-tail and tilt checks by id, and the cycle pinned by resolving the four fights; the fight picker's menu pins nine items. Package 0.1.324 with a release note.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. <code>pnpm typecheck</code> exit 0. <code>pnpm exec biome check .</code> exit 0. <code>scripts/check-sim-purity.sh</code> exit 0. <code>pnpm build</code> exit 0. <code>pnpm exec vitest run</code> whole suite: 181 files, 2382 of 2382. <code>pnpm test:goldens</code> 13 of 13 without an update. E2E against the build on an isolated port, serial: the eight release-notification cases and the seven workshop ladder, arena, debrief, and catalog cases, 15 of 15. Dash check and <code>git diff --check</code> clean. Dependency gate: unchanged since the arena slice's slice-start check.</dd>
+      <dt>Assumptions</dt><dd>Grindstone fights in the Ring; the Pit stays Contagion's. Rule 13 tip review: the rotation was read; no tip names a rung, so no copy changed. Rule 14 stamp review: beating the top rung still needs a recorded source; no stamp.</dd>
+      <dt>GDD coverage</dt><dd>No row change; <code>docs/gdd/05-test-arena.html</code> build log.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
   <article data-slice="boom-arm" data-date="2026-09-05">
     <h3>The Tower Basher's hammer lands: a Boom Arm holds it out front, measured from one rung to three (F-258)</h3>
     <dl>

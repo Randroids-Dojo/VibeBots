@@ -43,6 +43,7 @@ describe("fight ladder", () => {
       "impaler",
       "gravestone",
       "headstone",
+      "grindstone",
     ]);
     for (const rung of FIGHT_LADDER) {
       expect(validateDesign(rung.design).ok).toBe(true);
@@ -68,7 +69,16 @@ describe("fight ladder", () => {
       expect(result.status.over).toBe(true);
       outcomes.push(result.status.over && result.status.winner === 1);
     }
-    expect(outcomes).toEqual([true, true, true, false, false, false, false]);
+    expect(outcomes).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
     // The debrief's never-connected lesson sends a spike build to a
     // longer reach; a lance in the spike's place beats Impaler and then
     // meets the top rung, which beats it (H4), so the ladder keeps asking.
@@ -85,9 +95,11 @@ describe("fight ladder", () => {
     const overImpaler = await resolveMatch([impaler.design, lanced]);
     expect(overImpaler.status.over && overImpaler.status.winner).toBe(1);
     const top = FIGHT_LADDER[FIGHT_LADDER.length - 1];
-    expect(top.id).toBe("headstone");
+    expect(top.id).toBe("grindstone");
     const lancerAtTop = await resolveMatch([top.design, lanced]);
     expect(lancerAtTop.status.over && lancerAtTop.status.winner).toBe(0);
+    const headstone = FIGHT_LADDER[6];
+    expect(headstone.id).toBe("headstone");
     // And Gravestone's counter is a build a player can buy from wave two:
     // the tempered lance in the nose and a ballast block on the tail.
     const gravestone = FIGHT_LADDER[5];
@@ -115,8 +127,8 @@ describe("fight ladder", () => {
     const counter = await resolveMatch([gravestone.design, temperedTail]);
     expect(counter.status.over && counter.status.winner).toBe(1);
     // The seventh rung eats that same lance level, and falls to it tilted
-    // up 15, tail or no tail: the top of the ladder is a tilt, not a buy.
-    const levelAtTop = await resolveMatch([top.design, temperedTail]);
+    // up 15, tail or no tail: that rung's answer is a tilt, not a buy.
+    const levelAtTop = await resolveMatch([headstone.design, temperedTail]);
     expect(levelAtTop.status.over && levelAtTop.status.winner).toBe(0);
     const tiltedTail = {
       ...temperedTail,
@@ -124,7 +136,7 @@ describe("fight ladder", () => {
         c.childIid === "spike" ? { ...c, pitch: 15 as const } : c,
       ),
     };
-    const tiltedAtTop = await resolveMatch([top.design, tiltedTail]);
+    const tiltedAtTop = await resolveMatch([headstone.design, tiltedTail]);
     expect(tiltedAtTop.status.over && tiltedAtTop.status.winner).toBe(1);
     const tiltedNoTail = {
       ...lanced,
@@ -135,7 +147,7 @@ describe("fight ladder", () => {
         c.childIid === "spike" ? { ...c, pitch: 15 as const } : c,
       ),
     };
-    const noTailAtTop = await resolveMatch([top.design, tiltedNoTail]);
+    const noTailAtTop = await resolveMatch([headstone.design, tiltedNoTail]);
     expect(noTailAtTop.status.over && noTailAtTop.status.winner).toBe(1);
   }, 120_000);
 
@@ -220,6 +232,75 @@ describe("fight ladder", () => {
     // Contagion in the Pit and Impaler.
     expect(wins).toEqual(["brawler", "contagion", "impaler"]);
   }, 90_000);
+  it("Grindstone stops the Ripsaw build that sweeps the rest and falls to the Heavy Bar build Headstone stops (measured)", async () => {
+    const grindstone = FIGHT_LADDER[FIGHT_LADDER.length - 1];
+    expect(grindstone.id).toBe("grindstone");
+    const spin = (blade: string, plate?: string): BotDesign => ({
+      name: "Spinner",
+      parts: [
+        { iid: "core", partId: "core-cube" },
+        { iid: "wl", partId: "drive-wheel" },
+        { iid: "wr", partId: "drive-wheel" },
+        { iid: "spin", partId: "spin-mount" },
+        { iid: "blade", partId: blade },
+        ...(plate ? [{ iid: "plate", partId: plate }] : []),
+      ],
+      connections: [
+        {
+          parentIid: "core",
+          parentConnector: "axle-left",
+          childIid: "wl",
+          childConnector: "hub",
+        },
+        {
+          parentIid: "core",
+          parentConnector: "axle-right",
+          childIid: "wr",
+          childConnector: "hub",
+        },
+        {
+          parentIid: "core",
+          parentConnector: "front",
+          childIid: "spin",
+          childConnector: "base",
+        },
+        {
+          parentIid: "spin",
+          parentConnector: "spindle",
+          childIid: "blade",
+          childConnector: "hub",
+        },
+        ...(plate
+          ? [
+              {
+                parentIid: "core",
+                parentConnector: "top",
+                childIid: "plate",
+                childConnector: "bottom",
+              },
+            ]
+          : []),
+      ],
+    });
+    // The plain Ripsaw build beats Headstone and loses to Grindstone.
+    const headstone = FIGHT_LADDER[6];
+    const ripAtHeadstone = await resolveMatch([
+      headstone.design,
+      spin("ripsaw"),
+    ]);
+    expect(ripAtHeadstone.status.over && ripAtHeadstone.status.winner).toBe(1);
+    const ripAtTop = await resolveMatch([grindstone.design, spin("ripsaw")]);
+    expect(ripAtTop.status.over && ripAtTop.status.winner).toBe(0);
+    // The Heavy Bar on a Hardened Plate beats Grindstone and loses to
+    // Headstone: the top of the ladder is a cycle, not a wall.
+    const sweep = spin("heavy-bar", "hardened-plate");
+    const sweepAtTop = await resolveMatch([grindstone.design, sweep]);
+    expect(sweepAtTop.status.over && sweepAtTop.status.winner).toBe(1);
+    const sweepAtHeadstone = await resolveMatch([headstone.design, sweep]);
+    expect(sweepAtHeadstone.status.over && sweepAtHeadstone.status.winner).toBe(
+      0,
+    );
+  }, 60_000);
 
   it("names a counter per rung that the catalog sells and the measured cases above use (F-250)", () => {
     const counters = Object.fromEntries(
@@ -233,6 +314,7 @@ describe("fight ladder", () => {
       impaler: "lance",
       gravestone: "tempered-lance",
       headstone: "tempered-lance",
+      grindstone: "heavy-bar",
     });
     for (const rung of FIGHT_LADDER) {
       expect(PART_CATALOG[rung.counter.partId]).toBeDefined();

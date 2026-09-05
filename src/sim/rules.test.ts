@@ -62,7 +62,8 @@ describe("the second rule vocabulary, measured on the ladder", () => {
     ...TEST_BOT_DESIGN,
     rules,
   });
-  const headstone = FIGHT_LADDER[FIGHT_LADDER.length - 1];
+  const headstone = FIGHT_LADDER.find((rung) => rung.id === "headstone");
+  if (!headstone) throw new Error("headstone missing");
 
   it("an arm's-reach charge, and an arm's-reach hold, each beat the top rung the starter build loses to", async () => {
     expect(headstone.id).toBe("headstone");

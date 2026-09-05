@@ -28,6 +28,7 @@ describe("matchAchievementCounters", () => {
           match_wins: 4,
           saw_match_wins: 1,
           rule_matches: 2,
+          pit_matches: 3,
           cube_fights: 7,
           wedge_fights: 0,
           tower_fights: 2,
@@ -41,7 +42,10 @@ describe("matchAchievementCounters", () => {
       sawMatchWins: 1,
       chassisFought: 2,
       ruleMatches: 2,
+      pitMatches: 3,
     });
+    // Pit Fighter counts records whose fight ran in the Pit.
+    expect(captured.text).toContain("WHERE arena_id = 'pit'");
     // First Orders (F-252) counts records whose design carried a rule.
     expect(captured.text).toContain("WHERE rule_count > 0");
     // The SQL contract: one jsonb key-exists predicate per chassis, and
@@ -64,6 +68,7 @@ describe("matchAchievementCounters", () => {
           match_wins: 0,
           saw_match_wins: 0,
           rule_matches: 0,
+          pit_matches: 0,
           cube_fights: 0,
           wedge_fights: 0,
           tower_fights: 0,
@@ -74,5 +79,6 @@ describe("matchAchievementCounters", () => {
     );
     expect(counters.chassisFought).toBe(0);
     expect(counters.ruleMatches).toBe(0);
+    expect(counters.pitMatches).toBe(0);
   });
 });

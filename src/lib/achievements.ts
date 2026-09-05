@@ -47,7 +47,8 @@ export type AchievementMetric =
   | "chassisFought"
   | "sawMatchWins"
   | "designsPainted"
-  | "ruleMatches";
+  | "ruleMatches"
+  | "pitMatches";
 
 export interface AchievementStats {
   sales: number;
@@ -85,6 +86,8 @@ export interface AchievementStats {
    * design (F-252). Durable: match_records.rule_count, never the bench.
    */
   ruleMatches: number;
+  /** Verified matches fought in the Pit (arenas program). Durable: match_records.arena_id. */
+  pitMatches: number;
 }
 
 export interface AchievementSnapshot {
@@ -136,6 +139,7 @@ export const DEFAULT_ACHIEVEMENT_STATS: AchievementStats = {
   sawMatchWins: 0,
   designsPainted: 0,
   ruleMatches: 0,
+  pitMatches: 0,
 };
 
 export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
@@ -553,6 +557,15 @@ export const ACHIEVEMENT_DEFINITIONS: readonly AchievementDefinition[] = [
     metric: "ruleMatches",
     target: 1,
   },
+  {
+    id: "battle-pit-fighter",
+    category: "battle",
+    title: "Pit Fighter",
+    description: "Fight a verified match in the Pit.",
+    stamp: "PIT",
+    metric: "pitMatches",
+    target: 1,
+  },
 ];
 
 /** The catalog keyed by achievement id (art, alerts, and validation). */
@@ -604,6 +617,7 @@ export function mergeAchievementStats(
     designsPainted: Math.max(current.designsPainted, patch.designsPainted ?? 0),
     // Derived from the match records at snapshot time (F-252): high water.
     ruleMatches: Math.max(current.ruleMatches, patch.ruleMatches ?? 0),
+    pitMatches: Math.max(current.pitMatches, patch.pitMatches ?? 0),
   };
 }
 

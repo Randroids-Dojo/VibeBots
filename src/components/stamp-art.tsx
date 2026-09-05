@@ -589,6 +589,16 @@ const STAMP_PICTOGRAMS: Record<
       <path d="M37 40 l2.2 2.2 l4 -4.6" strokeWidth="2" />
     </g>
   ),
+  // Pit Fighter (arenas program): the tight square ring seen from above,
+  // thick walls, a bot square at the center with the accent for its nose.
+  "battle-pit-fighter": ({ accent }) => (
+    <g>
+      <rect x="16" y="16" width="32" height="32" rx="2" strokeWidth="4" />
+      <rect x="27" y="29" width="10" height="8" rx="1" />
+      <path d="M32 29 v-6" strokeWidth="2" />
+      <circle cx="32" cy="22" r="2.4" fill={accent} stroke="none" />
+    </g>
+  ),
 };
 
 const FALLBACK_PICTOGRAM = ({ accent }: StampPalette): ReactElement => (

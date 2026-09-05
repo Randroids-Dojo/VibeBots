@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-05-0.1.320-second-arena");
+    expect(release.noticeId).toBe("2026-09-05-0.1.321-pit-fighter-stamp");
     expect(latestNote).toMatchObject({
-      version: "0.1.320",
-      title: "A second arena: the Pit, where Contagion fights",
+      version: "0.1.321",
+      title: "A stamp for your first fight in the Pit",
       intro:
-        "The fights had one floor. Now there are two: the Ring you know, and the Pit, a tight floor with hard walls where nothing has room to flank and every shove rebounds. Contagion, the rung that controls the floor, fights there. Measured before shipping: the starter build still beats it in the Pit; the Cube Lancer, which beats it in the Ring, loses there; the Tower Rammer's draw becomes a loss.",
+        "The Pit arrived with Contagion in it, and the Stamp Book now marks the first time you fight there: Pit Fighter lands after the first verified fight in the Pit, win, lose, or draw. Like First Orders it reads the match record, never the bench, so a fight has to run on the server in that arena.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "The Pit joins the Ring: walls at six metres instead of nine and bouncier, drawn to the same colliders the bots rebound off. The picker names the arena on the rung, the stage boots it, and the server verifies the fight in the same arena.",
-      "Every fight before this ran in the Ring, and every recorded fight replays there: the Ring is byte for byte the arena it was, the sim version holds, and match records now carry the arena they ran in.",
-      "Measured with the starter build and its variants against every rung in both arenas: only Contagion moves, because it is the rung the Pit changes without breaking a counter the ladder promises.",
+      "Pit Fighter joins the battle page of the Stamp Book: fight a verified match in the Pit. Today that is Contagion's rung.",
+      "The count comes from the arena each verified fight recorded, the column the arena slice added, so it can only come from a fight the server ran.",
+      "Cosmetic only, like every stamp: no vibes, gear, parts, or luck.",
     ]);
   });
 

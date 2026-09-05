@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="pit-fighter-stamp" data-date="2026-09-05">
+    <h3>A stamp for the first fight in the Pit, read from the arena the match record stores (arenas program)</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>feature/pit-fighter-stamp</code>, from the arena branch, rebased onto <code>origin/main</code> at <code>bcc78f3d</code>.</dd>
+      <dt>PR</dt><dd>#379. Dot <code>VibeBots-pit-fighter-stamp-fc1fe80a</code>.</dd>
+      <dt>Context</dt><dd>The arena slice's Rule 14 review named the first fight in the Pit as a first-use moment with a recorded source (the new <code>arena_id</code> column) and left it for its own slice. This is that slice, the same shape as First Orders (#374).</dd>
+      <dt>Changed</dt><dd><code>matchAchievementCounters</code> adds <code>COUNT(*) FILTER (WHERE arena_id = 'pit')</code> as <code>pitMatches</code>; <code>achievementSnapshot</code> high-waters it into the stats; the <code>battle-pit-fighter</code> definition (Pit Fighter, code PIT, target 1, battle category) reads it, and its pictogram is the tight square ring seen from above with a bot at the center. Cosmetic only. Package 0.1.321 with a release note. Tests: the definition unlocks at one and merges as a high-water mark; the counters query carries the arena predicate and maps the new column; the server snapshot stamps from the records counter; the art suite's coverage and uniqueness cases; the release pins.</dd>
+      <dt>Verification</dt><dd>Every gate run as a direct subprocess with its own exit status recorded. <code>pnpm typecheck</code> exit 0. <code>pnpm exec biome check .</code> exit 0. <code>scripts/check-sim-purity.sh</code> exit 0. <code>pnpm build</code> exit 0. <code>pnpm exec vitest run</code> whole suite: 181 files, 2363 of 2363. <code>pnpm test:goldens</code> 13 of 13 without an update. E2E against the build on an isolated port, serial: the eight release-notification cases and the two stamp-alert cases, 10 of 10. Dash check and <code>git diff --check</code> clean. Dependency gate: unchanged since the arena slice's slice-start check.</dd>
+      <dt>Assumptions</dt><dd>A loss or a draw in the Pit counts: the stamp is for fighting there. Rule 13 tip review: the rotation was read; no tip names a stamp or an arena, so no copy changed. Rule 14 stamp review: this slice is the stamp.</dd>
+      <dt>GDD coverage</dt><dd>No row change; <code>docs/gdd/04-match-resolution-and-scoring.html</code> build log.</dd>
+      <dt>Followups</dt><dd>None new.</dd>
+    </dl>
+  </article>
   <article data-slice="second-arena" data-date="2026-09-05">
     <h3>A second arena, the Pit, measured onto the rung it changes without breaking a promise (arenas program)</h3>
     <dl>

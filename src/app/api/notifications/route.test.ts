@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-05-0.1.320-second-arena",
+      releaseNoticeId: "2026-09-05-0.1.321-pit-fighter-stamp",
       releaseSummary:
-        "A second arena: the Pit, where Contagion fights: The fights had one floor. Now there are two: the Ring you know, and the Pit, a tight floor with hard walls where nothing has room to flank and every shove rebounds. Contagion, the rung that controls the floor, fights there. Measured before shipping: the starter build still beats it in the Pit; the Cube Lancer, which beats it in the Ring, loses there; the Tower Rammer's draw becomes a loss.",
+        "A stamp for your first fight in the Pit: The Pit arrived with Contagion in it, and the Stamp Book now marks the first time you fight there: Pit Fighter lands after the first verified fight in the Pit, win, lose, or draw. Like First Orders it reads the match record, never the bench, so a fight has to run on the server in that arena.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-05-0.1.320-second-arena",
+      releaseNoticeId: "2026-09-05-0.1.321-pit-fighter-stamp",
       attempted: 2,
       sent: 1,
       expired: 1,

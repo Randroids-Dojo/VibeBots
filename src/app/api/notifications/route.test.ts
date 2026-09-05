@@ -110,9 +110,9 @@ describe("notification API routes", () => {
     await expect(res.json()).resolves.toMatchObject({
       configured: true,
       vapidPublicKey: "public-key",
-      releaseNoticeId: "2026-09-05-0.1.322-catalog-wave-four",
+      releaseNoticeId: "2026-09-05-0.1.323-boom-arm",
       releaseSummary:
-        "Two more weapon rungs: the Ripsaw and the Great Cleaver: The saw and the cleaver each get a rung above them, and each was fought up the ladder before its numbers were final. The Ripsaw keeps the saw's disc and adds mass: on a plain spin build it sweeps every rung, Headstone included, where the Saw Blade falls at the top. The Great Cleaver keeps the cleaver's edge and draws it out: it beats Headstone and wins Contagion's fight in the Pit, and gives up Night Terror, which gets under the longer edge.",
+        "The Tower Basher's hammer lands: a Boom Arm holds it out front: The Tower Basher blueprint carried its hammer up a mast, where it never landed: one rung of seven, at every hammer size and density we measured. A new structure part, the Boom Arm, holds a bottom-mounted head out front at chest height instead. On the boom the same hammer takes three rungs, and the blueprint now ships that way.",
     });
   });
 
@@ -172,7 +172,7 @@ describe("notification API routes", () => {
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({
-      releaseNoticeId: "2026-09-05-0.1.322-catalog-wave-four",
+      releaseNoticeId: "2026-09-05-0.1.323-boom-arm",
       attempted: 2,
       sent: 1,
       expired: 1,

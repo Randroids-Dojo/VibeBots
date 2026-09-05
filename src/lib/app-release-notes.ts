@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-05-0.1.322-catalog-wave-four";
+export const RELEASE_NOTICE_ID = "2026-09-05-0.1.323-boom-arm";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.323",
+      date: "2026-09-05",
+      title: "The Tower Basher's hammer lands: a Boom Arm holds it out front",
+      intro:
+        "The Tower Basher blueprint carried its hammer up a mast, where it never landed: one rung of seven, at every hammer size and density we measured. A new structure part, the Boom Arm, holds a bottom-mounted head out front at chest height instead. On the boom the same hammer takes three rungs, and the blueprint now ships that way.",
+      changes: [
+        {
+          build,
+          text: "Boom Arm (6 emeralds): a forward spar whose tip sits on its top face near the end, so any head that mounts from below, the Hammer Head today, rides out front instead of up top.",
+        },
+        {
+          build,
+          text: "Tower Basher: tower core, two drive wheels, a Boom Arm, and the Hammer Head on it. Measured against every rung in its arena: Brawler, Contagion in the Pit, and Impaler fall to it, where the mast version beat Brawler alone.",
+        },
+        {
+          build,
+          text: "Saved bots built from the old blueprint keep their mast and their hammer; nothing in the physics changed and every recorded fight replays the same.",
+        },
+      ],
+    },
     {
       version: "0.1.322",
       date: "2026-09-05",

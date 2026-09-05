@@ -204,6 +204,23 @@ describe("fight ladder", () => {
     expect(pit.status.over && pit.status.winner).toBe(0);
   }, 60_000);
 
+  it("the Tower Basher blueprint wins three rungs with its hammer on a boom (F-258, measured)", async () => {
+    const basher = BLUEPRINTS.find((b) => b.id === "tower-basher")?.design;
+    if (!basher) throw new Error("tower basher missing");
+    expect(basher.parts.map((p) => p.partId)).toContain("boom-arm");
+    expect(basher.parts.map((p) => p.partId)).not.toContain("mast-pole");
+    const wins: string[] = [];
+    for (const rung of FIGHT_LADDER) {
+      const result = await resolveMatch([rung.design, basher], undefined, {
+        arenaId: rung.arenaId,
+      });
+      if (result.status.over && result.status.winner === 1) wins.push(rung.id);
+    }
+    // Up the mast the hammer won Brawler alone; out front it also takes
+    // Contagion in the Pit and Impaler.
+    expect(wins).toEqual(["brawler", "contagion", "impaler"]);
+  }, 90_000);
+
   it("names a counter per rung that the catalog sells and the measured cases above use (F-250)", () => {
     const counters = Object.fromEntries(
       FIGHT_LADDER.map((rung) => [rung.id, rung.counter.partId]),

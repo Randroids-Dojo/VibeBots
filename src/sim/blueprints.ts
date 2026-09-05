@@ -91,15 +91,18 @@ const WEDGE_RAZOR: BotDesign = {
 
 // Tower Basher: the tall platform carries an overhead hammer on a mast (the
 // tall body gives the arm clearance) with a front armor wedge.
+// Tower Basher (F-258): the hammer rides a boom out front instead of a
+// mast up top. Up the mast it never landed (one rung of seven, measured at
+// four hammer sizes and densities); on the boom the blueprint wins three
+// (Brawler, Contagion in the Pit, Impaler), pinned in the ladder test.
 const TOWER_BASHER: BotDesign = {
   name: "Tower Basher",
   parts: [
     { iid: "core", partId: "tower-core" },
     { iid: "wheel-l", partId: "drive-wheel" },
     { iid: "wheel-r", partId: "drive-wheel" },
-    { iid: "mast", partId: "mast-pole" },
+    { iid: "boom", partId: "boom-arm" },
     { iid: "hammer", partId: "hammer-head" },
-    { iid: "armor", partId: "armor-wedge" },
   ],
   connections: [
     {
@@ -116,20 +119,14 @@ const TOWER_BASHER: BotDesign = {
     },
     {
       parentIid: "core",
-      parentConnector: "top",
-      childIid: "mast",
+      parentConnector: "front",
+      childIid: "boom",
       childConnector: "base",
     },
     {
-      parentIid: "mast",
+      parentIid: "boom",
       parentConnector: "tip",
       childIid: "hammer",
-      childConnector: "mount",
-    },
-    {
-      parentIid: "core",
-      parentConnector: "front",
-      childIid: "armor",
       childConnector: "mount",
     },
   ],
@@ -193,7 +190,7 @@ export const BLUEPRINTS: Blueprint[] = [
   {
     id: "tower-basher",
     label: "Tower Basher",
-    blurb: "Tall and tough. Overhead hammer, front armor.",
+    blurb: "Tall and tough. A hammer held out front on a boom.",
     design: TOWER_BASHER,
   },
   {

@@ -386,6 +386,15 @@ export const PART_LOOKS: Record<string, PartLook> = {
     roughness: 0.16,
     emissiveBoost: 0.07,
   },
+  // The boom arm reads as a spar like the mast, laid forward.
+  "boom-arm": {
+    color: "#7f8894",
+    region: "ends",
+    tone: 1.1,
+    metalness: 0.85,
+    roughness: 0.4,
+    emissiveBoost: 0.02,
+  },
   cleaver: {
     color: "#8f98a6",
     region: "deck",

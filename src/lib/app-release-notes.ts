@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-05-0.1.320-second-arena";
+export const RELEASE_NOTICE_ID = "2026-09-05-0.1.321-pit-fighter-stamp";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.321",
+      date: "2026-09-05",
+      title: "A stamp for your first fight in the Pit",
+      intro:
+        "The Pit arrived with Contagion in it, and the Stamp Book now marks the first time you fight there: Pit Fighter lands after the first verified fight in the Pit, win, lose, or draw. Like First Orders it reads the match record, never the bench, so a fight has to run on the server in that arena.",
+      changes: [
+        {
+          build,
+          text: "Pit Fighter joins the battle page of the Stamp Book: fight a verified match in the Pit. Today that is Contagion's rung.",
+        },
+        {
+          build,
+          text: "The count comes from the arena each verified fight recorded, the column the arena slice added, so it can only come from a fight the server ran.",
+        },
+        {
+          build,
+          text: "Cosmetic only, like every stamp: no vibes, gear, parts, or luck.",
+        },
+      ],
+    },
     {
       version: "0.1.320",
       date: "2026-09-05",

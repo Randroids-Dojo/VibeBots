@@ -105,6 +105,7 @@ export async function matchAchievementCounters(
   sawMatchWins: number;
   chassisFought: number;
   ruleMatches: number;
+  pitMatches: number;
 }> {
   const rows = (await sql`
     SELECT
@@ -113,6 +114,7 @@ export async function matchAchievementCounters(
         WHERE outcome = 'win' AND used_part_ids ? 'saw-blade'
       )::int AS saw_match_wins,
       COUNT(*) FILTER (WHERE rule_count > 0)::int AS rule_matches,
+      COUNT(*) FILTER (WHERE arena_id = 'pit')::int AS pit_matches,
       COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[0]})::int
         AS cube_fights,
       COUNT(*) FILTER (WHERE used_part_ids ? ${CHASSIS_CORE_IDS[1]})::int
@@ -124,6 +126,7 @@ export async function matchAchievementCounters(
     match_wins: number;
     saw_match_wins: number;
     rule_matches: number;
+    pit_matches: number;
     cube_fights: number;
     wedge_fights: number;
     tower_fights: number;
@@ -139,5 +142,6 @@ export async function matchAchievementCounters(
     sawMatchWins: row?.saw_match_wins ?? 0,
     chassisFought,
     ruleMatches: row?.rule_matches ?? 0,
+    pitMatches: row?.pit_matches ?? 0,
   };
 }

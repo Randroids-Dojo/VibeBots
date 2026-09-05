@@ -14,6 +14,7 @@ vi.mock("./match-records", () => ({
     sawMatchWins: 0,
     chassisFought: 0,
     ruleMatches: 0,
+    pitMatches: 0,
   })),
 }));
 
@@ -109,6 +110,7 @@ describe("First Orders (F-252)", () => {
       sawMatchWins: 0,
       chassisFought: 0,
       ruleMatches: 1,
+      pitMatches: 0,
     });
     const stamped = await applyAchievementProgress(
       sql as never,
@@ -119,6 +121,25 @@ describe("First Orders (F-252)", () => {
     // The persisted stats carry only bench-side patches; the derived
     // counter lives in the records and is recomputed at snapshot time.
     expect(statsWrites.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Pit Fighter (arenas program)", () => {
+  it("stamps from the records' arena count, never from bench state", async () => {
+    const { sql } = makeAchievementSql({});
+    vi.mocked(matchAchievementCounters).mockResolvedValueOnce({
+      matchWins: 0,
+      sawMatchWins: 0,
+      chassisFought: 0,
+      ruleMatches: 0,
+      pitMatches: 1,
+    });
+    const stamped = await applyAchievementProgress(
+      sql as never,
+      "player-1",
+      {},
+    );
+    expect(stamped).toContain("battle-pit-fighter");
   });
 });
 

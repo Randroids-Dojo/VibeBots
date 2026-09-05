@@ -150,6 +150,24 @@ describe("achievements", () => {
     ).toBe(1);
   });
 
+  it("stamps Pit Fighter after the first verified fight in the Pit, merged as a high-water mark", () => {
+    expect(achievementIdsUnlockedBy(baseSnapshot)).not.toContain(
+      "battle-pit-fighter",
+    );
+    expect(
+      achievementIdsUnlockedBy({
+        ...baseSnapshot,
+        stats: { ...DEFAULT_ACHIEVEMENT_STATS, pitMatches: 1 },
+      }),
+    ).toContain("battle-pit-fighter");
+    expect(
+      mergeAchievementStats(
+        { ...DEFAULT_ACHIEVEMENT_STATS, pitMatches: 1 },
+        { pitMatches: 0 },
+      ).pitMatches,
+    ).toBe(1);
+  });
+
   it("no longer has a merge-level stamp (F-230)", () => {
     expect(
       ACHIEVEMENT_DEFINITIONS.find(

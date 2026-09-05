@@ -116,7 +116,7 @@ describe("tier ladder wave one (G4)", () => {
       expect(PART_CATALOG[id], id).toBeDefined();
       expect(PART_CATALOG[id].priceEmeralds, id).toBeGreaterThan(0);
     }
-    expect(Object.keys(PART_CATALOG)).toHaveLength(31);
+    expect(Object.keys(PART_CATALOG)).toHaveLength(33);
   });
 
   it("climbs the wheel ladder in mass, power, and price", () => {
@@ -167,6 +167,109 @@ describe("tier ladder wave one (G4)", () => {
     expect(lance.shape.hz).toBeGreaterThan(spike.shape.hz);
     expect(lance.durability).toBeLessThan(spike.durability);
   });
+});
+
+describe("catalog wave four", () => {
+  it("registers two rungs at twice the part below, heavier and harder", () => {
+    for (const [above, below] of [
+      ["ripsaw", "saw-blade"],
+      ["great-cleaver", "cleaver"],
+    ] as const) {
+      expect(PART_CATALOG[above], above).toBeDefined();
+      expect(PART_CATALOG[above].priceEmeralds).toBe(
+        2 * PART_CATALOG[below].priceEmeralds,
+      );
+      expect(PART_CATALOG[above].connectors).toEqual(
+        PART_CATALOG[below].connectors,
+      );
+      expect(partMass(PART_CATALOG[above])).toBeGreaterThan(
+        partMass(PART_CATALOG[below]),
+      );
+      expect(PART_CATALOG[above].durability).toBeGreaterThan(
+        PART_CATALOG[below].durability,
+      );
+    }
+    // The saw keeps its disc; the cleaver keeps its cross-section and
+    // density and gains edge length. No hammer rung shipped (F-258).
+    expect(PART_CATALOG.ripsaw.shape).toEqual(PART_CATALOG["saw-blade"].shape);
+    const cleaver = PART_CATALOG.cleaver;
+    const great = PART_CATALOG["great-cleaver"];
+    if (cleaver.shape.type !== "cuboid" || great.shape.type !== "cuboid") {
+      throw new Error("cleavers are cuboids");
+    }
+    expect(great.shape.hx).toBe(cleaver.shape.hx);
+    expect(great.shape.hy).toBe(cleaver.shape.hy);
+    expect(great.shape.hz).toBeGreaterThan(cleaver.shape.hz);
+    expect(great.density).toBe(cleaver.density);
+    expect(PART_CATALOG.sledge).toBeUndefined();
+  });
+
+  it("the Ripsaw beats Headstone where the Saw Blade loses, and the Great Cleaver beats Headstone and Contagion where the Cleaver loses (measured)", async () => {
+    const spin = (bladeId: string): BotDesign => ({
+      name: "Spinner",
+      parts: [
+        { iid: "core", partId: "core-cube" },
+        { iid: "wl", partId: "drive-wheel" },
+        { iid: "wr", partId: "drive-wheel" },
+        { iid: "spin", partId: "spin-mount" },
+        { iid: "blade", partId: bladeId },
+      ],
+      connections: [
+        {
+          parentIid: "core",
+          parentConnector: "axle-left",
+          childIid: "wl",
+          childConnector: "hub",
+        },
+        {
+          parentIid: "core",
+          parentConnector: "axle-right",
+          childIid: "wr",
+          childConnector: "hub",
+        },
+        {
+          parentIid: "core",
+          parentConnector: "front",
+          childIid: "spin",
+          childConnector: "base",
+        },
+        {
+          parentIid: "spin",
+          parentConnector: "spindle",
+          childIid: "blade",
+          childConnector: "hub",
+        },
+      ],
+    });
+    const edged = (cleaverId: string): BotDesign => ({
+      ...TEST_BOT_DESIGN,
+      parts: [...TEST_BOT_DESIGN.parts, { iid: "edge", partId: cleaverId }],
+      connections: [
+        ...TEST_BOT_DESIGN.connections,
+        {
+          parentIid: "core",
+          parentConnector: "top",
+          childIid: "edge",
+          childConnector: "mount",
+        },
+      ],
+    });
+    const fightIn = async (player: BotDesign, rungId: string) => {
+      const r = FIGHT_LADDER.find((rung) => rung.id === rungId);
+      if (!r) throw new Error(`rung ${rungId} missing`);
+      const result = await resolveMatch([r.design, player], undefined, {
+        arenaId: r.arenaId,
+      });
+      if (!result.status.over) throw new Error("fight did not end");
+      return result.status.winner;
+    };
+    expect(await fightIn(spin("saw-blade"), "headstone")).toBe(0);
+    expect(await fightIn(spin("ripsaw"), "headstone")).toBe(1);
+    expect(await fightIn(edged("cleaver"), "headstone")).toBe(0);
+    expect(await fightIn(edged("great-cleaver"), "headstone")).toBe(1);
+    expect(await fightIn(edged("cleaver"), "contagion")).toBe(0);
+    expect(await fightIn(edged("great-cleaver"), "contagion")).toBe(1);
+  }, 60_000);
 });
 
 describe("catalog wave three", () => {

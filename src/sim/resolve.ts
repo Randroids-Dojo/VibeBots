@@ -1,4 +1,9 @@
-import { createArenaWorld } from "./arena";
+import {
+  ARENAS,
+  type ArenaId,
+  createArenaWorld,
+  DEFAULT_ARENA_ID,
+} from "./arena";
 import {
   combatStateString,
   createMatch,
@@ -22,6 +27,8 @@ import { buildTeardown, type MatchTeardown } from "./telemetry";
 
 export interface ResolvedMatch {
   simVersion: number;
+  /** The arena the fight ran in; part of what "the same fight" means. */
+  arenaId: ArenaId;
   tick: number;
   status: MatchStatus;
   /** FNV-1a 64 over the final world snapshot plus the combat state. */
@@ -36,6 +43,8 @@ export interface ResolveMatchOptions {
   telemetry?: boolean;
   /** Starting arrangement index; 0 (default) is the historical spawn. */
   variation?: number;
+  /** Which arena the fight runs in; the ring (default) is the historical floor. */
+  arenaId?: ArenaId;
 }
 
 /** One hash for "the same fight": final snapshot plus combat state. */
@@ -53,7 +62,8 @@ export async function resolveMatch(
   timeLimitTicks?: number,
   options: ResolveMatchOptions = {},
 ): Promise<ResolvedMatch> {
-  const world = await createArenaWorld();
+  const arenaId = options.arenaId ?? DEFAULT_ARENA_ID;
+  const world = await createArenaWorld(ARENAS[arenaId]);
   let match: ReturnType<typeof createMatch> | null = null;
   try {
     match = createMatch(world, designs, {
@@ -74,6 +84,7 @@ export async function resolveMatch(
     const teardownInput = teardownInputFrom(match);
     return {
       simVersion: SIM_VERSION,
+      arenaId,
       tick: match.tick,
       status,
       hash,

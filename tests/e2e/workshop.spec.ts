@@ -2327,7 +2327,7 @@ test(
     const labels = await items.allTextContents();
     expect(labels.map((text) => text.trim())).toEqual([
       "Test fight vs Brawlerwarm-up",
-      "Fight Contagioncontrols the floor",
+      "Fight Contagioncontrols the floor, in the Pit",
       "Fight Night Terrorall blade",
       "Fight Bulldozeroutshoves a spike",
       "Fight Impalerpunishes a spike",
@@ -2727,6 +2727,26 @@ test(
       .not.toBeUndefined();
     await dragHeroOntoCore(page);
     await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  },
+);
+
+test(
+  "Contagion is fought in the Pit: the picker says so and the arena stage boots that arena",
+  ciCase("E2E-WORKSHOP-0054", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await openActions(page);
+    const contagion = page.getByRole("menuitem", { name: "Fight Contagion" });
+    await expect(contagion).toContainText("in the Pit");
+    await contagion.click();
+    // The stage carries the arena it booted, so the walls the bots rebound
+    // off are the Pit's and the server verify names the same arena.
+    await expect(page.locator("[data-arena]")).toHaveAttribute(
+      "data-arena",
+      "pit",
+    );
   },
 );
 

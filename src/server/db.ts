@@ -254,6 +254,11 @@ async function applySchema(sql: Sql): Promise<void> {
   await sql`
     ALTER TABLE match_records
     ADD COLUMN IF NOT EXISTS rule_count integer NOT NULL DEFAULT 0`;
+  // The arena the fight ran in (arenas program, 2026-09-05). Every row
+  // before arenas existed ran in the Ring, so the default is the truth.
+  await sql`
+    ALTER TABLE match_records
+    ADD COLUMN IF NOT EXISTS arena_id text NOT NULL DEFAULT 'ring'`;
   await sql`
     CREATE INDEX IF NOT EXISTS match_records_player_created
     ON match_records (player_id, created_at DESC)`;

@@ -1,3 +1,4 @@
+import type { ArenaId } from "../sim/arena";
 import type { db } from "./db";
 
 type Sql = Awaited<ReturnType<typeof db>>;
@@ -22,6 +23,8 @@ export interface MatchRecordInput {
   usedPartIds: readonly string[];
   /** Bench rules on the player's design when it fought (F-252). */
   ruleCount: number;
+  /** The arena the fight ran in (arenas program); the Ring for older rows. */
+  arenaId: ArenaId;
 }
 
 export interface MatchRecordSummary {
@@ -44,12 +47,12 @@ export async function recordMatchResult(
   await sql`
     INSERT INTO match_records
       (player_id, bot_name, opponent_name, outcome, result_hash,
-       sim_version, duration_ticks, used_part_ids, rule_count)
+       sim_version, duration_ticks, used_part_ids, rule_count, arena_id)
     VALUES
       (${playerId}, ${record.botName}, ${record.opponentName},
        ${record.outcome}, ${record.resultHash}, ${record.simVersion},
        ${record.durationTicks}, ${JSON.stringify(record.usedPartIds)},
-       ${record.ruleCount})`;
+       ${record.ruleCount}, ${record.arenaId})`;
 }
 
 export async function loadMatchRecordSummary(

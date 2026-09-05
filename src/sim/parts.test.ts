@@ -321,7 +321,10 @@ describe("catalog wave three, measured on the ladder", () => {
   });
   // Opponent at seat 0, the player's build at seat 1, as the arena runs it.
   const fight = async (player: BotDesign, rungId: string) => {
-    const result = await resolveMatch([rung(rungId), player]);
+    // Each rung fights in its own arena (Contagion in the Pit).
+    const result = await resolveMatch([rung(rungId), player], undefined, {
+      arenaId: FIGHT_LADDER.find((r) => r.id === rungId)?.arenaId,
+    });
     if (!result.status.over) throw new Error("fight did not end");
     return result.status;
   };

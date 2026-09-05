@@ -205,7 +205,33 @@ describe("match record persistence (B4)", () => {
     expect(record.resultHash).toBe(body.hash);
     expect(record.usedPartIds).toContain("ram-spike");
     expect(record.ruleCount).toBe(0);
+    expect(record.arenaId).toBe("ring");
     expect(mockedRefreshPlayerAchievements).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the fight in the requested arena and records it (arenas program)", async () => {
+    mockedStorageConfigured.mockReturnValue(true);
+    mockedRecordMatchResult.mockClear();
+    const res = await post({
+      designs: [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 120,
+      enforceInventory: true,
+      inventoryDesignIndex: 1,
+      arenaId: "pit",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { arenaId: string };
+    expect(body.arenaId).toBe("pit");
+    const [, , record] = mockedRecordMatchResult.mock.calls[0];
+    expect(record.arenaId).toBe("pit");
+    const bad = await post({
+      designs: [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+      simVersion: SIM_VERSION,
+      timeLimitTicks: 120,
+      arenaId: "moon",
+    });
+    expect(bad.status).toBe(400);
   });
 
   it("records how many bench rules the player's design carried (F-252)", async () => {

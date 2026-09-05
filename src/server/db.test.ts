@@ -51,6 +51,14 @@ describe("compatibility migration markers", () => {
     );
   });
 
+  it("adds the arena id to match records (arenas program)", () => {
+    const source = readFileSync("src/server/db.ts", "utf8");
+
+    expect(source).toContain(
+      "ADD COLUMN IF NOT EXISTS arena_id text NOT NULL DEFAULT 'ring'",
+    );
+  });
+
   it("creates the release push dispatch ledger", () => {
     const source = readFileSync("src/server/db.ts", "utf8");
 

@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   ARENA_WALL_HALF_EXTENT,
   ARENA_WALL_RESTITUTION,
+  ARENAS,
   createArenaWorld,
 } from "./arena";
+import { CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN } from "./design";
 import { fnv1a64 } from "./hash";
+import { resolveMatch } from "./resolve";
 import { ensureRapier } from "./world";
 
 /**
@@ -51,6 +54,44 @@ async function bounceOffWall(steps: number): Promise<{
     world.free();
   }
 }
+
+describe("arena specs (the arenas program)", () => {
+  it("builds the Ring by default, byte for byte the explicit Ring", async () => {
+    const byDefault = await createArenaWorld();
+    const explicit = await createArenaWorld(ARENAS.ring);
+    expect(fnv1a64(byDefault.takeSnapshot())).toBe(
+      fnv1a64(explicit.takeSnapshot()),
+    );
+    byDefault.free();
+    explicit.free();
+  });
+
+  it("the Pit is a tighter, bouncier ring whose world differs from the Ring's", async () => {
+    expect(ARENAS.pit.wallHalfExtent).toBeLessThan(ARENAS.ring.wallHalfExtent);
+    expect(ARENAS.pit.wallRestitution).toBeGreaterThan(
+      ARENAS.ring.wallRestitution,
+    );
+    const ring = await createArenaWorld(ARENAS.ring);
+    const pit = await createArenaWorld(ARENAS.pit);
+    expect(fnv1a64(pit.takeSnapshot())).not.toBe(fnv1a64(ring.takeSnapshot()));
+    ring.free();
+    pit.free();
+  });
+
+  it("a fight names its arena and hashes differently in each", async () => {
+    const ring = await resolveMatch([CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN]);
+    const pit = await resolveMatch(
+      [CPU_BRAWLER_DESIGN, TEST_BOT_DESIGN],
+      undefined,
+      {
+        arenaId: "pit",
+      },
+    );
+    expect(ring.arenaId).toBe("ring");
+    expect(pit.arenaId).toBe("pit");
+    expect(pit.hash).not.toBe(ring.hash);
+  }, 60_000);
+});
 
 describe("arena bounce walls (F-063)", () => {
   it("keeps a launched body inside the ring and rebounds it", async () => {

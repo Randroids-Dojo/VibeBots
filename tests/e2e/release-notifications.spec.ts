@@ -23,19 +23,19 @@ test(
     expect(version).toBeTruthy();
     expect(noteId).toBeTruthy();
     await expect(dialog).not.toContainText("Mason, load your first save now.");
-    await expect(dialog).toContainText("charge without resets, beats it");
+    await expect(dialog).toContainText("every shove rebounds");
     // Every bullet is checked, not just the count and the first line: a
     // count-only assertion passes even when the remaining bullets are
     // missing or wrong, which is the whole point of pinning release copy.
     await expect(dialog.locator("li")).toHaveCount(3);
     await expect(dialog.locator("li").nth(0)).toContainText(
-      "New conditions: they are within arm's reach",
+      "The Pit joins the Ring",
     );
     await expect(dialog.locator("li").nth(1)).toContainText(
-      "Headstone now teaches a free rule",
+      "Every fight before this ran in the Ring",
     );
     await expect(dialog.locator("li").nth(2)).toContainText(
-      "Measured on the starter build against every rung",
+      "only Contagion moves",
     );
 
     await page.mouse.click(8, 8);
@@ -55,6 +55,7 @@ test(
     await expect(dialog.getByLabel("Release notes")).toBeVisible();
     const notes = dialog.locator("[data-release-note]");
     const recentReleaseNotes = [
+      ["0.1.320", "A second arena: the Pit, where Contagion fights"],
       [
         "0.1.319",
         "Four more things a bot can notice, and one more thing it can do",

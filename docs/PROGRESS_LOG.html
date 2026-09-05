@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="tall-menu-perf-e2e-acceptance-run" data-date="2026-09-05">
+    <h3>The F-253 acceptance run: the blink case passes three times, the file does not, and the case that fails gets its own followup</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/f253-evidence</code>, from <code>origin/main</code> at <code>47cf78f1</code>.</dd>
+      <dt>PR</dt><dd>PR_NUMBER. Dots <code>VibeBots-f-240-make-45187b28</code> (F-253, stays open) and <code>VibeBots-f-257-the-c203cc9f</code> (new).</dd>
+      <dt>Context</dt><dd>F-253 asked for the whole workshop e2e file to pass three times in a row at the local default worker count. The rule-vocabulary build (0.1.319) was on an isolated port, so the run was cheap to make.</dd>
+      <dt>Changed</dt><dd>Nothing in code. Three direct runs of <code>pnpm exec playwright test tests/e2e/workshop.spec.ts</code> with retries off at the default worker count (two workers, <code>fullyParallel</code> off, so one worker for the file): run 1 failed one case, run 2 passed 52 with the file's conditional case skipped, run 3 failed the same one case; the blink case F-253 names passed in all three. The failing case is E2E-WORKSHOP-0017, the hero drag with a menu tab selected, whose drop never landed; it passed six of six alone straight after. F-253 gets the evidence as an update and stays open; F-257 records the drag flake with its mechanism (fixed coordinates and fixed waits right after a sheet collapse) and an acceptance that closes both.</dd>
+      <dt>Verification</dt><dd>The runs above. Dash check and <code>git diff --check</code> clean.</dd>
+      <dt>Assumptions</dt><dd>Rule 13 and Rule 14 reviews: no version bump, no feature; nothing to review.</dd>
+      <dt>GDD coverage</dt><dd>No change.</dd>
+      <dt>Followups</dt><dd>F-257 raised.</dd>
+    </dl>
+  </article>
   <article data-slice="rule-vocabulary-two" data-date="2026-09-05">
     <h3>Four more things a bot can notice and one more it can do, measured, with the top rung teaching a free rule (volume program)</h3>
     <dl>

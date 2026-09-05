@@ -924,6 +924,15 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-257" data-f="F-257" data-priority="polish">
+    <h3>F-257: The hero-drag case with a menu tab selected misses its drop in whole-file runs and passes alone</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-09-05 during the F-253 acceptance run against the 0.1.319 build: E2E-WORKSHOP-0017 (<q>parts still attach while a menu tab is selected</q>, <code>tests/e2e/workshop.spec.ts</code>) failed in two of three whole-file runs at the local default worker count with <q>My Bot: 2 parts</q> never appearing after <code>dragHeroOntoCore</code> (the page snapshot showed the Drive Wheel selected, <q>fits 2 mounts</q>, and the bot still at one part), then passed six of six repeats alone. The same file had passed serially earlier in the day. The helper drags from fixed screen coordinates with fixed 80 ms and 30 ms waits, and this case collapses the Tune sheet by a second tab tap right before the drag, so a slow frame or a sheet still in motion can move the hero out from under the pointer.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Make the drag wait on state rather than time: settle the sheet (its transition ended, or the canvas dataset reports the collapsed layout) before the press, and read the hero's position from the canvas dataset rather than a constant, then rerun the whole workshop file three times at the default worker count, which also closes F-253. Acceptance: three whole-file passes in a row at the default worker count.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised 2026-09-05 during the F-253 acceptance run (PR PR_NUMBER). Dot <code>VibeBots-f-257-the-c203cc9f</code>.</dd>
+    </dl>
+  </section>
   <section id="F-256" data-f="F-256" data-priority="polish">
     <h3>F-256: A player created after the merge-level wipe was wiped at the next cold start</h3>
     <dl>
@@ -2888,6 +2897,7 @@
       <dt>Blocker (if any)</dt><dd>None.</dd>
       <dt>Unblock condition</dt><dd>Either widen the case's blink window with a reason written next to it, or mark the case <code>@soak</code> so a parallel local run skips it, or make the local runner default to one worker for the workshop file. Acceptance: the whole workshop file passes at the local default worker count three times in a row.</dd>
       <dt>PR / Dot reference</dt><dd>Raised 2026-09-02 during the workshop garage program (G3, PR #338; also seen on G6, PR #337). Dot <code>VibeBots-f-240-make-45187b28</code>.</dd>
+      <dt>Update</dt><dd>2026-09-05 (PR PR_NUMBER): the acceptance run was made against the 0.1.319 build, the whole workshop file three times at the local default worker count (two workers with <code>fullyParallel</code> off, so one worker per file): run 1 failed one case, run 2 passed 52 with the file's conditional case skipped, run 3 failed the same one case; the blink case F-253 names passed in all three. The file did not pass three times, so this stays open, but the failure is a different case (E2E-WORKSHOP-0017, the hero drag with a menu tab selected), now tracked as F-257; the blink case itself has not failed at the default count. The four-worker failures came from several files sharing a CPU, which the default never does.</dd>
     </dl>
   </section>
   <section id="F-211" data-f="F-211" data-priority="polish">

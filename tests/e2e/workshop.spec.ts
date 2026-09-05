@@ -30,6 +30,31 @@ async function selectCarouselPart(page: Page, name: string) {
   throw new Error(`carousel never reached ${name}`);
 }
 
+// Wait for the bottom sheet to stop moving: two reads of its box 120 ms
+// apart agree. The collapsed class flips at the start of the transition,
+// so a drag that starts on the class alone can press on a sheet still
+// sliding over the hero band (F-257: the drop never landed in two of three
+// whole-file runs, and passed alone where the sheet had time to settle).
+async function settleSheet(page: Page) {
+  const sheet = page.locator(".workshop-sheet");
+  await expect
+    .poll(
+      async () => {
+        const before = await sheet.boundingBox();
+        await page.waitForTimeout(120);
+        const after = await sheet.boundingBox();
+        return (
+          before !== null &&
+          after !== null &&
+          Math.abs(before.y - after.y) < 0.5 &&
+          Math.abs(before.height - after.height) < 0.5
+        );
+      },
+      { timeout: 5_000 },
+    )
+    .toBe(true);
+}
+
 // Drag the hero part straight up onto the core to place it on the nearest
 // open slot. Tap-to-place was removed, so drag is the only placement path.
 // Requires a 390x760 viewport and the hero turntable running (heroYaw set).
@@ -37,6 +62,7 @@ async function dragHeroOntoCore(page: Page) {
   const heroX = 195;
   const heroY = 545;
   const coreY = 405;
+  await settleSheet(page);
   await page.mouse.move(heroX, heroY);
   await page.mouse.down();
   await page.waitForTimeout(80);

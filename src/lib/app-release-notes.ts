@@ -1,9 +1,30 @@
 import type { AppReleaseNote } from "./app-release-types";
 
-export const RELEASE_NOTICE_ID = "2026-09-05-0.1.321-pit-fighter-stamp";
+export const RELEASE_NOTICE_ID = "2026-09-05-0.1.322-catalog-wave-four";
 
 export function releaseNotes(build: number | null): AppReleaseNote[] {
   return [
+    {
+      version: "0.1.322",
+      date: "2026-09-05",
+      title: "Two more weapon rungs: the Ripsaw and the Great Cleaver",
+      intro:
+        "The saw and the cleaver each get a rung above them, and each was fought up the ladder before its numbers were final. The Ripsaw keeps the saw's disc and adds mass: on a plain spin build it sweeps every rung, Headstone included, where the Saw Blade falls at the top. The Great Cleaver keeps the cleaver's edge and draws it out: it beats Headstone and wins Contagion's fight in the Pit, and gives up Night Terror, which gets under the longer edge.",
+      changes: [
+        {
+          build,
+          text: "Ripsaw (28 emeralds): the saw, thicker and harder, on the same spin motor. Measured on a spin build: seven rungs of seven, where the Saw Blade takes six.",
+        },
+        {
+          build,
+          text: "Great Cleaver (28): the cleaver drawn out, the same weight per edge, 240 durability. Measured on the starter build with the edge up top: five rungs of seven, where the Cleaver takes four, trading Night Terror for Contagion and Headstone.",
+        },
+        {
+          build,
+          text: "A heavier hammer was measured at four sizes and densities and changed nothing on the Tower Basher, so it did not ship; the hammer itself has a followup. Both new parts are additive: every recorded fight replays the same.",
+        },
+      ],
+    },
     {
       version: "0.1.321",
       date: "2026-09-05",

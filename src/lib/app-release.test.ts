@@ -28,17 +28,17 @@ describe("app release notes", () => {
     const release = getAppRelease();
     const latestNote = release.notes[0];
 
-    expect(release.noticeId).toBe("2026-09-05-0.1.321-pit-fighter-stamp");
+    expect(release.noticeId).toBe("2026-09-05-0.1.322-catalog-wave-four");
     expect(latestNote).toMatchObject({
-      version: "0.1.321",
-      title: "A stamp for your first fight in the Pit",
+      version: "0.1.322",
+      title: "Two more weapon rungs: the Ripsaw and the Great Cleaver",
       intro:
-        "The Pit arrived with Contagion in it, and the Stamp Book now marks the first time you fight there: Pit Fighter lands after the first verified fight in the Pit, win, lose, or draw. Like First Orders it reads the match record, never the bench, so a fight has to run on the server in that arena.",
+        "The saw and the cleaver each get a rung above them, and each was fought up the ladder before its numbers were final. The Ripsaw keeps the saw's disc and adds mass: on a plain spin build it sweeps every rung, Headstone included, where the Saw Blade falls at the top. The Great Cleaver keeps the cleaver's edge and draws it out: it beats Headstone and wins Contagion's fight in the Pit, and gives up Night Terror, which gets under the longer edge.",
     });
     expect(latestNote?.changes.map((change) => change.text)).toEqual([
-      "Pit Fighter joins the battle page of the Stamp Book: fight a verified match in the Pit. Today that is Contagion's rung.",
-      "The count comes from the arena each verified fight recorded, the column the arena slice added, so it can only come from a fight the server ran.",
-      "Cosmetic only, like every stamp: no vibes, gear, parts, or luck.",
+      "Ripsaw (28 emeralds): the saw, thicker and harder, on the same spin motor. Measured on a spin build: seven rungs of seven, where the Saw Blade takes six.",
+      "Great Cleaver (28): the cleaver drawn out, the same weight per edge, 240 durability. Measured on the starter build with the edge up top: five rungs of seven, where the Cleaver takes four, trading Night Terror for Contagion and Headstone.",
+      "A heavier hammer was measured at four sizes and densities and changed nothing on the Tower Basher, so it did not ship; the hammer itself has a followup. Both new parts are additive: every recorded fight replays the same.",
     ]);
   });
 

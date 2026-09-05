@@ -2750,6 +2750,76 @@ test(
   },
 );
 
+test(
+  "catalog wave four: the new rungs sit in the weapon ladder and the great cleaver mounts (volume program)",
+  ciCase("E2E-WORKSHOP-0055", "@functional"),
+  async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: {
+          emeralds: 200,
+          inventory: [
+            { part_id: "ripsaw", count: 1 },
+            { part_id: "great-cleaver", count: 1 },
+          ],
+          catalog: [
+            {
+              id: "saw-blade",
+              name: "Saw Blade",
+              category: "weapon",
+              priceEmeralds: 14,
+            },
+            {
+              id: "cleaver",
+              name: "Cleaver",
+              category: "weapon",
+              priceEmeralds: 14,
+            },
+            {
+              id: "ripsaw",
+              name: "Ripsaw",
+              category: "weapon",
+              priceEmeralds: 28,
+            },
+            {
+              id: "great-cleaver",
+              name: "Great Cleaver",
+              category: "weapon",
+              priceEmeralds: 28,
+            },
+          ],
+        },
+      });
+    });
+    await page.goto("/workshop");
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+
+    // The shop lists each family cheapest first, so the two new rungs sit
+    // above the parts they climb from.
+    await page.getByRole("tab", { name: "Shop" }).click();
+    const weapons = page.getByRole("region", { name: "Weapon parts" });
+    await expect(weapons.locator("li")).toHaveCount(4);
+    await expect(weapons.locator("li").nth(2)).toContainText(
+      /Ripsaw|Great Cleaver/,
+    );
+    await expect(weapons.locator("li").nth(3)).toContainText(
+      /Ripsaw|Great Cleaver/,
+    );
+
+    // Owned, the great cleaver is in the carousel and mounts on the core.
+    await page.getByRole("tab", { name: "Build" }).click();
+    await collapseSheet(page);
+    await selectCarouselPart(page, "Great Cleaver");
+    await expect
+      .poll(() => canvas.evaluate((c: HTMLCanvasElement) => c.dataset.heroYaw))
+      .not.toBeUndefined();
+    await dragHeroOntoCore(page);
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  },
+);
+
 test.describe("phone", () => {
   test.use({
     viewport: { width: 412, height: 915 },

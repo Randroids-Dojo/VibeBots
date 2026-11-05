@@ -359,7 +359,7 @@ jobs:
 
   e2e-critical:
     name: Critical E2E (${{ matrix.shard_name }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -544,7 +544,7 @@ jobs:
   e2e-full:
     name: Full E2E (${{ matrix.shard_name }})
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full_e2e == 'true') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     strategy:
       fail-fast: false
@@ -762,7 +762,7 @@ jobs:
   visual-baselines-update:
     name: Update Visual Baselines
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_visual_baselines == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

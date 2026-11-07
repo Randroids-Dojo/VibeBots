@@ -804,6 +804,17 @@ export function WorkshopPanel() {
       setSheetOpen(false);
       return;
     }
+    if (action.kind === "make-room") {
+      // Show the suggestion in the carousel, then select the part in its
+      // way (browseTo clears the selection, so it goes first). The design
+      // is untouched: removing stays the player's call, and undoable.
+      setTab("build");
+      setIncludeUnowned(true);
+      browseTo(action.partId);
+      select(action.iid);
+      setSheetOpen(true);
+      return;
+    }
     if (action.kind === "select") {
       setTab("build");
       select(action.iid);

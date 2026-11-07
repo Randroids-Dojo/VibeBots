@@ -30,6 +30,18 @@
 </section>
 
 <main id="entries">
+  <article data-slice="actionable-debrief" data-date="2026-11-07">
+    <dl>
+      <dt>Branch</dt><dd><code>fix/actionable-debrief</code>, from <code>origin/main</code> at <code>15a0132</code>.</dd>
+      <dt>PR</dt><dd>#395, draft. FunClimb experiment <code>actionable-debrief-01</code> in campaign vibebots-mac-visible-v3; it stays draft until that campaign's capture comparison and council review are recorded.</dd>
+      <dt>Context</dt><dd>Campaign captures showed two debrief defects. The first-loss and weakest-survivor lessons still said "Merge it up", a retired mechanic. And after Tower Basher plus a Light Plate lost to Night Terror, the counter lesson browsed to a Ram Spike for the nose while the Boom Arm and Hammer Head held it, so the drag was refused ("No room for Ram Spike on any mount") and the refight repeated the same design.</dd>
+      <dt>Changed</dt><dd><code>fight-debrief.ts</code>: both survivor lessons now read "A plate on that side can shield it." and the weakest-survivor line drops "it goes first next time" (a test fight rebuilds catalog health). Every lesson that suggests a part goes through <code>suggestPart</code>: when <code>placementBlocker</code> says the part has no mount, <code>mountRoom</code> finds the part whose subtree removal frees a legal slot (the core's front first for a weapon, then the same family, never the weapon for a non-weapon) and the lesson names it, its carried parts, and Undo, with a <code>make-room</code> action labelled "Show the &lt;part&gt;". With no single removal freeing a slot the lesson keeps its browse and says no mount is open. Unknown parts and power or weight blockers keep the old browse. <code>workshop-panel.tsx</code>: <code>make-room</code> opens Build, shows the suggestion in the carousel and selects the occupant with the sheet open. It never edits the design. Lesson order, the two-lesson cap and every other lesson are unchanged.</dd>
+      <dt>Verification</dt><dd>Unit: <code>fight-debrief.test.ts</code> 28 of 28, including the plated Tower Basher against Night Terror (make-room on the Boom Arm, removal of its subtree leaves a Ram Spike slot, the design is not mutated), the plated Cube Rammer against Impaler (make-room on the Ram Spike for a Lance), open and unknown parts, and no merge copy on either survivor lesson. E2E-WORKSHOP-0056: Cube Rammer against Impaler, "Show the Ram Spike" lands with Lance in the carousel, Ram Spike selected and 4 parts, then Remove makes 3 and Undo restores 4. E2E-WORKSHOP-0050 changed with the behaviour: its wheelless cube holds the Ram Spike on its only weapon mount, so the Gravestone counter now reads "Show the Ram Spike" and lands with the Tempered Lance in the carousel, the spike selected and 2 parts. E2E-WORKSHOP-0045, 0050 and 0056 pass locally on an isolated port. <code>pnpm verify --build</code> exit 0, all 10 gates.</dd>
+      <dt>Assumptions</dt><dd>Mine tips reviewed: no package bump and no mine change, so no tip text changed. Stamp review: copy and handoff fix only, no stamp added. No sim, parts, economy, rendering or saving change; <code>SIM_VERSION</code> stays 9.</dd>
+      <dt>GDD coverage</dt><dd>Test arena build log entry added (G9 debrief). No coverage row status changed.</dd>
+      <dt>Followups</dt><dd>None filed. The fight-view occlusion finding from the same campaign is a separate hypothesis.</dd>
+    </dl>
+  </article>
   <article data-slice="red-main-e2e-runner-and-ledger" data-date="2026-11-07">
     <h3>Repair red main: Playwright jobs back on Ubuntu 24.04, and the followup ledger gate passing again</h3>
     <dl>

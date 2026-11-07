@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { BLUEPRINTS } from "@/sim/blueprints";
 import type { MatchScore } from "@/sim/combat";
-import { type BotDesign, TEST_BOT_DESIGN } from "@/sim/design";
+import { type BotDesign, TEST_BOT_DESIGN, validateDesign } from "@/sim/design";
+import { PART_CATALOG } from "@/sim/parts";
 import type { MatchTeardown, TeardownBot, TeardownPart } from "@/sim/telemetry";
+import { subtreeIids, validSlotsFor } from "@/state/workshop-store";
 import {
   AGGRESSION_STEP,
   buildDebrief,
   clockFromTicks,
   DEBRIEF_MAX_LESSONS,
+  mountRoom,
   PATIENCE_STEP,
   PLATE_SUGGESTION,
   suggestWeapon,
 } from "./fight-debrief";
+import { placementBlocker } from "./workshop-budget";
 
 function part(
   over: Partial<TeardownPart> & { iid: string; name: string },
@@ -935,5 +940,169 @@ describe("buildDebrief on the ladder (F-250)", () => {
     expect(bulldozer.lessons[0].action).not.toMatchObject({
       partId: "tower-core",
     });
+  });
+});
+
+describe("build-aware suggestions (actionable debrief)", () => {
+  const blueprint = (id: string): BotDesign => {
+    const found = BLUEPRINTS.find((b) => b.id === id)?.design;
+    if (!found) throw new Error(`no blueprint ${id}`);
+    return found;
+  };
+  /** The capture fixtures' first edit: a Light Plate on a free core mount. */
+  const withPlate = (design: BotDesign, connector: string, by: string) => ({
+    ...design,
+    parts: [...design.parts, { iid: "plate", partId: "light-plate" }],
+    connections: [
+      ...design.connections,
+      {
+        parentIid: "core",
+        parentConnector: connector,
+        childIid: "plate",
+        childConnector: by,
+      },
+    ],
+  });
+  const towerPlated = withPlate(blueprint("tower-basher"), "top", "bottom");
+  const cubePlated = withPlate(blueprint("cube-rammer"), "bottom", "top");
+  const loser = bot("Mine", [
+    part({ iid: "core", name: "Tower Core", category: "core" }),
+    part({ iid: "hammer", name: "Hammer Head", category: "weapon" }),
+  ]);
+  const nightTerror = bot("Night Terror", [
+    part({ iid: "ocore", name: "Cube Core", category: "core" }),
+  ]);
+
+  it("names the Boom Arm assembly holding the nose instead of browsing a Ram Spike the Tower Basher cannot place", () => {
+    expect(validateDesign(towerPlated).ok).toBe(true);
+    // The baseline dead end: the counter part has no legal slot as built.
+    expect(placementBlocker(towerPlated, PART_CATALOG["ram-spike"])).toEqual({
+      kind: "mount",
+    });
+    const before = structuredClone(towerPlated);
+    const debrief = buildDebrief({
+      teardown: teardown(loser, nightTerror),
+      winner: 0,
+      reason: "timeout",
+      scores: null,
+      me: 1,
+      design: towerPlated,
+      rungId: "night-terror",
+    });
+    const counter = debrief.lessons[0];
+    expect(counter.id).toBe("counter");
+    expect(counter.action).toEqual({
+      kind: "make-room",
+      partId: "ram-spike",
+      iid: "boom",
+    });
+    expect(counter.actionLabel).toBe("Show the Boom Arm");
+    expect(counter.text).toContain("Boom Arm and the Hammer Head on it");
+    expect(counter.text).toContain("Undo");
+    // The handoff is real: removing the selected subtree (what the
+    // inspector's Remove does) leaves a legal Ram Spike slot.
+    const removed = subtreeIids(towerPlated, "boom");
+    expect([...removed].sort()).toEqual(["boom", "hammer"]);
+    const after: BotDesign = {
+      ...towerPlated,
+      parts: towerPlated.parts.filter((p) => !removed.has(p.iid)),
+      connections: towerPlated.connections.filter(
+        (c) => !removed.has(c.childIid),
+      ),
+    };
+    expect(
+      validSlotsFor(after, PART_CATALOG["ram-spike"]).length,
+    ).toBeGreaterThan(0);
+    // Building the advice never edits the bot.
+    expect(towerPlated).toEqual(before);
+  });
+
+  it("points the Impaler counter at the Ram Spike holding the front of the plated Cube Rammer", () => {
+    const debrief = buildDebrief({
+      teardown: teardown(
+        bot("Mine", [
+          part({ iid: "core", name: "Cube Core", category: "core" }),
+          part({ iid: "spike", name: "Ram Spike", category: "weapon" }),
+        ]),
+        opponent,
+      ),
+      winner: null,
+      reason: "timeout",
+      scores: null,
+      me: 1,
+      design: cubePlated,
+      rungId: "impaler",
+    });
+    expect(debrief.lessons[0]).toMatchObject({
+      id: "counter",
+      action: { kind: "make-room", partId: "lance", iid: "spike" },
+      actionLabel: "Show the Ram Spike",
+    });
+    expect(debrief.lessons[0].text).toContain("Your Ram Spike holds");
+  });
+
+  it("keeps a plain browse when the part fits, and stays conservative for unknown parts", () => {
+    expect(mountRoom(cubePlated, "frame-plate")).toEqual({ kind: "open" });
+    expect(mountRoom(cubePlated, "no-such-part")).toEqual({ kind: "unknown" });
+    // A plate suggestion never points at the bot's weapon to make room.
+    const room = mountRoom(blueprint("cube-rammer"), "light-plate");
+    expect(room.kind === "occupied" ? room.iid : null).not.toBe("spike");
+  });
+
+  it("never tells the player to merge a part, on the first-loss or the weakest-survivor lesson", () => {
+    const hurt = bot("Mine", [
+      part({
+        iid: "core",
+        name: "Tower Core",
+        category: "core",
+        damageDealt: 20,
+      }),
+      part({
+        iid: "hammer",
+        name: "Hammer Head",
+        category: "weapon",
+        damageDealt: 40,
+        health: 30,
+        maxHealth: 100,
+      }),
+      part({
+        iid: "plate",
+        name: "Light Plate",
+        destroyed: true,
+        destroyedAtTick: 600,
+        health: 0,
+        killedByName: "Night Terror",
+      }),
+    ]);
+    const lost = buildDebrief({
+      teardown: teardown(hurt, nightTerror),
+      winner: 0,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: towerPlated,
+    });
+    const won = buildDebrief({
+      teardown: teardown(hurt, nightTerror),
+      winner: 1,
+      reason: "disable",
+      scores: null,
+      me: 1,
+      design: towerPlated,
+    });
+    const firstLoss = lost.lessons.find((l) => l.id === "first-loss");
+    const weakest = won.lessons.find((l) => l.id === "weakest");
+    expect(firstLoss?.action).toEqual({ kind: "select", iid: "plate" });
+    expect(weakest?.action).toEqual({ kind: "select", iid: "hammer" });
+    for (const lesson of [...lost.lessons, ...won.lessons]) {
+      expect(lesson.text).not.toMatch(/merge|a level/i);
+      // Every part a lesson hands over exists on the current design.
+      const action = lesson.action;
+      if (action && (action.kind === "select" || action.kind === "make-room")) {
+        expect(towerPlated.parts.map((p) => p.iid)).toContain(action.iid);
+      }
+    }
+    // A low ending is not carried into the next test fight.
+    expect(weakest?.text).not.toContain("goes first next time");
   });
 });

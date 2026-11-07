@@ -16,12 +16,24 @@ import {
   type Pitch,
 } from "@/sim/design";
 import { FIGHT_LADDER } from "@/sim/opponents";
-import { PART_CATALOG } from "@/sim/parts";
+import { PART_CATALOG, type PartDef } from "@/sim/parts";
 import type { MatchTeardown, TeardownPart } from "@/sim/telemetry";
+import {
+  currentCoreId,
+  subtreeIids,
+  validSlotsFor,
+} from "@/state/workshop-store";
 import { describeRule, sameRule, WEAPON_DOWN_RULE } from "./bot-rules";
+import { placementBlocker } from "./workshop-budget";
 
 export type DebriefAction =
   | { kind: "browse"; partId: string }
+  /**
+   * The suggested part has no open mount on this bot: select the part
+   * holding the mount it needs (its inspector offers Remove, which Undo
+   * reverses) and show the suggestion in the carousel. Changes nothing.
+   */
+  | { kind: "make-room"; partId: string; iid: string }
   | { kind: "select"; iid: string }
   | { kind: "tune" }
   /** Apply a temperament change and open Tune so the slider is seen moving (H1). */
@@ -129,6 +141,129 @@ export function suggestWeapon(
   return WEAPON_SUGGESTIONS[0];
 }
 
+/** Whether the current design has a place for a part, and what is in the way. */
+export type MountRoom =
+  | { kind: "open" }
+  /** No catalog entry, or a power or weight limit: the carousel says why. */
+  | { kind: "unknown" }
+  /** Removing this one part (and what hangs off it) frees a legal slot. */
+  | { kind: "occupied"; iid: string; name: string; carried: string[] }
+  /** Every mount it takes is in use and no single removal frees one. */
+  | { kind: "full" };
+
+/**
+ * Where a suggested part could go on this design. When nothing is open
+ * for lack of a mount, find the part whose removal frees one: a weapon
+ * suggestion looks at the core's front first (the nose every ladder
+ * counter was measured on), then a part of the same family, then any
+ * other. A candidate only counts when removing its subtree really leaves
+ * a legal slot for the part, the same test the drag ghosts use.
+ */
+export function mountRoom(
+  design: BotDesign,
+  partId: string,
+  catalog: Record<string, PartDef> = PART_CATALOG,
+): MountRoom {
+  const def = catalog[partId];
+  if (!def) return { kind: "unknown" };
+  const blocker = placementBlocker(design, def, catalog);
+  if (!blocker) return { kind: "open" };
+  if (blocker.kind !== "mount") return { kind: "unknown" };
+  const coreIid = currentCoreId(design);
+  const kinds = new Set(def.connectors.map((c) => c.kind));
+  const rank = (childIid: string, parentIid: string, connector: string) => {
+    const child = design.parts.find((p) => p.iid === childIid);
+    const childDef = child ? catalog[child.partId] : undefined;
+    if (!childDef) return -1;
+    if (
+      def.category === "weapon" &&
+      parentIid === coreIid &&
+      connector === "front"
+    ) {
+      return 0;
+    }
+    if (childDef.category === def.category) return 1;
+    // Never point a non-weapon suggestion at the bot's weapon.
+    if (def.category !== "weapon" && childDef.category === "weapon") return -1;
+    return 2;
+  };
+  const candidates = design.connections
+    .filter((conn) => {
+      const parent = design.parts.find((p) => p.iid === conn.parentIid);
+      const parentConn = parent
+        ? catalog[parent.partId]?.connectors.find(
+            (c) => c.id === conn.parentConnector,
+          )
+        : undefined;
+      return parentConn !== undefined && kinds.has(parentConn.kind);
+    })
+    .map((conn) => ({
+      iid: conn.childIid,
+      rank: rank(conn.childIid, conn.parentIid, conn.parentConnector),
+    }))
+    .filter((c) => c.rank >= 0)
+    .sort((a, b) => a.rank - b.rank);
+  for (const { iid } of candidates) {
+    const removed = subtreeIids(design, iid);
+    const after: BotDesign = {
+      ...design,
+      parts: design.parts.filter((p) => !removed.has(p.iid)),
+      connections: design.connections.filter(
+        (c) => !removed.has(c.childIid) && !removed.has(c.parentIid),
+      ),
+    };
+    if (validSlotsFor(after, def, catalog).length === 0) continue;
+    const nameOf = (id: string) => {
+      const inst = design.parts.find((p) => p.iid === id);
+      return (inst && catalog[inst.partId]?.name) ?? id;
+    };
+    return {
+      kind: "occupied",
+      iid,
+      name: nameOf(iid),
+      carried: design.parts
+        .filter((p) => p.iid !== iid && removed.has(p.iid))
+        .map((p) => nameOf(p.iid)),
+    };
+  }
+  return { kind: "full" };
+}
+
+/**
+ * A lesson that suggests a part: browse to it when the bot has room,
+ * otherwise say what holds the mount and hand the player to that part.
+ * Nothing is removed for them; the inspector's Remove and Undo stay
+ * their choice.
+ */
+function suggestPart(
+  design: BotDesign,
+  partId: string,
+  text: string,
+  actionLabel: string,
+): Pick<DebriefLesson, "text" | "action" | "actionLabel"> {
+  const room = mountRoom(design, partId);
+  if (room.kind === "occupied") {
+    const what =
+      room.carried.length === 0
+        ? `Your ${room.name} holds`
+        : `Your ${room.name} and the ${room.carried.join(" and ")} on it hold`;
+    const them = room.carried.length === 0 ? "it" : "them";
+    return {
+      text: `${text} ${what} the mount it needs: remove ${them} to make room (Undo puts ${them} back).`,
+      action: { kind: "make-room", partId, iid: room.iid },
+      actionLabel: `Show the ${room.name}`,
+    };
+  }
+  if (room.kind === "full") {
+    return {
+      text: `${text} No mount is open for it now: remove a part to make room.`,
+      action: { kind: "browse", partId },
+      actionLabel,
+    };
+  }
+  return { text, action: { kind: "browse", partId }, actionLabel };
+}
+
 function pct(fraction: number): number {
   return Math.round(Math.max(0, Math.min(1, fraction)) * 100);
 }
@@ -221,35 +356,37 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
     const counterIsWeapon = counterDef?.category === "weapon";
     lessons.push({
       id: "no-hits",
-      text: counter
-        ? `This bot has no weapon, so it can only bump. ${counter.text}`
-        : "This bot has no weapon, so it can only bump. Mount one on the front.",
-      action: {
-        kind: "browse",
-        partId:
-          counter && counterIsWeapon
-            ? counter.partId
-            : suggestWeapon(input.ownedPartIds, null),
-      },
-      actionLabel: "Pick a weapon",
+      ...suggestPart(
+        design,
+        counter && counterIsWeapon
+          ? counter.partId
+          : suggestWeapon(input.ownedPartIds, null),
+        counter
+          ? `This bot has no weapon, so it can only bump. ${counter.text}`
+          : "This bot has no weapon, so it can only bump. Mount one on the front.",
+        "Pick a weapon",
+      ),
     });
   } else if (counter) {
     lessons.push({
       id: "counter",
-      text: counter.text,
-      action: { kind: "browse", partId: counter.partId },
-      actionLabel: `Browse the ${counterDef?.name ?? counter.partId}`,
+      ...suggestPart(
+        design,
+        counter.partId,
+        counter.text,
+        `Browse the ${counterDef?.name ?? counter.partId}`,
+      ),
     });
   }
   if (weapon && weaponDamage <= 0) {
     lessons.push({
       id: "no-hits",
-      text: `Your ${weapon.name} never connected. A longer reach or a spinner can land hits that the ${weapon.name} cannot.`,
-      action: {
-        kind: "browse",
-        partId: suggestWeapon(input.ownedPartIds, weapon.id),
-      },
-      actionLabel: "Try another weapon",
+      ...suggestPart(
+        design,
+        suggestWeapon(input.ownedPartIds, weapon.id),
+        `Your ${weapon.name} never connected. A longer reach or a spinner can land hits that the ${weapon.name} cannot.`,
+        "Try another weapon",
+      ),
     });
   }
 
@@ -296,14 +433,17 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
     if (firstLoss.category === "core") {
       lessons.push({
         id: "first-loss",
-        text: `Your core went down at ${at}, taken by ${taker}: nothing else was there to take the hits. Armour it.`,
-        action: { kind: "browse", partId: PLATE_SUGGESTION },
-        actionLabel: "Browse plates",
+        ...suggestPart(
+          design,
+          PLATE_SUGGESTION,
+          `Your core went down at ${at}, taken by ${taker}: nothing else was there to take the hits. Armour it.`,
+          "Browse plates",
+        ),
       });
     } else {
       lessons.push({
         id: "first-loss",
-        text: `${firstLoss.name} went first at ${at}, taken by ${taker}. Merge it up a level or armour that side.`,
+        text: `${firstLoss.name} went first at ${at}, taken by ${taker}. A plate on that side can shield it.`,
         action: { kind: "select", iid: firstLoss.iid },
         actionLabel: "Show that part",
       });
@@ -375,9 +515,12 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
       if (share >= SOAK_SHARE) {
         lessons.push({
           id: "soak",
-          text: `${soak.name} took ${pct(share)}% of the damage. A plate beside it spreads the load.`,
-          action: { kind: "browse", partId: PLATE_SUGGESTION },
-          actionLabel: "Browse plates",
+          ...suggestPart(
+            design,
+            PLATE_SUGGESTION,
+            `${soak.name} took ${pct(share)}% of the damage. A plate beside it spreads the load.`,
+            "Browse plates",
+          ),
         });
       }
     }
@@ -398,7 +541,7 @@ export function buildDebrief(input: DebriefInput): FightDebrief {
     if (weakest && weakestFraction < WEAK_SURVIVOR_FRACTION) {
       lessons.push({
         id: "weakest",
-        text: `${weakest.name} came home at ${pct(weakestFraction)}%: it goes first next time. Merge it up or armour that side.`,
+        text: `${weakest.name} came home at ${pct(weakestFraction)}%, the closest call of the parts that survived. A plate on that side can shield it.`,
         action: { kind: "select", iid: weakest.iid },
         actionLabel: "Show that part",
       });

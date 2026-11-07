@@ -2445,15 +2445,72 @@ test(
     );
     const counter = debrief.locator('[data-lesson="counter"]');
     await expect(counter).toContainText("Gravestone eats lances");
-    await counter
-      .getByRole("button", { name: "Browse the Tempered Lance" })
-      .click();
+    // The spike holds the only weapon mount, so the lesson names it and
+    // hands it over rather than browsing a lance that cannot be placed.
+    await expect(counter).toContainText("Your Ram Spike holds the mount");
+    await counter.getByRole("button", { name: "Show the Ram Spike" }).click();
     // The tap leaves the arena and lands on the counter in the carousel,
-    // owned or not.
+    // owned or not, with the spike selected and the bot unchanged.
     await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
     await expect(
       page.getByLabel("Part carousel").getByTestId("carousel-part-name"),
     ).toHaveText("Tempered Lance");
+    await expect(
+      page
+        .getByRole("region", { name: "Selected part" })
+        .locator(".inspector-name"),
+    ).toHaveText("Ram Spike");
+    await expect(page.getByText("My Bot: 2 parts")).toBeVisible();
+  },
+);
+
+test(
+  "a counter the bot has no open mount for hands over the part in its way, and the click changes nothing (actionable debrief)",
+  ciCase("E2E-WORKSHOP-0056", "@functional"),
+  async ({ page }) => {
+    // The Cube Rammer's only weapon mount holds its Ram Spike, so Impaler's
+    // counter (a Lance) cannot be placed as built. The debrief names the
+    // spike and selects it; removing it stays the player's own undoable act.
+    test.setTimeout(150_000);
+    await page.setViewportSize({ width: 390, height: 760 });
+    await page.route("**/api/shop", async (route) => {
+      await route.fulfill({
+        json: { emeralds: 20, inventory: [], catalog: [] },
+      });
+    });
+    await page.goto("/workshop");
+    await expect(page.locator("canvas")).toBeVisible();
+    await page.getByRole("tab", { name: "Garage" }).click();
+    await page
+      .getByRole("region", { name: "Blueprints" })
+      .getByRole("button", { name: /Cube Rammer/ })
+      .click();
+    await expect(page.getByText("Cube Rammer: 4 parts")).toBeVisible();
+    await page.getByRole("tab", { name: "Build" }).click();
+
+    await openActions(page);
+    await page.getByRole("menuitem", { name: "Fight Impaler" }).click();
+    const debrief = page.getByTestId("fight-debrief");
+    await expect(debrief).toBeVisible({ timeout: 100_000 });
+    await expect(debrief).not.toContainText(/merge/i);
+    const counter = debrief.locator('[data-lesson="counter"]');
+    await expect(counter).toContainText("Your Ram Spike holds the mount");
+    await counter.getByRole("button", { name: "Show the Ram Spike" }).click();
+
+    await expect(page.getByTestId("fight-debrief")).toHaveCount(0);
+    // The suggestion is in hand and the part in its way is selected, with
+    // the design exactly as it was.
+    await expect(
+      page.getByLabel("Part carousel").getByTestId("carousel-part-name"),
+    ).toHaveText("Lance");
+    const inspector = page.getByRole("region", { name: "Selected part" });
+    await expect(inspector.locator(".inspector-name")).toHaveText("Ram Spike");
+    await expect(page.getByText("Cube Rammer: 4 parts")).toBeVisible();
+    // The supported next step: Remove, and Undo puts it back.
+    await page.getByRole("button", { name: "Remove Ram Spike" }).click();
+    await expect(page.getByText("Cube Rammer: 3 parts")).toBeVisible();
+    await page.getByRole("button", { name: "Undo" }).click();
+    await expect(page.getByText("Cube Rammer: 4 parts")).toBeVisible();
   },
 );
 

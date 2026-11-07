@@ -175,6 +175,8 @@
     <li><strong>Revert-first red-main policy:</strong> discards in-flight intent; fix-forward keeps diagnosis and repair in one continuous flow.</li>
     <li><strong>Make the Full E2E matrix a required PR check:</strong> serializes every merge on a thirty-two shard, 35-minute matrix whose known flakes would hold unrelated PRs.</li>
   </ul>
+  <h3>Amendment, 2026-11-07: standing authorization for pilot repairs</h3>
+  <p>The coordinator showed the owner the red-main repair for issue #393 (pin the three Playwright jobs to <code>ubuntu-24.04</code> and append the followup ledger placement corrections) and asked for approval to apply it and submit it through the normal PR and CI flow. The owner answered: "I approve applying. Don't ask in the future." That answer covers this repair: the branch push, the PR (#394), and the CI-gated auto-merge. It also covers future routine prerequisite and CI repairs for the FunClimb/VibeBots pilot, which no longer need a separate confirmation. It does not relax the rest of this agreement. Fix-forward only, no force-push, no reset, no revert, no administrator bypass, no paid usage, and every other Rule 6 boundary still applies.</p>
 </section>
 
 <section id="merge-and-deploy">

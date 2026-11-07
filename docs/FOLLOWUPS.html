@@ -3137,6 +3137,10 @@
     <p data-role="priority-pointer" data-f-ref="F-216"><a href="#F-216">F-216</a>: authoritative priority is polish; historical placement: blocks-release.</p>
     <p data-role="priority-pointer" data-f-ref="F-223"><a href="#F-223">F-223</a>: authoritative priority is polish; historical placement: blocks-release.</p>
   </nav>
+  <p data-role="priority-pointer" data-f-ref="F-254">Current priority: polish. Historical primary: <a href="#F-254">F-254</a>; preserved in place.</p>
+  <p data-role="priority-pointer" data-f-ref="F-256">Current priority: polish. Historical primary: <a href="#F-256">F-256</a>; preserved in place.</p>
+  <p data-role="priority-pointer" data-f-ref="F-257">Current priority: polish. Historical primary: <a href="#F-257">F-257</a>; preserved in place.</p>
+  <p data-role="priority-pointer" data-f-ref="F-258">Current priority: polish. Historical primary: <a href="#F-258">F-258</a>; preserved in place.</p>
 </section>
 
 <section data-f="F-012" data-vibereview-session="20260610-220517-4C845606" data-capture="3842799B-64EA-487B-973B-DBEB6BC912F2" data-priority="nice-to-have">
@@ -3590,6 +3594,8 @@
     <dt>Closure update</dt><dd>PR review added one production parser hardening fix for malformed ore-drop tokens and broadened pure module tests. Two behavior-changing review findings were captured as separate follow-ups, <code>F-041</code> and <code>F-042</code>, rather than changing deterministic mine payouts or replay semantics inside this refactor.</dd>
   </dl>
 </section>
+
+  <section data-role="correction" aria-label="Committed priority placement audit 2026-11-07"><h2>Committed priority placement audit, 2026-11-07</h2><p>At ce99452635a6bb62b74f916a26d15a74ad8e84b7, F-254, F-256, F-257 and F-258 are already committed outside their authoritative priority buckets. Preserve every primary and prior audit byte in place. Record these four existing violations in KNOWN_POST_CUTOFF and add one current-priority pointer per item under its declared bucket. This is the explicit ledger decision for those historical records; new placement violations still fail. Closure text and priorities are unchanged.</p></section>
 </main>
 
 </body>

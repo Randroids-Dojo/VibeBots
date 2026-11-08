@@ -30,6 +30,19 @@
 </section>
 
 <main id="entries">
+  <article data-slice="funclimb-pilot-findings" data-date="2026-11-07">
+    <h3>Record what the rejected FunClimb debrief experiment found, so the next debrief change starts from it</h3>
+    <dl>
+      <dt>Branch</dt><dd><code>docs/funclimb-debrief-lessons-f-259</code>, from <code>origin/main</code> at <code>15a01324</code>.</dd>
+      <dt>PR</dt><dd>#396.</dd>
+      <dt>Context</dt><dd>The FunClimb pilot ran one paired experiment on this game: PR #395 made the debrief's suggested-part button open the part blocking the mount instead of a refused browse. The council rejected it and PR #395 was closed unmerged with its branch kept. Its findings lived only in the FunClimb campaign records, where this repo's loop never reads, and closing the PR also dropped an unrelated copy fix it carried.</dd>
+      <dt>Changed</dt><dd><code>docs/FOLLOWUPS.html</code>: F-259 (rung counter lessons claim a win measured only for the bare Cube Rammer), F-260 (debrief still advises merging, retired under F-230), F-261 (reuse the make-room button from PR #395 after F-259). No source change.</dd>
+      <dt>Verification</dt><dd><code>node scripts/check-followup-ledger.mjs</code>, <code>bash scripts/check-dashes.sh</code>, <code>git diff --check</code> and <code>bash scripts/check-attribution.sh --message-file</code> on the squash text, each with its exit status read.</dd>
+      <dt>Assumptions</dt><dd>Docs-only: no Dependency Upgrade Gate bump, no tip or stamp change (Rules 13 and 14 reviewed, nothing player-facing changed). The evidence is the FunClimb capture and both council receipts, cited by campaign id; they are not copied into this repo.</dd>
+      <dt>GDD coverage</dt><dd>No row change.</dd>
+      <dt>Followups</dt><dd>New: <a href="FOLLOWUPS.html#F-259">F-259</a>, <a href="FOLLOWUPS.html#F-260">F-260</a>, <a href="FOLLOWUPS.html#F-261">F-261</a>.</dd>
+    </dl>
+  </article>
   <article data-slice="red-main-e2e-runner-and-ledger" data-date="2026-11-07">
     <h3>Repair red main: Playwright jobs back on Ubuntu 24.04, and the followup ledger gate passing again</h3>
     <dl>

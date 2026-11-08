@@ -924,6 +924,36 @@
 <section id="nice-to-have">
   <h2>Nice To Have</h2>
 
+  <section id="F-261" data-f="F-261" data-priority="nice-to-have">
+    <h3>F-261: Bring back the make-room button from the closed debrief PR once the advice it points at is right</h3>
+    <dl>
+      <dt>Context</dt><dd>When a debrief lesson suggests a part the bot has no open mount for, its button only browses to that part and the drag is then refused (<q>No room for Lance on any mount</q>), a dead end. PR #395 (closed unmerged; branch <code>fix/actionable-debrief</code>, head <code>1570f259</code>, preserved) added <code>mountRoom</code>: the button <q>Show the &lt;part&gt;</q> opens Build with the blocking part selected and names the parts it carries and Undo, without editing the design. In the 2026-11-07 FunClimb paired capture both independent council reviewers credited it as a real gain in agency and legibility over the baseline's refusal. The candidate was rejected because the button routes the player faster into the unqualified advice of F-259, and because only 16 of 18 planned trials were captured. Reviewer notes for the redo: at 390x760 the lesson text takes noticeably more height than the baseline and repeats the Show instruction.</dd>
+      <dt>Blocker (if any)</dt><dd>F-259. Shipping the button first makes misleading advice easier to follow.</dd>
+      <dt>Unblock condition</dt><dd>F-259 resolved. Port the handoff from the preserved branch onto fresh <code>main</code> with its tests (the <code>fight-debrief.test.ts</code> make-room cases and E2E-WORKSHOP-0056), and say the mount instruction once. Acceptance: after a loss whose lesson suggests a part with no open mount, one tap selects the blocking part, Remove then Undo restores the design, and the lesson the button serves meets F-259's acceptance.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised from the FunClimb pilot by PR #396. Source: PR #395.</dd>
+    </dl>
+  </section>
+
+  <section id="F-260" data-f="F-260" data-priority="nice-to-have">
+    <h3>F-260: The debrief still tells players to merge a part up a level, though merge levels are retired</h3>
+    <dl>
+      <dt>Context</dt><dd>Merge levels were retired under F-230, but two debrief lessons in <code>src/components/fight-debrief.ts</code> still advise it: first loss (<q>Merge it up a level or armour that side.</q>) and weakest survivor (<q>it goes first next time. Merge it up or armour that side.</q>). The player is told to take an action the bench no longer offers, and <q>it goes first next time</q> overstates what a changed design will do. Seen in the 2026-11-07 FunClimb captures. PR #395 fixed both lines, but it was closed unmerged with its rejected experiment, so the fix never reached <code>main</code>.</dd>
+      <dt>Blocker (if any)</dt><dd>None.</dd>
+      <dt>Unblock condition</dt><dd>Replace both lines with advice for an action the bench offers (PR #395 used <q>A plate on that side can shield it.</q> and kept the part selected) and pin a no-merge assertion in <code>fight-debrief.test.ts</code>. Acceptance: no debrief lesson mentions merging, and the existing debrief tests pass.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised from the FunClimb pilot by PR #396. The tested copy change is on the preserved branch <code>fix/actionable-debrief</code> (PR #395).</dd>
+    </dl>
+  </section>
+
+  <section id="F-259" data-f="F-259" data-priority="nice-to-have">
+    <h3>F-259: The rung counter lessons promise a win the ladder test only proves for the bare Cube Rammer</h3>
+    <dl>
+      <dt>Context</dt><dd>Found 2026-11-07 by a FunClimb paired capture at <code>15a01324</code> (390x760, headless Chromium, a scripted mouse actor). The Brawler, Contagion and Night Terror lessons in <code>src/sim/opponents.ts</code> say <q>a Ram Spike on the nose and two Drive Wheels beat it</q>, and the debrief leads with that whatever the player's chassis. The measured case in <code>src/sim/opponents.test.ts</code> fights the bare starter Cube Rammer only. Two captured counterexamples: a Tower Basher rebuilt to exactly that advice (Tower Core, Ram Spike on the nose, two Drive Wheels, a Light Plate) lost to Night Terror about 416 to 6 on all three repeats; and a Cube Rammer carrying a Light Plate drew Brawler 111 to 111 with the spike, drew again after a swap to a Lance, and the second debrief then sent the player back to the spike build that had already drawn. Both independent council reviewers named this the blocking defect of the debrief candidate in PR #395.</dd>
+      <dt>Blocker (if any)</dt><dd>None technical. Qualifying the claim needs measured fights per chassis, which is test work in the sim, not a <code>SIM_VERSION</code> change.</dd>
+      <dt>Unblock condition</dt><dd>Measure each rung's named counter on every starter chassis, with and without the common plate add-on, then either name a counter per chassis or word an unmeasured setup as something to try rather than a promised win. Acceptance: for every rung lesson, a pinned test fight of the player's current chassis with the named change beats the rung, or the lesson makes no win claim; and a debrief after a draw does not recommend the build that just drew.</dd>
+      <dt>PR / Dot reference</dt><dd>Raised from the FunClimb pilot by PR #396. Evidence: FunClimb campaign <code>vibebots-mac-ui-following-v4-2026-11-07</code> (local to the owner's Mac), rejected candidate PR #395.</dd>
+    </dl>
+  </section>
+
   <section id="F-258" data-f="F-258" data-priority="polish">
     <h3>F-258: The hammer never lands: the Tower Basher loses to every rung but Brawler at every hammer size and density measured</h3>
     <dl>
